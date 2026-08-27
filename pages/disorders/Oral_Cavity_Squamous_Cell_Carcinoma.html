@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Oral Cavity Squamous Cell Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Oral Cavity Squamous Cell Carcinoma</h1>
             <div class="header-meta">
 
@@ -3660,7 +3782,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Oral%20Cavity%20Squamous%20Cell%20Carcinoma"
@@ -3828,7 +3950,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3847,7 +3969,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3897,34 +4019,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Squamous Cell Carcinoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3979,7 +4188,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-oral-tongue">
 
                     <div class="item-name">
                         Oral Tongue SCC
@@ -4007,7 +4216,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-floor-of-mouth">
 
                     <div class="item-name">
                         Floor of Mouth SCC
@@ -4035,7 +4244,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gingiva">
 
                     <div class="item-name">
                         Gingival/Alveolar SCC
@@ -4063,7 +4272,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-buccal-mucosa">
 
                     <div class="item-name">
                         Buccal Mucosa SCC
@@ -4091,7 +4300,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hpv-independent">
 
                     <div class="item-name">
                         HPV-Independent (carcinogen-driven) OSCC
@@ -4119,7 +4328,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hpv-associated">
 
                     <div class="item-name">
                         HPV-Associated OSCC
@@ -4176,18 +4385,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4248,6 +4459,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37752089" target="_blank">PMID:37752089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4270,6 +4482,7 @@ which indicates a high potential of malignancy."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34071997" target="_blank">PMID:34071997</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4305,18 +4518,20 @@ changes that are sometimes visible but mostly not"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         squamous epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl">CL:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4344,17 +4559,21 @@ This pathophysiological event involves squamous epithelial cell (CL:0000076). CL
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4383,18 +4602,20 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cell cycle checkpoint signaling (GO:0000075). GO:0000075 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell cycle checkpoint signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go">GO:0000075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0000075</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell cycle checkpoint signaling (GO:0000075). GO:0000075 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4415,18 +4636,20 @@ This pathophysiological event involves decreased cell cycle checkpoint signaling
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4484,6 +4707,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40723400" target="_blank">PMID:40723400</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4525,17 +4749,21 @@ the WNT/β-catenin pathways."</div>
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:1787</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4564,18 +4792,20 @@ This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased negative regulation of G1/S transition, annotated with negative regulation of G1/S transition of mitotic cell cycle (GO:2000134). GO:2000134 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of G1/S transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_2000134" target="_blank" class="curie-chip curie-chip-go">GO:2000134</a>
+    <a href="http://purl.obolibrary.org/obo/GO_2000134" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:2000134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of G1/S transition, annotated with negative regulation of G1/S transition of mitotic cell cycle (GO:2000134). GO:2000134 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4633,6 +4863,7 @@ This pathophysiological event involves decreased negative regulation of G1/S tra
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40723400" target="_blank">PMID:40723400</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4674,18 +4905,20 @@ TP53, CCND1, CTTN, CDKN2A, EGFR, HRAS, PI3K, ADAM9, MGAM, SIRPB1, and FAT1"</div
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4743,6 +4976,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40723400" target="_blank">PMID:40723400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4785,17 +5019,21 @@ and 11q"</div>
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves EGFR (hgnc:3236). hgnc:3236 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EGFR
 
 
-    <a href="https://bioregistry.io/hgnc:3236" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3236</a>
+    <a href="https://bioregistry.io/hgnc:3236" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:3236</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EGFR (hgnc:3236). hgnc:3236 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4824,18 +5062,20 @@ This pathophysiological event involves EGFR (hgnc:3236). hgnc:3236 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epidermal growth factor receptor signaling pathway (GO:0007173). GO:0007173 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epidermal growth factor receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007173" target="_blank" class="curie-chip curie-chip-go">GO:0007173</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007173" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007173</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epidermal growth factor receptor signaling pathway (GO:0007173). GO:0007173 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4893,6 +5133,7 @@ This pathophysiological event involves increased epidermal growth factor recepto
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40723400" target="_blank">PMID:40723400</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4935,17 +5176,21 @@ use of cetuximab, an EGFR antibody."</div>
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:8975</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4974,18 +5219,20 @@ This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phosphatidylinositol 3-kinase/protein kinase B signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0043491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5043,6 +5290,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40723400" target="_blank">PMID:40723400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5084,18 +5332,20 @@ the WNT/β-catenin pathways."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5153,6 +5403,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42107224" target="_blank">PMID:42107224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5196,18 +5447,20 @@ nodal metastasis"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Negative Regulation of T Cell Mediated Immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5250,6 +5503,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34071997" target="_blank">PMID:34071997</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5285,7 +5539,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-squamous-cell-carcinoma">
                 <div class="item-name">
                     Squamous Cell Carcinoma
 
@@ -5300,7 +5554,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-keratinizing-squamous-cell-carcinoma">
                 <div class="item-name">
                     Keratinizing Squamous Cell Carcinoma
 
@@ -5337,7 +5591,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oral cavity SCC cells upregulate the PD-L1 immune-checkpoint ligand, which engages PD-1 on tumor-infiltrating T cells to dampen anti-tumor immunity and permit immune escape, particularly in recurrent/metastatic disease. This adaptive immune resistance is the mechanistic rationale for PD-1 checkpoint-inhibitor therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"subtypes\": [\"HPV-Independent\"], \"association\": \"Deletion/Methylation/Mutation\"}}, {\"id\": \"CDKN2A/p16 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDKN2A (encoding p16INK4a) is inactivated by deletion, mutation, or promoter hypermethylation in a majority of HPV-independent oral cavity SCC. Loss of p16 removes inhibition of CDK4/6, driving RB phosphorylation and unrestrained G1/S cell-cycle progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of G1/S transition\"], \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}]}}, {\"id\": \"EGFR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Amplification/Overexpression\"}}, {\"id\": \"EGFR Overexpression and Proliferative Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EGFR is overexpressed in the majority of oral cavity SCC and amplified in a subset. EGFR signaling activates RAS-MAPK and PI3K-AKT cascades that promote proliferation, survival, and invasion, providing the rationale for EGFR-targeted therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epidermal growth factor receptor signaling pathway\"], \"genes\": [\"EGFR\"], \"gene_terms\": [{\"label\": \"EGFR\", \"id\": \"hgnc:3236\"}]}}, {\"id\": \"Field Cancerization and Premalignant Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic carcinogen exposure produces a \\\"field\\\" of genetically altered mucosa from which multiple independent or clonally related lesions arise. Visible precursor lesions (leukoplakia, erythroplakia) showing oral epithelial dysplasia progress to invasive carcinoma through stepwise accumulation of genetic alterations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Genomic Instability and Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of p53 and p16 checkpoints, together with frequent copy-number alterations (e.g., 3q amplification including PIK3CA/SOX2/TP63, 9p loss), produces a genomically unstable, proliferative clone that constitutes invasive carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Immune Checkpoint Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 inhibitors (pembrolizumab, nivolumab) are approved for recurrent or metastatic head and neck SCC, including oral cavity primaries, as monotherapy or with chemotherapy.\"}, {\"id\": \"Invasion and Cervical Lymph Node Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oral cavity SCC invades local structures (muscle, bone, perineural spaces) and metastasizes early to the cervical lymph nodes via lymphatic spread. Epithelial-mesenchymal transition and matrix remodeling underlie invasion; depth of invasion and nodal status are key prognostic determinants.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"PI3K-AKT-mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The PI3K/AKT/mTOR pathway is among the most frequently altered signaling pathways in oral cancer, activated by PIK3CA amplification/mutation (3q26) and PTEN loss. Pathway activation drives proliferation and survival downstream of EGFR and contributes to the malignant phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"], \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Amplification/Activating Mutations\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"subtypes\": [\"HPV-Independent\"], \"association\": \"Somatic Mutations\"}}, {\"id\": \"TP53 Mutation and Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 is the most frequently mutated gene in HPV-independent oral cavity SCC. Tobacco carcinogen-induced mutations inactivate p53, abolishing cell-cycle checkpoints and apoptosis in response to DNA damage and permitting clonal expansion of genetically unstable cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"squamous epithelial cell\"], \"biological_processes\": [\"cell cycle checkpoint signaling\", \"apoptotic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}], \"edges\": [{\"source\": \"Field Cancerization and Premalignant Progression\", \"target\": \"TP53 Mutation and Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carcinogen-induced DNA adducts produce TP53 mutations in dysplastic epithelium\"}, {\"source\": \"TP53 Mutation and Inactivation\", \"target\": \"Genomic Instability and Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of p53-mediated DNA damage response permits accumulation of further mutations\"}, {\"source\": \"CDKN2A/p16 Inactivation\", \"target\": \"Genomic Instability and Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained CDK4/6 activity drives proliferation of mutant clones\"}, {\"source\": \"Genomic Instability and Clonal Expansion\", \"target\": \"Invasion and Cervical Lymph Node Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomically unstable carcinoma cells acquire invasive and metastatic capacity\"}, {\"source\": \"EGFR Overexpression and Proliferative Signaling\", \"target\": \"Invasion and Cervical Lymph Node Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGFR-driven proliferation and motility promote local invasion and spread\"}, {\"source\": \"PI3K-AKT-mTOR Pathway Activation\", \"target\": \"Invasion and Cervical Lymph Node Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K-AKT-mTOR survival/proliferative signaling supports tumor progression and invasion\"}, {\"source\": \"Invasion and Cervical Lymph Node Metastasis\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive, invasive/metastatic disease establishes an immunosuppressive tumor microenvironment with PD-L1-mediated adaptive immune resistance.\"}, {\"source\": \"Immune Checkpoint Inhibitor Therapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"TP53 Mutation and Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"CDKN2A/p16 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PI3K-AKT-mTOR Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EGFR\", \"target\": \"EGFR Overexpression and Proliferative Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oral cavity SCC cells upregulate the PD-L1 immune-checkpoint ligand, which engages PD-1 on tumor-infiltrating T cells to dampen anti-tumor immunity and permit immune escape, particularly in recurrent/metastatic disease. This adaptive immune resistance is the mechanistic rationale for PD-1 checkpoint-inhibitor therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"subtypes\": [\"HPV-Independent\"], \"association\": \"Deletion/Methylation/Mutation\"}}, {\"id\": \"CDKN2A/p16 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDKN2A (encoding p16INK4a) is inactivated by deletion, mutation, or promoter hypermethylation in a majority of HPV-independent oral cavity SCC. Loss of p16 removes inhibition of CDK4/6, driving RB phosphorylation and unrestrained G1/S cell-cycle progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of G1/S transition\"], \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}]}}, {\"id\": \"EGFR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"EGFR\"], \"gene_terms\": [{\"label\": \"EGFR\", \"id\": \"hgnc:3236\"}], \"association\": \"Amplification/Overexpression\"}}, {\"id\": \"EGFR Overexpression and Proliferative Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EGFR is overexpressed in the majority of oral cavity SCC and amplified in a subset. EGFR signaling activates RAS-MAPK and PI3K-AKT cascades that promote proliferation, survival, and invasion, providing the rationale for EGFR-targeted therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epidermal growth factor receptor signaling pathway\"], \"genes\": [\"EGFR\"], \"gene_terms\": [{\"label\": \"EGFR\", \"id\": \"hgnc:3236\"}]}}, {\"id\": \"Field Cancerization and Premalignant Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic carcinogen exposure produces a \\\"field\\\" of genetically altered mucosa from which multiple independent or clonally related lesions arise. Visible precursor lesions (leukoplakia, erythroplakia) showing oral epithelial dysplasia progress to invasive carcinoma through stepwise accumulation of genetic alterations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Genomic Instability and Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of p53 and p16 checkpoints, together with frequent copy-number alterations (e.g., 3q amplification including PIK3CA/SOX2/TP63, 9p loss), produces a genomically unstable, proliferative clone that constitutes invasive carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Immune Checkpoint Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 inhibitors (pembrolizumab, nivolumab) are approved for recurrent or metastatic head and neck SCC, including oral cavity primaries, as monotherapy or with chemotherapy.\"}, {\"id\": \"Invasion and Cervical Lymph Node Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oral cavity SCC invades local structures (muscle, bone, perineural spaces) and metastasizes early to the cervical lymph nodes via lymphatic spread. Epithelial-mesenchymal transition and matrix remodeling underlie invasion; depth of invasion and nodal status are key prognostic determinants.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"Metformin (mTOR-Targeted Chemoprevention)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metformin is under investigation as a chemopreventive (\\\"interception\\\") agent for oral premalignant lesions (leukoplakia, erythroplakia, oral epithelial dysplasia) \\u2014 the field-cancerization precursors of oral cavity SCC \\u2014 in otherwise healthy, non-diabetic high-risk individuals. By activating AMPK and indirectly suppressing PI3K/AKT/mTOR signaling in the dysplastic basal epithelium, it aims to reverse dysplasia before invasive transformation. In a single-arm phase IIa trial, 12 weeks of metformin produced histological improvement in 60% of oral premalignant lesions (17% complete responses), and response correlated with reduced lesional mTOR activity (pS6). This is a prevention-setting repurposing distinct from metformin\u0027s antidiabetic use.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"PI3K-AKT-mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The PI3K/AKT/mTOR pathway is among the most frequently altered signaling pathways in oral cancer, activated by PIK3CA amplification/mutation (3q26) and PTEN loss. Pathway activation drives proliferation and survival downstream of EGFR and contributes to the malignant phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"], \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Amplification/Activating Mutations\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"subtypes\": [\"HPV-Independent\"], \"association\": \"Somatic Mutations\"}}, {\"id\": \"TP53 Mutation and Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 is the most frequently mutated gene in HPV-independent oral cavity SCC. Tobacco carcinogen-induced mutations inactivate p53, abolishing cell-cycle checkpoints and apoptosis in response to DNA damage and permitting clonal expansion of genetically unstable cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"squamous epithelial cell\"], \"biological_processes\": [\"cell cycle checkpoint signaling\", \"apoptotic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}], \"edges\": [{\"source\": \"Field Cancerization and Premalignant Progression\", \"target\": \"TP53 Mutation and Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carcinogen-induced DNA adducts produce TP53 mutations in dysplastic epithelium\"}, {\"source\": \"TP53 Mutation and Inactivation\", \"target\": \"Genomic Instability and Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of p53-mediated DNA damage response permits accumulation of further mutations\"}, {\"source\": \"CDKN2A/p16 Inactivation\", \"target\": \"Genomic Instability and Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained CDK4/6 activity drives proliferation of mutant clones\"}, {\"source\": \"Genomic Instability and Clonal Expansion\", \"target\": \"Invasion and Cervical Lymph Node Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomically unstable carcinoma cells acquire invasive and metastatic capacity\"}, {\"source\": \"EGFR Overexpression and Proliferative Signaling\", \"target\": \"Invasion and Cervical Lymph Node Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGFR-driven proliferation and motility promote local invasion and spread\"}, {\"source\": \"PI3K-AKT-mTOR Pathway Activation\", \"target\": \"Invasion and Cervical Lymph Node Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K-AKT-mTOR survival/proliferative signaling supports tumor progression and invasion\"}, {\"source\": \"Invasion and Cervical Lymph Node Metastasis\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive, invasive/metastatic disease establishes an immunosuppressive tumor microenvironment with PD-L1-mediated adaptive immune resistance.\"}, {\"source\": \"Immune Checkpoint Inhibitor Therapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin (mTOR-Targeted Chemoprevention)\", \"target\": \"PI3K-AKT-mTOR Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin (mTOR-Targeted Chemoprevention)\", \"target\": \"Field Cancerization and Premalignant Progression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"TP53 Mutation and Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"CDKN2A/p16 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PI3K-AKT-mTOR Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EGFR\", \"target\": \"EGFR Overexpression and Proliferative Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5383,16 +5637,20 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0025289</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a phenotype from the Human Phenotype Ontology.">
-                        Cervical lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025289" target="_blank" class="curie-chip curie-chip-hp">HP:0025289</a>
-
-
+This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5412,6 +5670,7 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42107224" target="_blank">PMID:42107224</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5455,16 +5714,20 @@ nodal metastasis"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5484,6 +5747,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36969121" target="_blank">PMID:36969121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5528,16 +5792,20 @@ its predisposing factors, and the treatment."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000155</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from the Human Phenotype Ontology.">
-                        Oral ulcer
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000155" target="_blank" class="curie-chip curie-chip-hp">HP:0000155</a>
-
-
+This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5557,6 +5825,7 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24121907" target="_blank">PMID:24121907</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5600,16 +5869,20 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5629,6 +5902,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18243771" target="_blank">PMID:18243771</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5674,16 +5948,20 @@ within 6 months) and specific quality of life (QoL)..."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002745" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002745</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Oral leukoplakia (HP:0002745). HP:0002745 is a phenotype from the Human Phenotype Ontology.">
-                        Oral leukoplakia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002745" target="_blank" class="curie-chip curie-chip-hp">HP:0002745</a>
-
-
+This clinical feature is Oral leukoplakia (HP:0002745). HP:0002745 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5703,6 +5981,7 @@ This clinical feature is Oral leukoplakia (HP:0002745). HP:0002745 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37752089" target="_blank">PMID:37752089</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5737,16 +6016,22 @@ which indicates a high potential of malignancy."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the oral cavity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100649</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neoplasm of the oral cavity (HP:0100649). HP:0100649 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm of the oral cavity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100649" target="_blank" class="curie-chip curie-chip-hp">HP:0100649</a>
-
-
+This clinical feature is Neoplasm of the oral cavity (HP:0100649). HP:0100649 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5766,6 +6051,7 @@ This clinical feature is Neoplasm of the oral cavity (HP:0100649). HP:0100649 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28638553" target="_blank">PMID:28638553</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5842,6 +6128,28 @@ neoplasms."</div>
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:11998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5854,6 +6162,28 @@ neoplasms."</div>
                     CDKN2A
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Deletion/Methylation/Mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CDKN2A
+
+
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:1787</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5872,6 +6202,28 @@ neoplasms."</div>
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PIK3CA
+
+
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:8975</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5884,6 +6236,28 @@ neoplasms."</div>
                     EGFR
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Amplification/Overexpression)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: EGFR
+
+
+    <a href="https://bioregistry.io/hgnc:3236" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:3236</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EGFR (hgnc:3236). hgnc:3236 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5907,15 +6281,17 @@ neoplasms."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FAT1
 
 
-    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3595</a>
+    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:3595</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5936,6 +6312,7 @@ This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40723400" target="_blank">PMID:40723400</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5968,13 +6345,16 @@ TP53, CCND1, CTTN, CDKN2A, EGFR, HRAS, PI3K, ADAM9, MGAM, SIRPB1, and FAT1"</div
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-surgical-resection" data-dismech-node="Surgical Resection" data-dismech-type="treatment">
@@ -5984,17 +6364,17 @@ TP53, CCND1, CTTN, CDKN2A, EGFR, HRAS, PI3K, ADAM9, MGAM, SIRPB1, and FAT1"</div
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Definitive Surgical Resection<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">Definitive Surgical Resection</span>
+This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">NCIT:C154430</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C154430">NCIT:C154430</a>
 
 
 
@@ -6034,18 +6414,18 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">radiation therapy</span>
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -6085,18 +6465,18 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">radiation therapy</span>
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -6121,18 +6501,20 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cisplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-29">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6156,17 +6538,17 @@ This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6191,18 +6573,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cetuximab (NCIT:C1723). NCIT:C1723 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         cetuximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1723" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1723</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1723" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C1723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cetuximab (NCIT:C1723). NCIT:C1723 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6226,18 +6610,18 @@ This treatment uses cetuximab (NCIT:C1723). NCIT:C1723 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -6288,6 +6672,209 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-metformin-mtor-targeted-chemoprevention" data-dismech-node="Metformin (mTOR-Targeted Chemoprevention)" data-dismech-type="treatment">
+                <div class="item-name">
+                    Metformin (mTOR-Targeted Chemoprevention)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">chemoprevention<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemoprevention, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        metformin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:6801</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Metformin is under investigation as a chemopreventive (&#34;interception&#34;) agent for oral premalignant lesions (leukoplakia, erythroplakia, oral epithelial dysplasia) — the field-cancerization precursors of oral cavity SCC — in otherwise healthy, non-diabetic high-risk individuals. By activating AMPK and indirectly suppressing PI3K/AKT/mTOR signaling in the dysplastic basal epithelium, it aims to reverse dysplasia before invasive transformation. In a single-arm phase IIa trial, 12 weeks of metformin produced histological improvement in 60% of oral premalignant lesions (17% complete responses), and response correlated with reduced lesional mTOR activity (pS6). This is a prevention-setting repurposing distinct from metformin&#39;s antidiabetic use.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">PI3K-AKT-mTOR Pathway Activation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Metformin activates AMPK and thereby suppresses PI3K/AKT/mTOR signaling; in oral premalignant lesions, decreased mTOR activity (pS6 staining) in the basal epithelial layer correlated with histological and clinical response, linking the chemopreventive effect to this pathway node.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34255745" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34255745" target="_blank">PMID:34255745</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Remarkably, a significant correlation existed between decreased mTOR activity (pS6 IHC staining) in the basal epithelial layers of OPLs and the histological (P = 0.04) and clinical (P = 0.01) responses."</div>
+
+
+                <div class="evidence-explanation">Ties metformin&#39;s chemopreventive effect on oral premalignant lesions to reduced mTOR pathway activity, supporting the INHIBITS edge on the PI3K-AKT-mTOR node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Field Cancerization and Premalignant Progression</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; By reversing dysplasia in oral premalignant lesions, metformin acts at the earliest, precancer stage of the field-cancerization progression toward invasive oral SCC.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34255745" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34255745" target="_blank">PMID:34255745</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the histological response rate (improvement in histological grade) was 60%, including 17% complete responses and 43% partial responses"</div>
+
+
+                <div class="evidence-explanation">Documents histological regression of oral premalignant lesions under metformin, supporting interception at the premalignant-progression node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34255745" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34255745" target="_blank">PMID:34255745</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we conducted a single-arm, open-label phase IIa clinical trial in individuals with oral premalignant lesions (OPLs) to explore the potential of metformin to target PI3K/mTOR signaling for HNSCC prevention."</div>
+
+
+                <div class="evidence-explanation">Establishes metformin as an investigational mTOR-targeted chemopreventive agent for oral premalignant lesions and HNSCC prevention.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -6306,23 +6893,29 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         exposure to tobacco smoking
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-35">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6334,30 +6927,38 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
             </div>
 
-            <div class="item-box environmental-box anchor-target" id="environmental-alcohol-consumption" data-dismech-node="Alcohol Consumption" data-dismech-type="environmental">
-                <div class="item-name">Alcohol Consumption</div>
+            <div class="item-box environmental-box anchor-target" id="environmental-ethanol-exposure" data-dismech-node="Ethanol Exposure" data-dismech-type="environmental">
+                <div class="item-name">Ethanol Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         exposure to ethanol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9000027" target="_blank" class="curie-chip curie-chip-ecto">ECTO:9000027</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000027" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-36">ECTO:9000027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
 
+
+
+
+
+
+                <div class="item-desc">Named and bound for the chemical (ECTO:9000027, which involves CHEBI ethanol) rather than the drinking behaviour (ECTO:0001082) because the mechanism curated here is ethanol metabolism. Renamed from &#34;Alcohol Consumption&#34; so the binding is derivable from the entry&#39;s own name.</div>
 
 
                 <div class="item-desc">Chronic alcohol use synergizes multiplicatively with tobacco. Ethanol is metabolized to acetaldehyde, a Group 1 carcinogen that damages DNA and impairs repair.</div>
@@ -6370,6 +6971,10 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
             <div class="item-box environmental-box anchor-target" id="environmental-areca-betel-nut-chewing" data-dismech-node="Areca (Betel) Nut Chewing" data-dismech-type="environmental">
                 <div class="item-name">Areca (Betel) Nut Chewing</div>
+
+
+
+
 
 
 
@@ -6388,6 +6993,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40457710" target="_blank">PMID:40457710</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6412,6 +7018,7 @@ world."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38832153" target="_blank">PMID:38832153</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6458,7 +7065,7 @@ factor."</div>
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse179730">
                 <div class="item-name">
                     Response and recurrence correlates in patients treated with neoadjuvant anti-PD-1 therapy for resectable oral-cavity squamous cell carcinoma
 
@@ -6501,7 +7108,7 @@ factor."</div>
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse28217">
                 <div class="item-name">
                     NID2 and HOXA9 promoter hypermethylation as biomarkers to prevent and detect Oral Cavity Squamous Cell Carcinoma
 
@@ -6544,7 +7151,7 @@ factor."</div>
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse234379">
                 <div class="item-name">
                     DNA methylation profile in matched oral cavity squamous cell carcinoma and normal adjacent tissue samples
 
@@ -6690,11 +7297,16 @@ environmental:
     term:
       id: ECTO:6000029
       label: exposure to tobacco smoking
-- name: Alcohol Consumption
+- name: Ethanol Exposure
   description: &gt;-
     Chronic alcohol use synergizes multiplicatively with tobacco. Ethanol is
     metabolized to acetaldehyde, a Group 1 carcinogen that damages DNA and
     impairs repair.
+  notes: &gt;-
+    Named and bound for the chemical (ECTO:9000027, which involves CHEBI ethanol)
+    rather than the drinking behaviour (ECTO:0001082) because the mechanism curated
+    here is ethanol metabolism. Renamed from &#34;Alcohol Consumption&#34; so the binding is
+    derivable from the entry&#39;s own name.
   exposure_term:
     preferred_term: exposure to ethanol
     term:
@@ -7064,23 +7676,43 @@ phenotypes:
     explanation: A prospective study of oral cavity SCC patients documents unintentional weight loss (&gt;=10% within 6 months) and malnutrition, supporting weight loss as a clinical feature.
 genetic:
 - name: TP53
+  gene_term:
+    preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
   association: Somatic Mutations
   subtype: HPV-Independent
   notes: &gt;-
     TP53 is mutated in the large majority of HPV-independent oral cavity SCC,
     typically inactivating missense mutations with a tobacco carcinogen signature.
 - name: CDKN2A
+  gene_term:
+    preferred_term: CDKN2A
+    term:
+      id: hgnc:1787
+      label: CDKN2A
   association: Deletion/Methylation/Mutation
   subtype: HPV-Independent
   notes: &gt;-
     CDKN2A (p16) is inactivated in a majority of cases via deletion, promoter
     hypermethylation, or point mutation.
 - name: PIK3CA
+  gene_term:
+    preferred_term: PIK3CA
+    term:
+      id: hgnc:8975
+      label: PIK3CA
   association: Amplification/Activating Mutations
   notes: &gt;-
     PIK3CA, on the frequently amplified 3q26 region, is activated in a subset of
     oral cavity SCC, driving PI3K/AKT/mTOR signaling.
 - name: EGFR
+  gene_term:
+    preferred_term: EGFR
+    term:
+      id: hgnc:3236
+      label: EGFR
   association: Amplification/Overexpression
   notes: &gt;-
     EGFR overexpression is common and provides the rationale for EGFR-targeted
@@ -7175,6 +7807,71 @@ treatments:
       PD-1 blockade disrupts the PD-1/PD-L1 interaction underlying adaptive
       immune resistance, restoring T-cell-mediated anti-tumor immunity in
       recurrent/metastatic disease.
+- name: Metformin (mTOR-Targeted Chemoprevention)
+  description: &gt;-
+    Metformin is under investigation as a chemopreventive (&#34;interception&#34;) agent
+    for oral premalignant lesions (leukoplakia, erythroplakia, oral epithelial
+    dysplasia) — the field-cancerization precursors of oral cavity SCC — in
+    otherwise healthy, non-diabetic high-risk individuals. By activating AMPK and
+    indirectly suppressing PI3K/AKT/mTOR signaling in the dysplastic basal
+    epithelium, it aims to reverse dysplasia before invasive transformation. In a
+    single-arm phase IIa trial, 12 weeks of metformin produced histological
+    improvement in 60% of oral premalignant lesions (17% complete responses), and
+    response correlated with reduced lesional mTOR activity (pS6). This is a
+    prevention-setting repurposing distinct from metformin&#39;s antidiabetic use.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: chemoprevention
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: metformin
+      term:
+        id: CHEBI:6801
+        label: metformin
+  target_mechanisms:
+  - target: PI3K-AKT-mTOR Pathway Activation
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Metformin activates AMPK and thereby suppresses PI3K/AKT/mTOR signaling; in
+      oral premalignant lesions, decreased mTOR activity (pS6 staining) in the
+      basal epithelial layer correlated with histological and clinical response,
+      linking the chemopreventive effect to this pathway node.
+    evidence:
+    - reference: PMID:34255745
+      reference_title: &#34;Inhibition of mTOR signaling and clinical activity of metformin in oral premalignant lesions.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Remarkably, a significant correlation existed between decreased mTOR activity (pS6 IHC staining) in the basal epithelial layers of OPLs and the histological (P = 0.04) and clinical (P = 0.01) responses.&#34;
+      explanation: &gt;-
+        Ties metformin&#39;s chemopreventive effect on oral premalignant lesions to
+        reduced mTOR pathway activity, supporting the INHIBITS edge on the
+        PI3K-AKT-mTOR node.
+  - target: Field Cancerization and Premalignant Progression
+    treatment_effect: INHIBITS
+    description: &gt;-
+      By reversing dysplasia in oral premalignant lesions, metformin acts at the
+      earliest, precancer stage of the field-cancerization progression toward
+      invasive oral SCC.
+    evidence:
+    - reference: PMID:34255745
+      reference_title: &#34;Inhibition of mTOR signaling and clinical activity of metformin in oral premalignant lesions.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;the histological response rate (improvement in histological grade) was 60%, including 17% complete responses and 43% partial responses&#34;
+      explanation: &gt;-
+        Documents histological regression of oral premalignant lesions under
+        metformin, supporting interception at the premalignant-progression node.
+  evidence:
+  - reference: PMID:34255745
+    reference_title: &#34;Inhibition of mTOR signaling and clinical activity of metformin in oral premalignant lesions.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here, we conducted a single-arm, open-label phase IIa clinical trial in individuals with oral premalignant lesions (OPLs) to explore the potential of metformin to target PI3K/mTOR signaling for HNSCC prevention.&#34;
+    explanation: &gt;-
+      Establishes metformin as an investigational mTOR-targeted chemopreventive
+      agent for oral premalignant lesions and HNSCC prevention.
 datasets:
 - accession: geo:GSE179730
   title: Response and recurrence correlates in patients treated with neoadjuvant anti-PD-1 therapy for resectable oral-cavity squamous cell carcinoma
@@ -8323,7 +9020,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Oral Cavity Squamous Cell Carcinoma", "mondoId": "MONDO:0004958", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Oral_Cavity_Squamous_Cell_Carcinoma", "yamlRevision": "2361467da42d"};
+        const OS_CONFIG = {"diseaseName": "Oral Cavity Squamous Cell Carcinoma", "mondoId": "MONDO:0004958", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Oral_Cavity_Squamous_Cell_Carcinoma", "yamlRevision": "5d25e785c180"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8742,5 +9439,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Parvovirus B19 Infection</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Parvovirus B19 Infection</h1>
             <div class="header-meta">
 
@@ -3811,7 +3933,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3916,18 +4038,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Erythroid Progenitor Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3955,18 +4079,20 @@ This pathophysiological event involves Erythroid Progenitor Cells, annotated wit
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         viral genome replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3983,18 +4109,20 @@ This pathophysiological event involves viral genome replication (GO:0019079). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves DNA replication (GO:0006260). GO:0006260 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go">GO:0006260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA replication (GO:0006260). GO:0006260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4018,18 +4146,20 @@ This pathophysiological event involves DNA replication (GO:0006260). GO:0006260 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4052,6 +4182,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9372060" target="_blank">PMID:9372060</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4071,6 +4202,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26845771" target="_blank">PMID:26845771</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4093,6 +4225,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37175911" target="_blank">PMID:37175911</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4154,6 +4287,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37434352" target="_blank">PMID:37434352</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4173,6 +4307,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9595838" target="_blank">PMID:9595838</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4212,18 +4347,20 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves viral entry into host cell, annotated with symbiont entry into host cell (GO:0046718). GO:0046718 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         viral entry into host cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go">GO:0046718</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0046718</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral entry into host cell, annotated with symbiont entry into host cell (GO:0046718). GO:0046718 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4240,18 +4377,20 @@ This pathophysiological event involves viral entry into host cell, annotated wit
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves endocytosis (GO:0006897). GO:0006897 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         endocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go">GO:0006897</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006897</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves endocytosis (GO:0006897). GO:0006897 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4275,33 +4414,37 @@ This pathophysiological event involves endocytosis (GO:0006897). GO:0006897 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in fetal liver, annotated with liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         fetal liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fetal liver, annotated with liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4314,7 +4457,7 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4323,6 +4466,7 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25283854" target="_blank">PMID:25283854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4335,6 +4479,52 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
 
                 <div class="evidence-explanation">Directly states that B19V uses globoside (Gb4) as its cellular receptor on erythroid progenitor cells. The VP1u/endosomal escape mechanism requires additional cell-biology citations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8139629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8139629" target="_blank">PMID:8139629</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of the 17 subjects with the p red-cell phenotype, who did not have P antigen on their erythrocytes, none (0 of 11 and 0 of 6) had serologic evidence of previous parvovirus B19 infection. In contrast, the seropositivity rates in the two control groups were 71 percent (53 of 75, P &lt; 0.001) and 47..."</div>
+
+
+                <div class="evidence-explanation">Provides the converse population-level confirmation that globoside (P antigen) is required for productive B19V infection - individuals lacking it show no serologic evidence of past infection, while matched controls are 47-71 percent seropositive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8139629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8139629" target="_blank">PMID:8139629</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vitro, bone marrow from donors with the p phenotype maintained normal erythropoiesis despite very high concentrations of virus, with no evidence of infection of erythroid progenitor cells by parvovirus B19."</div>
+
+
+                <div class="evidence-explanation">The in-vitro arm of the same study shows the resistance is cell-intrinsic to P-null erythroid progenitors rather than a consequence of differential exposure, supporting globoside as required for productive infection of the erythroid lineage.</div>
 
 
 
@@ -4357,18 +4547,20 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Erythroid Progenitor Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4396,17 +4588,21 @@ This pathophysiological event involves Erythroid Progenitor Cells, annotated wit
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATR (hgnc:882). hgnc:882 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATR
 
 
-    <a href="https://bioregistry.io/hgnc:882" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:882</a>
+    <a href="https://bioregistry.io/hgnc:882" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:882</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATR (hgnc:882). hgnc:882 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4431,17 +4627,21 @@ This pathophysiological event involves ATR (hgnc:882). hgnc:882 is a gene from t
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PRKDC (hgnc:9413). hgnc:9413 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PRKDC
 
 
-    <a href="https://bioregistry.io/hgnc:9413" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9413</a>
+    <a href="https://bioregistry.io/hgnc:9413" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9413</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKDC (hgnc:9413). hgnc:9413 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4470,18 +4670,20 @@ This pathophysiological event involves PRKDC (hgnc:9413). hgnc:9413 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4498,18 +4700,20 @@ This pathophysiological event involves DNA damage response (GO:0006974). GO:0006
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves cell cycle arrest, annotated with regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell cycle arrest
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go">GO:0051726</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0051726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cell cycle arrest, annotated with regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4526,18 +4730,20 @@ This pathophysiological event involves cell cycle arrest, annotated with regulat
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4576,6 +4782,7 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21680529" target="_blank">PMID:21680529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4609,18 +4816,20 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Erythroid Progenitor Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroid Progenitor Cells, annotated with erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4648,17 +4857,21 @@ This pathophysiological event involves Erythroid Progenitor Cells, annotated wit
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves EPOR (hgnc:3416). hgnc:3416 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EPOR
 
 
-    <a href="https://bioregistry.io/hgnc:3416" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3416</a>
+    <a href="https://bioregistry.io/hgnc:3416" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:3416</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EPOR (hgnc:3416). hgnc:3416 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4683,17 +4896,21 @@ This pathophysiological event involves EPOR (hgnc:3416). hgnc:3416 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STAT5A (hgnc:11366). hgnc:11366 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STAT5A
 
 
-    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11366</a>
+    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:11366</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT5A (hgnc:11366). hgnc:11366 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4718,17 +4935,21 @@ This pathophysiological event involves STAT5A (hgnc:11366). hgnc:11366 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STAT5B
 
 
-    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11367</a>
+    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:11367</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4757,18 +4978,20 @@ This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves JAK-STAT cascade, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         JAK-STAT cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007259</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves JAK-STAT cascade, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4806,6 +5029,7 @@ This pathophysiological event involves JAK-STAT cascade, annotated with cell sur
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28459842" target="_blank">PMID:28459842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4868,27 +5092,240 @@ This pathophysiological event involves JAK-STAT cascade, annotated with cell sur
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-pure-red-cell-aplasia" data-dismech-node="Chronic Pure Red Cell Aplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic Pure Red Cell Aplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012410</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic pure red cell aplasia, annotated with Pure red cell aplasia (HP:0012410), qualified as temporality chronic. HP:0012410 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7986722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7986722" target="_blank">PMID:7986722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 infection causes chronic anaemia in immunodeficient individuals by selective suppression of erythropoiesis. The bone marrow morphology is characteristic of pure red cell aplasia (PRCA)."</div>
+
+
+                <div class="evidence-explanation">Directly establishes that B19V causes chronic (rather than transient) pure red cell aplasia specifically in immunodeficient hosts, via persistent selective suppression of erythropoiesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-papular-purpuric-gloves-and-socks-syndrome-ppgss" data-dismech-node="Papular-Purpuric Gloves and Socks Syndrome (PPGSS)" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Papular-Purpuric Gloves and Socks Syndrome (PPGSS)
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Purpura</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000979</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papular-purpuric gloves and socks syndrome, annotated with Purpura (HP:0000979). HP:0000979 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9675471" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9675471" target="_blank">PMID:9675471</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The papular-purpuric gloves and socks syndrome (PPGSS) was first described in 1990. This syndrome is characterized by fever, acral pruritus, edema, petechiae, and oral erosions. Subsequently, parvovirus B19 has been implicated, in most cases, as the causative agent of this syndrome."</div>
+
+
+                <div class="evidence-explanation">Establishes PPGSS as a distinct B19V-associated dermatologic phenotype defined by acral fever, pruritus, edema, petechiae, and oral erosions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12852167" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12852167" target="_blank">PMID:12852167</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"purpuric and papular lesions located mostly on the dorsal areas of his hands and feet with the additional changes on his knees and elbows. Serologic studies confirmed the acute infection by parvovirus B19."</div>
+
+
+                <div class="evidence-explanation">Documents the characteristic distribution of the purpuric/papular eruption over the hands and feet, confirmed serologically as acute B19V infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12852167" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12852167" target="_blank">PMID:12852167</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein the patient&#39;s condition was described together with a brief overview of the PPGSS literature concerning this relatively rare viral exanthema."</div>
+
+
+                <div class="evidence-explanation">Frequency band justification. No quantitative frequency has been reported for PPGSS among B19V infections; the author wording &#34;relatively rare&#34; maps to VERY_RARE (&lt;5%) under the DisMech qualitative mapping (Pattern C, docs/frequency-evidence-guidelines.md). PMID:9675471 is consistent, describing &#34;this unusual syndrome&#34; and its own case as only the second documented B19V-associated PPGSS in the United States.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
@@ -4901,16 +5338,20 @@ This pathophysiological event involves JAK-STAT cascade, annotated with cell sur
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype from the Human Phenotype Ontology.">
-                        Myocarditis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" class="curie-chip curie-chip-hp">HP:0012819</a>
-
-
+This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4932,6 +5373,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7756792" target="_blank">PMID:7756792</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4961,7 +5403,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
@@ -4976,16 +5418,22 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Malar rash</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0025300</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:0025300). HP:0025300 is a phenotype from the Human Phenotype Ontology.">
-                        Malar rash
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025300" target="_blank" class="curie-chip curie-chip-hp">HP:0025300</a>
-
-
+This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:0025300). HP:0025300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5005,6 +5453,7 @@ This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:00253
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8668619" target="_blank">PMID:8668619</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5034,7 +5483,7 @@ This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:00253
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -5049,16 +5498,20 @@ This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:00253
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001789</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype from the Human Phenotype Ontology.">
-                        Hydrops fetalis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp">HP:0001789</a>
-
-
+This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5081,6 +5534,7 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21502743" target="_blank">PMID:21502743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5101,6 +5555,7 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9095492" target="_blank">PMID:9095492</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5120,6 +5575,7 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30124157" target="_blank">PMID:30124157</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5147,7 +5603,7 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5162,16 +5618,20 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003040</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype from the Human Phenotype Ontology.">
-                        Arthropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003040" target="_blank" class="curie-chip curie-chip-hp">HP:0003040</a>
-
-
+This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5194,6 +5654,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9595838" target="_blank">PMID:9595838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5214,6 +5675,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11993780" target="_blank">PMID:11993780</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
@@ -5231,6 +5693,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27511498" target="_blank">PMID:27511498</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5260,7 +5723,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
@@ -5299,6 +5762,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37132144" target="_blank">PMID:37132144</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5319,6 +5783,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10821497" target="_blank">PMID:10821497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5338,6 +5803,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8042568" target="_blank">PMID:8042568</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5390,6 +5856,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8649911" target="_blank">PMID:8649911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5410,6 +5877,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24962467" target="_blank">PMID:24962467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5429,6 +5897,7 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26940953" target="_blank">PMID:26940953</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5492,6 +5961,9 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5508,17 +5980,17 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5560,6 +6032,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31323869" target="_blank">PMID:31323869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5580,6 +6053,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8668619" target="_blank">PMID:8668619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5599,6 +6073,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7899371" target="_blank">PMID:7899371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5628,18 +6103,18 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">intravenous immunoglobulin therapy</span>
+This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">NCIT:C62710</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C62710">NCIT:C62710</a>
 
 
 
@@ -5681,6 +6156,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37544998" target="_blank">PMID:37544998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5701,6 +6177,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11560750" target="_blank">PMID:11560750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5720,6 +6197,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33346452" target="_blank">PMID:33346452</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5761,6 +6239,10 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
+
+
+
                 <div class="item-desc">Good hand hygiene to reduce risk of transmission.</div>
 
 
@@ -5776,6 +6258,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32510300" target="_blank">PMID:32510300</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5837,6 +6320,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16332455" target="_blank">PMID:16332455</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5857,6 +6341,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9220384" target="_blank">PMID:9220384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5876,6 +6361,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33124969" target="_blank">PMID:33124969</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5926,6 +6412,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8361022" target="_blank">PMID:8361022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5946,6 +6433,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559661" target="_blank">PMID:32559661</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5965,6 +6453,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36619750" target="_blank">PMID:36619750</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6004,7 +6493,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse103460">
                 <div class="item-name">
                     Dynamic transcriptome analysis of human erythroind progenetor cells infected by human Parvovirus B19
 
@@ -6306,7 +6795,7 @@ pathophysiology:
     term:
       id: UBERON:0002107
       label: liver
-  notes: The VP1u domain contains a PLA2-like motif critical for membrane penetration and endosomal escape.
+  notes: The VP1u domain contains a PLA2-like motif critical for membrane penetration and endosomal escape. The rare p (P-null) erythrocyte phenotype, which lacks the P antigen/globoside receptor entirely, confers natural resistance to B19V infection.
   evidence:
   - reference: PMID:25283854
     reference_title: &#34;Human parvovirus B19: a review.&#34;
@@ -6314,6 +6803,18 @@ pathophysiology:
     evidence_source: IN_VITRO
     snippet: &#34;B19V targets the erythroid progenitors in the bone marrow by binding to the glycosphingolipid globoside (Gb4), leading to large receptor-induced structural changes triggering cell death either by lysis or by apoptosis mediated by the nonstructural (NS)1 protein.&#34;
     explanation: Directly states that B19V uses globoside (Gb4) as its cellular receptor on erythroid progenitor cells. The VP1u/endosomal escape mechanism requires additional cell-biology citations.
+  - reference: PMID:8139629
+    reference_title: &#34;Resistance to parvovirus B19 infection due to lack of virus receptor (erythrocyte P antigen).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Of the 17 subjects with the p red-cell phenotype, who did not have P antigen on their erythrocytes, none (0 of 11 and 0 of 6) had serologic evidence of previous parvovirus B19 infection. In contrast, the seropositivity rates in the two control groups were 71 percent (53 of 75, P &lt; 0.001) and 47 percent (32 of 68, P = 0.03).&#34;
+    explanation: Provides the converse population-level confirmation that globoside (P antigen) is required for productive B19V infection - individuals lacking it show no serologic evidence of past infection, while matched controls are 47-71 percent seropositive.
+  - reference: PMID:8139629
+    reference_title: &#34;Resistance to parvovirus B19 infection due to lack of virus receptor (erythrocyte P antigen).&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;In vitro, bone marrow from donors with the p phenotype maintained normal erythropoiesis despite very high concentrations of virus, with no evidence of infection of erythroid progenitor cells by parvovirus B19.&#34;
+    explanation: The in-vitro arm of the same study shows the resistance is cell-intrinsic to P-null erythroid progenitors rather than a consequence of differential exposure, supporting globoside as required for productive infection of the erythroid lineage.
 - name: Cell Cycle Arrest and Apoptosis
   description: Viral NS1 protein and replication intermediates activate the DNA damage response (DDR) pathway, particularly ATR and DNA-PKcs, leading to late S/G2 phase arrest and apoptotic death of infected erythroid progenitor cells.
   genes:
@@ -6439,6 +6940,23 @@ phenotypes:
     supports: SUPPORT
     snippet: Parvovirus B19 had caused aplastic crisis and HLH.
     explanation: The reference supports the statement by mentioning a case where parvovirus B19 caused aplastic crisis in a patient with hereditary spherocytosis, another hemolytic disorder.
+- category: Hematologic
+  name: Chronic Pure Red Cell Aplasia
+  description: Persistent B19V infection in immunocompromised hosts (e.g., AIDS, transplant recipients, congenital immunodeficiency) causes chronic anemia through sustained selective suppression of erythropoiesis, distinct from the transient aplastic crisis seen in immunocompetent patients with hemolytic disorders.
+  context: In immunocompromised individuals unable to mount an effective humoral response to clear the virus.
+  phenotype_term:
+    preferred_term: Chronic pure red cell aplasia
+    term:
+      id: HP:0012410
+      label: Pure red cell aplasia
+    temporality: CHRONIC
+  evidence:
+  - reference: PMID:7986722
+    reference_title: &#34;Parvovirus B19 as a cause of acquired chronic pure red cell aplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Parvovirus B19 infection causes chronic anaemia in immunodeficient individuals by selective suppression of erythropoiesis. The bone marrow morphology is characteristic of pure red cell aplasia (PRCA).&#34;
+    explanation: Directly establishes that B19V causes chronic (rather than transient) pure red cell aplasia specifically in immunodeficient hosts, via persistent selective suppression of erythropoiesis.
 - category: Musculoskeletal
   name: Arthropathy
   description: Symmetric polyarthritis affecting small joints of hands, wrists, and knees, more common in adult women.
@@ -6451,6 +6969,7 @@ phenotypes:
     snippet: Arthropathy is known to occur in children and adults with acute parvovirus B19 infection. In adults, the arthropathy is common and is usually brief and self-limited, although a chronic arthropathy due to HPV B19 infections can occur rarely.
     explanation: The reference confirms that arthropathy is a common manifestation in adults with acute parvovirus B19 infection.
   - reference: PMID:11993780
+    reference_title: &#34;Parvovirus B 19 infection in adults.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: The reference title suggests it is about Parvovirus B19 infection in adults, but no specific excerpt or abstract is provided to confirm or refute the statement.
@@ -6465,6 +6984,7 @@ phenotypes:
     snippet: Arthritis and arthralgia during a viral infection are often polyarticular and symmetric and can mimic rheumatoid arthritis. ... Worldwide most common germs are Parvovirus B19, hepatitis B and C, HIV and alphavirus.
     explanation: The reference supports that arthritis and arthralgia, which can be associated with parvovirus B19, are common.
   - reference: PMID:32646497
+    reference_title: &#34;Parvovirus B19 infection and kidney injury: report of 4 cases and analysis of immunization and viremia in an adult cohort of 100 patients undergoing a kidney biopsy.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: The reference discusses parvovirus B19 infection and kidney injury but does not mention arthropathy.
@@ -6539,6 +7059,40 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the virus has been implicated in numerous disorders, including aplastic crisis in patients with chronic hemolytic anemia, erythema infectiosum, arthropathy, arthritis, and fetal infections.&#34;
     explanation: Confirms erythema infectiosum (presenting with the slapped-cheek facial erythema) as an established manifestation of parvovirus B19 infection.
+- category: Dermatologic
+  name: Papular-Purpuric Gloves and Socks Syndrome (PPGSS)
+  description: Distinct acral exanthem characterized by fever, pruritus, edema, and petechial/purpuric eruption sharply confined to the hands and feet in a gloves-and-socks distribution, often with oral erosions; a separate presentation from the classic slapped-cheek erythema infectiosum.
+  frequency: VERY_RARE
+  phenotype_term:
+    preferred_term: Papular-purpuric gloves and socks syndrome
+    term:
+      id: HP:0000979
+      label: Purpura
+  evidence:
+  - reference: PMID:9675471
+    reference_title: &#34;Papular-purpuric gloves and socks syndrome associated with acute parvovirus B19 infection: case report and review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The papular-purpuric gloves and socks syndrome (PPGSS) was first described in 1990. This syndrome is characterized by fever, acral pruritus, edema, petechiae, and oral erosions. Subsequently, parvovirus B19 has been implicated, in most cases, as the causative agent of this syndrome.&#34;
+    explanation: Establishes PPGSS as a distinct B19V-associated dermatologic phenotype defined by acral fever, pruritus, edema, petechiae, and oral erosions.
+  - reference: PMID:12852167
+    reference_title: &#34;Papular-purpuric \&#34;gloves and socks\&#34; syndrome caused by parvovirus B19.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;purpuric and papular lesions located mostly on the dorsal areas of his hands and feet with the additional changes on his knees and elbows. Serologic studies confirmed the acute infection by parvovirus B19.&#34;
+    explanation: Documents the characteristic distribution of the purpuric/papular eruption over the hands and feet, confirmed serologically as acute B19V infection.
+  - reference: PMID:12852167
+    reference_title: &#34;Papular-purpuric \&#34;gloves and socks\&#34; syndrome caused by parvovirus B19.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Herein the patient&#39;s condition was described together with a brief overview of the PPGSS literature concerning this relatively rare viral exanthema.&#34;
+    explanation: &gt;-
+      Frequency band justification. No quantitative frequency has been reported
+      for PPGSS among B19V infections; the author wording &#34;relatively rare&#34; maps
+      to VERY_RARE (&lt;5%) under the DisMech qualitative mapping (Pattern C,
+      docs/frequency-evidence-guidelines.md). PMID:9675471 is consistent,
+      describing &#34;this unusual syndrome&#34; and its own case as only the second
+      documented B19V-associated PPGSS in the United States.
 - category: Cardiovascular
   name: Myocarditis
   description: Inflammation of heart muscle associated with endothelial cell infection and viral persistence in cardiac tissues.
@@ -7099,7 +7653,7 @@ Key mechanistic claims on receptor/entry, endosomal escape, replication cofactor
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Parvovirus B19 Infection", "mondoId": "MONDO:0006544", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parvovirus_B19_Infection", "yamlRevision": "704e6746577c"};
+        const OS_CONFIG = {"diseaseName": "Parvovirus B19 Infection", "mondoId": "MONDO:0006544", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parvovirus_B19_Infection", "yamlRevision": "53276d729e11"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7518,5 +8072,73 @@ Key mechanistic claims on receptor/entry, endosomal escape, replication cofactor
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

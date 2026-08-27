@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Bosma Arhinia Microphthalmia Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Bosma Arhinia Microphthalmia Syndrome</h1>
             <div class="header-meta">
 
@@ -3943,27 +4065,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4033,7 +4232,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-bams-definition">
                 <div class="item-name">Orphanet BAMS definition</div>
 
                 <div class="item-desc">The Orphanet record defines BAMS by severe nasal hypoplasia, ocular hypoplasia, hyposmia, hypogeusia, and hypogonadotropic hypogonadism.</div>
@@ -4077,6 +4276,7 @@
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4098,6 +4298,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067911" target="_blank">PMID:28067911</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4135,7 +4336,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4182,6 +4383,7 @@
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4204,6 +4406,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067911" target="_blank">PMID:28067911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4225,6 +4428,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36944600" target="_blank">PMID:36944600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4291,7 +4495,7 @@
 
 
 
-    <span class="entity-ref-chip">genetic#SMCHD1 ATPase-domain missense variants</span>
+    <a class="entity-ref-chip" href="#genetic-smchd1-atpase-domain-missense-variants">genetic#SMCHD1 ATPase-domain missense variants</a>
 
 
 
@@ -4326,6 +4530,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29748383" target="_blank">PMID:29748383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4347,6 +4552,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067909" target="_blank">PMID:28067909</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4434,6 +4640,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34209568" target="_blank">PMID:34209568</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4455,6 +4662,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41962546" target="_blank">PMID:41962546</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4500,14 +4708,14 @@
 
 
 
-    <span class="entity-ref-chip">inheritance#Autosomal dominant inheritance</span>
+    <a class="entity-ref-chip" href="#inheritance-autosomal-dominant-inheritance">inheritance#Autosomal dominant inheritance</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">genetic#SMCHD1 ATPase-domain missense variants</span>
+    <a class="entity-ref-chip" href="#genetic-smchd1-atpase-domain-missense-variants">genetic#SMCHD1 ATPase-domain missense variants</a>
 
 
 
@@ -4534,6 +4742,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36944600" target="_blank">PMID:36944600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4586,7 +4795,7 @@
 
 
 
-    <span class="entity-ref-chip">clinical_burden</span>
+    <span class="entity-ref-chip">clinical_burden#</span>
 
 
 
@@ -4613,6 +4822,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34194860" target="_blank">PMID:34194860</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4666,17 +4876,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMCHD1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:29090</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4705,18 +4919,20 @@ This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4806,6 +5022,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29748383" target="_blank">PMID:29748383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4827,6 +5044,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31243061" target="_blank">PMID:31243061</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4861,18 +5079,20 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4900,18 +5120,20 @@ This pathophysiological event involves neural crest cell (CL:0011012). CL:001101
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neural crest cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4932,18 +5154,20 @@ This pathophysiological event involves decreased neural crest cell migration (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5001,6 +5225,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34209568" target="_blank">PMID:34209568</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5041,18 +5266,20 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased ectodermal placode development (GO:0071696). GO:0071696 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ectodermal placode development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071696" target="_blank" class="curie-chip curie-chip-go">GO:0071696</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071696" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0071696</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ectodermal placode development (GO:0071696). GO:0071696 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5073,18 +5300,20 @@ This pathophysiological event involves decreased ectodermal placode development 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5142,6 +5371,7 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41962546" target="_blank">PMID:41962546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5182,18 +5412,20 @@ This pathophysiological event involves abnormal cell adhesion (GO:0007155). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased nose development (GO:0043584). GO:0043584 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nose development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043584" target="_blank" class="curie-chip curie-chip-go">GO:0043584</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043584" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0043584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nose development (GO:0043584). GO:0043584 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5375,6 +5607,7 @@ This pathophysiological event involves decreased nose development (GO:0043584). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41962546" target="_blank">PMID:41962546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5396,6 +5629,7 @@ This pathophysiological event involves decreased nose development (GO:0043584). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36968924" target="_blank">PMID:36968924</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5437,18 +5671,20 @@ This pathophysiological event involves decreased nose development (GO:0043584). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go">GO:0048592</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0048592</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5469,18 +5705,20 @@ This pathophysiological event involves abnormal eye morphogenesis (GO:0048592). 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         camera-type eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go">GO:0048593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0048593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5508,18 +5746,20 @@ This pathophysiological event involves abnormal camera-type eye morphogenesis (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000970</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000970</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5597,6 +5837,7 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29748383" target="_blank">PMID:29748383</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5637,18 +5878,20 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5734,6 +5977,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32034419" target="_blank">PMID:32034419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5755,6 +5999,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32034419" target="_blank">PMID:32034419</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5832,6 +6077,7 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6802865" target="_blank">PMID:6802865</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5933,16 +6179,20 @@ This pathophysiological event involves decreased gonadotropin secretion (GO:0032
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000771</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype from the Human Phenotype Ontology.">
-                        Gynecomastia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp">HP:0000771</a>
-
-
+This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5962,6 +6212,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6006,16 +6257,20 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000023</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype from the Human Phenotype Ontology.">
-                        Inguinal hernia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp">HP:0000023</a>
-
-
+This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6035,6 +6290,7 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6068,16 +6324,20 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011968</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
-                        Feeding difficulties
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
-
-
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6097,6 +6357,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784779" target="_blank">PMID:33784779</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6141,16 +6402,20 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000044</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.">
-                        Hypogonadotropic hypogonadism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp">HP:0000044</a>
-
-
+This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6170,6 +6435,7 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6205,16 +6471,20 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000135</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype from the Human Phenotype Ontology.">
-                        Hypogonadism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp">HP:0000135</a>
-
-
+This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6234,6 +6504,7 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6276,16 +6547,20 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000316</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertelorism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp">HP:0000316</a>
-
-
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6305,6 +6580,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784779" target="_blank">PMID:33784779</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6340,16 +6616,20 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
-                        Cataract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
-
-
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6369,6 +6649,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6404,16 +6685,20 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000568</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
-                        Microphthalmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
-
-
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6433,6 +6718,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6468,16 +6754,20 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000572</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.">
-                        Visual loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp">HP:0000572</a>
-
-
+This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6497,6 +6787,7 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6532,16 +6823,20 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000618</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from the Human Phenotype Ontology.">
-                        Blindness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp">HP:0000618</a>
-
-
+This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6561,6 +6856,7 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6596,16 +6892,20 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000648</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.">
-                        Optic atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp">HP:0000648</a>
-
-
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6625,6 +6925,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6669,16 +6970,20 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000028</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.">
-                        Cryptorchidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp">HP:0000028</a>
-
-
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6698,6 +7003,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6742,16 +7048,20 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000175</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.">
-                        Cleft palate
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp">HP:0000175</a>
-
-
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6771,6 +7081,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6806,16 +7117,20 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000193</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype from the Human Phenotype Ontology.">
-                        Bifid uvula
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000193" target="_blank" class="curie-chip curie-chip-hp">HP:0000193</a>
-
-
+This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6835,6 +7150,7 @@ This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6868,16 +7184,20 @@ This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000218</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype from the Human Phenotype Ontology.">
-                        High palate
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp">HP:0000218</a>
-
-
+This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6897,6 +7217,7 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36968924" target="_blank">PMID:36968924</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6930,16 +7251,20 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000223</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of taste sensation (HP:0000223). HP:0000223 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of taste sensation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000223" target="_blank" class="curie-chip curie-chip-hp">HP:0000223</a>
-
-
+This clinical feature is Abnormality of taste sensation (HP:0000223). HP:0000223 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6959,6 +7284,7 @@ This clinical feature is Abnormality of taste sensation (HP:0000223). HP:0000223
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6802865" target="_blank">PMID:6802865</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6994,16 +7320,20 @@ This clinical feature is Abnormality of taste sensation (HP:0000223). HP:0000223
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000453</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.">
-                        Choanal atresia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp">HP:0000453</a>
-
-
+This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7023,6 +7353,7 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7058,16 +7389,20 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000458</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.">
-                        Anosmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp">HP:0000458</a>
-
-
+This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7087,6 +7422,7 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7120,16 +7456,20 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000564" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000564</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lacrimal duct atresia (HP:0000564). HP:0000564 is a phenotype from the Human Phenotype Ontology.">
-                        Lacrimal duct atresia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000564" target="_blank" class="curie-chip curie-chip-hp">HP:0000564</a>
-
-
+This clinical feature is Lacrimal duct atresia (HP:0000564). HP:0000564 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7149,6 +7489,7 @@ This clinical feature is Lacrimal duct atresia (HP:0000564). HP:0000564 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38713859" target="_blank">PMID:38713859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7184,16 +7525,20 @@ This clinical feature is Lacrimal duct atresia (HP:0000564). HP:0000564 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004409</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyposmia (HP:0004409). HP:0004409 is a phenotype from the Human Phenotype Ontology.">
-                        Hyposmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004409" target="_blank" class="curie-chip curie-chip-hp">HP:0004409</a>
-
-
+This clinical feature is Hyposmia (HP:0004409). HP:0004409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7213,6 +7558,7 @@ This clinical feature is Hyposmia (HP:0004409). HP:0004409 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7257,16 +7603,20 @@ This clinical feature is Hyposmia (HP:0004409). HP:0004409 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000176</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Submucous cleft hard palate (HP:0000176). HP:0000176 is a phenotype from the Human Phenotype Ontology.">
-                        Submucous cleft hard palate
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000176" target="_blank" class="curie-chip curie-chip-hp">HP:0000176</a>
-
-
+This clinical feature is Submucous cleft hard palate (HP:0000176). HP:0000176 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7286,6 +7636,7 @@ This clinical feature is Submucous cleft hard palate (HP:0000176). HP:0000176 is
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7321,16 +7672,20 @@ This clinical feature is Submucous cleft hard palate (HP:0000176). HP:0000176 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000309" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000309</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal midface morphology (HP:0000309). HP:0000309 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal midface morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000309" target="_blank" class="curie-chip curie-chip-hp">HP:0000309</a>
-
-
+This clinical feature is Abnormal midface morphology (HP:0000309). HP:0000309 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7350,6 +7705,7 @@ This clinical feature is Abnormal midface morphology (HP:0000309). HP:0000309 is
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7385,16 +7741,20 @@ This clinical feature is Abnormal midface morphology (HP:0000309). HP:0000309 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000327</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of the maxilla
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000327" target="_blank" class="curie-chip curie-chip-hp">HP:0000327</a>
-
-
+This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7414,6 +7774,7 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7449,16 +7810,20 @@ This clinical feature is Hypoplasia of the maxilla (HP:0000327). HP:0000327 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.">
-                        Anophthalmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp">HP:0000528</a>
-
-
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7478,6 +7843,7 @@ This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7513,16 +7879,20 @@ This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000612</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.">
-                        Iris coloboma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp">HP:0000612</a>
-
-
+This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7542,6 +7912,7 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7577,16 +7948,20 @@ This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000646</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from the Human Phenotype Ontology.">
-                        Amblyopia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp">HP:0000646</a>
-
-
+This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7606,6 +7981,7 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7641,16 +8017,20 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000692" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000692</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tooth malposition (HP:0000692). HP:0000692 is a phenotype from the Human Phenotype Ontology.">
-                        Tooth malposition
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000692" target="_blank" class="curie-chip curie-chip-hp">HP:0000692</a>
-
-
+This clinical feature is Tooth malposition (HP:0000692). HP:0000692 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7670,6 +8050,7 @@ This clinical feature is Tooth malposition (HP:0000692). HP:0000692 is a phenoty
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7705,16 +8086,20 @@ This clinical feature is Tooth malposition (HP:0000692). HP:0000692 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003241</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is a phenotype from the Human Phenotype Ontology.">
-                        External genital hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003241" target="_blank" class="curie-chip curie-chip-hp">HP:0003241</a>
-
-
+This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7734,6 +8119,7 @@ This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7769,16 +8155,20 @@ This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0006352</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure of eruption of permanent teeth (HP:0006352). HP:0006352 is a phenotype from the Human Phenotype Ontology.">
-                        Failure of eruption of permanent teeth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006352" target="_blank" class="curie-chip curie-chip-hp">HP:0006352</a>
-
-
+This clinical feature is Failure of eruption of permanent teeth (HP:0006352). HP:0006352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7798,6 +8188,7 @@ This clinical feature is Failure of eruption of permanent teeth (HP:0006352). HP
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7831,16 +8222,20 @@ This clinical feature is Failure of eruption of permanent teeth (HP:0006352). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006784" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0006784</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is a phenotype from the Human Phenotype Ontology.">
-                        Paranasal sinus hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006784" target="_blank" class="curie-chip curie-chip-hp">HP:0006784</a>
-
-
+This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7860,6 +8255,7 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36968924" target="_blank">PMID:36968924</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7895,16 +8291,20 @@ This clinical feature is Paranasal sinus hypoplasia (HP:0006784). HP:0006784 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0008736</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of penis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank" class="curie-chip curie-chip-hp">HP:0008736</a>
-
-
+This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7924,6 +8324,7 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7959,16 +8360,20 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0009023</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal wall muscle weakness (HP:0009023). HP:0009023 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal wall muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009023" target="_blank" class="curie-chip curie-chip-hp">HP:0009023</a>
-
-
+This clinical feature is Abdominal wall muscle weakness (HP:0009023). HP:0009023 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7988,6 +8393,7 @@ This clinical feature is Abdominal wall muscle weakness (HP:0009023). HP:0009023
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8023,16 +8429,20 @@ This clinical feature is Abdominal wall muscle weakness (HP:0009023). HP:0009023
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0009924</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia/Hypoplasia involving the nose (HP:0009924). HP:0009924 is a phenotype from the Human Phenotype Ontology.">
-                        Aplasia/Hypoplasia involving the nose
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009924" target="_blank" class="curie-chip curie-chip-hp">HP:0009924</a>
-
-
+This clinical feature is Aplasia/Hypoplasia involving the nose (HP:0009924). HP:0009924 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8052,6 +8462,7 @@ This clinical feature is Aplasia/Hypoplasia involving the nose (HP:0009924). HP:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8087,16 +8498,20 @@ This clinical feature is Aplasia/Hypoplasia involving the nose (HP:0009924). HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0009927</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.">
-                        Aplasia of the nose
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp">HP:0009927</a>
-
-
+This clinical feature is Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8116,6 +8531,7 @@ This clinical feature is Aplasia of the nose (HP:0009927). HP:0009927 is a pheno
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8151,16 +8567,20 @@ This clinical feature is Aplasia of the nose (HP:0009927). HP:0009927 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009932" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0009932</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Single naris (HP:0009932). HP:0009932 is a phenotype from the Human Phenotype Ontology.">
-                        Single naris
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009932" target="_blank" class="curie-chip curie-chip-hp">HP:0009932</a>
-
-
+This clinical feature is Single naris (HP:0009932). HP:0009932 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8180,6 +8600,7 @@ This clinical feature is Single naris (HP:0009932). HP:0009932 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8215,16 +8636,20 @@ This clinical feature is Single naris (HP:0009932). HP:0009932 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0030752</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dacryocystocele (HP:0030752). HP:0030752 is a phenotype from the Human Phenotype Ontology.">
-                        Dacryocystocele
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030752" target="_blank" class="curie-chip curie-chip-hp">HP:0030752</a>
-
-
+This clinical feature is Dacryocystocele (HP:0030752). HP:0030752 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8244,6 +8669,7 @@ This clinical feature is Dacryocystocele (HP:0030752). HP:0030752 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8279,16 +8705,20 @@ This clinical feature is Dacryocystocele (HP:0030752). HP:0030752 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0040326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:0040326 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of the olfactory bulb
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040326" target="_blank" class="curie-chip curie-chip-hp">HP:0040326</a>
-
-
+This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:0040326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8308,6 +8738,7 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8343,16 +8774,20 @@ This clinical feature is Hypoplasia of the olfactory bulb (HP:0040326). HP:00403
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0100596</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Absent nares (HP:0100596). HP:0100596 is a phenotype from the Human Phenotype Ontology.">
-                        Absent nares
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100596" target="_blank" class="curie-chip curie-chip-hp">HP:0100596</a>
-
-
+This clinical feature is Absent nares (HP:0100596). HP:0100596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8372,6 +8807,7 @@ This clinical feature is Absent nares (HP:0100596). HP:0100596 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8451,15 +8887,17 @@ This clinical feature is Absent nares (HP:0100596). HP:0100596 is a phenotype fr
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMCHD1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:29090</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8483,6 +8921,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                         <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8505,6 +8944,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067911" target="_blank">PMID:28067911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8526,6 +8966,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067909" target="_blank">PMID:28067909</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8559,6 +9000,146 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-bams-structured-disease-record">
+
+
+    <div class="item-name">Orphanet BAMS structured disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=2250" target="_blank" rel="noopener noreferrer" title="Open ORPHA:2250">ORPHA:2250</a>
+
+
+    </div>
+
+    <div class="item-desc">ORPHA:2250 supplies the disease definition, synonyms, inheritance, onset, prevalence, SMCHD1 gene association, and HPO phenotype-frequency rows used in this entry.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2250" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2250" target="_blank">ORPHA:2250</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SMCHD1 | structural maintenance of chromosomes flexible hinge domain containing 1 | hgnc:29090 | Disease-causing germline mutation(s) in"</div>
+
+
+                <div class="evidence-explanation">Orphanet identifies SMCHD1 as the disease-causing germline gene for this BAMS record.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-legacy-arrhinia-choanal-atresia-microphthalmia-record">
+
+
+    <div class="item-name">Orphanet legacy arrhinia-choanal atresia-microphthalmia record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=1135" target="_blank" rel="noopener noreferrer" title="Open ORPHA:1135">ORPHA:1135</a>
+
+
+    </div>
+
+    <div class="item-desc">ORPHA:1135 is retained as a sparse legacy cross-reference-only record for arrhinia-choanal atresia-microphthalmia syndrome.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:1135" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:1135" target="_blank">ORPHA:1135</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arrhinia-choanal atresia-microphthalmia syndrome"</div>
+
+
+                <div class="evidence-explanation">Orphanet records the legacy syndrome name that MONDO includes among BAMS synonyms/xrefs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8589,33 +9170,37 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Aplasia of the nose
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp">HP:0009927</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0009927</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Choanal atresia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp">HP:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8634,6 +9219,7 @@ This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784779" target="_blank">PMID:33784779</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8656,6 +9242,7 @@ This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32100546" target="_blank">PMID:32100546</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8689,18 +9276,18 @@ This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype f
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">feeding therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C156237). NCIT:C156237 is a clinical intervention from the NCI Thesaurus.">feeding therapy</span>
+This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C156237). NCIT:C156237 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Swallowing Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C156237" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C156237). NCIT:C156237 is a clinical intervention from the NCI Thesaurus.">NCIT:C156237</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C156237" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C156237">NCIT:C156237</a>
 
 
 
@@ -8731,18 +9318,20 @@ This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C1562
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Feeding difficulties
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0011968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8761,6 +9350,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784779" target="_blank">PMID:33784779</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8794,18 +9384,18 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">surgical repair<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical repair</span>
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8836,33 +9426,37 @@ This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C1532
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Aplasia of the nose
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp">HP:0009927</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0009927</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal midface morphology
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000309" target="_blank" class="curie-chip curie-chip-hp">HP:0000309</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000309" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000309</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8881,6 +9475,7 @@ This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36944600" target="_blank">PMID:36944600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8904,6 +9499,7 @@ This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36944600" target="_blank">PMID:36944600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8925,6 +9521,7 @@ This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784779" target="_blank">PMID:33784779</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8958,18 +9555,18 @@ This treatment targets Abnormal midface morphology (HP:0000309). HP:0000309 is a
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">surgical repair<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical repair</span>
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -9000,18 +9597,20 @@ This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C1532
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Aplasia of the nose
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp">HP:0009927</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0009927</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9030,6 +9629,7 @@ This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30247752" target="_blank">PMID:30247752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9052,6 +9652,7 @@ This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenoty
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02559050" target="_blank">clinicaltrials:NCT02559050</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9085,18 +9686,18 @@ This treatment targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenoty
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">clinical assessment<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.">clinical assessment</span>
+This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Clinical Evaluation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C124351">NCIT:C124351</a>
 
 
 
@@ -9138,6 +9739,7 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38713859" target="_blank">PMID:38713859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9170,18 +9772,18 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -9222,6 +9824,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36944600" target="_blank">PMID:36944600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9269,7 +9872,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-arrhinencephaly-and-holoprosencephaly-spectrum">
                 <div class="item-name">
 
                     Arrhinencephaly and holoprosencephaly spectrum
@@ -9312,6 +9915,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6802865" target="_blank">PMID:6802865</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9347,7 +9951,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse173251">
                 <div class="item-name">
                     Neural crest stem-cell transcriptomes from BAMS, FSHD, and control iPSC lines
 
@@ -9379,18 +9983,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this dataset samples this sample type
-This dataset samples iPSC-derived neural crest stem cell, annotated with neural crest cell (CL:0011012). CL:0011012 is a sample type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         iPSC-derived neural crest stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-63">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples iPSC-derived neural crest stem cell, annotated with neural crest cell (CL:0011012). CL:0011012 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -9433,6 +10039,7 @@ This dataset samples iPSC-derived neural crest stem cell, annotated with neural 
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE173251" target="_blank">url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE173251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9468,7 +10075,7 @@ This dataset samples iPSC-derived neural crest stem cell, annotated with neural 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02559050">
                 <div class="item-name">
                     NCT02559050
 
@@ -9486,18 +10093,20 @@ This dataset samples iPSC-derived neural crest stem cell, annotated with neural 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Aplasia of the nose
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp">HP:0009927</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0009927</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Aplasia of the nose (HP:0009927). HP:0009927 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9515,6 +10124,7 @@ This clinical trial targets Aplasia of the nose (HP:0009927). HP:0009927 is a ph
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02559050" target="_blank">clinicaltrials:NCT02559050</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9600,17 +10210,21 @@ This clinical trial targets Aplasia of the nose (HP:0009927). HP:0009927 is a ph
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMCHD1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:29090</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9654,6 +10268,7 @@ This experimental model concerns SMCHD1 (hgnc:29090). hgnc:29090 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29748383" target="_blank">PMID:29748383</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9723,17 +10338,21 @@ This experimental model concerns SMCHD1 (hgnc:29090). hgnc:29090 is a gene from 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns smchd1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         smchd1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-66">hgnc:29090</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-66">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns smchd1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9778,6 +10397,7 @@ This experimental model concerns smchd1 (hgnc:29090). hgnc:29090 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067909" target="_blank">PMID:28067909</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9820,7 +10440,6 @@ This experimental model concerns smchd1 (hgnc:29090). hgnc:29090 is a gene from 
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Bosma Arhinia Microphthalmia Syndrome
 creation_date: &#34;2026-05-07T07:20:00Z&#34;
-updated_date: &#34;2026-07-24T13:19:06Z&#34;
 description: &gt;-
   Bosma arhinia microphthalmia syndrome is an ultra-rare congenital
   malformation syndrome characterized by arhinia or severe nasal hypoplasia,
@@ -11693,7 +12312,7 @@ discussions:
   status: OPEN
   attaches_to:
   - progression#Childhood, puberty, and adult course
-  - clinical_burden
+  - clinical_burden#
   rationale: &gt;-
     Available evidence is dominated by neonatal reports, cross-sectional case
     descriptions, and single-person adult narratives. It supports possible
@@ -12286,7 +12905,7 @@ evidence to avoid blocking on provider availability.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bosma Arhinia Microphthalmia Syndrome", "mondoId": "MONDO:0011323", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bosma_Arhinia_Microphthalmia_Syndrome", "yamlRevision": "e508563dae6e"};
+        const OS_CONFIG = {"diseaseName": "Bosma Arhinia Microphthalmia Syndrome", "mondoId": "MONDO:0011323", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bosma_Arhinia_Microphthalmia_Syndrome", "yamlRevision": "09f9f8fccaeb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12705,5 +13324,73 @@ evidence to avoid blocking on provider availability.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

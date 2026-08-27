@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Lennox-Gastaut Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Lennox-Gastaut Syndrome</h1>
             <div class="header-meta">
 
@@ -3660,7 +3782,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Lennox-Gastaut%20Syndrome"
@@ -3799,12 +3921,24 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
@@ -3844,7 +3978,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3942,8 +4076,218 @@
             </div>
 
 
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C84816" target="_blank">NCIT:C84816</a>
 
 
+                        <span class="mapping-label">Lennox-Gastaut Syndrome</span>
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:exactMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO:0016532</span>
+
+
+
+                        <span class="tag tag-mechanistic">MONDO:0016532: CONSISTENT</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0016532 carries NCIT:C84816 as a cross-reference; the NCI Thesaurus concept names the same syndrome.</div>
+
+
+                    <ul class="mapping-tree">
+
+                        <li style="padding-left: 0px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
+
+
+                        </li>
+
+                        <li style="padding-left: 14px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
+
+
+                        </li>
+
+                        <li style="padding-left: 28px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C28193" target="_blank">Syndrome</a>
+
+
+                        </li>
+
+                        <li style="padding-left: 42px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C84816" target="_blank">Lennox-Gastaut Syndrome</a>
+
+
+                        </li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+
+            <div class="mapping-section">
+                <div class="classification-category">ICD-10-CM</div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/ICD10CM_G40.81" target="_blank">ICD10CM:G40.81</a>
+
+
+                        <span class="mapping-label">Lennox-Gastaut syndrome</span>
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:exactMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO:0016532</span>
+
+
+
+                        <span class="tag tag-mechanistic">MONDO:0016532: CONSISTENT</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0016532 carries ICD10CM:G40.81 as a cross-reference, and the ICD-10-CM code is a named Lennox-Gastaut syndrome rubric (its G40.811-G40.814 children only add intractability and status-epilepticus qualifiers).</div>
+
+
+                    <ul class="mapping-tree">
+
+                        <li style="padding-left: 0px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_G00-G99" target="_blank">Diseases of the nervous system (G00-G99)</a>
+
+
+                        </li>
+
+                        <li style="padding-left: 14px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_G40-G47" target="_blank">Episodic and paroxysmal disorders (G40-G47)</a>
+
+
+                        </li>
+
+                        <li style="padding-left: 28px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_G40" target="_blank">Epilepsy and recurrent seizures</a>
+
+
+                        </li>
+
+                        <li style="padding-left: 42px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_G40.8" target="_blank">Other epilepsy and recurrent seizures</a>
+
+
+                        </li>
+
+                        <li style="padding-left: 56px;">
+
+
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_G40.81" target="_blank">Lennox-Gastaut syndrome</a>
+
+
+                        </li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+
+            <div class="mapping-section">
+                <div class="classification-category">ICD-11 Foundation</div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/icd11f_651135242" target="_blank">icd11f:651135242</a>
+
+
+                        <span class="mapping-label">Lennox-Gastaut syndrome</span>
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:exactMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO:0016532</span>
+
+
+
+                        <span class="tag tag-mechanistic">MONDO:0016532: CONSISTENT</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0016532 carries icd11.foundation:651135242 as a cross-reference; the ICD-11 Foundation entity label is identical to the MONDO label.</div>
+
+                </div>
+
+            </div>
+
+
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C84816" target="_blank">NCIT:C84816</a>
+
+
+                        <span class="mapping-label">Lennox-Gastaut Syndrome</span>
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:exactMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO:0016532</span>
+
+
+
+                        <span class="tag tag-mechanistic">MONDO:0016532: CONSISTENT</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0016532 carries NCIT:C84816 as a cross-reference; the NCI Thesaurus concept names the same syndrome.</div>
+
+                </div>
+
+            </div>
 
         </div>
 
@@ -4027,11 +4371,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type EEG-functional MRI network comparison experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         EEG-functional MRI network comparison experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type EEG-functional MRI network comparison experiment.</span>
     </span>
 
 
@@ -4092,11 +4440,15 @@ This experiment is of type EEG-functional MRI network comparison experiment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by functional magnetic resonance imaging assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         functional magnetic resonance imaging assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by functional magnetic resonance imaging assay.</span>
     </span>
 
 
@@ -4121,11 +4473,15 @@ This readout is measured by functional magnetic resonance imaging assay.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by electroencephalography.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         electroencephalography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by electroencephalography.</span>
     </span>
 
 
@@ -4210,6 +4566,12 @@ This readout is measured by electroencephalography.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4232,6 +4594,7 @@ This readout is measured by electroencephalography.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24902608" target="_blank">PMID:24902608</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4304,11 +4667,15 @@ This readout is measured by electroencephalography.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type intracranial seizure-onset localization experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-4">
 
         intracranial seizure-onset localization experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this experiment is of type this experiment type
+This experiment is of type intracranial seizure-onset localization experiment.</span>
     </span>
 
 
@@ -4369,11 +4736,15 @@ This experiment is of type intracranial seizure-onset localization experiment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by electroencephalography.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         electroencephalography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by electroencephalography.</span>
     </span>
 
 
@@ -4458,6 +4829,12 @@ This readout is measured by electroencephalography.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4480,6 +4857,7 @@ This readout is measured by electroencephalography.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24902608" target="_blank">PMID:24902608</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4559,11 +4937,15 @@ This readout is measured by electroencephalography.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type longitudinal cohort coupling experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         longitudinal cohort coupling experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
+This experiment is of type longitudinal cohort coupling experiment.</span>
     </span>
 
 
@@ -4624,11 +5006,15 @@ This experiment is of type longitudinal cohort coupling experiment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by neuropsychological assessment.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         neuropsychological assessment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by neuropsychological assessment.</span>
     </span>
 
 
@@ -4653,11 +5039,15 @@ This readout is measured by neuropsychological assessment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by electroencephalography.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
 
         electroencephalography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
+This readout is measured by electroencephalography.</span>
     </span>
 
 
@@ -4742,6 +5132,12 @@ This readout is measured by electroencephalography.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4811,11 +5207,15 @@ This readout is measured by electroencephalography.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type cross-model network phenotyping experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-9">
 
         cross-model network phenotyping experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this experiment is of type this experiment type
+This experiment is of type cross-model network phenotyping experiment.</span>
     </span>
 
 
@@ -4876,11 +5276,15 @@ This experiment is of type cross-model network phenotyping experiment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by electroencephalography.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-10">
 
         electroencephalography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this readout is measured by this assay
+This readout is measured by electroencephalography.</span>
     </span>
 
 
@@ -4965,6 +5369,12 @@ This readout is measured by electroencephalography.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4987,6 +5397,7 @@ This readout is measured by electroencephalography.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23934111" target="_blank">PMID:23934111</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5033,18 +5444,20 @@ This readout is measured by electroencephalography.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5096,6 +5509,14 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global Developmental Delay</span>
+
+	                            <span class="crosslink-desc">The initiating brain insult frequently produces developmental delay that precedes or accompanies seizure onset, separately from the later seizure-driven cognitive plateau.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5114,18 +5535,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5187,18 +5610,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5259,6 +5684,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24902608" target="_blank">PMID:24902608</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5292,18 +5718,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves GABAergic interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         GABAergic interneuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5331,18 +5759,20 @@ This pathophysiological event involves GABAergic interneuron, annotated with GAB
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Regulation of GABAergic synaptic transmission, annotated with regulation of synaptic transmission, GABAergic (GO:0032228). GO:0032228 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Regulation of GABAergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032228" target="_blank" class="curie-chip curie-chip-go">GO:0032228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0032228</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Regulation of GABAergic synaptic transmission, annotated with regulation of synaptic transmission, GABAergic (GO:0032228). GO:0032228 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5391,6 +5821,22 @@ This pathophysiological event involves decreased Regulation of GABAergic synapti
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myoclonic Seizures</span>
+
+	                            <span class="crosslink-desc">The same lowered threshold for hypersynchronous discharge supports the myoclonic seizures that commonly accompany the defining LGS seizure types.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Generalized Tonic-Clonic Seizures</span>
+
+	                            <span class="crosslink-desc">Bilateral tonic-clonic seizures arise when hypersynchronous discharge propagates through the diffusely disinhibited network.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5409,18 +5855,20 @@ This pathophysiological event involves decreased Regulation of GABAergic synapti
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5464,6 +5912,22 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atypical Absence Seizures</span>
+
+	                            <span class="crosslink-desc">The diffuse slow (&lt;2.5 Hz) spike-and-wave discharge is the electrographic correlate of the atypical absence seizures seen clinically.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nonconvulsive Status Epilepticus</span>
+
+	                            <span class="crosslink-desc">Prolonged, near-continuous slow spike-and-wave activity underlies the episodes of nonconvulsive (atypical absence) status epilepticus that recur over the disease course.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5482,18 +5946,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5545,6 +6011,14 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Tonic Seizures</span>
+
+	                            <span class="crosslink-desc">Sleep-activated generalized paroxysmal fast activity is the electrographic correlate of the tonic seizures that are the most characteristic seizure type of LGS.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5563,18 +6037,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5618,6 +6094,14 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atonic Seizures (Drop Attacks)</span>
+
+	                            <span class="crosslink-desc">Sudden loss of postural tone produces the atonic (astatic) drop attacks observed clinically, a major source of falls and injury.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5636,18 +6120,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5691,6 +6177,14 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Epileptic Encephalopathy</span>
+
+	                            <span class="crosslink-desc">Frequent seizures together with abundant interictal epileptiform activity constitute the epileptic encephalopathy itself, the clinical designation of this mechanism.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5709,18 +6203,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5767,18 +6263,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5810,6 +6308,29 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual Disability</span>
+
+	                            <span class="crosslink-desc">The developmental plateau or regression is expressed clinically as intellectual disability in most affected children.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Behavioral Abnormalities</span>
+
+	                            <span class="crosslink-desc">Hyperactivity, aggression, and autistic features accompany the cognitive outcome and add to the disability burden.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
 
@@ -5840,7 +6361,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Age-Dependent Evolution from Infantile Spasms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In roughly a fifth to a third of patients, LGS emerges from a prior diagnosis of infantile spasms (West syndrome) as the developing brain\u0027s epileptic expression shifts with maturation. This node captures the single concept of the age-dependent syndrome transition, a distinctive route into LGS separate from de novo presentation.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Atonic Drop Attack Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sudden loss (atonic) or brief increase (tonic) of postural tone produces drop attacks (astatic seizures), a major source of injury in LGS. This node captures the single concept of drop-attack generation, distinct from the tonic and absence seizure mechanisms above.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"effector\"}}, {\"id\": \"Cognitive Impairment and Developmental Plateau\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most children with LGS develop intellectual disability with developmental plateau or regression and frequent behavioural problems. This node captures the single concept of the cognitive/developmental outcome, the endpoint of both the underlying etiology and the epileptic encephalopathy.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Within the dysfunctional network, the balance between synaptic excitation and GABAergic inhibition is shifted toward excitation, lowering the threshold for hypersynchronous discharges. This node captures the single concept of the excitation-inhibition imbalance and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"GABAergic interneuron\"], \"biological_processes\": [\"Regulation of GABAergic synaptic transmission\"], \"role\": \"mediator\"}}, {\"id\": \"Diffuse Thalamocortical Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGS behaves as a secondary network (\\\"secondary generalized\\\") epilepsy in which widespread, bilaterally synchronous epileptic activity is generated by a diffusely dysfunctional thalamocortical network rather than by a single cortical focus. This node captures the single concept of the network-level substrate that unifies the heterogeneous etiologies.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second defining electrographic feature is sleep-activated generalized paroxysmal fast activity (GPFA), the correlate of tonic seizures, which are the most characteristic seizure type of LGS and predominate in non-REM sleep. This node captures the single concept of fast-activity/tonic seizure generation.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Heterogeneous Etiologic Brain Insult\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGS is not caused by a single lesion. A structurally, genetically, metabolically, or acquired-injury-based insult to the developing brain (e.g., hypoxic-ischemic encephalopathy, cortical malformation, tuberous sclerosis, CNS infection, or a monogenic developmental and epileptic encephalopathy variant) supplies the upstream cause. This node captures the single concept of the initiating brain insult; its diverse specific causes converge downstream on a shared network disorder.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"trigger\"}}, {\"id\": \"Interictal Epileptiform Activity-Driven Cognitive Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGS is a developmental and epileptic encephalopathy: beyond any cognitive effect of the underlying cause, the frequent seizures and near-continuous interictal epileptiform activity are themselves thought to impair cognitive development and drive stagnation or regression. This node captures the single concept of the epileptic-encephalopathy contribution to cognition.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Multiple Drug-Resistant Seizure Types\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical hallmark of LGS is the co-occurrence of several seizure types in one child, characteristically tonic, atonic, and atypical absence seizures, that are typically resistant to antiseizure medications. This node captures the single concept of the multiple-drug-resistant-seizure endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Slow Spike-and-Wave Discharge Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A defining electrographic feature of LGS is the diffuse slow (\u003c2.5 Hz) spike-and-wave complex, reflecting pathological corticothalamic oscillation. This node captures the single concept of slow spike-and-wave generation, the substrate of atypical absence seizures.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Heterogeneous Etiologic Brain Insult\", \"target\": \"Age-Dependent Evolution from Infantile Spasms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a subset of children the same insult first manifests as infantile spasms and later transitions to the LGS electroclinical pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Etiologic Brain Insult\", \"target\": \"Diffuse Thalamocortical Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regardless of specific cause, the insult produces a diffusely dysfunctional thalamocortical network that generates the LGS phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Age-Dependent Evolution from Infantile Spasms\", \"target\": \"Diffuse Thalamocortical Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The maturational transition consolidates into the diffuse thalamocortical network dysfunction underlying LGS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Diffuse Thalamocortical Network Dysfunction\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network dysfunction expresses locally as a shift toward excitation over inhibition in cortical circuits.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Slow Spike-and-Wave Discharge Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imbalance supports the corticothalamic oscillation seen as slow spike-and-wave activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imbalance also enables the sleep-activated fast-activity discharges that underlie tonic seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Slow Spike-and-Wave Discharge Generation\", \"target\": \"Multiple Drug-Resistant Seizure Types\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Slow spike-and-wave discharges manifest clinically as atypical absence seizures within the LGS seizure repertoire.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"target\": \"Atonic Drop Attack Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tonic and related discharges contribute to sudden tone changes producing drop attacks.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"target\": \"Multiple Drug-Resistant Seizure Types\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fast-activity discharges manifest clinically as tonic seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atonic Drop Attack Generation\", \"target\": \"Multiple Drug-Resistant Seizure Types\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drop attacks are one of the multiple drug-resistant seizure types comprising the syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interictal Epileptiform Activity-Driven Cognitive Impairment\", \"target\": \"Cognitive Impairment and Developmental Plateau\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing epileptiform activity contributes to the cognitive plateau and regression characteristic of the syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Age-Dependent Evolution from Infantile Spasms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In roughly a fifth to a third of patients, LGS emerges from a prior diagnosis of infantile spasms (West syndrome) as the developing brain\u0027s epileptic expression shifts with maturation. This node captures the single concept of the age-dependent syndrome transition, a distinctive route into LGS separate from de novo presentation.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Atonic Drop Attack Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sudden loss (atonic) or brief increase (tonic) of postural tone produces drop attacks (astatic seizures), a major source of injury in LGS. This node captures the single concept of drop-attack generation, distinct from the tonic and absence seizure mechanisms above.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"effector\"}}, {\"id\": \"Atonic Seizures (Drop Attacks)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atonic (astatic) seizures cause sudden loss of postural tone and drop attacks with frequent falls and injuries.\", \"meta\": {\"term_id\": \"HP:0010819\"}}, {\"id\": \"Atypical Absence Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atypical absences with gradual onset/offset and incomplete loss of awareness accompany the slow spike-and-wave EEG pattern.\", \"meta\": {\"term_id\": \"HP:0007270\"}}, {\"id\": \"Behavioral Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems, including hyperactivity, aggression, and autistic features, are common and add to the disability burden.\", \"meta\": {\"term_id\": \"HP:0000708\"}}, {\"id\": \"Cognitive Impairment and Developmental Plateau\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most children with LGS develop intellectual disability with developmental plateau or regression and frequent behavioural problems. This node captures the single concept of the cognitive/developmental outcome, the endpoint of both the underlying etiology and the epileptic encephalopathy.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Within the dysfunctional network, the balance between synaptic excitation and GABAergic inhibition is shifted toward excitation, lowering the threshold for hypersynchronous discharges. This node captures the single concept of the excitation-inhibition imbalance and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"GABAergic interneuron\"], \"biological_processes\": [\"Regulation of GABAergic synaptic transmission\"], \"role\": \"mediator\"}}, {\"id\": \"Diffuse Thalamocortical Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGS behaves as a secondary network (\\\"secondary generalized\\\") epilepsy in which widespread, bilaterally synchronous epileptic activity is generated by a diffusely dysfunctional thalamocortical network rather than by a single cortical focus. This node captures the single concept of the network-level substrate that unifies the heterogeneous etiologies.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Epileptic Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent seizures and abundant interictal epileptiform activity constitute an epileptic encephalopathy contributing to cognitive impairment.\", \"meta\": {\"term_id\": \"HP:0200134\"}}, {\"id\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second defining electrographic feature is sleep-activated generalized paroxysmal fast activity (GPFA), the correlate of tonic seizures, which are the most characteristic seizure type of LGS and predominate in non-REM sleep. This node captures the single concept of fast-activity/tonic seizure generation.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Generalized Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized (bilateral) tonic-clonic seizures occur commonly in addition to the defining seizure types.\", \"meta\": {\"term_id\": \"HP:0002069\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay frequently precedes or accompanies seizure onset and evolves into intellectual disability.\", \"meta\": {\"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterogeneous Etiologic Brain Insult\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGS is not caused by a single lesion. A structurally, genetically, metabolically, or acquired-injury-based insult to the developing brain (e.g., hypoxic-ischemic encephalopathy, cortical malformation, tuberous sclerosis, CNS infection, or a monogenic developmental and epileptic encephalopathy variant) supplies the upstream cause. This node captures the single concept of the initiating brain insult; its diverse specific causes converge downstream on a shared network disorder.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"trigger\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most affected children have intellectual disability with developmental plateau or regression.\", \"meta\": {\"term_id\": \"HP:0001249\"}}, {\"id\": \"Interictal Epileptiform Activity-Driven Cognitive Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LGS is a developmental and epileptic encephalopathy: beyond any cognitive effect of the underlying cause, the frequent seizures and near-continuous interictal epileptiform activity are themselves thought to impair cognitive development and drive stagnation or regression. This node captures the single concept of the epileptic-encephalopathy contribution to cognition.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Multiple Drug-Resistant Seizure Types\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical hallmark of LGS is the co-occurrence of several seizure types in one child, characteristically tonic, atonic, and atypical absence seizures, that are typically resistant to antiseizure medications. This node captures the single concept of the multiple-drug-resistant-seizure endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Myoclonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonic seizures are a common additional seizure type in the LGS seizure repertoire.\", \"meta\": {\"term_id\": \"HP:0032794\"}}, {\"id\": \"Nonconvulsive Status Epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodes of nonconvulsive status epilepticus (often with tonic and atypical absence features) occur in a large fraction of patients over the disease course.\", \"meta\": {\"term_id\": \"HP:0002133\"}}, {\"id\": \"Slow Spike-and-Wave Discharge Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A defining electrographic feature of LGS is the diffuse slow (\u003c2.5 Hz) spike-and-wave complex, reflecting pathological corticothalamic oscillation. This node captures the single concept of slow spike-and-wave generation, the substrate of atypical absence seizures.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Tonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tonic seizures, often nocturnal and sleep-activated, are the most characteristic seizure type of LGS.\", \"meta\": {\"term_id\": \"HP:0010818\"}}], \"edges\": [{\"source\": \"Heterogeneous Etiologic Brain Insult\", \"target\": \"Age-Dependent Evolution from Infantile Spasms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a subset of children the same insult first manifests as infantile spasms and later transitions to the LGS electroclinical pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Etiologic Brain Insult\", \"target\": \"Diffuse Thalamocortical Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regardless of specific cause, the insult produces a diffusely dysfunctional thalamocortical network that generates the LGS phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Etiologic Brain Insult\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The initiating brain insult frequently produces developmental delay that precedes or accompanies seizure onset, separately from the later seizure-driven cognitive plateau.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Age-Dependent Evolution from Infantile Spasms\", \"target\": \"Diffuse Thalamocortical Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The maturational transition consolidates into the diffuse thalamocortical network dysfunction underlying LGS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Diffuse Thalamocortical Network Dysfunction\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network dysfunction expresses locally as a shift toward excitation over inhibition in cortical circuits.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Slow Spike-and-Wave Discharge Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imbalance supports the corticothalamic oscillation seen as slow spike-and-wave activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imbalance also enables the sleep-activated fast-activity discharges that underlie tonic seizures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Myoclonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same lowered threshold for hypersynchronous discharge supports the myoclonic seizures that commonly accompany the defining LGS seizure types.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Generalized Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilateral tonic-clonic seizures arise when hypersynchronous discharge propagates through the diffusely disinhibited network.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Slow Spike-and-Wave Discharge Generation\", \"target\": \"Multiple Drug-Resistant Seizure Types\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Slow spike-and-wave discharges manifest clinically as atypical absence seizures within the LGS seizure repertoire.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Slow Spike-and-Wave Discharge Generation\", \"target\": \"Atypical Absence Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The diffuse slow (\u003c2.5 Hz) spike-and-wave discharge is the electrographic correlate of the atypical absence seizures seen clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Slow Spike-and-Wave Discharge Generation\", \"target\": \"Nonconvulsive Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged, near-continuous slow spike-and-wave activity underlies the episodes of nonconvulsive (atypical absence) status epilepticus that recur over the disease course.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"target\": \"Atonic Drop Attack Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tonic and related discharges contribute to sudden tone changes producing drop attacks.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"target\": \"Multiple Drug-Resistant Seizure Types\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fast-activity discharges manifest clinically as tonic seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Paroxysmal Fast Activity and Tonic Seizure Generation\", \"target\": \"Tonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep-activated generalized paroxysmal fast activity is the electrographic correlate of the tonic seizures that are the most characteristic seizure type of LGS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atonic Drop Attack Generation\", \"target\": \"Multiple Drug-Resistant Seizure Types\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drop attacks are one of the multiple drug-resistant seizure types comprising the syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atonic Drop Attack Generation\", \"target\": \"Atonic Seizures (Drop Attacks)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sudden loss of postural tone produces the atonic (astatic) drop attacks observed clinically, a major source of falls and injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interictal Epileptiform Activity-Driven Cognitive Impairment\", \"target\": \"Cognitive Impairment and Developmental Plateau\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing epileptiform activity contributes to the cognitive plateau and regression characteristic of the syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Interictal Epileptiform Activity-Driven Cognitive Impairment\", \"target\": \"Epileptic Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frequent seizures together with abundant interictal epileptiform activity constitute the epileptic encephalopathy itself, the clinical designation of this mechanism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cognitive Impairment and Developmental Plateau\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The developmental plateau or regression is expressed clinically as intellectual disability in most affected children.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cognitive Impairment and Developmental Plateau\", \"target\": \"Behavioral Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperactivity, aggression, and autistic features accompany the cognitive outcome and add to the disability burden.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5880,16 +6401,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical absence seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp">HP:0007270</a>
-
-
+This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5910,16 +6435,20 @@ This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5940,16 +6469,22 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002069</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral tonic-clonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
-
-
+This clinical feature is Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5970,16 +6505,20 @@ This clinical feature is Generalized tonic-clonic seizure, annotated with Bilate
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6000,16 +6539,22 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
+This clinical feature is Behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6039,16 +6584,22 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized tonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010818</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized tonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp">HP:0010818</a>
-
-
+This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6069,16 +6620,20 @@ This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0010819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.">
-                        Atonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp">HP:0010819</a>
-
-
+This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6099,16 +6654,20 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0200134</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.">
-                        Epileptic encephalopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp">HP:0200134</a>
-
-
+This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6129,16 +6688,20 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0032794</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.">
-                        Myoclonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp">HP:0032794</a>
-
-
+This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6159,16 +6722,20 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nonconvulsive status epilepticus, annotated with Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.">
-                        Status epilepticus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp">HP:0002133</a>
-
-
+This clinical feature is Nonconvulsive status epilepticus, annotated with Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6243,6 +6810,7 @@ This clinical feature is Nonconvulsive status epilepticus, annotated with Status
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23934111" target="_blank">PMID:23934111</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6264,6 +6832,7 @@ This clinical feature is Nonconvulsive status epilepticus, annotated with Status
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23934111" target="_blank">PMID:23934111</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6295,6 +6864,9 @@ This clinical feature is Nonconvulsive status epilepticus, annotated with Status
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6311,17 +6883,17 @@ This clinical feature is Nonconvulsive status epilepticus, annotated with Status
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6361,17 +6933,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6396,63 +6968,71 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cannabidiol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:69478</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:69478</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         fenfluramine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5000" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5000</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5000" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:5000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rufinamide (CHEBI:134966). CHEBI:134966 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         rufinamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_134966" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:134966</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_134966" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:134966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rufinamide (CHEBI:134966). CHEBI:134966 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         clobazam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31413" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31413</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31413" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:31413</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6477,6 +7057,7 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29768152" target="_blank">PMID:29768152</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6508,18 +7089,18 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.">ketogenic diet intake</span>
+This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Ketogenic Diet</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C173168" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.">NCIT:C173168</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C173168" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C173168">NCIT:C173168</a>
 
 
 
@@ -6559,18 +7140,18 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6610,18 +7191,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6723,6 +7304,33 @@ disease_term:
     id: MONDO:0016532
     label: Lennox-Gastaut syndrome
 mappings:
+  icd10cm_mappings:
+  - term:
+      id: ICD10CM:G40.81
+      label: Lennox-Gastaut syndrome
+    mapping_predicate: skos:exactMatch
+    mapping_source: MONDO:0016532
+    mapping_justification: &gt;-
+      MONDO:0016532 carries ICD10CM:G40.81 as a cross-reference, and the ICD-10-CM
+      code is a named Lennox-Gastaut syndrome rubric (its G40.811-G40.814
+      children only add intractability and status-epilepticus qualifiers).
+    consistency:
+    - reference: MONDO:0016532
+      consistent: CONSISTENT
+      notes: &#34;xref: ICD10CM:G40.81&#34;
+  icd11f_mappings:
+  - term:
+      id: icd11f:651135242
+      label: Lennox-Gastaut syndrome
+    mapping_predicate: skos:exactMatch
+    mapping_source: MONDO:0016532
+    mapping_justification: &gt;-
+      MONDO:0016532 carries icd11.foundation:651135242 as a cross-reference; the
+      ICD-11 Foundation entity label is identical to the MONDO label.
+    consistency:
+    - reference: MONDO:0016532
+      consistent: CONSISTENT
+      notes: &#34;xref: icd11.foundation:651135242&#34;
   mondo_mappings:
   - term:
       id: MONDO:0016532
@@ -6731,6 +7339,19 @@ mappings:
     mapping_source: MONDO
     mapping_justification: &gt;-
       MONDO:0016532 is the current Lennox-Gastaut syndrome disease concept.
+  ncit_mappings:
+  - term:
+      id: NCIT:C84816
+      label: Lennox-Gastaut Syndrome
+    mapping_predicate: skos:exactMatch
+    mapping_source: MONDO:0016532
+    mapping_justification: &gt;-
+      MONDO:0016532 carries NCIT:C84816 as a cross-reference; the NCI Thesaurus
+      concept names the same syndrome.
+    consistency:
+    - reference: MONDO:0016532
+      consistent: CONSISTENT
+      notes: &#34;xref: NCIT:C84816&#34;
 pathophysiology:
 - name: Heterogeneous Etiologic Brain Insult
   description: &gt;-
@@ -6758,6 +7379,12 @@ pathophysiology:
     description: &gt;-
       Regardless of specific cause, the insult produces a diffusely dysfunctional
       thalamocortical network that generates the LGS phenotype.
+  - target: Global Developmental Delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The initiating brain insult frequently produces developmental delay that
+      precedes or accompanies seizure onset, separately from the later
+      seizure-driven cognitive plateau.
 - name: Age-Dependent Evolution from Infantile Spasms
   description: &gt;-
     In roughly a fifth to a third of patients, LGS emerges from a prior
@@ -6838,6 +7465,16 @@ pathophysiology:
     description: &gt;-
       The imbalance also enables the sleep-activated fast-activity discharges
       that underlie tonic seizures.
+  - target: Myoclonic Seizures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The same lowered threshold for hypersynchronous discharge supports the
+      myoclonic seizures that commonly accompany the defining LGS seizure types.
+  - target: Generalized Tonic-Clonic Seizures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Bilateral tonic-clonic seizures arise when hypersynchronous discharge
+      propagates through the diffusely disinhibited network.
 - name: Slow Spike-and-Wave Discharge Generation
   description: &gt;-
     A defining electrographic feature of LGS is the diffuse slow (&lt;2.5 Hz)
@@ -6856,6 +7493,17 @@ pathophysiology:
     description: &gt;-
       Slow spike-and-wave discharges manifest clinically as atypical absence
       seizures within the LGS seizure repertoire.
+  - target: Atypical Absence Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      The diffuse slow (&lt;2.5 Hz) spike-and-wave discharge is the electrographic
+      correlate of the atypical absence seizures seen clinically.
+  - target: Nonconvulsive Status Epilepticus
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Prolonged, near-continuous slow spike-and-wave activity underlies the
+      episodes of nonconvulsive (atypical absence) status epilepticus that
+      recur over the disease course.
 - name: Generalized Paroxysmal Fast Activity and Tonic Seizure Generation
   description: &gt;-
     The second defining electrographic feature is sleep-activated generalized
@@ -6879,6 +7527,12 @@ pathophysiology:
     causal_link_type: DIRECT
     description: &gt;-
       Fast-activity discharges manifest clinically as tonic seizures.
+  - target: Tonic Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      Sleep-activated generalized paroxysmal fast activity is the electrographic
+      correlate of the tonic seizures that are the most characteristic seizure
+      type of LGS.
 - name: Atonic Drop Attack Generation
   description: &gt;-
     Sudden loss (atonic) or brief increase (tonic) of postural tone produces
@@ -6897,6 +7551,11 @@ pathophysiology:
     description: &gt;-
       Drop attacks are one of the multiple drug-resistant seizure types
       comprising the syndrome.
+  - target: Atonic Seizures (Drop Attacks)
+    causal_link_type: DIRECT
+    description: &gt;-
+      Sudden loss of postural tone produces the atonic (astatic) drop attacks
+      observed clinically, a major source of falls and injury.
 - name: Interictal Epileptiform Activity-Driven Cognitive Impairment
   description: &gt;-
     LGS is a developmental and epileptic encephalopathy: beyond any cognitive
@@ -6916,6 +7575,12 @@ pathophysiology:
     description: &gt;-
       Ongoing epileptiform activity contributes to the cognitive plateau and
       regression characteristic of the syndrome.
+  - target: Epileptic Encephalopathy
+    causal_link_type: DIRECT
+    description: &gt;-
+      Frequent seizures together with abundant interictal epileptiform activity
+      constitute the epileptic encephalopathy itself, the clinical designation
+      of this mechanism.
 - name: Multiple Drug-Resistant Seizure Types
   description: &gt;-
     The clinical hallmark of LGS is the co-occurrence of several seizure types
@@ -6942,6 +7607,17 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  downstream:
+  - target: Intellectual Disability
+    causal_link_type: DIRECT
+    description: &gt;-
+      The developmental plateau or regression is expressed clinically as
+      intellectual disability in most affected children.
+  - target: Behavioral Abnormalities
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Hyperactivity, aggression, and autistic features accompany the cognitive
+      outcome and add to the disability burden.
 phenotypes:
 - name: Tonic Seizures
   description: &gt;-
@@ -7716,7 +8392,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lennox-Gastaut Syndrome", "mondoId": "MONDO:0016532", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lennox-Gastaut_Syndrome", "yamlRevision": "340ca8de5c8a"};
+        const OS_CONFIG = {"diseaseName": "Lennox-Gastaut Syndrome", "mondoId": "MONDO:0016532", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lennox-Gastaut_Syndrome", "yamlRevision": "561feadf778c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8135,5 +8811,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

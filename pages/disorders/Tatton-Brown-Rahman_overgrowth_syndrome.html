@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Tatton-Brown-Rahman overgrowth syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Tatton-Brown-Rahman overgrowth syndrome</h1>
             <div class="header-meta">
 
@@ -3875,6 +3997,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3884,9 +4076,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 30 &#34;Overgrowth (tall stature) syndromes with skeletal involvement&#34;; listed as &#34;Tatton-Brown-Rahman syndrome&#34;.">overgrowth syndromes with skeletal involvement</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3904,7 +4112,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3948,6 +4156,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s13148-024-01686-y" target="_blank">DOI:10.1186/s13148-024-01686-y</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4011,17 +4220,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves decreased DNMT3A (hgnc:2978). hgnc:2978 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DNMT3A
 
 
-    <a href="https://bioregistry.io/hgnc:2978" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2978</a>
+    <a href="https://bioregistry.io/hgnc:2978" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2978</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased DNMT3A (hgnc:2978). hgnc:2978 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4054,17 +4267,21 @@ This pathophysiological event involves decreased DNMT3A (hgnc:2978). hgnc:2978 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DNMT3A (hgnc:2978). hgnc:2978 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DNMT3A
 
 
-    <a href="https://bioregistry.io/hgnc:2978" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2978</a>
+    <a href="https://bioregistry.io/hgnc:2978" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2978</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNMT3A (hgnc:2978). hgnc:2978 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4134,6 +4351,7 @@ This pathophysiological event involves DNMT3A (hgnc:2978). hgnc:2978 is a gene f
                         <a href="https://bioregistry.io/DOI:10.1136/jmg-2024-110031" target="_blank">DOI:10.1136/jmg-2024-110031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4174,18 +4392,20 @@ This pathophysiological event involves DNMT3A (hgnc:2978). hgnc:2978 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4260,6 +4480,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
                         <a href="https://bioregistry.io/DOI:10.1186/s13148-024-01686-y" target="_blank">DOI:10.1186/s13148-024-01686-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4333,6 +4554,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
                         <a href="https://bioregistry.io/DOI:10.1186/s13148-024-01686-y" target="_blank">DOI:10.1186/s13148-024-01686-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4381,7 +4603,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distinctive facial features are part of the recognizable syndrome gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Altered epigenetic regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNMT3A dysfunction perturbs developmental epigenetic regulation and contributes to the growth and neurodevelopmental phenotype of TBRS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin organization\"]}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arrhythmias are part of the expanded cardiovascular phenotype in some TBRS families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiovascular developmental dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some pathogenic DNMT3A variants are associated with aortic disease, cardiomyopathy, and arrhythmias, expanding the disease mechanism beyond the core overgrowth phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DNMT3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causal heterozygous loss-of-function variant\"}}, {\"id\": \"DNMT3A loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline pathogenic DNMT3A variants reduce normal methyltransferase function, establishing the primary molecular lesion in Tatton-Brown-Rahman syndrome.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNMT3A\"], \"gene_terms\": [{\"label\": \"DNMT3A\", \"id\": \"hgnc:2978\", \"modifier\": \"DECREASED\"}, {\"label\": \"DNMT3A\", \"id\": \"hgnc:2978\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a universal or near-universal feature of TBRS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overgrowth is one of the defining and most common features of Tatton-Brown-Rahman syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001548\"}}], \"edges\": [{\"source\": \"DNMT3A loss of function\", \"target\": \"Altered epigenetic regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced DNMT3A activity perturbs developmental methylation and transcriptional programs.\"}, {\"source\": \"DNMT3A loss of function\", \"target\": \"Cardiovascular developmental dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DNMT3A dysfunction can disrupt cardiovascular development and maintenance in a subset of patients.\"}, {\"source\": \"Altered epigenetic regulation\", \"target\": \"Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered developmental methylation programs contribute to the overgrowth phenotype.\"}, {\"source\": \"Altered epigenetic regulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation contributes to the neurodevelopmental phenotype.\"}, {\"source\": \"Altered epigenetic regulation\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered developmental methylation programs perturb craniofacial development, producing the characteristic facial gestalt.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiovascular developmental dysfunction\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiovascular involvement can manifest with ventricular arrhythmias.\"}, {\"source\": \"DNMT3A\", \"target\": \"DNMT3A loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distinctive facial features are part of the recognizable syndrome gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Altered epigenetic regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNMT3A dysfunction perturbs developmental epigenetic regulation and contributes to the growth and neurodevelopmental phenotype of TBRS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin organization\"]}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arrhythmias are part of the expanded cardiovascular phenotype in some TBRS families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiovascular developmental dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some pathogenic DNMT3A variants are associated with aortic disease, cardiomyopathy, and arrhythmias, expanding the disease mechanism beyond the core overgrowth phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DNMT3A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNMT3A\"], \"gene_terms\": [{\"label\": \"DNMT3A\", \"id\": \"hgnc:2978\"}], \"association\": \"Causal heterozygous loss-of-function variant\"}}, {\"id\": \"DNMT3A loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline pathogenic DNMT3A variants reduce normal methyltransferase function, establishing the primary molecular lesion in Tatton-Brown-Rahman syndrome.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNMT3A\"], \"gene_terms\": [{\"label\": \"DNMT3A\", \"id\": \"hgnc:2978\", \"modifier\": \"DECREASED\"}, {\"label\": \"DNMT3A\", \"id\": \"hgnc:2978\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a universal or near-universal feature of TBRS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overgrowth is one of the defining and most common features of Tatton-Brown-Rahman syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001548\"}}], \"edges\": [{\"source\": \"DNMT3A loss of function\", \"target\": \"Altered epigenetic regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced DNMT3A activity perturbs developmental methylation and transcriptional programs.\"}, {\"source\": \"DNMT3A loss of function\", \"target\": \"Cardiovascular developmental dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DNMT3A dysfunction can disrupt cardiovascular development and maintenance in a subset of patients.\"}, {\"source\": \"Altered epigenetic regulation\", \"target\": \"Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered developmental methylation programs contribute to the overgrowth phenotype.\"}, {\"source\": \"Altered epigenetic regulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation contributes to the neurodevelopmental phenotype.\"}, {\"source\": \"Altered epigenetic regulation\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered developmental methylation programs perturb craniofacial development, producing the characteristic facial gestalt.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiovascular developmental dysfunction\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiovascular involvement can manifest with ventricular arrhythmias.\"}, {\"source\": \"DNMT3A\", \"target\": \"DNMT3A loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4425,16 +4647,20 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0011675</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.">
-                        Arrhythmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp">HP:0011675</a>
-
-
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4454,6 +4680,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s13148-024-01686-y" target="_blank">DOI:10.1186/s13148-024-01686-y</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4498,16 +4725,20 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is distinctive facial features, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
+This clinical feature is distinctive facial features, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4527,6 +4758,7 @@ This clinical feature is distinctive facial features, annotated with Abnormal fa
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1136/jmg-2024-110031" target="_blank">DOI:10.1136/jmg-2024-110031</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4571,16 +4803,20 @@ This clinical feature is distinctive facial features, annotated with Abnormal fa
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4600,6 +4836,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1136/jmg-2024-110031" target="_blank">DOI:10.1136/jmg-2024-110031</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4644,16 +4881,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001548</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from the Human Phenotype Ontology.">
-                        Overgrowth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" class="curie-chip curie-chip-hp">HP:0001548</a>
-
-
+This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4673,6 +4914,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1136/jmg-2024-110031" target="_blank">DOI:10.1136/jmg-2024-110031</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4747,6 +4989,28 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DNMT3A
+
+
+    <a href="https://bioregistry.io/hgnc:2978" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2978</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNMT3A (hgnc:2978). hgnc:2978 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4761,6 +5025,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1136/jmg-2024-110031" target="_blank">DOI:10.1136/jmg-2024-110031</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4783,6 +5048,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_c34cf649-4fbd-4184-9bef-34a780766aca-2023-06-08T060000.000Z" target="_blank">CGGV:assertion_c34cf649-4fbd-4184-9bef-34a780766aca-2023-06-08T060000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4814,6 +5080,9 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
 
@@ -4837,7 +5106,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-heyn-sproul-jackson-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Heyn-Sproul-Jackson_syndrome.html">Heyn-Sproul-Jackson syndrome</a>
@@ -4883,6 +5152,7 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fped.2023.1165638" target="_blank">DOI:10.3389/fped.2023.1165638</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4938,7 +5208,6 @@ This clinical feature is Overgrowth (HP:0001548). HP:0001548 is a phenotype from
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Tatton-Brown-Rahman overgrowth syndrome
 creation_date: &#34;2026-04-13T22:47:36Z&#34;
-updated_date: &#34;2026-04-14T14:35:00Z&#34;
 description: &gt;-
   Tatton-Brown-Rahman overgrowth syndrome is a DNMT3A-related epigenetic
   disorder characterized by overgrowth, intellectual disability, and
@@ -5124,6 +5393,11 @@ phenotypes:
     explanation: This directly supports arrhythmia as part of the cardiovascular phenotype in some TBRS patients.
 genetic:
 - name: DNMT3A
+  gene_term:
+    preferred_term: DNMT3A
+    term:
+      id: hgnc:2978
+      label: DNMT3A
   association: Causal heterozygous loss-of-function variant
   notes: &gt;-
     Tatton-Brown-Rahman syndrome is caused by germline pathogenic DNMT3A
@@ -5625,7 +5899,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tatton-Brown-Rahman overgrowth syndrome", "mondoId": "MONDO:0014382", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tatton-Brown-Rahman_overgrowth_syndrome", "yamlRevision": "7f2353c2fbb9"};
+        const OS_CONFIG = {"diseaseName": "Tatton-Brown-Rahman overgrowth syndrome", "mondoId": "MONDO:0014382", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tatton-Brown-Rahman_overgrowth_syndrome", "yamlRevision": "ad35ee1a3b7b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6044,5 +6318,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

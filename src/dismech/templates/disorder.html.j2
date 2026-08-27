@@ -135,6 +135,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -1352,6 +1366,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1425,6 +1454,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2689,6 +2733,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {{ entity_ref_kind_aliases | tojson }};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2697,7 +2755,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3444,6 +3502,9 @@
                     <span class="evidence-ref">
                         <a href="{{ ev.reference | curie_to_url }}" target="_blank">{{ ev.reference }}</a>
                     </span>
+                    {% if is_preprint(ev.reference) %}
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+                    {% endif %}
                     {% if ev.supports %}
                     <span class="evidence-support support-{{ ev.supports }}">{{ ev.supports }}</span>
                     {% endif %}
@@ -3759,6 +3820,25 @@
     {% endif %}
     {% endmacro %}
 
+    {# Orphanet prevalence bands read wrong when title-cased: BAND_1_5_PER_10000
+       renders as "Band 1 5 Per 10000" but *means* 1-9 per 10,000 (the schema
+       merges Orphanet's 1-5 and 6-9 classes into it), so the mechanical form
+       understates the range. Unmapped values fall back to it rather than
+       vanishing, so a new enum member still shows. #}
+    {% set PREVALENCE_CLASS_LABELS = {
+        "ABOVE_1_IN_1000": ">1 in 1,000",
+        "BAND_1_5_PER_10000": "1–9 per 10,000",
+        "BAND_1_9_PER_100000": "1–9 per 100,000",
+        "BAND_1_9_PER_1000000": "1–9 per 1,000,000",
+        "BELOW_1_IN_1000000": "<1 in 1,000,000",
+        "NOT_YET_DOCUMENTED": "Not yet documented",
+    } %}
+    {% macro render_prevalence_class(value) %}
+    {%- if value -%}
+    <span class="tag">{{ PREVALENCE_CLASS_LABELS.get(value) or (value | replace('_', ' ') | title) }}</span>
+    {%- endif -%}
+    {% endmacro %}
+
     {% macro render_entity_refs(title, refs) %}
     {% if refs %}
     <div class="experiment-section">
@@ -3768,6 +3848,19 @@
             {{ render_entity_ref(ref) }}
             {% endfor %}
         </div>
+    </div>
+    {% endif %}
+    {% endmacro %}
+
+    {% macro render_outcome_list(title, outcomes) %}
+    {% if outcomes %}
+    <div class="experiment-section">
+        <div class="experiment-section-title">{{ title }}</div>
+        <ul class="experiment-outcome-list">
+            {% for outcome in outcomes %}
+            <li>{{ outcome }}</li>
+            {% endfor %}
+        </ul>
     </div>
     {% endif %}
     {% endmacro %}
@@ -3800,6 +3893,9 @@
             <span class="tag tag-dataset">
                 <a href="{{ model.publication | curie_to_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ model.publication }} link</a>
             </span>
+            {% endif %}
+            {% if is_preprint(model.publication) %}
+            <span class="badge-preprint" title="This publication is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
             {% endif %}
         </div>
         {% if model.organism %}
@@ -3998,6 +4094,8 @@
         {% endif %}
         {{ render_entity_refs("Would support", experiment.would_support) }}
         {{ render_entity_refs("Would refute", experiment.would_refute) }}
+        {{ render_outcome_list("Supporting outcome", experiment.supporting_outcome) }}
+        {{ render_outcome_list("Refuting outcome", experiment.refuting_outcome) }}
         {% if experiment.protocol_reference %}
         <div class="mapping-notes">Protocol: {{ experiment.protocol_reference }}</div>
         {% endif %}
@@ -4051,6 +4149,64 @@
     {% endif %}
     {% if inheritance_item.parent_of_origin_effect %}
     <div class="item-desc"><strong>Parent-of-origin effect:</strong> {{ inheritance_item.parent_of_origin_effect }}</div>
+    {% endif %}
+    {% endmacro %}
+
+    {# ExternalAssertion is bound to both Variant and Disease, so its rendering
+       lives in a shared macro: variants call it inline (issue #8037/#8042) and
+       the disease-level "External Assertions" card calls it too (issue #8044).
+       External assertions are not pathograph nodes -- dismech.graph emits none
+       -- so the cards carry a stable anchor id but no data-dismech-node pair. #}
+    {% macro render_external_assertion_body(assertion) %}
+    {% if assertion.name %}
+    <div class="item-name">{{ assertion.name }}</div>
+    {% endif %}
+    <div class="item-meta">
+        {% if assertion.source %}
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
+        {% endif %}
+        {% if assertion.assertion_type %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
+        {% endif %}
+        {% if assertion.external_id %}
+        {% set assertion_id = assertion.external_id | string %}
+        {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
+        {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
+        <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion_id }}">{{ assertion_id }}</a>
+        {% elif is_curie(assertion_id) %}
+        {# No usable URL, but a CURIE goes through the same `curie_to_url` every
+           other identifier chip on the page uses -- ORPHA:558 and OMIM:154700
+           should not be dead grey text. Neither prefix is in the schema prefix
+           map, so both take that helper's bioregistry fallback, which is also
+           how they already render as evidence references further down. #}
+        {{ render_curie_link(assertion_id) }}
+        {% else %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion_id }}</span>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% if assertion.description %}
+    <div class="item-desc">{{ assertion.description }}</div>
+    {% endif %}
+    {# `notes` often records how the external record's scope differs from this
+       entry's -- a lump/split caveat that contradicts the description if the
+       reader only sees the description. #}
+    {% if assertion.notes %}
+    <div class="mapping-notes">{{ assertion.notes }}</div>
+    {% endif %}
+    {{ render_evidence(assertion.evidence) }}
+    {% endmacro %}
+
+    {% macro render_external_assertions_block(assertions) %}
+    {% if assertions %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">External assertions</div>
+        {% for assertion in assertions %}
+        <div class="variant-effect">
+            {{ render_external_assertion_body(assertion) }}
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
     {% endmacro %}
 
@@ -4143,38 +4299,7 @@
         {% endfor %}
     </div>
     {% endif %}
-    {% if variant.external_assertions %}
-    <div class="crosslink-block">
-        <div class="crosslink-title">External assertions</div>
-        {% for assertion in variant.external_assertions %}
-        <div class="variant-effect">
-            {% if assertion.name %}
-            <div class="item-name">{{ assertion.name }}</div>
-            {% endif %}
-            <div class="item-meta">
-                {% if assertion.source %}
-                <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
-                {% endif %}
-                {% if assertion.assertion_type %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
-                {% endif %}
-                {% if assertion.external_id %}
-                {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
-                {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
-                <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion.external_id }}">{{ assertion.external_id }}</a>
-                {% else %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.external_id }}</span>
-                {% endif %}
-                {% endif %}
-            </div>
-            {% if assertion.description %}
-            <div class="item-desc">{{ assertion.description }}</div>
-            {% endif %}
-            {{ render_evidence(assertion.evidence) }}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+    {{ render_external_assertions_block(variant.external_assertions) }}
     {{ render_evidence(variant.evidence) }}
     {% endmacro %}
 
@@ -4218,7 +4343,7 @@
             <span>{{ disorder.name }}</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>{{ disorder.name }}</h1>
             <div class="header-meta">
                 {% if disorder.category %}
@@ -4561,64 +4686,48 @@
 
         <!-- Classifications -->
         {% if disorder.classifications %}
+        {# Slots whose values are mechanism/pathway statements rather than nosology #}
+        {# placements; styled differently, as they were before this became a loop.  #}
+        {% set mechanistic_slots = ['mechanistic_category', 'lysosomal_storage_category', 'channelopathy_category'] %}
+        {% set groups_with_content = [] %}
+        {% for group in classification_spec %}
+        {% set present = [] %}
+        {% for member in group.members %}
+        {% if disorder.classifications.get(member.slot) %}{% set _ = present.append(member) %}{% endif %}
+        {% endfor %}
+        {% if present %}{% set _ = groups_with_content.append({'label': group.label, 'members': present, 'multi': group.members | length > 1}) %}{% endif %}
+        {% endfor %}
+        {% if groups_with_content %}
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            {% if disorder.classifications.harrisons_chapter %}
+            {# Driven by classification_spec, derived from DiseaseClassifications in the   #}
+            {# schema, so a newly added classification slot renders with no template edit. #}
+            {# Labels are the slots' LinkML `title`; nesting follows their `slot_group`.   #}
+            {% for group in groups_with_content %}
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">{{ group.label }}</div>
+                {% for member in group.members %}
+                {% set entry = disorder.classifications[member.slot] %}
+                {% set items = entry if entry is sequence and entry is not mapping else [entry] %}
                 <div class="tag-list">
-                    {% for hc in disorder.classifications.harrisons_chapter %}
-                    <span class="tag tag-classification">{{ hc.classification_value }}</span>
+                    {# A grouped slot needs its own sub-label; a lone slot would just #}
+                    {# repeat the group heading it is the sole member of.             #}
+                    {% if group.multi %}
+                    <span style="font-size: 0.78rem; color: #6b7280;">{{ member.label }}</span>
+                    {% endif %}
+                    {% for item in items %}
+                    {% set value = item.classification_value %}
+                    <span class="tag {{ 'tag-mechanistic' if member.slot in mechanistic_slots else 'tag-classification' }}"{% if item.notes %} title="{{ item.notes }}"{% endif %}>{{ value | replace('_', ' ') }}{% if value is string and value.startswith('suspected_') %} (Annex II — suspected){% endif %}</span>
                     {% endfor %}
                 </div>
+                {% endfor %}
             </div>
-            {% endif %}
-            {% if disorder.classifications.mechanistic_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Mechanistic Nosology</div>
-                <div class="tag-list">
-                    {% for mc in disorder.classifications.mechanistic_category %}
-                    <span class="tag tag-mechanistic">{{ mc.classification_value }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.icdo_morphology %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">ICD-O Morphology</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.icdo_morphology.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.lysosomal_storage_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Lysosomal Storage</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.lysosomal_storage_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.iuis_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">IUIS Category</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.iuis_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.channelopathy_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Channelopathy</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.channelopathy_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
 
         <!-- Mappings -->
@@ -4858,7 +4967,7 @@
                 <span class="card-count">{{ disorder.definitions | length }}</span>
             </div>
             {% for definition in disorder.definitions %}
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target"{% if definition._anchor_id %} id="{{ definition._anchor_id }}"{% endif %}>
                 <div class="item-name">{{ definition.name }}</div>
                 {% if definition.description %}
                 <div class="item-desc">{{ definition.description }}</div>
@@ -4922,7 +5031,7 @@
                 <span class="card-count">{{ disorder.inheritance | length }}</span>
             </div>
             {% for inheritance_item in disorder.inheritance %}
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target"{% if inheritance_item._anchor_id %} id="{{ inheritance_item._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ inheritance_item.name }}
                     {% if inheritance_item.inheritance_term and inheritance_item.inheritance_term.term %}
@@ -4968,7 +5077,7 @@
                 {% set subtype_term_id = subtype.subtype_term.term.id if subtype.subtype_term and subtype.subtype_term.term and subtype.subtype_term.term.id else None %}
                 {% set subtype_mondo_mappings = subtype.mappings.mondo_mappings if subtype.mappings and subtype.mappings.mondo_mappings else [] %}
                 {% set subtype_ncit_mappings = subtype.mappings.ncit_mappings if subtype.mappings and subtype.mappings.ncit_mappings else [] %}
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target"{% if subtype._anchor_id %} id="{{ subtype._anchor_id }}"{% endif %}>
                     {% set subtype_display = subtype.display_name or subtype.name %}
                     <div class="item-name">
                         {{ subtype_display }}
@@ -5503,7 +5612,7 @@
                 <span class="card-count">{{ disorder.histopathology | length }}</span>
             </div>
             {% for histo in disorder.histopathology %}
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target"{% if histo._anchor_id %} id="{{ histo._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ histo.name }}
                     {% if histo.frequency %}
@@ -5591,8 +5700,19 @@
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
                     {% set tooltip = term_tooltip(pheno.phenotype_term, "phenotype.phenotype_term") %}
                     {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    {# The card title is curator free text and the bound term carries
+                       its own label, so the two routinely say the same thing (issue
+                       #8402). Drop the label when the title already says it -- the
+                       CURIE chip and its tooltip still name the term -- and show it
+                       as its own muted pill when it does add something, so it can
+                       never read as the second half of the title. The bare `term.id`
+                       fallback is gone with it: the chip beside it already is the ID.
+                       See `dismech.term_labels` for what "already says it" means. #}
+                    {% set pheno_term_label = pheno.phenotype_term.term.label %}
                     <span class="phenotype-id">
-                        {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
+                        {% if pheno_term_label and not label_restates_title(pheno.name, pheno_term_label) %}
+                        <span class="phenotype-term-label">{{ pheno_term_label }}</span>
+                        {% endif %}
                         {{ render_curie_link(pheno.phenotype_term.term.id, describedby=tip_id) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
@@ -5756,6 +5876,22 @@
             </div>
             {% for variant in disorder.variants %}
             {{ render_variant_card(variant) }}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
+        {% if disorder.external_assertions %}
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">{{ disorder.external_assertions | length }}</span>
+            </div>
+            {% for assertion in disorder.external_assertions %}
+            <div class="item-box anchor-target"{% if assertion._anchor_id %} id="{{ assertion._anchor_id }}"{% endif %}>
+                {{ render_external_assertion_body(assertion) }}
+            </div>
             {% endfor %}
         </div>
         {% endif %}
@@ -6029,6 +6165,32 @@
                     {% endif %}
                 </div>
                 {% endif %}
+                {# Exposure/agent-level classifications: hazard type, route, duration, IARC group, #}
+                {# GHS class, exposome domain. These classify the AGENT, not the disease, which is #}
+                {# why they render on the exposure card rather than in the Classifications card. #}
+                {% if env.exposure_classifications %}
+                {% set exposure_axes = [
+                    ("Hazard type", env.exposure_classifications.hazard_agent_type),
+                    ("Route", env.exposure_classifications.exposure_route),
+                    ("Duration", env.exposure_classifications.exposure_duration),
+                    ("IARC group", env.exposure_classifications.iarc_carcinogen_group),
+                    ("GHS hazard class", env.exposure_classifications.ghs_health_hazard_class),
+                    ("Exposome domain", env.exposure_classifications.exposome_domain)
+                ] %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    {% for axis_label, axis_value in exposure_axes %}
+                    {% if axis_value %}
+                    {% set axis_items = axis_value if axis_value is sequence and axis_value is not mapping else [axis_value] %}
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">{{ axis_label }}:</strong>
+                        {% for assignment in axis_items %}
+                        <span class="tag tag-classification"{% if assignment.notes %} title="{{ assignment.notes }}"{% endif %}>{{ assignment.classification_value | replace('_', ' ') }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
                 {% if env.notes %}
                 <div class="item-desc">{{ env.notes }}</div>
                 {% endif %}
@@ -6218,6 +6380,360 @@
         </div>
         {% endif %}
 
+        <!-- Diagnosis -->
+        {% if disorder.diagnosis %}
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">{{ disorder.diagnosis | length }}</span>
+            </div>
+            {% for dx in disorder.diagnosis %}
+            <div class="item-box anchor-target"{% if dx._anchor_id %} id="{{ dx._anchor_id }}"{% endif %}>
+                <div class="item-name">
+                    {{ dx.name }}
+                    {% if dx.presence %}
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">({{ dx.presence }})</span>
+                    {% endif %}
+                </div>
+                {% if dx.description %}
+                <div class="item-desc">{{ dx.description }}</div>
+                {% endif %}
+                {{ render_descriptor_tag(dx.diagnosis_term, "tag-treatment") }}
+                {# `markers` is `range: string` and not multivalued -- passing it to
+                   render_descriptor_tags iterates it per character and renders
+                   nothing. Text, like the sibling `results` slot. #}
+                {% if dx.markers %}
+                <div class="item-desc"><strong>Markers:</strong> {{ dx.markers }}</div>
+                {% endif %}
+                {% if dx.results %}
+                <div class="item-desc"><strong>Results:</strong> {{ dx.results }}</div>
+                {% endif %}
+                {% if dx.notes %}
+                <div class="item-notes">{{ dx.notes }}</div>
+                {% endif %}
+                {{ render_evidence(dx.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Imaging Findings -->
+        {% if disorder.imaging_findings %}
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">{{ disorder.imaging_findings | length }}</span>
+            </div>
+            {% for finding in disorder.imaging_findings %}
+            <div class="item-box anchor-target"{% if finding._anchor_id %} id="{{ finding._anchor_id }}"{% endif %}>
+                <div class="item-name">
+                    {{ finding.name }}
+                    {% if finding.frequency %}
+                    <span class="histopathology-freq">{{ finding.frequency }}</span>
+                    {% endif %}
+                </div>
+                {% if finding.description %}
+                <div class="item-desc">{{ finding.description }}</div>
+                {% endif %}
+                <div class="item-meta">
+                    {% if finding.modality %}
+                    <span class="tag tag-classification">{{ finding.modality | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if finding.diagnostic %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+                    {% endif %}
+                    {% if finding.laterality %}
+                    <span class="tag">{{ finding.laterality | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if finding.spatial_extent %}
+                    <span class="tag">{{ finding.spatial_extent | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if finding.subtype %}
+                    <span class="tag tag-subtype">{{ finding.subtype }}</span>
+                    {% endif %}
+                    {% if finding.context %}
+                    <span class="tag">{{ finding.context }}</span>
+                    {% endif %}
+                </div>
+                {{ render_descriptor_tag(finding.imaging_finding_term, "tag-bio") }}
+                {{ render_descriptor_tag(finding.located_in, "tag-anatomy") }}
+                {{ render_descriptor_tag(finding.phenotype_term, "tag-phenotype") }}
+                {% if finding.notes %}
+                <div class="item-notes">{{ finding.notes }}</div>
+                {% endif %}
+                {{ render_evidence(finding.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Progression -->
+        {% if disorder.progression %}
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">{{ disorder.progression | length }}</span>
+            </div>
+            {% for phase in disorder.progression %}
+            <div class="item-box anchor-target"{% if phase._anchor_id %} id="{{ phase._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ phase.phase }}</div>
+                <div class="item-meta">
+                    {% if phase.subtype %}
+                    <span class="tag tag-subtype">{{ phase.subtype }}</span>
+                    {% endif %}
+                    {% if phase.age_range %}
+                    <span class="tag">Age: {{ phase.age_range }}</span>
+                    {% endif %}
+                    {% if phase.duration %}
+                    <span class="tag">Duration: {{ phase.duration }}</span>
+                    {% elif phase.duration_days %}
+                    <span class="tag">Duration: {{ phase.duration_days }} days</span>
+                    {% endif %}
+                    {% if phase.incubation_days %}
+                    <span class="tag">Incubation: {{ phase.incubation_days }} days</span>
+                    {% elif phase.incubation_years %}
+                    <span class="tag">Incubation: {{ phase.incubation_years }} years</span>
+                    {% endif %}
+                </div>
+                {% if phase.notes %}
+                <div class="item-notes">{{ phase.notes }}</div>
+                {% endif %}
+                {{ render_evidence(phase.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Stages -->
+        {% if disorder.stages %}
+        <div class="card" id="stages">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">🪜</div>
+                <h2 class="card-title">Stages</h2>
+                <span class="card-count">{{ disorder.stages | length }}</span>
+            </div>
+            {% for stage in disorder.stages %}
+            <div class="item-box anchor-target"{% if stage._anchor_id %} id="{{ stage._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ stage.name }}</div>
+                {% if stage.description %}
+                <div class="item-desc">{{ stage.description }}</div>
+                {% endif %}
+                {% if stage.role %}
+                <div class="item-meta"><span class="tag tag-classification">{{ stage.role }}</span></div>
+                {% endif %}
+                {% if stage.substages %}
+                <div class="item-meta">
+                    {% for substage in stage.substages %}
+                    {# Guarded rather than `substage.name or substage`, which prints
+                       a raw dict for a nameless entry -- the shape of the
+                       food_source bug found in review of this PR. #}
+                    {% if substage is string %}
+                    <span class="tag">{{ substage }}</span>
+                    {% elif substage.name %}
+                    <span class="tag">{{ substage.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if stage.pathophysiology %}
+                <div class="item-meta">
+                    {% for node in stage.pathophysiology %}
+                    {% if node.name %}
+                    <span class="tag tag-bio">{{ node.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if stage.notes %}
+                <div class="item-notes">{{ stage.notes }}</div>
+                {% endif %}
+                {{ render_evidence(stage.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Prevalence -->
+        {% if disorder.prevalence %}
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">{{ disorder.prevalence | length }}</span>
+            </div>
+            {% for rec in disorder.prevalence %}
+            <div class="item-box anchor-target"{% if rec._anchor_id %} id="{{ rec._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ rec.population or 'Unspecified population' }}</div>
+                <div class="item-meta">
+                    {% if rec.measure_type %}
+                    <span class="tag tag-classification">{{ rec.measure_type | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {# `.get()` rather than `rec.rate_per_100000 is not none`: a
+                       missing key is Jinja's Undefined, which *passes* an
+                       `is not none` test and renders an empty number while
+                       suppressing the percentage fallback below. #}
+                    {% if rec.get('rate_per_100000') is not none %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        {{ rec.rate_per_100000 }} per 100,000
+                        {%- if rec.get('rate_low') is not none and rec.get('rate_high') is not none %}
+                        ({{ rec.rate_low }}&ndash;{{ rec.rate_high }})
+                        {%- elif rec.get('rate_high') is not none %}
+                        (up to {{ rec.rate_high }})
+                        {%- elif rec.get('rate_low') is not none %}
+                        (from {{ rec.rate_low }})
+                        {%- endif %}
+                    </span>
+                    {# 273 records carry a range and no point rate, so this has to
+                       be a sibling branch rather than nested in the one above. #}
+                    {% elif rec.get('rate_low') is not none or rec.get('rate_high') is not none %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        {%- if rec.get('rate_low') is not none and rec.get('rate_high') is not none -%}
+                        {{ rec.rate_low }}&ndash;{{ rec.rate_high }}
+                        {%- elif rec.get('rate_low') is not none -%}
+                        &ge;{{ rec.rate_low }}
+                        {%- else -%}
+                        &le;{{ rec.rate_high }}
+                        {%- endif %} per 100,000
+                    </span>
+                    {% elif rec.percentage %}
+                    <span class="tag">{{ rec.percentage }}</span>
+                    {% endif %}
+                    {{ render_prevalence_class(rec.prevalence_class) }}
+                    {% if rec.subtype %}
+                    <span class="tag tag-subtype">{{ rec.subtype }}</span>
+                    {% endif %}
+                </div>
+                {% if rec.notes %}
+                <div class="item-notes">{{ rec.notes }}</div>
+                {% endif %}
+                {{ render_evidence(rec.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Epidemiology -->
+        {% if disorder.epidemiology %}
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">{{ disorder.epidemiology | length }}</span>
+            </div>
+            {% for epi in disorder.epidemiology %}
+            <div class="item-box anchor-target"{% if epi._anchor_id %} id="{{ epi._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ epi.name }}</div>
+                {% if epi.description %}
+                <div class="item-desc">{{ epi.description }}</div>
+                {% endif %}
+                <div class="item-meta">
+                    {% if epi.mean_range %}
+                    <span class="tag">{{ epi.mean_range }}{% if epi.unit %} {{ epi.unit }}{% endif %}</span>
+                    {% elif epi.get('minimum_value') is not none or epi.get('maximum_value') is not none %}
+                    <span class="tag">
+                        {{ epi.minimum_value if epi.get('minimum_value') is not none else '?' }}&ndash;{{ epi.maximum_value if epi.get('maximum_value') is not none else '?' }}
+                        {%- if epi.unit %} {{ epi.unit }}{% endif %}
+                    </span>
+                    {% endif %}
+                    {% for factor in epi.factors or [] %}
+                    <span class="tag">{{ factor }}</span>
+                    {% endfor %}
+                </div>
+                {% if epi.notes %}
+                <div class="item-notes">{{ epi.notes }}</div>
+                {% endif %}
+                {{ render_evidence(epi.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Infectious Agent -->
+        {% if disorder.infectious_agent %}
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">{{ disorder.infectious_agent | length }}</span>
+            </div>
+            {% for agent in disorder.infectious_agent %}
+            <div class="item-box anchor-target"{% if agent._anchor_id %} id="{{ agent._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ agent.name }}</div>
+                {% if agent.description %}
+                <div class="item-desc">{{ agent.description }}</div>
+                {% endif %}
+                {{ render_descriptor_tag(agent.infectious_agent_term, "tag-bio") }}
+                {% if agent.has_subtypes %}
+                <div class="item-meta">
+                    {% for sub in agent.has_subtypes %}
+                    {% if sub is string %}
+                    <span class="tag tag-subtype">{{ sub }}</span>
+                    {% elif sub.name %}
+                    <span class="tag tag-subtype">{{ sub.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if agent.food_source %}
+                <div class="item-desc"><strong>Food source:</strong> {{ render_descriptor_tag(agent.food_source, "tag-bio") }}</div>
+                {% endif %}
+                {{ render_evidence(agent.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Transmission -->
+        {% if disorder.transmission %}
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">{{ disorder.transmission | length }}</span>
+            </div>
+            {% for route in disorder.transmission %}
+            <div class="item-box anchor-target"{% if route._anchor_id %} id="{{ route._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ route.name }}</div>
+                {% if route.description %}
+                <div class="item-desc">{{ route.description }}</div>
+                {% endif %}
+                {% if route.effect %}
+                <div class="item-meta"><span class="tag">{{ route.effect }}</span></div>
+                {% endif %}
+                {% if route.notes %}
+                <div class="item-notes">{{ route.notes }}</div>
+                {% endif %}
+                {{ render_evidence(route.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Clinical Burden -->
+        {% if disorder.clinical_burden %}
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+                {% if disorder.clinical_burden.burden_level %}
+                <div class="item-name">{{ disorder.clinical_burden.burden_level | replace('_', ' ') | title }}</div>
+                {% endif %}
+                {% if disorder.clinical_burden.rationale %}
+                <div class="item-desc">{{ disorder.clinical_burden.rationale }}</div>
+                {% endif %}
+                {% if disorder.clinical_burden.notes %}
+                <div class="item-notes">{{ disorder.clinical_burden.notes }}</div>
+                {% endif %}
+                {{ render_evidence(disorder.clinical_burden.evidence) }}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Differential Diagnoses -->
         {% if disorder.differential_diagnoses %}
         <div class="card" id="differentials">
@@ -6232,7 +6748,7 @@
             {% for diff in disorder.differential_diagnoses %}
             {% set diff_term_id = diff.disease_term.term.id if diff.disease_term and diff.disease_term.term and diff.disease_term.term.id else None %}
             {% set diff_has_local_page = (diff_term_id | has_local_disorder_page) if diff_term_id else False %}
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target"{% if diff._anchor_id %} id="{{ diff._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {% if diff.dismech_page_href %}
                     <a class="item-name-link" href="{{ diff.dismech_page_href }}">{{ diff.name }}</a>
@@ -6285,7 +6801,7 @@
                 <span class="card-count">{{ disorder.datasets | length }}</span>
             </div>
             {% for ds in disorder.datasets %}
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target"{% if ds._anchor_id %} id="{{ ds._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ ds.title }}
                     {% if ds.accession %}
@@ -6378,7 +6894,7 @@
                 <span class="card-count">{{ disorder.clinical_trials | length }}</span>
             </div>
             {% for trial in disorder.clinical_trials %}
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target"{% if trial._anchor_id %} id="{{ trial._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ trial.name }}
                     {% if trial.phase %}

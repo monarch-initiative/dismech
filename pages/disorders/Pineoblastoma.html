@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Pineoblastoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Pineoblastoma</h1>
             <div class="header-meta">
 
@@ -3911,34 +4033,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Embryonal Neoplasm</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4040,7 +4249,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pb-mirna1">
 
                     <div class="item-name">
                         PB-miRNA1
@@ -4053,33 +4262,37 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DICER1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17098</a>
+    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:17098</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DROSHA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17904</a>
+    <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:17904</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4106,6 +4319,7 @@ This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41291966" target="_blank">PMID:41291966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4127,6 +4341,7 @@ This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39992227" target="_blank">PMID:39992227</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4154,7 +4369,7 @@ This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pb-mirna2">
 
                     <div class="item-name">
                         PB-miRNA2
@@ -4167,48 +4382,54 @@ This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DICER1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17098</a>
+    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:17098</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DROSHA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17904</a>
+    <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:17904</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DROSHA (hgnc:17904). hgnc:17904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DGCR8 (hgnc:2847). hgnc:2847 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DGCR8
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2847</a>
+    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2847</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DGCR8 (hgnc:2847). hgnc:2847 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4235,6 +4456,7 @@ This subtype is caused by variation in DGCR8 (hgnc:2847). hgnc:2847 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41291966" target="_blank">PMID:41291966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4256,6 +4478,7 @@ This subtype is caused by variation in DGCR8 (hgnc:2847). hgnc:2847 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41291966" target="_blank">PMID:41291966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4283,7 +4506,7 @@ This subtype is caused by variation in DGCR8 (hgnc:2847). hgnc:2847 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pb-myc-foxr2">
 
                     <div class="item-name">
                         PB-MYC/FOXR2
@@ -4296,18 +4519,20 @@ This subtype is caused by variation in DGCR8 (hgnc:2847). hgnc:2847 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in FOXR2 (hgnc:30469). hgnc:30469 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 FOXR2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:30469" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30469</a>
+    <a href="https://bioregistry.io/hgnc:30469" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:30469</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FOXR2 (hgnc:30469). hgnc:30469 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4334,6 +4559,7 @@ This subtype is caused by variation in FOXR2 (hgnc:30469). hgnc:30469 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41291966" target="_blank">PMID:41291966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4355,6 +4581,7 @@ This subtype is caused by variation in FOXR2 (hgnc:30469). hgnc:30469 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31802236" target="_blank">PMID:31802236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4382,7 +4609,7 @@ This subtype is caused by variation in FOXR2 (hgnc:30469). hgnc:30469 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pb-rb1">
 
                     <div class="item-name">
                         PB-RB1
@@ -4395,18 +4622,20 @@ This subtype is caused by variation in FOXR2 (hgnc:30469). hgnc:30469 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 RB1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:9884</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4433,6 +4662,7 @@ This subtype is caused by variation in RB1 (hgnc:9884). hgnc:9884 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41291966" target="_blank">PMID:41291966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4454,6 +4684,7 @@ This subtype is caused by variation in RB1 (hgnc:9884). hgnc:9884 is a gene from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31768671" target="_blank">PMID:31768671</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4510,18 +4741,20 @@ This subtype is caused by variation in RB1 (hgnc:9884). hgnc:9884 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pinealocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl">CL:0000652</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000652</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4549,17 +4782,21 @@ This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DICER1
 
 
-    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17098</a>
+    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:17098</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4584,17 +4821,21 @@ This pathophysiological event involves DICER1 (hgnc:17098). hgnc:17098 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DROSHA (hgnc:17904). hgnc:17904 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DROSHA
 
 
-    <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17904</a>
+    <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:17904</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DROSHA (hgnc:17904). hgnc:17904 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4619,17 +4860,21 @@ This pathophysiological event involves DROSHA (hgnc:17904). hgnc:17904 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DGCR8 (hgnc:2847). hgnc:2847 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DGCR8
 
 
-    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2847</a>
+    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:2847</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DGCR8 (hgnc:2847). hgnc:2847 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4661,18 +4906,20 @@ This pathophysiological event involves DGCR8 (hgnc:2847). hgnc:2847 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:0001905 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pineal body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001905" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001905</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001905" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001905</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:0001905 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4710,6 +4957,7 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31768671" target="_blank">PMID:31768671</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4731,6 +4979,7 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41291966" target="_blank">PMID:41291966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4765,18 +5014,20 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pinealocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl">CL:0000652</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000652</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4807,18 +5058,20 @@ This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:0001905 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pineal body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001905" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001905</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001905" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001905</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:0001905 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4856,6 +5109,7 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40240142" target="_blank">PMID:40240142</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4889,18 +5143,20 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pinealocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl">CL:0000652</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000652" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000652</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4928,18 +5184,20 @@ This pathophysiological event involves pinealocyte (CL:0000652). CL:0000652 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4960,18 +5218,20 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cell differentiation (GO:0030154). GO:0030154 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go">GO:0030154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell differentiation (GO:0030154). GO:0030154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4999,18 +5259,20 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:0001905 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pineal body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001905" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001905</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001905" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0001905</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:0001905 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5033,6 +5295,7 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40240142" target="_blank">PMID:40240142</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5054,6 +5317,7 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40240142" target="_blank">PMID:40240142</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5095,17 +5359,21 @@ This pathophysiological event occurs in pineal body (UBERON:0001905). UBERON:000
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RB1
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:9884</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5134,18 +5402,20 @@ This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cell cycle checkpoint signaling (GO:0000075). GO:0000075 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell cycle checkpoint signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go">GO:0000075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0000075</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell cycle checkpoint signaling (GO:0000075). GO:0000075 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5166,18 +5436,20 @@ This pathophysiological event involves decreased cell cycle checkpoint signaling
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal G1/S transition of mitotic cell cycle (GO:0000082). GO:0000082 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         G1/S transition of mitotic cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go">GO:0000082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0000082</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal G1/S transition of mitotic cell cycle (GO:0000082). GO:0000082 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5220,6 +5492,7 @@ This pathophysiological event involves abnormal G1/S transition of mitotic cell 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31768671" target="_blank">PMID:31768671</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5260,17 +5533,21 @@ This pathophysiological event involves abnormal G1/S transition of mitotic cell 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves FOXR2 (hgnc:30469). hgnc:30469 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FOXR2
 
 
-    <a href="https://bioregistry.io/hgnc:30469" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30469</a>
+    <a href="https://bioregistry.io/hgnc:30469" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:30469</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXR2 (hgnc:30469). hgnc:30469 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5299,18 +5576,20 @@ This pathophysiological event involves FOXR2 (hgnc:30469). hgnc:30469 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5353,6 +5632,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31802236" target="_blank">PMID:31802236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5393,17 +5673,21 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         OTX2
 
 
-    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8522</a>
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:8522</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5432,18 +5716,20 @@ This pathophysiological event involves OTX2 (hgnc:8522). hgnc:8522 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5486,6 +5772,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41291966" target="_blank">PMID:41291966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5521,7 +5808,7 @@ This pathophysiological event involves increased cell population proliferation (
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-pineoblastoma-histology">
                 <div class="item-name">
                     Pineoblastoma Histology
 
@@ -5544,6 +5831,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11767290" target="_blank">PMID:11767290</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5568,7 +5856,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-homer-wright-rosettes">
                 <div class="item-name">
                     Homer Wright Rosettes
 
@@ -5589,6 +5877,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6986979" target="_blank">PMID:6986979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5613,7 +5902,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-flexner-wintersteiner-rosettes">
                 <div class="item-name">
                     Flexner-Wintersteiner Rosettes
 
@@ -5634,6 +5923,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11767290" target="_blank">PMID:11767290</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5658,7 +5948,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-fleurette-formation">
                 <div class="item-name">
                     Fleurette Formation
 
@@ -5679,6 +5969,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11767290" target="_blank">PMID:11767290</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5725,7 +6016,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"DGCR8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Somatic Alterations\"}}, {\"id\": \"DICER1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Germline and Somatic Alterations\"}}, {\"id\": \"DROSHA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Germline and Somatic Alterations\"}}, {\"id\": \"FOXR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Oncogenic Overexpression\"}}, {\"id\": \"FOXR2 Oncogenic Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct pineoblastoma subgroup is driven by FOXR2 overexpression, indicating FOXR2-centered oncogenic transcriptional activation rather than microRNA-processing or RB1 loss as the dominant causal program.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"FOXR2\"], \"gene_terms\": [{\"label\": \"FOXR2\", \"id\": \"hgnc:30469\"}], \"subtypes\": [\"PB-MYC/FOXR2\"]}}, {\"id\": \"Mature microRNA Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in DROSHA or DICER1 reduce mature microRNA abundance, including the let-7/miR-98-5p family, and derepress microRNA target genes in developing pineal cells. This establishes a direct post-transcriptional mechanism that precedes the developmental and proliferative abnormalities of microRNA-defective pineoblastoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pinealocyte\"], \"subtypes\": [\"PB-miRNA1\", \"PB-miRNA2\"], \"locations\": [\"pineal body\"]}}, {\"id\": \"MicroRNA-Processing Pathway Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A major pineoblastoma disease program involves recurrent disruption of the microRNA-processing machinery, especially DICER1, DROSHA, and DGCR8. This program defines the PB-miRNA consensus subgroups and links pineoblastoma to germline cancer predisposition contexts involving microRNA biogenesis genes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pinealocyte\"], \"genes\": [\"DICER1\", \"DROSHA\", \"DGCR8\"], \"gene_terms\": [{\"label\": \"DICER1\", \"id\": \"hgnc:17098\"}, {\"label\": \"DROSHA\", \"id\": \"hgnc:17904\"}, {\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}], \"subtypes\": [\"PB-miRNA1\", \"PB-miRNA2\"], \"locations\": [\"pineal body\"]}}, {\"id\": \"OTX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Copy-Number Gain\"}}, {\"id\": \"OTX2 Copy-Number Gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OTX2 gain is a frequent recurrent event across pineoblastoma subtypes, supporting a subtype-spanning oncogenic role for OTX2 in pineoblastoma pathogenesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"OTX2\"], \"gene_terms\": [{\"label\": \"OTX2\", \"id\": \"hgnc:8522\"}]}}, {\"id\": \"Proliferation-Differentiation Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MicroRNA-defective pineoblastoma develops when proliferative programs remain active while pinealocyte maturation fails to complete. This imbalance links the microRNA-processing defect to the embryonal, poorly differentiated tumor state.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pinealocyte\"], \"biological_processes\": [\"cell population proliferation\", \"cell differentiation\"], \"subtypes\": [\"PB-miRNA1\", \"PB-miRNA2\"], \"locations\": [\"pineal body\"]}}, {\"id\": \"RB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Germline and Somatic Alterations\"}}, {\"id\": \"RB1 Pathway Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RB1 loss defines an aggressive pineoblastoma program that overlaps with trilateral retinoblastoma biology. This mechanism removes G1/S checkpoint control and underlies the RB1-associated pineoblastoma subgroup.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell cycle checkpoint signaling\", \"G1/S transition of mitotic cell cycle\"], \"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}], \"subtypes\": [\"PB-RB1\"]}}], \"edges\": [{\"source\": \"MicroRNA-Processing Pathway Inactivation\", \"target\": \"Mature microRNA Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of DICER1 or DROSHA function reduces mature microRNA output\"}, {\"source\": \"Mature microRNA Depletion\", \"target\": \"Proliferation-Differentiation Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mature microRNAs derepresses programs that sustain embryonic proliferation\"}, {\"source\": \"DICER1\", \"target\": \"MicroRNA-Processing Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DROSHA\", \"target\": \"MicroRNA-Processing Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DGCR8\", \"target\": \"MicroRNA-Processing Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RB1\", \"target\": \"RB1 Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXR2\", \"target\": \"FOXR2 Oncogenic Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTX2\", \"target\": \"OTX2 Copy-Number Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"DGCR8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"DGCR8\"], \"gene_terms\": [{\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}], \"association\": \"Somatic Alterations\"}}, {\"id\": \"DICER1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"DICER1\"], \"gene_terms\": [{\"label\": \"DICER1\", \"id\": \"hgnc:17098\"}], \"association\": \"Germline and Somatic Alterations\"}}, {\"id\": \"DROSHA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"DROSHA\"], \"gene_terms\": [{\"label\": \"DROSHA\", \"id\": \"hgnc:17904\"}], \"association\": \"Germline and Somatic Alterations\"}}, {\"id\": \"FOXR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"FOXR2\"], \"gene_terms\": [{\"label\": \"FOXR2\", \"id\": \"hgnc:30469\"}], \"association\": \"Oncogenic Overexpression\"}}, {\"id\": \"FOXR2 Oncogenic Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct pineoblastoma subgroup is driven by FOXR2 overexpression, indicating FOXR2-centered oncogenic transcriptional activation rather than microRNA-processing or RB1 loss as the dominant causal program.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"FOXR2\"], \"gene_terms\": [{\"label\": \"FOXR2\", \"id\": \"hgnc:30469\"}], \"subtypes\": [\"PB-MYC/FOXR2\"]}}, {\"id\": \"Mature microRNA Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in DROSHA or DICER1 reduce mature microRNA abundance, including the let-7/miR-98-5p family, and derepress microRNA target genes in developing pineal cells. This establishes a direct post-transcriptional mechanism that precedes the developmental and proliferative abnormalities of microRNA-defective pineoblastoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pinealocyte\"], \"subtypes\": [\"PB-miRNA1\", \"PB-miRNA2\"], \"locations\": [\"pineal body\"]}}, {\"id\": \"MicroRNA-Processing Pathway Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A major pineoblastoma disease program involves recurrent disruption of the microRNA-processing machinery, especially DICER1, DROSHA, and DGCR8. This program defines the PB-miRNA consensus subgroups and links pineoblastoma to germline cancer predisposition contexts involving microRNA biogenesis genes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pinealocyte\"], \"genes\": [\"DICER1\", \"DROSHA\", \"DGCR8\"], \"gene_terms\": [{\"label\": \"DICER1\", \"id\": \"hgnc:17098\"}, {\"label\": \"DROSHA\", \"id\": \"hgnc:17904\"}, {\"label\": \"DGCR8\", \"id\": \"hgnc:2847\"}], \"subtypes\": [\"PB-miRNA1\", \"PB-miRNA2\"], \"locations\": [\"pineal body\"]}}, {\"id\": \"OTX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"OTX2\"], \"gene_terms\": [{\"label\": \"OTX2\", \"id\": \"hgnc:8522\"}], \"association\": \"Copy-Number Gain\"}}, {\"id\": \"OTX2 Copy-Number Gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"OTX2 gain is a frequent recurrent event across pineoblastoma subtypes, supporting a subtype-spanning oncogenic role for OTX2 in pineoblastoma pathogenesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"OTX2\"], \"gene_terms\": [{\"label\": \"OTX2\", \"id\": \"hgnc:8522\"}]}}, {\"id\": \"Proliferation-Differentiation Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MicroRNA-defective pineoblastoma develops when proliferative programs remain active while pinealocyte maturation fails to complete. This imbalance links the microRNA-processing defect to the embryonal, poorly differentiated tumor state.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pinealocyte\"], \"biological_processes\": [\"cell population proliferation\", \"cell differentiation\"], \"subtypes\": [\"PB-miRNA1\", \"PB-miRNA2\"], \"locations\": [\"pineal body\"]}}, {\"id\": \"RB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}], \"association\": \"Germline and Somatic Alterations\"}}, {\"id\": \"RB1 Pathway Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RB1 loss defines an aggressive pineoblastoma program that overlaps with trilateral retinoblastoma biology. This mechanism removes G1/S checkpoint control and underlies the RB1-associated pineoblastoma subgroup.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell cycle checkpoint signaling\", \"G1/S transition of mitotic cell cycle\"], \"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}], \"subtypes\": [\"PB-RB1\"]}}], \"edges\": [{\"source\": \"MicroRNA-Processing Pathway Inactivation\", \"target\": \"Mature microRNA Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of DICER1 or DROSHA function reduces mature microRNA output\"}, {\"source\": \"Mature microRNA Depletion\", \"target\": \"Proliferation-Differentiation Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mature microRNAs derepresses programs that sustain embryonic proliferation\"}, {\"source\": \"DICER1\", \"target\": \"MicroRNA-Processing Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DROSHA\", \"target\": \"MicroRNA-Processing Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DGCR8\", \"target\": \"MicroRNA-Processing Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RB1\", \"target\": \"RB1 Pathway Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXR2\", \"target\": \"FOXR2 Oncogenic Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OTX2\", \"target\": \"OTX2 Copy-Number Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5754,15 +6045,17 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp">HP:0002315</a>
-
-
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5782,6 +6075,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32286280" target="_blank">PMID:32286280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5820,15 +6114,17 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
-
-
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5848,6 +6144,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32286280" target="_blank">PMID:32286280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5886,15 +6183,17 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000238</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp">HP:0000238</a>
-
-
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5914,6 +6213,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32286280" target="_blank">PMID:32286280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5962,6 +6262,28 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DICER1
+
+
+    <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:17098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DICER1 (hgnc:17098). hgnc:17098 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5974,6 +6296,28 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     DROSHA
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline and Somatic Alterations)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DROSHA
+
+
+    <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:17904</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DROSHA (hgnc:17904). hgnc:17904 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5992,6 +6336,28 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DGCR8
+
+
+    <a href="https://bioregistry.io/hgnc:2847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:2847</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DGCR8 (hgnc:2847). hgnc:2847 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6004,6 +6370,28 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     RB1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Germline and Somatic Alterations)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RB1
+
+
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:9884</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6022,6 +6410,28 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FOXR2
+
+
+    <a href="https://bioregistry.io/hgnc:30469" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:30469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXR2 (hgnc:30469). hgnc:30469 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6037,6 +6447,28 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: OTX2
+
+
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:8522</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6048,6 +6480,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6066,18 +6501,18 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">surgical resection<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical resection, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical resection</span>
+This treatment is surgical resection, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical resection, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6119,6 +6554,7 @@ This treatment is surgical resection, annotated with Surgical Procedure (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40778560" target="_blank">PMID:40778560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6149,17 +6585,17 @@ This treatment is surgical resection, annotated with Surgical Procedure (NCIT:C1
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Craniospinal Irradiation<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Craniospinal Irradiation (NCIT:C116437). NCIT:C116437 is a clinical intervention from the NCI Thesaurus.">Craniospinal Irradiation</span>
+This treatment is Craniospinal Irradiation (NCIT:C116437). NCIT:C116437 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C116437" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Craniospinal Irradiation (NCIT:C116437). NCIT:C116437 is a clinical intervention from the NCI Thesaurus.">NCIT:C116437</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C116437" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C116437">NCIT:C116437</a>
 
 
 
@@ -6201,6 +6637,7 @@ This treatment is Craniospinal Irradiation (NCIT:C116437). NCIT:C116437 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31802236" target="_blank">PMID:31802236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6222,6 +6659,7 @@ This treatment is Craniospinal Irradiation (NCIT:C116437). NCIT:C116437 is a cli
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31802236" target="_blank">PMID:31802236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6253,18 +6691,18 @@ This treatment is Craniospinal Irradiation (NCIT:C116437). NCIT:C116437 is a cli
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -6289,48 +6727,54 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         etoposide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         carboplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:31355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6356,6 +6800,7 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31802236" target="_blank">PMID:31802236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6377,6 +6822,7 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40778560" target="_blank">PMID:40778560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6422,7 +6868,7 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse133801">
                 <div class="item-name">
                     DNA methylation analysis of pineoblastoma
 
@@ -6465,7 +6911,7 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse255914">
                 <div class="item-name">
                     Drosha loss drives pineoblastoma by upregulating Ccnd2
 
@@ -6506,7 +6952,7 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse180868">
                 <div class="item-name">
                     A temporal in vivo catalog of chromatin accessibility and expression profiles in pineoblastoma reveals a prevalent role for repressor elements
 
@@ -6549,7 +6995,7 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003783">
                 <div class="item-name">
                     Molecular characterization of pineoblastoma
 
@@ -6610,7 +7056,6 @@ This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agen
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pineoblastoma
 creation_date: &#39;2026-04-13T05:34:38Z&#39;
-updated_date: &#39;2026-04-13T05:34:38Z&#39;
 category: Cancer
 description: &gt;-
   Pineoblastoma is a rare, aggressive embryonal pineal parenchymal malignancy
@@ -7174,32 +7619,62 @@ phenotypes:
       Supports hydrocephalus as a common consequence of pineoblastoma location.
 genetic:
 - name: DICER1
+  gene_term:
+    preferred_term: DICER1
+    term:
+      id: hgnc:17098
+      label: DICER1
   association: Germline and Somatic Alterations
   notes: &gt;-
     DICER1 is a recurrent pineoblastoma predisposition and tumor gene, especially
     in PB-miRNA subgroup disease. Both germline predisposition and tumor-specific
     alterations are implicated in pathogenesis.
 - name: DROSHA
+  gene_term:
+    preferred_term: DROSHA
+    term:
+      id: hgnc:17904
+      label: DROSHA
   association: Germline and Somatic Alterations
   notes: &gt;-
     DROSHA is a recurrent microRNA-processing gene altered in pineoblastoma.
     Germline DROSHA pathogenic variants define a recently recognized tumor
     predisposition state strongly linked to PB-miRNA1 tumors.
 - name: DGCR8
+  gene_term:
+    preferred_term: DGCR8
+    term:
+      id: hgnc:2847
+      label: DGCR8
   association: Somatic Alterations
   notes: &gt;-
     DGCR8 participates in the microprocessor complex and is recurrently altered
     in microRNA-processing defective pineoblastoma.
 - name: RB1
+  gene_term:
+    preferred_term: RB1
+    term:
+      id: hgnc:9884
+      label: RB1
   association: Germline and Somatic Alterations
   notes: &gt;-
     RB1 alterations underlie the RB1-associated pineoblastoma subgroup,
     including tumors occurring as part of trilateral retinoblastoma.
 - name: FOXR2
+  gene_term:
+    preferred_term: FOXR2
+    term:
+      id: hgnc:30469
+      label: FOXR2
   association: Oncogenic Overexpression
   notes: &gt;-
     FOXR2 overexpression defines the FOXR2-associated pineoblastoma subgroup.
 - name: OTX2
+  gene_term:
+    preferred_term: OTX2
+    term:
+      id: hgnc:8522
+      label: OTX2
   association: Copy-Number Gain
   notes: &gt;-
     OTX2 gain is a frequent cross-subtype event that supports a broader
@@ -7834,7 +8309,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pineoblastoma", "mondoId": "MONDO:0016722", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pineoblastoma", "yamlRevision": "4c16dcdde137"};
+        const OS_CONFIG = {"diseaseName": "Pineoblastoma", "mondoId": "MONDO:0016722", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pineoblastoma", "yamlRevision": "fcfb7dd5f68d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8253,5 +8728,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

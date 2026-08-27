@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>NDP-Related Vitreoretinopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>NDP-Related Vitreoretinopathy</h1>
             <div class="header-meta">
 
@@ -3659,6 +3781,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=NDP-Related%20Vitreoretinopathy"
@@ -3810,7 +3934,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3827,6 +3951,14 @@
 
 
 
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#genetic">
@@ -3860,6 +3992,14 @@
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
 
@@ -3884,7 +4024,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance">
                 <div class="item-name">
                     X-linked inheritance
 
@@ -3930,6 +4070,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3937,7 +4078,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"may rarely have clinical manifestations. Affected males transmit the NDP"</div>
+                <div class="evidence-snippet">"males who inherit the pathogenic variant will be affected; females who inherit the pathogenic variant will be heterozygous and may rarely have clinical manifestations. Affected males transmit the NDP pathogenic variant to all of their daughters and none of their sons."</div>
 
 
                 <div class="evidence-explanation">GeneReviews confirms the X-linked transmission pattern, including the rare occurrence of clinical manifestations in heterozygous females.
@@ -3984,7 +4125,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-norrie-disease">
 
                     <div class="item-name">
                         Norrie Disease
@@ -4021,6 +4162,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4028,7 +4170,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"of these disorders, are typically bilateral grayish-yellow, glistening, elevated"</div>
+                <div class="evidence-snippet">"The eye findings of Norrie disease, the first described and best characterized of these disorders, are typically bilateral grayish-yellow, glistening, elevated retrolental masses composed of immature retinal cells usually visible through clear lenses; foveal development is always incomplete."</div>
 
 
                 <div class="evidence-explanation">GeneReviews describes the pathognomonic Norrie disease fundus finding of bilateral grayish-yellow, glistening, elevated retrolental masses.
@@ -4044,6 +4186,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4051,7 +4194,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"disease is the only NDP-related retinopathy with associated extraocular"</div>
+                <div class="evidence-snippet">"In addition, Norrie disease is the only NDP-related retinopathy with associated extraocular findings, which can variably include cognitive disability, mental health and behavior disorders, seizures, sensorineural hearing loss, and peripheral vascular disease."</div>
 
 
                 <div class="evidence-explanation">Establishes Norrie disease as the sole NDP-related phenotype with extraocular manifestations, distinguishing it from the milder NDP-related FEVR/PFV/ROP/Coats presentations.
@@ -4067,6 +4210,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28602015" target="_blank">PMID:28602015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4074,7 +4218,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"characterized by degenerative and proliferative changes of the neuroretina, "</div>
+                <div class="evidence-snippet">"NDP-related retinopathies are a group of X-linked disorders characterized by degenerative and proliferative changes of the neuroretina, occasionally accompanied with varying degrees of mental retardation and sensorineural hearing loss."</div>
 
 
                 <div class="evidence-explanation">Clinical cohort confirms the dual degenerative/proliferative retinal pathology and occasional systemic (mental retardation, hearing loss) involvement in NDP-related retinopathies.
@@ -4094,7 +4238,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ndp-related-fevr">
 
                     <div class="item-name">
                         NDP-Related Familial Exudative Vitreoretinopathy (EVR2)
@@ -4129,6 +4273,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4136,7 +4281,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"NDP-related familial exudative vitreoretinopathy"</div>
+                <div class="evidence-snippet">"The spectrum of NDP-related retinopathies appears to be a continuum with considerable overlap, ranging from Norrie disease, NDP-related persistent fetal vasculature, NDP-related familial exudative vitreoretinopathy, NDP-related advanced retinopathy of prematurity, and NDP-related Coats disease."</div>
 
 
                 <div class="evidence-explanation">GeneReviews places NDP-related FEVR within the continuum of NDP-related retinopathies alongside Norrie disease.
@@ -4172,7 +4317,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-norrin-fzd4-lrp5-tspan12-retinal-vascular-wnt-signaling-deficiency" data-dismech-node="Norrin-FZD4-LRP5-TSPAN12 Retinal Vascular Wnt Signaling Deficiency" data-dismech-type="pathophysiology">
@@ -4186,18 +4331,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4225,18 +4372,20 @@ This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0060070</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4265,6 +4414,25 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure of Intraretinal Capillary Formation</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cochlear Vascular Pathology Underlying Sensorineural Hearing Loss</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4279,6 +4447,7 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37947657" target="_blank">PMID:37947657</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4286,7 +4455,7 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
 
                 </div>
 
-                <div class="evidence-snippet">"canonical Norrin Wnt-signaling pathway in retinal endothelial cells. Pathogenic variants "</div>
+                <div class="evidence-snippet">"The early angiogenesis of the retina and its iBRB is a delicate process that is mediated by the canonical Norrin Wnt-signaling pathway in retinal endothelial cells. Pathogenic variants in genes that play key roles within this pathway, such as NDP, FZD4, TSPAN12, and LRP5, have been associated..."</div>
 
 
                 <div class="evidence-explanation">Establishes NDP, FZD4, TSPAN12, and LRP5 as components of the shared canonical Norrin-Wnt signaling pathway required for normal retinal vascular development.
@@ -4302,17 +4471,380 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41862006" target="_blank">PMID:41862006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"the stabilization of endothelial junctional complexes and the maintenance and "</div>
+                <div class="evidence-snippet">"Interest in norrin signaling within the Wnt/β-catenin pathway arises from its crucial role in maintaining BRB integrity through the activation of the FZD4 receptor and LRP5/6 co-receptors, leading to the stabilization of endothelial junctional complexes and the maintenance and restoration of..."</div>
 
 
-                <div class="evidence-explanation">Documents that Norrin-FZD4-LRP5/6 signaling stabilizes retinal endothelial junctional complexes, mechanistically linking pathway loss to blood-retinal barrier breakdown.
+                <div class="evidence-explanation">Documents that Norrin-FZD4-LRP5/6 signaling stabilizes retinal endothelial junctional complexes, mechanistically linking pathway loss to blood-retinal barrier breakdown. Evidence source is OTHER because this is a review.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-intraretinal-capillary-formation" data-dismech-node="Failure of Intraretinal Capillary Formation" data-dismech-type="pathophysiology">
+                <div class="item-name">Failure of Intraretinal Capillary Formation</div>
+
+                <div class="item-desc">The retinal consequence of the signalling deficit, and the step at which this disease separates from an ordinary vasculopathy. Norrin is secreted by Muller glia and acts on the endothelium beside them, so the affected cell and the signalling cell are different; the vessels never receive the instruction to grow inward from the superficial plexus and form the deep intraretinal capillary beds. In Ndp-null mice intraretinal capillary formation is abolished outright rather than merely reduced. Severity in humans scales with residual signal, from a peripheral avascular zone in X-linked FEVR to near-total retinal hypovascularization in Norrie disease.
+</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        retinal blood vessel endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002585</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal blood vessel endothelial cell (CL:0002585). CL:0002585 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        Mueller cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000636" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000636</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mueller cell (CL:0000636). CL:0000636 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Retinal blood vessel morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061304" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0061304</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Retinal blood vessel morphogenesis (GO:0061304). GO:0061304 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        retina
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000966</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-ndp-knockout-mouse">Ndp knockout mouse</a>
+
+                            <span class="crosslink-meta">Mouse</span>
+
+
+                            <span class="crosslink-meta">rescues</span>
+
+
+                            <span class="crosslink-desc">Intravitreal AAV expressing norrin restored intraretinal capillary growth, vessel density and plexus organization, preserved the blood-retinal barrier and rescued visual function, establishing that the vascular defect is correctable postnatally rather than fixed at birth.
+</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Retinal Hypovascularization, Dysplasia and Congenital Blindness</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42436854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42436854" target="_blank">PMID:42436854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Norrin, secreted by retinal Müller cells, activates canonical Wnt signaling via Frizzled-4 and co-receptors."</div>
+
+
+                <div class="evidence-explanation">Establishes the paracrine arrangement this node describes, in which the Muller glial cell is the source and the endothelium the target.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42436854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42436854" target="_blank">PMID:42436854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss-of-function mutations abolish intraretinal capillary formation in mice."</div>
+
+
+                <div class="evidence-explanation">States the severity of the developmental failure this node asserts: intraretinal capillary formation is abolished, not merely impaired.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-hypovascularization-dysplasia-and-congenital-blindness" data-dismech-node="Retinal Hypovascularization, Dysplasia and Congenital Blindness" data-dismech-type="pathophysiology">
+                <div class="item-name">Retinal Hypovascularization, Dysplasia and Congenital Blindness</div>
+
+                <div class="item-desc">At the severe end of the spectrum the avascular retina is also dysplastic, producing the retrolental fibrovascular mass historically called pseudoglioma, with retinal detachment usually present at or shortly after birth and blindness from infancy. The same lesion at higher residual signal gives X-linked FEVR, whose peripheral avascularity and exudative complications resemble retinopathy of prematurity - a resemblance that is phenotypic convergence on ischaemic retina, not shared aetiology, since ROP begins with hyperoxic vessel arrest rather than with a Norrin lesion.
+</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Visual perception
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007601</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Visual perception (GO:0007601). GO:0007601 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        retina
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000966</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42436854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42436854" target="_blank">PMID:42436854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In humans, mutations in NDP, which encodes norrin, cause Norrie disease, characterized by retinal hypovascularization and congenital blindness, and X-linked familial exudative vitreoretinopathy (FEVR), resembling retinopathy of prematurity (ROP)."</div>
+
+
+                <div class="evidence-explanation">Supports both ends of the continuum this node describes and is the source of the stated resemblance between X-linked FEVR and retinopathy of prematurity.
 </div>
 
 
@@ -4337,18 +4869,20 @@ This pathophysiological event involves decreased Canonical Wnt signaling pathway
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4394,6 +4928,7 @@ This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35132964" target="_blank">PMID:35132964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4401,10 +4936,10 @@ This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115
 
                 </div>
 
-                <div class="evidence-snippet">"We found that cochlear vascular pathology occurs "</div>
+                <div class="evidence-snippet">"We found that cochlear vascular pathology occurs earlier than previously reported and precedes sensorineural hearing loss."</div>
 
 
-                <div class="evidence-explanation">Mouse model study demonstrates that cochlear microvascular malformation precedes and drives the sensorineural hearing loss of Norrie disease.
+                <div class="evidence-explanation">Mouse model study demonstrates that cochlear microvascular pathology precedes, and therefore is not a consequence of, the sensorineural hearing loss of Norrie disease.
 </div>
 
 
@@ -4417,6 +4952,7 @@ This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35132964" target="_blank">PMID:35132964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4424,7 +4960,7 @@ This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115
 
                 </div>
 
-                <div class="evidence-snippet">"potential, leading to hearing loss and hair cell death while sparing spiral "</div>
+                <div class="evidence-snippet">"The work defines a disease mechanism whereby early malformation of the cochlear microvasculature precedes loss of vessel integrity and decline of endocochlear potential, leading to hearing loss and hair cell death while sparing spiral ganglion cells."</div>
 
 
                 <div class="evidence-explanation">Defines the mechanistic sequence: microvascular malformation, loss of endocochlear potential, then hair cell death, with spiral ganglion cells relatively spared.
@@ -4448,6 +4984,29 @@ This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115
 
 
         <!-- Causal Graph (Pathograph) -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for NDP-Related Vitreoretinopathy</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cochlear Vascular Pathology Underlying Sensorineural Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Norrin-Wnt signaling is also required for cochlear vascular development. In Norrie disease, early malformation of the cochlear microvasculature precedes loss of vessel integrity, decline of the endocochlear potential, and subsequent hair cell death, explaining why hearing loss in Norrie disease has a later, progressive onset distinct from the congenital retinal blindness.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial cell\"], \"role\": \"consequence\"}}, {\"id\": \"Failure of Intraretinal Capillary Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The retinal consequence of the signalling deficit, and the step at which this disease separates from an ordinary vasculopathy. Norrin is secreted by Muller glia and acts on the endothelium beside them, so the affected cell and the signalling cell are different; the vessels never receive the instruction to grow inward from the superficial plexus and form the deep intraretinal capillary beds. In Ndp-null mice intraretinal capillary formation is abolished outright rather than merely reduced. Severity in humans scales with residual signal, from a peripheral avascular zone in X-linked FEVR to near-total retinal hypovascularization in Norrie disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal blood vessel endothelial cell\", \"Mueller cell\"], \"biological_processes\": [\"Retinal blood vessel morphogenesis\"], \"role\": \"central_effector\", \"locations\": [\"retina\"], \"animal_models\": [{\"name\": \"Ndp knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndp knockout (norrin-deficient)\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Intravitreal AAV expressing norrin restored intraretinal capillary growth, vessel density and plexus organization, preserved the blood-retinal barrier and rescued visual function, establishing that the vascular defect is correctable postnatally rather than fixed at birth.\\n\"}]}}, {\"id\": \"Ndp knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The standard model of Norrie disease, lacking norrin and therefore intraretinal capillary formation. Used both to define the vascular pathophysiology and to test AAV-mediated norrin replacement delivered intravitreally at postnatal day 7.\\n\"}, {\"id\": \"Norrin-FZD4-LRP5-TSPAN12 Retinal Vascular Wnt Signaling Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function NDP variants impair Norrin ligand activity, disrupting Norrin-FZD4-LRP5-TSPAN12 canonical Wnt/beta-catenin signaling in retinal vascular endothelium. This signaling axis is required for deep retinal vascular plexus formation and stabilization of endothelial junctional complexes that maintain the inner blood-retinal barrier; its loss produces the combined degenerative and proliferative retinal vascular pathology (incomplete vascularization with secondary neovascularization and exudation) seen across the NDP-related retinopathy spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial cell\"], \"biological_processes\": [\"Canonical Wnt signaling pathway\"], \"role\": \"trigger\"}}, {\"id\": \"Retinal Hypovascularization, Dysplasia and Congenital Blindness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the severe end of the spectrum the avascular retina is also dysplastic, producing the retrolental fibrovascular mass historically called pseudoglioma, with retinal detachment usually present at or shortly after birth and blindness from infancy. The same lesion at higher residual signal gives X-linked FEVR, whose peripheral avascularity and exudative complications resemble retinopathy of prematurity - a resemblance that is phenotypic convergence on ischaemic retina, not shared aetiology, since ROP begins with hyperoxic vessel arrest rather than with a Norrin lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Visual perception\"], \"role\": \"consequence\", \"locations\": [\"retina\"]}}], \"edges\": [{\"source\": \"Norrin-FZD4-LRP5-TSPAN12 Retinal Vascular Wnt Signaling Deficiency\", \"target\": \"Failure of Intraretinal Capillary Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Norrin-FZD4-LRP5-TSPAN12 Retinal Vascular Wnt Signaling Deficiency\", \"target\": \"Cochlear Vascular Pathology Underlying Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Intraretinal Capillary Formation\", \"target\": \"Retinal Hypovascularization, Dysplasia and Congenital Blindness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ndp knockout mouse\", \"target\": \"Failure of Intraretinal Capillary Formation\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Intravitreal AAV expressing norrin restored intraretinal capillary growth, vessel density and plexus organization, preserved the blood-retinal barrier and rescued visual function, establishing that the vascular defect is correctable postnatally rather than fixed at birth.\\n\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse retinal vascularization is largely postnatal whereas human retinal vascularization completes before term, so the postnatal-day-7 treatment window has no straightforward human equivalent; and the mouse lacks the retrolental fibrovascular mass and retinal detachment that define severe human Norrie disease.\\n\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
 
 
         <!-- Phenotypes -->
@@ -4485,16 +5044,20 @@ This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4515,6 +5078,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35132964" target="_blank">PMID:35132964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4522,7 +5086,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
                 </div>
 
-                <div class="evidence-snippet">"blindness followed by later onset of hearing loss. Protecting patients from"</div>
+                <div class="evidence-snippet">"Norrie disease is caused by mutation of the NDP gene, presenting as congenital blindness followed by later onset of hearing loss."</div>
 
 
                 <div class="evidence-explanation">Confirms progressive, later-onset sensorineural hearing loss as a hallmark extraocular feature of Norrie disease.
@@ -4557,16 +5121,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4587,6 +5155,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4594,7 +5163,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
                 </div>
 
-                <div class="evidence-snippet">"findings, which can variably include cognitive disability, mental health and"</div>
+                <div class="evidence-snippet">"In addition, Norrie disease is the only NDP-related retinopathy with associated extraocular findings, which can variably include cognitive disability, mental health and behavior disorders, seizures, sensorineural hearing loss, and peripheral vascular disease."</div>
 
 
                 <div class="evidence-explanation">GeneReviews lists cognitive disability among the variable extraocular findings of Norrie disease.
@@ -4620,16 +5189,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4649,6 +5222,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4694,16 +5268,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0007875</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congenital blindness (HP:0007875). HP:0007875 is a phenotype from the Human Phenotype Ontology.">
-                        Congenital blindness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007875" target="_blank" class="curie-chip curie-chip-hp">HP:0007875</a>
-
-
+This clinical feature is Congenital blindness (HP:0007875). HP:0007875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4723,6 +5301,7 @@ This clinical feature is Congenital blindness (HP:0007875). HP:0007875 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4757,16 +5336,20 @@ This clinical feature is Congenital blindness (HP:0007875). HP:0007875 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the fovea (HP:0007750). HP:0007750 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of the fovea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp">HP:0007750</a>
-
-
+This clinical feature is Hypoplasia of the fovea (HP:0007750). HP:0007750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4786,6 +5369,7 @@ This clinical feature is Hypoplasia of the fovea (HP:0007750). HP:0007750 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4864,15 +5448,17 @@ This clinical feature is Hypoplasia of the fovea (HP:0007750). HP:0007750 is a p
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NDP (hgnc:7678). hgnc:7678 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NDP
 
 
-    <a href="https://bioregistry.io/hgnc:7678" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7678</a>
+    <a href="https://bioregistry.io/hgnc:7678" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:7678</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NDP (hgnc:7678). hgnc:7678 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4893,6 +5479,7 @@ This disease-associated gene is NDP (hgnc:7678). hgnc:7678 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28602015" target="_blank">PMID:28602015</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4925,6 +5512,9 @@ This disease-associated gene is NDP (hgnc:7678). hgnc:7678 is a gene from the HU
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4941,18 +5531,18 @@ This disease-associated gene is NDP (hgnc:7678). hgnc:7678 is a gene from the HU
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">low vision rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is low vision rehabilitation, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">low vision rehabilitation</span>
+This treatment is low vision rehabilitation, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is low vision rehabilitation, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -4992,18 +5582,18 @@ This treatment is low vision rehabilitation, annotated with Supportive Care (NCI
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">audiologic surveillance<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is audiologic surveillance, annotated with Audiometric Test (NCIT:C38036). NCIT:C38036 is a clinical intervention from the NCI Thesaurus.">audiologic surveillance</span>
+This treatment is audiologic surveillance, annotated with Audiometric Test (NCIT:C38036). NCIT:C38036 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Audiometric Test</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38036" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is audiologic surveillance, annotated with Audiometric Test (NCIT:C38036). NCIT:C38036 is a clinical intervention from the NCI Thesaurus.">NCIT:C38036</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38036" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C38036">NCIT:C38036</a>
 
 
 
@@ -5045,6 +5635,7 @@ This treatment is audiologic surveillance, annotated with Audiometric Test (NCIT
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5052,7 +5643,7 @@ This treatment is audiologic surveillance, annotated with Audiometric Test (NCIT
 
                 </div>
 
-                <div class="evidence-snippet">"avoid: Situations that could exacerbate hearing loss such as loud noises and use"</div>
+                <div class="evidence-snippet">"avoid: Situations that could exacerbate hearing loss such as loud noises and use of listening devices that amplify sound."</div>
 
 
                 <div class="evidence-explanation">GeneReviews specifically identifies loud-noise exposure and sound amplification devices as agents/circumstances to avoid because they can exacerbate hearing loss in Norrie disease.
@@ -5076,18 +5667,18 @@ This treatment is audiologic surveillance, annotated with Audiometric Test (NCIT
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5128,6 +5719,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301506" target="_blank">PMID:20301506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5175,6 +5767,196 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-ndp-knockout-mouse" data-dismech-node="Ndp knockout mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Ndp knockout mouse
+
+                </div>
+
+                <div class="item-desc">The standard model of Norrie disease, lacking norrin and therefore intraretinal capillary formation. Used both to define the vascular pathophysiology and to test AAV-mediated norrin replacement delivered intravitreally at postnatal day 7.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Ndp knockout (norrin-deficient)</div>
+                    </div>
+
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42436854" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:42436854">PMID:42436854</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-failure-of-intraretinal-capillary-formation">Failure of Intraretinal Capillary Formation</a>
+
+                <span class="crosslink-meta">rescues</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Intravitreal AAV expressing norrin restored intraretinal capillary growth, vessel density and plexus organization, preserved the blood-retinal barrier and rescued visual function, establishing that the vascular defect is correctable postnatally rather than fixed at birth.
+</span>
+
+
+                <div class="mapping-notes">Limitations: Mouse retinal vascularization is largely postnatal whereas human retinal vascularization completes before term, so the postnatal-day-7 treatment window has no straightforward human equivalent; and the mouse lacks the retrolental fibrovascular mass and retinal detachment that define severe human Norrie disease.
+</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Intraretinal capillary growth and deep plexus organization after AAV-norrin</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: RESTORED</div>
+
+
+        <div class="mapping-notes">Interpretation: Structural confirmation that resupplying the ligand reverses the developmental vascular failure this node models.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42436854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42436854" target="_blank">PMID:42436854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both vectors fully restored intraretinal capillary growth in Ndp KO mice, normalizing vessel density and plexus organization, preserving the blood-retinal barrier, and rescuing visual function."</div>
+
+
+                <div class="evidence-explanation">Reports the readout and its restoration directly, across both vector serotypes tested.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42436854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42436854" target="_blank">PMID:42436854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss-of-function mutations abolish intraretinal capillary formation in mice."</div>
+
+
+                <div class="evidence-explanation">Establishes that the model reproduces the human developmental vascular failure, supporting its use as informative for this node.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -5245,7 +6027,7 @@ has_subtypes:
     reference_title: &#34;NDP-Related Retinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;of these disorders, are typically bilateral grayish-yellow, glistening, elevated&#34;
+    snippet: &#34;The eye findings of Norrie disease, the first described and best characterized of these disorders, are typically bilateral grayish-yellow, glistening, elevated retrolental masses composed of immature retinal cells usually visible through clear lenses; foveal development is always incomplete.&#34;
     explanation: &gt;
       GeneReviews describes the pathognomonic Norrie disease fundus finding of
       bilateral grayish-yellow, glistening, elevated retrolental masses.
@@ -5253,7 +6035,7 @@ has_subtypes:
     reference_title: &#34;NDP-Related Retinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;disease is the only NDP-related retinopathy with associated extraocular&#34;
+    snippet: &#34;In addition, Norrie disease is the only NDP-related retinopathy with associated extraocular findings, which can variably include cognitive disability, mental health and behavior disorders, seizures, sensorineural hearing loss, and peripheral vascular disease.&#34;
     explanation: &gt;
       Establishes Norrie disease as the sole NDP-related phenotype with
       extraocular manifestations, distinguishing it from the milder
@@ -5262,7 +6044,7 @@ has_subtypes:
     reference_title: &#34;Clinical and genetic analysis of Indian patients with NDP-related retinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;characterized by degenerative and proliferative changes of the neuroretina, &#34;
+    snippet: &#34;NDP-related retinopathies are a group of X-linked disorders characterized by degenerative and proliferative changes of the neuroretina, occasionally accompanied with varying degrees of mental retardation and sensorineural hearing loss.&#34;
     explanation: &gt;
       Clinical cohort confirms the dual degenerative/proliferative retinal
       pathology and occasional systemic (mental retardation, hearing loss)
@@ -5281,7 +6063,7 @@ has_subtypes:
     reference_title: &#34;NDP-Related Retinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;NDP-related familial exudative vitreoretinopathy&#34;
+    snippet: &#34;The spectrum of NDP-related retinopathies appears to be a continuum with considerable overlap, ranging from Norrie disease, NDP-related persistent fetal vasculature, NDP-related familial exudative vitreoretinopathy, NDP-related advanced retinopathy of prematurity, and NDP-related Coats disease.&#34;
     explanation: &gt;
       GeneReviews places NDP-related FEVR within the continuum of NDP-related
       retinopathies alongside Norrie disease.
@@ -5304,12 +6086,14 @@ inheritance:
     reference_title: &#34;NDP-Related Retinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;may rarely have clinical manifestations. Affected males transmit the NDP&#34;
+    snippet: &#34;males who inherit the pathogenic variant will be affected; females who inherit the pathogenic variant will be heterozygous and may rarely have clinical manifestations. Affected males transmit the NDP pathogenic variant to all of their daughters and none of their sons.&#34;
     explanation: &gt;
       GeneReviews confirms the X-linked transmission pattern, including the
       rare occurrence of clinical manifestations in heterozygous females.
 pathophysiology:
 - name: Norrin-FZD4-LRP5-TSPAN12 Retinal Vascular Wnt Signaling Deficiency
+  conforms_to: &#34;norrin_fzd4_retinal_vascular_development#Insufficient Norrin-FZD4-beta-catenin Signalling in Retinal Endothelium&#34;
+  role: trigger
   description: &gt;
     Loss-of-function NDP variants impair Norrin ligand activity, disrupting
     Norrin-FZD4-LRP5-TSPAN12 canonical Wnt/beta-catenin signaling in retinal
@@ -5335,7 +6119,7 @@ pathophysiology:
     reference_title: &#34;Mechanisms Underlying Rare Inherited Pediatric Retinal Vascular Diseases: FEVR, Norrie Disease, Persistent Fetal Vascular Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;canonical Norrin Wnt-signaling pathway in retinal endothelial cells. Pathogenic variants &#34;
+    snippet: &#34;The early angiogenesis of the retina and its iBRB is a delicate process that is mediated by the canonical Norrin Wnt-signaling pathway in retinal endothelial cells. Pathogenic variants in genes that play key roles within this pathway, such as NDP, FZD4, TSPAN12, and LRP5, have been associated with the incidence of these retinal diseases.&#34;
     explanation: &gt;
       Establishes NDP, FZD4, TSPAN12, and LRP5 as components of the shared
       canonical Norrin-Wnt signaling pathway required for normal retinal
@@ -5343,13 +6127,112 @@ pathophysiology:
   - reference: PMID:41862006
     reference_title: &#34;Therapeutic potential of norrin/FZD4/β-catenin signaling in blood-retinal barrier protection.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the stabilization of endothelial junctional complexes and the maintenance and &#34;
+    evidence_source: OTHER
+    snippet: &#34;Interest in norrin signaling within the Wnt/β-catenin pathway arises from its crucial role in maintaining BRB integrity through the activation of the FZD4 receptor and LRP5/6 co-receptors, leading to the stabilization of endothelial junctional complexes and the maintenance and restoration of retinal vascular barrier properties&#34;
     explanation: &gt;
       Documents that Norrin-FZD4-LRP5/6 signaling stabilizes retinal
       endothelial junctional complexes, mechanistically linking pathway loss
-      to blood-retinal barrier breakdown.
+      to blood-retinal barrier breakdown. Evidence source is OTHER because this
+      is a review.
+  downstream:
+  - target: Failure of Intraretinal Capillary Formation
+    causal_link_type: DIRECT
+  - target: Cochlear Vascular Pathology Underlying Sensorineural Hearing Loss
+    causal_link_type: DIRECT
+
+- name: Failure of Intraretinal Capillary Formation
+  description: &gt;
+    The retinal consequence of the signalling deficit, and the step at which
+    this disease separates from an ordinary vasculopathy. Norrin is secreted by
+    Muller glia and acts on the endothelium beside them, so the affected cell
+    and the signalling cell are different; the vessels never receive the
+    instruction to grow inward from the superficial plexus and form the deep
+    intraretinal capillary beds. In Ndp-null mice intraretinal capillary
+    formation is abolished outright rather than merely reduced. Severity in
+    humans scales with residual signal, from a peripheral avascular zone in
+    X-linked FEVR to near-total retinal hypovascularization in Norrie disease.
+  role: central_effector
+  biological_scale: TISSUE
+  conforms_to: &#34;norrin_fzd4_retinal_vascular_development#Incomplete Retinal Vascularization with Peripheral Avascular Retina&#34;
+  cell_types:
+  - preferred_term: retinal blood vessel endothelial cell
+    term:
+      id: CL:0002585
+      label: retinal blood vessel endothelial cell
+  - preferred_term: Mueller cell
+    term:
+      id: CL:0000636
+      label: Mueller cell
+  biological_processes:
+  - preferred_term: Retinal blood vessel morphogenesis
+    term:
+      id: GO:0061304
+      label: retinal blood vessel morphogenesis
+    modifier: DECREASED
+  locations:
+  - preferred_term: retina
+    term:
+      id: UBERON:0000966
+      label: retina
+  evidence:
+  - reference: PMID:42436854
+    reference_title: &#34;AAV-norrin gene therapy rescues retinal defects in mice with Norrie disease and oxygen-induced retinopathy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Norrin, secreted by retinal Müller cells, activates canonical Wnt signaling via Frizzled-4 and co-receptors.&#34;
+    explanation: &gt;
+      Establishes the paracrine arrangement this node describes, in which the
+      Muller glial cell is the source and the endothelium the target.
+  - reference: PMID:42436854
+    reference_title: &#34;AAV-norrin gene therapy rescues retinal defects in mice with Norrie disease and oxygen-induced retinopathy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Loss-of-function mutations abolish intraretinal capillary formation in mice.&#34;
+    explanation: &gt;
+      States the severity of the developmental failure this node asserts:
+      intraretinal capillary formation is abolished, not merely impaired.
+  downstream:
+  - target: Retinal Hypovascularization, Dysplasia and Congenital Blindness
+    causal_link_type: DIRECT
+
+- name: Retinal Hypovascularization, Dysplasia and Congenital Blindness
+  description: &gt;
+    At the severe end of the spectrum the avascular retina is also dysplastic,
+    producing the retrolental fibrovascular mass historically called
+    pseudoglioma, with retinal detachment usually present at or shortly after
+    birth and blindness from infancy. The same lesion at higher residual signal
+    gives X-linked FEVR, whose peripheral avascularity and exudative
+    complications resemble retinopathy of prematurity - a resemblance that is
+    phenotypic convergence on ischaemic retina, not shared aetiology, since ROP
+    begins with hyperoxic vessel arrest rather than with a Norrin lesion.
+  role: consequence
+  biological_scale: ORGANISM
+  conforms_to: &#34;norrin_fzd4_retinal_vascular_development#Ischaemia-Driven Neovascularization, Exudation and Tractional Detachment&#34;
+  biological_processes:
+  - preferred_term: Visual perception
+    term:
+      id: GO:0007601
+      label: visual perception
+    modifier: DECREASED
+  locations:
+  - preferred_term: retina
+    term:
+      id: UBERON:0000966
+      label: retina
+  evidence:
+  - reference: PMID:42436854
+    reference_title: &#34;AAV-norrin gene therapy rescues retinal defects in mice with Norrie disease and oxygen-induced retinopathy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In humans, mutations in NDP, which encodes norrin, cause Norrie disease, characterized by retinal hypovascularization and congenital blindness, and X-linked familial exudative vitreoretinopathy (FEVR), resembling retinopathy of prematurity (ROP).&#34;
+    explanation: &gt;
+      Supports both ends of the continuum this node describes and is the source
+      of the stated resemblance between X-linked FEVR and retinopathy of
+      prematurity.
+
 - name: Cochlear Vascular Pathology Underlying Sensorineural Hearing Loss
+  role: consequence
+  biological_scale: TISSUE
   description: &gt;
     Norrin-Wnt signaling is also required for cochlear vascular development.
     In Norrie disease, early malformation of the cochlear microvasculature
@@ -5367,15 +6250,16 @@ pathophysiology:
     reference_title: &#34;The timing of auditory sensory deficits in Norrie disease has implications for therapeutic intervention.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;We found that cochlear vascular pathology occurs &#34;
+    snippet: &#34;We found that cochlear vascular pathology occurs earlier than previously reported and precedes sensorineural hearing loss.&#34;
     explanation: &gt;
-      Mouse model study demonstrates that cochlear microvascular malformation
-      precedes and drives the sensorineural hearing loss of Norrie disease.
+      Mouse model study demonstrates that cochlear microvascular pathology
+      precedes, and therefore is not a consequence of, the sensorineural hearing
+      loss of Norrie disease.
   - reference: PMID:35132964
     reference_title: &#34;The timing of auditory sensory deficits in Norrie disease has implications for therapeutic intervention.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;potential, leading to hearing loss and hair cell death while sparing spiral &#34;
+    snippet: &#34;The work defines a disease mechanism whereby early malformation of the cochlear microvasculature precedes loss of vessel integrity and decline of endocochlear potential, leading to hearing loss and hair cell death while sparing spiral ganglion cells.&#34;
     explanation: &gt;
       Defines the mechanistic sequence: microvascular malformation, loss of
       endocochlear potential, then hair cell death, with spiral ganglion
@@ -5429,7 +6313,7 @@ phenotypes:
     reference_title: &#34;The timing of auditory sensory deficits in Norrie disease has implications for therapeutic intervention.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;blindness followed by later onset of hearing loss. Protecting patients from&#34;
+    snippet: &#34;Norrie disease is caused by mutation of the NDP gene, presenting as congenital blindness followed by later onset of hearing loss.&#34;
     explanation: &gt;
       Confirms progressive, later-onset sensorineural hearing loss as a
       hallmark extraocular feature of Norrie disease.
@@ -5446,7 +6330,7 @@ phenotypes:
     reference_title: &#34;NDP-Related Retinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;findings, which can variably include cognitive disability, mental health and&#34;
+    snippet: &#34;In addition, Norrie disease is the only NDP-related retinopathy with associated extraocular findings, which can variably include cognitive disability, mental health and behavior disorders, seizures, sensorineural hearing loss, and peripheral vascular disease.&#34;
     explanation: &gt;
       GeneReviews lists cognitive disability among the variable extraocular
       findings of Norrie disease.
@@ -5514,7 +6398,7 @@ treatments:
     reference_title: &#34;NDP-Related Retinopathies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;avoid: Situations that could exacerbate hearing loss such as loud noises and use&#34;
+    snippet: &#34;avoid: Situations that could exacerbate hearing loss such as loud noises and use of listening devices that amplify sound.&#34;
     explanation: &gt;
       GeneReviews specifically identifies loud-noise exposure and sound
       amplification devices as agents/circumstances to avoid because they can
@@ -5538,6 +6422,56 @@ treatments:
       GeneReviews recommends fluorescein angiography surveillance for at-risk
       female carriers to detect peripheral retinal vascular changes requiring
       monitoring or prophylactic treatment.
+animal_models:
+- name: Ndp knockout mouse
+  species: Mouse
+  genotype: Ndp knockout (norrin-deficient)
+  description: &gt;
+    The standard model of Norrie disease, lacking norrin and therefore
+    intraretinal capillary formation. Used both to define the vascular
+    pathophysiology and to test AAV-mediated norrin replacement delivered
+    intravitreally at postnatal day 7.
+  publication: PMID:42436854
+  modeled_mechanisms:
+  - target: Failure of Intraretinal Capillary Formation
+    relationship: RESCUES
+    fidelity: MODERATE
+    description: &gt;
+      Intravitreal AAV expressing norrin restored intraretinal capillary growth,
+      vessel density and plexus organization, preserved the blood-retinal
+      barrier and rescued visual function, establishing that the vascular defect
+      is correctable postnatally rather than fixed at birth.
+    limitations: &gt;
+      Mouse retinal vascularization is largely postnatal whereas human retinal
+      vascularization completes before term, so the postnatal-day-7 treatment
+      window has no straightforward human equivalent; and the mouse lacks the
+      retrolental fibrovascular mass and retinal detachment that define severe
+      human Norrie disease.
+    readouts:
+    - name: Intraretinal capillary growth and deep plexus organization after AAV-norrin
+      target: Failure of Intraretinal Capillary Formation
+      direction: RESTORED
+      interpretation: &gt;
+        Structural confirmation that resupplying the ligand reverses the
+        developmental vascular failure this node models.
+      evidence:
+      - reference: PMID:42436854
+        reference_title: &#34;AAV-norrin gene therapy rescues retinal defects in mice with Norrie disease and oxygen-induced retinopathy.&#34;
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;Both vectors fully restored intraretinal capillary growth in Ndp KO mice, normalizing vessel density and plexus organization, preserving the blood-retinal barrier, and rescuing visual function.&#34;
+        explanation: &gt;
+          Reports the readout and its restoration directly, across both vector
+          serotypes tested.
+    evidence:
+    - reference: PMID:42436854
+      reference_title: &#34;AAV-norrin gene therapy rescues retinal defects in mice with Norrie disease and oxygen-induced retinopathy.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Loss-of-function mutations abolish intraretinal capillary formation in mice.&#34;
+      explanation: &gt;
+        Establishes that the model reproduces the human developmental vascular
+        failure, supporting its use as informative for this node.
 </pre>
             </div>
         </div>
@@ -5598,7 +6532,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "NDP-Related Vitreoretinopathy", "mondoId": "MONDO:0700377", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "NDP-Related_Vitreoretinopathy", "yamlRevision": "19e16dc81a13"};
+        const OS_CONFIG = {"diseaseName": "NDP-Related Vitreoretinopathy", "mondoId": "MONDO:0700377", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "NDP-Related_Vitreoretinopathy", "yamlRevision": "3f221c488074"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6017,5 +6951,73 @@ treatments:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

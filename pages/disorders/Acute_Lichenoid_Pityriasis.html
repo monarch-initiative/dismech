@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Acute Lichenoid Pityriasis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acute Lichenoid Pityriasis</h1>
             <div class="header-meta">
 
@@ -3932,7 +4054,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-febrile-ulceronecrotic-mucha-habermann-disease">
 
                     <div class="item-name">
                         Febrile Ulceronecrotic Mucha-Habermann Disease (FUMHD)
@@ -3968,6 +4090,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36483219" target="_blank">PMID:36483219</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3990,6 +4113,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4011,6 +4135,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34287852" target="_blank">PMID:34287852</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4231,6 +4356,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38973067" target="_blank">PMID:38973067</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4320,6 +4446,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8864599" target="_blank">PMID:8864599</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4341,6 +4468,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38973067" target="_blank">PMID:38973067</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4430,6 +4558,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12203210" target="_blank">PMID:12203210</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4537,6 +4666,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38457671" target="_blank">PMID:38457671</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4620,6 +4750,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38973067" target="_blank">PMID:38973067</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4707,6 +4838,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12203210" target="_blank">PMID:12203210</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4729,6 +4861,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41420620" target="_blank">PMID:41420620</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4750,6 +4883,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29210716" target="_blank">PMID:29210716</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4795,28 +4929,28 @@
 
 
 
-    <span class="entity-ref-chip">treatment#Narrowband UVB phototherapy</span>
+    <a class="entity-ref-chip" href="#treatment-narrowband-uvb-phototherapy">treatments#Narrowband UVB phototherapy</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Oral erythromycin therapy</span>
+    <a class="entity-ref-chip" href="#treatment-oral-erythromycin-therapy">treatments#Oral erythromycin therapy</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Topical corticosteroid therapy</span>
+    <a class="entity-ref-chip" href="#treatment-topical-corticosteroid-therapy">treatments#Topical corticosteroid therapy</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Methotrexate therapy for refractory or severe disease</span>
+    <a class="entity-ref-chip" href="#treatment-methotrexate-therapy-for-refractory-or-severe-disease">treatments#Methotrexate therapy for refractory or severe disease</a>
 
 
 
@@ -4843,6 +4977,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32112390" target="_blank">PMID:32112390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4888,35 +5023,35 @@
 
 
 
-    <span class="entity-ref-chip">treatment#Prompt systemic and supportive management for FUMHD</span>
+    <a class="entity-ref-chip" href="#treatment-prompt-systemic-and-supportive-management-for-fumhd">treatments#Prompt systemic and supportive management for FUMHD</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Methotrexate therapy for refractory or severe disease</span>
+    <a class="entity-ref-chip" href="#treatment-methotrexate-therapy-for-refractory-or-severe-disease">treatments#Methotrexate therapy for refractory or severe disease</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Intravenous immunoglobulin (IVIG) for FUMHD</span>
+    <a class="entity-ref-chip" href="#treatment-intravenous-immunoglobulin-ivig-for-fumhd">treatments#Intravenous immunoglobulin (IVIG) for FUMHD</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#TNF-alpha inhibitor therapy for FUMHD</span>
+    <a class="entity-ref-chip" href="#treatment-tnf-alpha-inhibitor-therapy-for-fumhd">treatments#TNF-alpha inhibitor therapy for FUMHD</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Ciclosporin therapy for FUMHD</span>
+    <a class="entity-ref-chip" href="#treatment-ciclosporin-therapy-for-fumhd">treatments#Ciclosporin therapy for FUMHD</a>
 
 
 
@@ -4944,6 +5079,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36483219" target="_blank">PMID:36483219</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4965,6 +5101,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35950146" target="_blank">PMID:35950146</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5038,6 +5175,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5101,18 +5239,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5181,6 +5321,7 @@ This pathophysiological event involves abnormal immune response (GO:0006955). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38677323" target="_blank">PMID:38677323</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5225,18 +5366,20 @@ This pathophysiological event involves abnormal immune response (GO:0006955). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5264,18 +5407,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5344,6 +5489,7 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12203210" target="_blank">PMID:12203210</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5366,6 +5512,7 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15583604" target="_blank">PMID:15583604</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5387,6 +5534,7 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36483219" target="_blank">PMID:36483219</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5432,18 +5580,20 @@ This pathophysiological event involves abnormal T cell activation (GO:0042110). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD8-positive alpha-beta cytotoxic T cell, annotated with CD8-positive, alpha-beta cytotoxic T cell (CL:0000794). CL:0000794 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD8-positive alpha-beta cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000794" target="_blank" class="curie-chip curie-chip-cl">CL:0000794</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000794" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000794</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive alpha-beta cytotoxic T cell, annotated with CD8-positive, alpha-beta cytotoxic T cell (CL:0000794). CL:0000794 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5471,18 +5621,20 @@ This pathophysiological event involves CD8-positive alpha-beta cytotoxic T cell,
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal T cell mediated immunity (GO:0002456). GO:0002456 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002456" target="_blank" class="curie-chip curie-chip-go">GO:0002456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal T cell mediated immunity (GO:0002456). GO:0002456 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5510,18 +5662,20 @@ This pathophysiological event involves abnormal T cell mediated immunity (GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5578,6 +5732,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38973067" target="_blank">PMID:38973067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5629,18 +5784,20 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5668,18 +5825,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5707,18 +5866,20 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5881,6 +6042,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37155724" target="_blank">PMID:37155724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5902,6 +6064,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31880634" target="_blank">PMID:31880634</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5936,18 +6099,20 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5964,18 +6129,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6003,18 +6170,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6042,18 +6211,20 @@ This pathophysiological event involves abnormal inflammatory response (GO:000695
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         dermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002067</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002067</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6091,6 +6262,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17456915" target="_blank">PMID:17456915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6113,6 +6285,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17456915" target="_blank">PMID:17456915</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6134,6 +6307,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31880634" target="_blank">PMID:31880634</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6186,18 +6360,20 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6218,18 +6394,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased TNF-alpha-mediated signaling, annotated with tumor necrosis factor-mediated signaling pathway (GO:0033209). GO:0033209 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         TNF-alpha-mediated signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033209" target="_blank" class="curie-chip curie-chip-go">GO:0033209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0033209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased TNF-alpha-mediated signaling, annotated with tumor necrosis factor-mediated signaling pathway (GO:0033209). GO:0033209 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6322,6 +6500,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6343,6 +6522,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15840118" target="_blank">PMID:15840118</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6379,7 +6559,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-interface-injury-with-vacuolar-change-and-necrotic-keratinocytes">
                 <div class="item-name">
                     Interface injury with vacuolar change and necrotic keratinocytes
 
@@ -6400,6 +6580,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31880634" target="_blank">PMID:31880634</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6422,6 +6603,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37155724" target="_blank">PMID:37155724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6446,7 +6628,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-cd8-positive-and-tia-1-positive-cytotoxic-t-cell-rich-infiltrate">
                 <div class="item-name">
                     CD8-positive and TIA-1-positive cytotoxic T-cell-rich infiltrate
 
@@ -6467,6 +6649,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38973067" target="_blank">PMID:38973067</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6491,7 +6674,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-perivascular-lymphocytes-and-erythrocyte-extravasation">
                 <div class="item-name">
                     Perivascular lymphocytes and erythrocyte extravasation
 
@@ -6512,6 +6695,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17456915" target="_blank">PMID:17456915</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6535,6 +6719,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17456915" target="_blank">PMID:17456915</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6556,6 +6741,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31880634" target="_blank">PMID:31880634</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6580,7 +6766,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-atypical-cd8-positive-lymphomatoid-infiltrate-with-lymphomatoid-vasculitis-fumhd">
                 <div class="item-name">
                     Atypical CD8-positive lymphomatoid infiltrate with lymphomatoid vasculitis (FUMHD)
 
@@ -6601,6 +6787,7 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38457671" target="_blank">PMID:38457671</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6703,16 +6890,20 @@ This pathophysiological event involves increased TNF-alpha-mediated signaling, a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000979</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from the Human Phenotype Ontology.">
-                        Purpura
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp">HP:0000979</a>
-
-
+This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6732,6 +6923,7 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s13671-023-00380-1" target="_blank">DOI:10.1007/s13671-023-00380-1</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6765,16 +6957,20 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005521</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP:0005521 is a phenotype from the Human Phenotype Ontology.">
-                        Disseminated intravascular coagulation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp">HP:0005521</a>
-
-
+This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP:0005521 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6794,6 +6990,7 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6827,16 +7024,20 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.">
-                        Thrombocytopenia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp">HP:0001873</a>
-
-
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6856,6 +7057,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34287852" target="_blank">PMID:34287852</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6889,16 +7091,22 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total leukocyte count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001882</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Leukopenia, annotated with Decreased total leukocyte count (HP:0001882). HP:0001882 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased total leukocyte count
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" class="curie-chip curie-chip-hp">HP:0001882</a>
-
-
+This clinical feature is Leukopenia, annotated with Decreased total leukocyte count (HP:0001882). HP:0001882 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6918,6 +7126,7 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34287852" target="_blank">PMID:34287852</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6960,16 +7169,22 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the cardiovascular system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001626" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001626</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiac involvement, annotated with Abnormality of the cardiovascular system (HP:0001626). HP:0001626 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the cardiovascular system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001626" target="_blank" class="curie-chip curie-chip-hp">HP:0001626</a>
-
-
+This clinical feature is Cardiac involvement, annotated with Abnormality of the cardiovascular system (HP:0001626). HP:0001626 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6989,6 +7204,7 @@ This clinical feature is Cardiac involvement, annotated with Abnormality of the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7031,16 +7247,22 @@ This clinical feature is Cardiac involvement, annotated with Abnormality of the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the gastrointestinal tract</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0011024</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal involvement, annotated with Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the gastrointestinal tract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp">HP:0011024</a>
-
-
+This clinical feature is Gastrointestinal involvement, annotated with Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7060,6 +7282,7 @@ This clinical feature is Gastrointestinal involvement, annotated with Abnormalit
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7102,16 +7325,22 @@ This clinical feature is Gastrointestinal involvement, annotated with Abnormalit
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Oral ulcer</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000155</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000155). HP:0000155 is a phenotype from the Human Phenotype Ontology.">
-                        Oral ulcer
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000155" target="_blank" class="curie-chip curie-chip-hp">HP:0000155</a>
-
-
+This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000155). HP:0000155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7131,6 +7360,7 @@ This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34287852" target="_blank">PMID:34287852</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7153,6 +7383,7 @@ This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36483219" target="_blank">PMID:36483219</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7195,16 +7426,20 @@ This clinical feature is Mucosal involvement, annotated with Oral ulcer (HP:0000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100806</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.">
-                        Sepsis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp">HP:0100806</a>
-
-
+This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7224,6 +7459,7 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34287852" target="_blank">PMID:34287852</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7246,6 +7482,7 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35950146" target="_blank">PMID:35950146</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7288,16 +7525,20 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0040189</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.">
-                        Scaling skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp">HP:0040189</a>
-
-
+This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7317,6 +7558,7 @@ This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31334928" target="_blank">PMID:31334928</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7350,16 +7592,20 @@ This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0200042</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
-                        Skin ulcer
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
-
-
+This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7379,6 +7625,7 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s13671-023-00380-1" target="_blank">DOI:10.1007/s13671-023-00380-1</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7401,6 +7648,7 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7434,16 +7682,20 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
-                        Pruritus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
-
-
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7463,6 +7715,7 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s13671-013-0054-x" target="_blank">DOI:10.1007/s13671-013-0054-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7496,16 +7749,22 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal blistering of the skin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0008066</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal blistering of the skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp">HP:0008066</a>
-
-
+This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7525,6 +7784,7 @@ This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38457671" target="_blank">PMID:38457671</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7567,16 +7827,20 @@ This clinical feature is Hemorrhagic bullae, annotated with Abnormal blistering 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7596,6 +7860,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7638,16 +7903,20 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100699" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100699</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scarring (HP:0100699). HP:0100699 is a phenotype from the Human Phenotype Ontology.">
-                        Scarring
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100699" target="_blank" class="curie-chip curie-chip-hp">HP:0100699</a>
-
-
+This clinical feature is Scarring (HP:0100699). HP:0100699 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7667,6 +7936,7 @@ This clinical feature is Scarring (HP:0100699). HP:0100699 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.35755/jmedassocthai.2025.5.377-383-02606" target="_blank">DOI:10.35755/jmedassocthai.2025.5.377-383-02606</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7709,16 +7979,22 @@ This clinical feature is Scarring (HP:0100699). HP:0100699 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the nervous system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000707" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000707</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Central nervous system involvement, annotated with Abnormality of the nervous system (HP:0000707). HP:0000707 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the nervous system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000707" target="_blank" class="curie-chip curie-chip-hp">HP:0000707</a>
-
-
+This clinical feature is Central nervous system involvement, annotated with Abnormality of the nervous system (HP:0000707). HP:0000707 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7738,6 +8014,7 @@ This clinical feature is Central nervous system involvement, annotated with Abno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7771,16 +8048,20 @@ This clinical feature is Central nervous system involvement, annotated with Abno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7800,6 +8081,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38234081" target="_blank">PMID:38234081</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7842,16 +8124,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0033700</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.">
-                        Papulovesicular eruption
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp">HP:0033700</a>
-
-
+This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7871,6 +8157,7 @@ This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8864599" target="_blank">PMID:8864599</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7893,6 +8180,7 @@ This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37847066" target="_blank">PMID:37847066</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7926,16 +8214,22 @@ This clinical feature is Papulovesicular eruption (HP:0033700). HP:0033700 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Crusting erythematous dermatitis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0007473</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Crusted skin lesions, annotated with Crusting erythematous dermatitis (HP:0007473). HP:0007473 is a phenotype from the Human Phenotype Ontology.">
-                        Crusting erythematous dermatitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007473" target="_blank" class="curie-chip curie-chip-hp">HP:0007473</a>
-
-
+This clinical feature is Crusted skin lesions, annotated with Crusting erythematous dermatitis (HP:0007473). HP:0007473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7955,6 +8249,7 @@ This clinical feature is Crusted skin lesions, annotated with Crusting erythemat
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37847066" target="_blank">PMID:37847066</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7988,16 +8283,20 @@ This clinical feature is Crusted skin lesions, annotated with Crusting erythemat
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001053</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is a phenotype from the Human Phenotype Ontology.">
-                        Hypopigmented skin patches
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" class="curie-chip curie-chip-hp">HP:0001053</a>
-
-
+This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8017,6 +8316,7 @@ This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37155724" target="_blank">PMID:37155724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8050,16 +8350,20 @@ This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0033126</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenotype from the Human Phenotype Ontology.">
-                        Cutaneous necrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033126" target="_blank" class="curie-chip curie-chip-hp">HP:0033126</a>
-
-
+This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8079,6 +8383,7 @@ This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8112,16 +8417,22 @@ This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the respiratory system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002086</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary involvement, annotated with Abnormality of the respiratory system (HP:0002086). HP:0002086 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the respiratory system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002086" target="_blank" class="curie-chip curie-chip-hp">HP:0002086</a>
-
-
+This clinical feature is Pulmonary involvement, annotated with Abnormality of the respiratory system (HP:0002086). HP:0002086 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8141,6 +8452,7 @@ This clinical feature is Pulmonary involvement, annotated with Abnormality of th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8204,6 +8516,9 @@ This clinical feature is Pulmonary involvement, annotated with Abnormality of th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8220,18 +8535,18 @@ This clinical feature is Pulmonary involvement, annotated with Abnormality of th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">phototherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical intervention from the NCI Thesaurus.">phototherapy</span>
+This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Phototherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15301" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical intervention from the NCI Thesaurus.">NCIT:C15301</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15301" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15301">NCIT:C15301</a>
 
 
 
@@ -8262,33 +8577,37 @@ This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Papulovesicular eruption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp">HP:0033700</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0033700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Scaling skin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp">HP:0040189</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0040189</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8307,6 +8626,7 @@ This treatment targets Scaling skin (HP:0040189). HP:0040189 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31318465" target="_blank">PMID:31318465</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8329,6 +8649,7 @@ This treatment targets Scaling skin (HP:0040189). HP:0040189 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32112390" target="_blank">PMID:32112390</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8360,18 +8681,18 @@ This treatment targets Scaling skin (HP:0040189). HP:0040189 is a phenotype from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">antimicrobial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">antimicrobial agent therapy</span>
+This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -8396,18 +8717,20 @@ This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         erythromycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48923" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:48923</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48923" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:48923</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8422,18 +8745,20 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Papulovesicular eruption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp">HP:0033700</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0033700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8452,6 +8777,7 @@ This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8864599" target="_blank">PMID:8864599</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8474,6 +8800,7 @@ This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31318465" target="_blank">PMID:31318465</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8505,18 +8832,18 @@ This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a ph
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">topical corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.">topical corticosteroid therapy</span>
+This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Topical Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122078" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.">NCIT:C122078</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122078" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122078">NCIT:C122078</a>
 
 
 
@@ -8541,18 +8868,20 @@ This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8567,18 +8896,20 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8597,6 +8928,7 @@ This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32112390" target="_blank">PMID:32112390</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8619,6 +8951,7 @@ This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23488769" target="_blank">PMID:23488769</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8650,18 +8983,18 @@ This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">methotrexate therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">methotrexate therapy</span>
+This treatment is methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8686,18 +9019,20 @@ This treatment is methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         methotrexate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8712,33 +9047,37 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Papulovesicular eruption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp">HP:0033700</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033700" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0033700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Papulovesicular eruption (HP:0033700). HP:0033700 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Skin ulcer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0200042</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8757,6 +9096,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31318465" target="_blank">PMID:31318465</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8779,6 +9119,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36483219" target="_blank">PMID:36483219</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8810,18 +9151,18 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">corticosteroid agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">corticosteroid agent therapy</span>
+This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
 
 
 
@@ -8846,18 +9187,20 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8872,33 +9215,37 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Skin ulcer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0200042</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fever
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001945</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8917,6 +9264,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38959922" target="_blank">PMID:38959922</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8940,6 +9288,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36483219" target="_blank">PMID:36483219</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8961,6 +9310,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34287852" target="_blank">PMID:34287852</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8994,17 +9344,17 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Intravenous Immunoglobulin Therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.">Intravenous Immunoglobulin Therapy</span>
+This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121331" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.">NCIT:C121331</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121331" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121331">NCIT:C121331</a>
 
 
 
@@ -9035,18 +9385,20 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fever
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001945</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9065,6 +9417,7 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38234081" target="_blank">PMID:38234081</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9096,17 +9449,17 @@ This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Hu
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9131,18 +9484,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         infliximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1789" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1789</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1789" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C1789</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9175,18 +9530,20 @@ This treatment uses infliximab (NCIT:C1789). NCIT:C1789 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Skin ulcer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0200042</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9205,6 +9562,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23391565" target="_blank">PMID:23391565</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9227,6 +9585,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178566" target="_blank">PMID:42178566</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9258,17 +9617,17 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9293,18 +9652,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses ciclosporin, annotated with cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         ciclosporin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-60">CHEBI:4031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ciclosporin, annotated with cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9319,18 +9680,20 @@ This treatment uses ciclosporin, annotated with cyclosporin A (CHEBI:4031). CHEB
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Skin ulcer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0200042</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9349,6 +9712,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35950146" target="_blank">PMID:35950146</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9380,18 +9744,18 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">antimicrobial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">antimicrobial agent therapy</span>
+This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -9416,18 +9780,20 @@ This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         antibiotic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C258" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C258</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C258" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C258</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9442,18 +9808,20 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Skin ulcer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0200042</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9472,6 +9840,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36483219" target="_blank">PMID:36483219</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9494,6 +9863,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178566" target="_blank">PMID:42178566</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9535,6 +9905,10 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
+
+
+
+
                 <div class="item-desc">Infections, medications, and vaccinations have preceded PL or PLEVA in reports and small cohorts. These observations support an antigen-trigger hypothesis only; they do not prove that a specific exposure caused PLEVA, and PLEVA-specific lesion testing did not detect the common viruses assayed.</div>
 
 
@@ -9550,6 +9924,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38677323" target="_blank">PMID:38677323</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9573,6 +9948,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36688177" target="_blank">PMID:36688177</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9594,6 +9970,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25816855" target="_blank">PMID:25816855</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9641,7 +10018,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pityriasis-lichenoides-chronica">
                 <div class="item-name">
 
                     Pityriasis lichenoides chronica
@@ -9682,6 +10059,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25816855" target="_blank">PMID:25816855</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9703,6 +10081,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25816855" target="_blank">PMID:25816855</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9729,7 +10108,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cutaneous-cd8-positive-necrotizing-angiocentric-lymphoproliferative-disease">
                 <div class="item-name">
 
                     Cutaneous CD8-positive necrotizing angiocentric lymphoproliferative disease
@@ -9768,6 +10147,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38457671" target="_blank">PMID:38457671</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9793,7 +10173,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-lymphomatoid-papulosis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Lymphomatoid papulosis</span>
@@ -9839,6 +10219,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29851705" target="_blank">PMID:29851705</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9864,7 +10245,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mycosis-fungoides">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Mycosis_Fungoides.html">Mycosis fungoides</a>
@@ -9911,6 +10292,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29210716" target="_blank">PMID:29210716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9936,7 +10318,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-guttate-psoriasis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Guttate psoriasis</span>
@@ -9982,6 +10364,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                         <a href="https://bioregistry.io/DOI:10.70672/bcfbzp08" target="_blank">DOI:10.70672/bcfbzp08</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10007,7 +10390,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-varicella">
                 <div class="item-name">
 
                     Varicella
@@ -10046,6 +10429,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                         <a href="https://bioregistry.io/DOI:10.1007/s13671-013-0054-x" target="_blank">DOI:10.1007/s13671-013-0054-x</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10067,6 +10451,7 @@ This treatment targets Skin ulcer (HP:0200042). HP:0200042 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s13671-013-0054-x" target="_blank">DOI:10.1007/s13671-013-0054-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12234,10 +12619,10 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - treatment#Narrowband UVB phototherapy
-  - treatment#Oral erythromycin therapy
-  - treatment#Topical corticosteroid therapy
-  - treatment#Methotrexate therapy for refractory or severe disease
+  - treatments#Narrowband UVB phototherapy
+  - treatments#Oral erythromycin therapy
+  - treatments#Topical corticosteroid therapy
+  - treatments#Methotrexate therapy for refractory or severe disease
   rationale: &gt;-
     Most studies pool PLEVA with PLC, use heterogeneous response definitions,
     and have short follow-up. PLEVA-specific comparative evidence is therefore
@@ -12259,11 +12644,11 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - treatment#Prompt systemic and supportive management for FUMHD
-  - treatment#Methotrexate therapy for refractory or severe disease
-  - treatment#Intravenous immunoglobulin (IVIG) for FUMHD
-  - treatment#TNF-alpha inhibitor therapy for FUMHD
-  - treatment#Ciclosporin therapy for FUMHD
+  - treatments#Prompt systemic and supportive management for FUMHD
+  - treatments#Methotrexate therapy for refractory or severe disease
+  - treatments#Intravenous immunoglobulin (IVIG) for FUMHD
+  - treatments#TNF-alpha inhibitor therapy for FUMHD
+  - treatments#Ciclosporin therapy for FUMHD
   rationale: &gt;-
     FUMHD management rests on heterogeneous single cases and small reviews with
     no controlled trials, so no regimen is proven by RCT-grade evidence and the
@@ -13728,7 +14113,7 @@ Consider etoposide/dexamethasone if HLH develops
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Lichenoid Pityriasis", "mondoId": "MONDO:0024250", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Lichenoid_Pityriasis", "yamlRevision": "ca5fc9f66836"};
+        const OS_CONFIG = {"diseaseName": "Acute Lichenoid Pityriasis", "mondoId": "MONDO:0024250", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Lichenoid_Pityriasis", "yamlRevision": "0ce6a1f672d8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14147,5 +14532,73 @@ Consider etoposide/dexamethasone if HLH develops
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

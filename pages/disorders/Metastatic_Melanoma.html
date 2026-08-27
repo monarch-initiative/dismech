@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Metastatic Melanoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Metastatic Melanoma</h1>
             <div class="header-meta">
 
@@ -3882,6 +4004,122 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICD-O Morphology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Derived from this entry&#39;s disease term MONDO:0005012 (cutaneous melanoma). Its NCIT cross-reference NCIT:C3510 (Cutaneous Melanoma) is a descendant of NCIT:C3224 (Melanoma), the term this enum value is bound to. The MONDO parent MONDO:0005105 (melanoma) additionally carries the cross-reference ICDO:8720/3. Metastatic disease does not change the morphology axis, which records the histological type of the primary tumor.">Melanoma</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Metastatic melanoma is managed as a solid-tumor oncology problem (checkpoint blockade, BRAF/MEK-targeted therapy).">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
         <div class="card" id="mappings">
@@ -3984,18 +4222,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4016,18 +4256,20 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4070,6 +4312,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40023845" target="_blank">PMID:40023845</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4110,18 +4353,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4142,18 +4387,20 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4174,18 +4421,20 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of cell migration (GO:0030335). GO:0030335 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go">GO:0030335</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030335</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of cell migration (GO:0030335). GO:0030335 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4236,18 +4485,20 @@ This pathophysiological event involves increased positive regulation of cell mig
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased negative regulation of immune response (GO:0050777). GO:0050777 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" class="curie-chip curie-chip-go">GO:0050777</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0050777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of immune response (GO:0050777). GO:0050777 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4290,6 +4541,7 @@ This pathophysiological event involves increased negative regulation of immune r
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25788491" target="_blank">PMID:25788491</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4330,18 +4582,20 @@ This pathophysiological event involves increased negative regulation of immune r
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4384,6 +4638,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40609368" target="_blank">PMID:40609368</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4424,18 +4679,20 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4515,16 +4772,20 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.">
-                        Headache
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp">HP:0002315</a>
-
-
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4547,16 +4808,20 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4588,16 +4853,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.">
-                        Bone pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp">HP:0002653</a>
-
-
+This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4620,16 +4889,20 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4661,16 +4934,20 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4732,6 +5009,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:1097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4744,6 +5043,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     NRAS
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic activating mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NRAS
+
+
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:7989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -4762,6 +5083,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NF1
+
+
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:7765</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4777,6 +5120,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PTEN
+
+
+    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:9588</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4788,6 +5153,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4806,18 +5174,18 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -4842,33 +5210,37 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         nivolumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C68814</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-19">NCIT:C68814</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         ipilimumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_231679" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:231679</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_231679" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:231679</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -4893,6 +5265,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16142559" target="_blank">DOI:10.3390/cancers16142559</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4932,6 +5305,33 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
             <div class="item-box environmental-box anchor-target" id="environmental-ultraviolet-radiation-exposure" data-dismech-node="Ultraviolet radiation exposure" data-dismech-type="environmental">
                 <div class="item-name">Ultraviolet radiation exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ultraviolet radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-21">ECTO:0000006</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Ultraviolet mutagenesis drives many primary melanomas and establishes the mutational landscape later selected during metastasis.</div>
 
@@ -4960,7 +5360,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001552">
                 <div class="item-name">
                     Whole genome sequencing of primary and metastatic Melanoma cases in an Australian cohort.
 
@@ -4999,7 +5399,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002698">
                 <div class="item-name">
                     Gut microbiome modulates response to anti PD1 immunotherapy in metastatic melanoma patients
 
@@ -5038,7 +5438,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003292">
                 <div class="item-name">
                     Whole Tumor spatial heterogeneity in metastatic melanoma
 
@@ -5073,7 +5473,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000133">
                 <div class="item-name">
                     1H NMR Metabolomics Study of Metastatic Melanoma in C57BL/6J Mouse Spleen
 
@@ -5108,7 +5508,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000080282">
                 <div class="item-name">
                     A Protein Deep Sequencing Evaluation of Metastatic Melanoma Tissues, fractionated approach
 
@@ -5141,7 +5541,7 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000080280">
                 <div class="item-name">
                     A Protein Deep Sequencing Evaluation of Metastatic Melanoma Tissues, unfractionated approach
 
@@ -5202,7 +5602,6 @@ This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic age
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Metastatic Melanoma
 creation_date: &#39;2026-03-28T21:05:00Z&#39;
-updated_date: &#39;2026-05-10T07:56:24Z&#39;
 description: &gt;-
   Metastatic melanoma is advanced melanoma with dissemination to distant skin,
   lymph node, lung, liver, bone, and brain sites. The metastatic phenotype is
@@ -5228,12 +5627,28 @@ mappings:
     mapping_predicate: skos:closeMatch
     mapping_source: MONDO
     mapping_justification: Closest MONDO parent term available for metastatic melanoma.
+classifications:
+  icdo_morphology:
+    classification_value: Melanoma
+    notes: &gt;-
+      Derived from this entry&#39;s disease term MONDO:0005012 (cutaneous melanoma).
+      Its NCIT cross-reference NCIT:C3510 (Cutaneous Melanoma) is a descendant of
+      NCIT:C3224 (Melanoma), the term this enum value is bound to. The MONDO
+      parent MONDO:0005105 (melanoma) additionally carries the cross-reference
+      ICDO:8720/3. Metastatic disease does not change the morphology axis, which
+      records the histological type of the primary tumor.
+  harrisons_chapter:
+  - classification_value: ONCOLOGY_HEMATOLOGY
+    notes: &gt;-
+      Metastatic melanoma is managed as a solid-tumor oncology problem
+      (checkpoint blockade, BRAF/MEK-targeted therapy).
 prevalence:
 - population: Advanced melanoma with brain metastasis
   percentage: 60
   notes: Melanoma brain metastases affect up to 60% of advanced melanoma cases.
   evidence:
   - reference: PMID:40609368
+    reference_title: &#34;Evolving treatment paradigms for melanoma brain metastases: A systematic review of current modalities.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Melanoma brain metastases (MBM) affect up to 60 % of advanced melanoma cases and are associated with poor prognosis and significant neurologic morbidity.
@@ -5243,6 +5658,7 @@ prevalence:
   notes: Estimated 5-year survival in a heavily pretreated advanced melanoma cohort.
   evidence:
   - reference: PMID:31343665
+    reference_title: &#34;Five-Year Survival and Correlates Among Patients With Advanced Melanoma, Renal Cell Carcinoma, or Non-Small Cell Lung Cancer Treated With Nivolumab.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Overall survival curves showed estimated 5-year rates of 34.2% among patients with melanoma, 27.7% among patients with RCC, and 15.6% among patients with NSCLC.
@@ -5256,6 +5672,7 @@ pathophysiology:
     and invasive transcriptional states.
   evidence:
   - reference: PMID:40023845
+    reference_title: &#34;The NF1 tumor suppressor regulates PD-L1 and immune evasion in melanoma.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: Hotspot BRAF, hotspot NRAS, and NF1 loss-of-function mutations are found in approximately 50%, 25%, and 15% of cutaneous melanomas, respectively.
@@ -5302,6 +5719,7 @@ pathophysiology:
     and contributes to heterogeneous responses across cerebral and extracerebral lesions.
   evidence:
   - reference: PMID:25788491
+    reference_title: &#34;Characterization of PD-L1 Expression and Associated T-cell Infiltrates in Metastatic Melanoma Samples from Variable Anatomic Sites.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Programmed death ligand-1 (PD-L1) tumor expression represents a mechanism of immune escape for melanoma cells.
@@ -5321,6 +5739,7 @@ pathophysiology:
     immune resistance programs. Brain lesions are a major cause of neurologic morbidity.
   evidence:
   - reference: PMID:40609368
+    reference_title: &#34;Evolving treatment paradigms for melanoma brain metastases: A systematic review of current modalities.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Melanoma brain metastases (MBM) affect up to 60 % of advanced melanoma cases and are associated with poor prognosis and significant neurologic morbidity.
@@ -5392,19 +5811,44 @@ phenotypes:
       label: Fatigue
 genetic:
 - name: BRAF
+  gene_term:
+    preferred_term: BRAF
+    term:
+      id: hgnc:1097
+      label: BRAF
   association: Somatic activating mutation
   notes: BRAF V600 alterations are major drivers of metastatic melanoma and support dependence on MAPK signaling.
 - name: NRAS
+  gene_term:
+    preferred_term: NRAS
+    term:
+      id: hgnc:7989
+      label: NRAS
   association: Somatic activating mutation
   notes: NRAS mutations promote MAPK and PI3K pathway activation and contribute to invasive plasticity.
 - name: NF1
+  gene_term:
+    preferred_term: NF1
+    term:
+      id: hgnc:7765
+      label: NF1
   association: Somatic loss of function
   notes: NF1 loss releases RAS signaling and can increase PD-L1 expression and immune evasion.
 - name: PTEN
+  gene_term:
+    preferred_term: PTEN
+    term:
+      id: hgnc:9588
+      label: PTEN
   association: Somatic loss of function
   notes: PTEN loss augments PI3K-AKT signaling and is associated with aggressive metastatic behavior.
 environmental:
 - name: Ultraviolet radiation exposure
+  exposure_term:
+    preferred_term: exposure to ultraviolet radiation
+    term:
+      id: ECTO:0000006
+      label: exposure to ultraviolet radiation
   notes: Ultraviolet mutagenesis drives many primary melanomas and establishes the mutational landscape later selected during metastasis.
 notes: &gt;-
   Requested NCIT cross-reference: NCIT:C8925. This entry uses MONDO:0005012
@@ -5882,6 +6326,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdae090.044" target="_blank">DOI:10.1093/noajnl/vdae090.044</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5950,6 +6395,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1097/cm9.0000000000003416" target="_blank">DOI:10.1097/cm9.0000000000003416</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6020,6 +6466,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1097/cmr.0000000000000959" target="_blank">DOI:10.1097/cmr.0000000000000959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6088,6 +6535,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12885-024-12426-z" target="_blank">DOI:10.1186/s12885-024-12426-z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6195,6 +6643,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.20517/cdr.2023.150" target="_blank">DOI:10.20517/cdr.2023.150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6263,6 +6712,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.20517/cdr.2024.54" target="_blank">DOI:10.20517/cdr.2024.54</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6333,6 +6783,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1520441" target="_blank">DOI:10.3389/fimmu.2024.1520441</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6401,6 +6852,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fonc.2024.1512942" target="_blank">DOI:10.3389/fonc.2024.1512942</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6471,6 +6923,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/biom15020269" target="_blank">DOI:10.3390/biom15020269</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6539,6 +6992,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines13010225" target="_blank">DOI:10.3390/biomedicines13010225</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6609,6 +7063,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15123224" target="_blank">DOI:10.3390/cancers15123224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6677,6 +7132,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16010101" target="_blank">DOI:10.3390/cancers16010101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6747,6 +7203,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16081571" target="_blank">DOI:10.3390/cancers16081571</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6815,6 +7272,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16142559" target="_blank">DOI:10.3390/cancers16142559</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6885,6 +7343,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers18030382" target="_blank">DOI:10.3390/cancers18030382</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6954,6 +7413,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cells13161383" target="_blank">DOI:10.3390/cells13161383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7022,6 +7482,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms251810120" target="_blank">DOI:10.3390/ijms251810120</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7554,7 +8015,7 @@ A 2024 resistance review cites CheckMate‑067 long‑term data: median OS <stro
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metastatic Melanoma", "mondoId": "MONDO:0005012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Melanoma", "yamlRevision": "6ed0790c2681"};
+        const OS_CONFIG = {"diseaseName": "Metastatic Melanoma", "mondoId": "MONDO:0005012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Melanoma", "yamlRevision": "3dc4c45d3932"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7973,5 +8434,73 @@ A 2024 resistance review cites CheckMate‑067 long‑term data: median OS <stro
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Autosomal Recessive Cerebellar Ataxia-Saccadic Intrusion Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autosomal Recessive Cerebellar Ataxia-Saccadic Intrusion Syndrome</h1>
             <div class="header-meta">
 
@@ -3988,7 +4110,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4033,6 +4155,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4054,6 +4177,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30789691" target="_blank">PMID:30789691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4155,6 +4279,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4176,6 +4301,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41288814" target="_blank">PMID:41288814</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4263,6 +4389,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4285,6 +4412,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40563011" target="_blank">PMID:40563011</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4306,6 +4434,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39957248" target="_blank">PMID:39957248</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4357,17 +4486,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:23595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4437,6 +4570,7 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4458,6 +4592,7 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4497,17 +4632,21 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:23595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4536,18 +4675,20 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased intermembrane lipid transfer (GO:0120009). GO:0120009 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         intermembrane lipid transfer
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120009" target="_blank" class="curie-chip curie-chip-go">GO:0120009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0120009</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased intermembrane lipid transfer (GO:0120009). GO:0120009 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4605,6 +4746,7 @@ This pathophysiological event involves decreased intermembrane lipid transfer (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33623047" target="_blank">PMID:33623047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4626,6 +4768,7 @@ This pathophysiological event involves decreased intermembrane lipid transfer (G
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33891013" target="_blank">PMID:33891013</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4665,17 +4808,21 @@ This pathophysiological event involves decreased intermembrane lipid transfer (G
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:23595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4704,18 +4851,20 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mitochondrial fission (GO:0000266). GO:0000266 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrial fission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000266" target="_blank" class="curie-chip curie-chip-go">GO:0000266</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial fission (GO:0000266). GO:0000266 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4736,18 +4885,20 @@ This pathophysiological event involves decreased mitochondrial fission (GO:00002
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased autophagy of mitochondrion (GO:0000422). GO:0000422 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         autophagy of mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go">GO:0000422</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0000422</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased autophagy of mitochondrion (GO:0000422). GO:0000422 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4805,6 +4956,7 @@ This pathophysiological event involves decreased autophagy of mitochondrion (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29307555" target="_blank">PMID:29307555</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4826,6 +4978,7 @@ This pathophysiological event involves decreased autophagy of mitochondrion (GO:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34383748" target="_blank">PMID:34383748</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4860,18 +5013,20 @@ This pathophysiological event involves decreased autophagy of mitochondrion (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4897,17 +5052,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:23595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4936,18 +5095,20 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrion organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4968,18 +5129,20 @@ This pathophysiological event involves dysregulated mitochondrion organization (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5037,6 +5200,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5059,6 +5223,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5080,6 +5245,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35151251" target="_blank">PMID:35151251</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5114,18 +5280,20 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5194,6 +5362,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37457002" target="_blank">PMID:37457002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5215,6 +5384,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40563011" target="_blank">PMID:40563011</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5313,6 +5483,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5334,6 +5505,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5415,6 +5587,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5504,16 +5677,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002073</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
-                        Progressive cerebellar ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
-
-
+This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5533,6 +5710,7 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5575,16 +5753,20 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032114</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Saccadic intrusion (HP:0032114). HP:0032114 is a phenotype from the Human Phenotype Ontology.">
-                        Saccadic intrusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032114" target="_blank" class="curie-chip curie-chip-hp">HP:0032114</a>
-
-
+This clinical feature is Saccadic intrusion (HP:0032114). HP:0032114 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5604,6 +5786,7 @@ This clinical feature is Saccadic intrusion (HP:0032114). HP:0032114 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5637,16 +5820,20 @@ This clinical feature is Saccadic intrusion (HP:0032114). HP:0032114 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032105</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macrosaccadic oscillations (HP:0032105). HP:0032105 is a phenotype from the Human Phenotype Ontology.">
-                        Macrosaccadic oscillations
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032105" target="_blank" class="curie-chip curie-chip-hp">HP:0032105</a>
-
-
+This clinical feature is Macrosaccadic oscillations (HP:0032105). HP:0032105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5666,6 +5853,7 @@ This clinical feature is Macrosaccadic oscillations (HP:0032105). HP:0032105 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5699,16 +5887,20 @@ This clinical feature is Macrosaccadic oscillations (HP:0032105). HP:0032105 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007338" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007338</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phenotype from the Human Phenotype Ontology.">
-                        Hypermetric saccades
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007338" target="_blank" class="curie-chip curie-chip-hp">HP:0007338</a>
-
-
+This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5728,6 +5920,7 @@ This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5761,16 +5954,22 @@ This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal pyramidal sign</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal pyramidal sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp">HP:0007256</a>
-
-
+This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5790,6 +5989,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5823,16 +6023,20 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003477</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral axonal neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp">HP:0003477</a>
-
-
+This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5852,6 +6056,7 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5931,15 +6136,17 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:23595</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5964,6 +6171,7 @@ This disease-associated gene is VPS13D (hgnc:23595). hgnc:23595 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5995,6 +6203,111 @@ This disease-associated gene is VPS13D (hgnc:23595). hgnc:23595 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-autosomal-recessive-cerebellar-ataxia-movement-disorder-syndrome-record">
+
+
+    <div class="item-name">Orphanet autosomal recessive cerebellar ataxia-movement disorder syndrome record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://www.orpha.net/en/disease/detail/95434" target="_blank" rel="noopener noreferrer" title="Open ORPHA:95434">ORPHA:95434</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet record for the recessive cerebellar ataxia-movement disorder syndrome corresponding to SCASI/SCAR4; it reports autosomal recessive inheritance, an ultra-rare prevalence class, and cross-references including OMIM:607317 and MeSH:C537310.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-spinocerebellar-ataxia-autosomal-recessive-4-record">
+
+
+    <div class="item-name">OMIM spinocerebellar ataxia, autosomal recessive 4 record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://omim.org/entry/607317" target="_blank" rel="noopener noreferrer" title="Open OMIM:607317">OMIM:607317</a>
+
+
+    </div>
+
+    <div class="item-desc">OMIM disease record for SCAR4.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-mesh-spinocerebellar-ataxia-autosomal-recessive-4-concept">
+
+
+    <div class="item-name">MeSH spinocerebellar ataxia, autosomal recessive 4 concept</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">MeSH</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease concept</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://meshb.nlm.nih.gov/record/ui?ui=C537310" target="_blank" rel="noopener noreferrer" title="Open MESH:C537310">MESH:C537310</a>
+
+
+    </div>
+
+    <div class="item-desc">MeSH supplementary concept for autosomal recessive spinocerebellar ataxia 4.</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6013,18 +6326,18 @@ This disease-associated gene is VPS13D (hgnc:23595). hgnc:23595 is a gene from t
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6066,6 +6379,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38569247" target="_blank">PMID:38569247</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6087,6 +6401,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30789691" target="_blank">PMID:30789691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6120,17 +6435,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6155,18 +6470,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         memantine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_64312" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:64312</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64312" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:64312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6191,6 +6508,7 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1212/01.wnl.0000286952.01476.eb" target="_blank">DOI:10.1212/01.wnl.0000286952.01476.eb</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6224,17 +6542,17 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6275,6 +6593,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30789691" target="_blank">PMID:30789691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6322,7 +6641,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-rfc1-spectrum-disorder-canvas">
                 <div class="item-name">
 
                     RFC1 Spectrum Disorder / CANVAS
@@ -6358,7 +6677,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-friedreich-ataxia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Friedreich_Ataxia.html">Friedreich Ataxia</a>
@@ -6392,7 +6711,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-arsacs-and-other-recessive-spastic-ataxias">
                 <div class="item-name">
 
                     ARSACS and Other Recessive Spastic Ataxias
@@ -6426,7 +6745,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autosomal-dominant-spinocerebellar-ataxias-including-sca4">
                 <div class="item-name">
 
                     Autosomal Dominant Spinocerebellar Ataxias Including SCA4
@@ -6501,17 +6820,19 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="tag-list" style="margin-top: 10px;">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -6522,17 +6843,19 @@ This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-24">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-24">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -6585,6 +6908,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6606,6 +6930,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35151251" target="_blank">PMID:35151251</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6694,17 +7019,21 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:23595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6749,6 +7078,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29604224" target="_blank">PMID:29604224</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6770,6 +7100,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37457002" target="_blank">PMID:37457002</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6843,17 +7174,21 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:23595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6897,6 +7232,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39957248" target="_blank">PMID:39957248</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6972,17 +7308,21 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS13D
 
 
-    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23595</a>
+    <a href="https://bioregistry.io/hgnc:23595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:23595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7026,6 +7366,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40563011" target="_blank">PMID:40563011</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9878,5 +10219,73 @@ Pauly et al. (Int J Mol Sci; 2023-01-18; https://doi.org/10.3390/ijms24031874) r
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Laryngotracheoesophageal Cleft</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Laryngotracheoesophageal Cleft</h1>
             <div class="header-meta">
 
@@ -3930,7 +4052,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-0-interarytenoid-cleft">
 
                     <div class="item-name">
                         Type 0 (interarytenoid cleft)
@@ -3960,7 +4082,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-i">
 
                     <div class="item-name">
                         Type I
@@ -3990,7 +4112,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-ii">
 
                     <div class="item-name">
                         Type II
@@ -4020,7 +4142,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-iii">
 
                     <div class="item-name">
                         Type III
@@ -4050,7 +4172,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-iv">
 
                     <div class="item-name">
                         Type IV
@@ -4116,18 +4238,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated digestive tract development (GO:0048565). GO:0048565 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         digestive tract development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048565" target="_blank" class="curie-chip curie-chip-go">GO:0048565</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048565" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0048565</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated digestive tract development (GO:0048565). GO:0048565 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4148,18 +4272,20 @@ This pathophysiological event involves dysregulated digestive tract development 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated respiratory system development (GO:0060541). GO:0060541 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         respiratory system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060541" target="_blank" class="curie-chip curie-chip-go">GO:0060541</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060541" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0060541</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated respiratory system development (GO:0060541). GO:0060541 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4187,18 +4313,20 @@ This pathophysiological event involves dysregulated respiratory system developme
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         foregut
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001041</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4221,6 +4349,7 @@ This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041
                         <a href="https://bioregistry.io/DOI:10.1186/s40792-023-01650-7" target="_blank">DOI:10.1186/s40792-023-01650-7</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4242,6 +4371,7 @@ This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38380453" target="_blank">PMID:38380453</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4283,18 +4413,20 @@ This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4315,18 +4447,20 @@ This pathophysiological event involves dysregulated BMP signaling pathway (GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated larynx development (GO:0120224). GO:0120224 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         larynx development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120224" target="_blank" class="curie-chip curie-chip-go">GO:0120224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0120224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated larynx development (GO:0120224). GO:0120224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4368,6 +4502,7 @@ This pathophysiological event involves dysregulated larynx development (GO:01202
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37230380" target="_blank">PMID:37230380</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4412,48 +4547,54 @@ This pathophysiological event involves dysregulated larynx development (GO:01202
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         larynx
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001737" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001737</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001737" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001737</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         trachea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003126</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0003126</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4475,6 +4616,7 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40792-023-01650-7" target="_blank">DOI:10.1186/s40792-023-01650-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4516,18 +4658,20 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated digestive tract development (GO:0048565). GO:0048565 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         digestive tract development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048565" target="_blank" class="curie-chip curie-chip-go">GO:0048565</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048565" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0048565</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated digestive tract development (GO:0048565). GO:0048565 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4548,18 +4692,20 @@ This pathophysiological event involves dysregulated digestive tract development 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated respiratory system development (GO:0060541). GO:0060541 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         respiratory system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060541" target="_blank" class="curie-chip curie-chip-go">GO:0060541</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060541" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0060541</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated respiratory system development (GO:0060541). GO:0060541 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4587,18 +4733,20 @@ This pathophysiological event involves dysregulated respiratory system developme
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         foregut
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001041</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001041" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4620,6 +4768,7 @@ This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40792-023-01650-7" target="_blank">DOI:10.1186/s40792-023-01650-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4664,18 +4813,20 @@ This pathophysiological event occurs in foregut (UBERON:0001041). UBERON:0001041
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lateral plate mesoderm (UBERON:0003081). UBERON:0003081 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lateral plate mesoderm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003081" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003081</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003081" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0003081</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lateral plate mesoderm (UBERON:0003081). UBERON:0003081 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4697,6 +4848,7 @@ This pathophysiological event occurs in lateral plate mesoderm (UBERON:0003081).
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-53098-w" target="_blank">DOI:10.1038/s41598-024-53098-w</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4771,16 +4923,20 @@ This pathophysiological event occurs in lateral plate mesoderm (UBERON:0003081).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002013</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.">
-                        Vomiting
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp">HP:0002013</a>
-
-
+This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4800,6 +4956,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40792-023-01650-7" target="_blank">DOI:10.1186/s40792-023-01650-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4835,16 +4992,20 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4864,6 +5025,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37441989" target="_blank">PMID:37441989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4908,16 +5070,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002090</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.">
-                        Pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp">HP:0002090</a>
-
-
+This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4937,6 +5103,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40792-023-01650-7" target="_blank">DOI:10.1186/s40792-023-01650-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4960,6 +5127,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32593610" target="_blank">PMID:32593610</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4981,6 +5149,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40227884" target="_blank">PMID:40227884</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5018,16 +5187,20 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011951</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phenotype from the Human Phenotype Ontology.">
-                        Aspiration pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp">HP:0011951</a>
-
-
+This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5047,6 +5220,7 @@ This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6873110" target="_blank">PMID:6873110</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5091,16 +5265,20 @@ This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0030842</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Choking episodes (HP:0030842). HP:0030842 is a phenotype from the Human Phenotype Ontology.">
-                        Choking episodes
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030842" target="_blank" class="curie-chip curie-chip-hp">HP:0030842</a>
-
-
+This clinical feature is Choking episodes (HP:0030842). HP:0030842 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5120,6 +5298,7 @@ This clinical feature is Choking episodes (HP:0030842). HP:0030842 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40330935" target="_blank">PMID:40330935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5164,16 +5343,20 @@ This clinical feature is Choking episodes (HP:0030842). HP:0030842 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012735</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
-                        Cough
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
-
-
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5193,6 +5376,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32593610" target="_blank">PMID:32593610</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5216,6 +5400,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39543566" target="_blank">PMID:39543566</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5237,6 +5422,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40330935" target="_blank">PMID:40330935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5272,16 +5458,20 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002781</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a phenotype from the Human Phenotype Ontology.">
-                        Upper airway obstruction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp">HP:0002781</a>
-
-
+This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5301,6 +5491,7 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37436152" target="_blank">PMID:37436152</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5336,16 +5527,20 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0010307</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from the Human Phenotype Ontology.">
-                        Stridor
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp">HP:0010307</a>
-
-
+This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5365,6 +5560,7 @@ This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40330935" target="_blank">PMID:40330935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5400,16 +5596,20 @@ This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5429,6 +5629,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30783751" target="_blank">PMID:30783751</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5451,6 +5652,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39543566" target="_blank">PMID:39543566</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5486,16 +5688,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030828</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.">
-                        Wheezing
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp">HP:0030828</a>
-
-
+This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5515,6 +5721,7 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39543566" target="_blank">PMID:39543566</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5550,16 +5757,20 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002835</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from the Human Phenotype Ontology.">
-                        Aspiration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp">HP:0002835</a>
-
-
+This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5579,6 +5790,7 @@ This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40227884" target="_blank">PMID:40227884</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5614,16 +5826,20 @@ This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atelectasis (HP:0100750). HP:0100750 is a phenotype from the Human Phenotype Ontology.">
-                        Atelectasis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100750" target="_blank" class="curie-chip curie-chip-hp">HP:0100750</a>
-
-
+This clinical feature is Atelectasis (HP:0100750). HP:0100750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5643,6 +5859,7 @@ This clinical feature is Atelectasis (HP:0100750). HP:0100750 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40227884" target="_blank">PMID:40227884</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5678,16 +5895,20 @@ This clinical feature is Atelectasis (HP:0100750). HP:0100750 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033542" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0033542</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bronchial wall thickening (HP:0033542). HP:0033542 is a phenotype from the Human Phenotype Ontology.">
-                        Bronchial wall thickening
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033542" target="_blank" class="curie-chip curie-chip-hp">HP:0033542</a>
-
-
+This clinical feature is Bronchial wall thickening (HP:0033542). HP:0033542 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5707,6 +5928,7 @@ This clinical feature is Bronchial wall thickening (HP:0033542). HP:0033542 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40227884" target="_blank">PMID:40227884</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5751,16 +5973,20 @@ This clinical feature is Bronchial wall thickening (HP:0033542). HP:0033542 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001609</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.">
-                        Hoarse voice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp">HP:0001609</a>
-
-
+This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5780,6 +6006,7 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32593610" target="_blank">PMID:32593610</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5802,6 +6029,7 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39543566" target="_blank">PMID:39543566</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5881,15 +6109,17 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOX2
 
 
-    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11195</a>
+    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:11195</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5910,6 +6140,7 @@ This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-53098-w" target="_blank">DOI:10.1038/s41598-024-53098-w</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5948,15 +6179,17 @@ This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FOXF1
 
 
-    <a href="https://bioregistry.io/hgnc:3809" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3809</a>
+    <a href="https://bioregistry.io/hgnc:3809" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:3809</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5977,6 +6210,7 @@ This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-53098-w" target="_blank">DOI:10.1038/s41598-024-53098-w</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6015,15 +6249,17 @@ This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FOXC1
 
 
-    <a href="https://bioregistry.io/hgnc:3800" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3800</a>
+    <a href="https://bioregistry.io/hgnc:3800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6044,6 +6280,7 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-53098-w" target="_blank">DOI:10.1038/s41598-024-53098-w</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6082,15 +6319,17 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RERE
 
 
-    <a href="https://bioregistry.io/hgnc:9965" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9965</a>
+    <a href="https://bioregistry.io/hgnc:9965" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:9965</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6111,6 +6350,7 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30245899" target="_blank">PMID:30245899</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6142,6 +6382,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6158,18 +6401,18 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">laser surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C15466), qualified as surgical procedure laser surgery. NCIT:C15466 is a clinical intervention from the NCI Thesaurus.">laser surgical procedure</span>
+This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C15466), qualified as surgical procedure laser surgery. NCIT:C15466 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laser Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15466" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C15466), qualified as surgical procedure laser surgery. NCIT:C15466 is a clinical intervention from the NCI Thesaurus.">NCIT:C15466</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15466" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15466">NCIT:C15466</a>
 
 
 
@@ -6211,6 +6454,7 @@ This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40330935" target="_blank">PMID:40330935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6241,18 +6485,18 @@ This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">laser surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C15466), qualified as surgical procedure laser surgery; therapeutic agent carbon dioxide. NCIT:C15466 is a clinical intervention from the NCI Thesaurus.">laser surgical procedure</span>
+This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C15466), qualified as surgical procedure laser surgery; therapeutic agent carbon dioxide. NCIT:C15466 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laser Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15466" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C15466), qualified as surgical procedure laser surgery; therapeutic agent carbon dioxide. NCIT:C15466 is a clinical intervention from the NCI Thesaurus.">NCIT:C15466</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15466" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15466">NCIT:C15466</a>
 
 
 
@@ -6294,6 +6538,7 @@ This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40579891" target="_blank">PMID:40579891</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6324,18 +6569,18 @@ This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic agent hyaluronic acid. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic agent hyaluronic acid. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic agent hyaluronic acid. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6377,6 +6622,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39260330" target="_blank">PMID:39260330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6399,6 +6645,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40330935" target="_blank">PMID:40330935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6420,6 +6667,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35236684" target="_blank">PMID:35236684</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6451,18 +6699,18 @@ This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329), qualified as surgical procedure endoscopic procedure. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329), qualified as surgical procedure endoscopic procedure. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329), qualified as surgical procedure endoscopic procedure. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6504,6 +6752,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as surgical proced
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40629707" target="_blank">PMID:40629707</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6526,6 +6775,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as surgical proced
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6873110" target="_blank">PMID:6873110</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6547,6 +6797,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as surgical proced
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30783751" target="_blank">PMID:30783751</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6580,18 +6831,18 @@ This treatment is surgical procedure (NCIT:C15329), qualified as surgical proced
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6633,6 +6884,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38761217" target="_blank">PMID:38761217</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6663,18 +6915,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6715,6 +6967,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37816841" target="_blank">PMID:37816841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6762,7 +7015,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-esophageal-atresia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Esophageal_Atresia.html">Esophageal atresia</a>
@@ -6796,6 +7049,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30232040" target="_blank">PMID:30232040</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6821,7 +7075,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-tracheo-esophageal-fistula">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Tracheo-esophageal fistula</span>
@@ -6856,6 +7110,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22151899" target="_blank">PMID:22151899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6881,7 +7136,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-gastroesophageal-reflux-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Gastroesophageal_Reflux_Disease.html">Gastroesophageal reflux disease</a>
@@ -6915,6 +7170,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22151899" target="_blank">PMID:22151899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6940,7 +7196,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-congenital-laryngomalacia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Congenital laryngomalacia</span>
@@ -6974,6 +7230,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22151899" target="_blank">PMID:22151899</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7029,7 +7286,6 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Laryngotracheoesophageal Cleft
 creation_date: &#39;2026-02-03T18:21:46Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Complex
 synonyms:
 - Laryngeal cleft
@@ -7121,6 +7377,7 @@ pathophysiology:
     modifier: DYSREGULATED
   evidence:
   - reference: DOI:10.1186/s40792-023-01650-7
+    reference_title: &#34;Gastric tumor mimicking bronchial tissue associated with a laryngotracheoesophageal cleft: a case report&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;LTEC occurs because of foregut maldevelopment&#34;
@@ -7175,6 +7432,7 @@ pathophysiology:
       label: esophagus
   evidence:
   - reference: DOI:10.1186/s40792-023-01650-7
+    reference_title: &#34;Gastric tumor mimicking bronchial tissue associated with a laryngotracheoesophageal cleft: a case report&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Laryngotracheoesophageal cleft (LTEC) is a rare disease in which the
@@ -7202,6 +7460,7 @@ pathophysiology:
     modifier: DYSREGULATED
   evidence:
   - reference: DOI:10.1186/s40792-023-01650-7
+    reference_title: &#34;Gastric tumor mimicking bronchial tissue associated with a laryngotracheoesophageal cleft: a case report&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;LTEC occurs because of foregut maldevelopment&#34;
@@ -7218,6 +7477,7 @@ pathophysiology:
       label: lateral plate mesoderm
   evidence:
   - reference: DOI:10.1038/s41598-024-53098-w
+    reference_title: &#34;Single-cell analysis reveals the spatial-temporal expression of genes associated with esophageal malformations&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;the genes associated with esophageal malformations show their highest
@@ -7236,6 +7496,7 @@ phenotypes:
       label: Vomiting
   evidence:
   - reference: DOI:10.1186/s40792-023-01650-7
+    reference_title: &#34;Gastric tumor mimicking bronchial tissue associated with a laryngotracheoesophageal cleft: a case report&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The patient experienced frequent vomiting and aspiration pneumonia&#34;
@@ -7250,6 +7511,7 @@ phenotypes:
       label: Pneumonia
   evidence:
   - reference: DOI:10.1186/s40792-023-01650-7
+    reference_title: &#34;Gastric tumor mimicking bronchial tissue associated with a laryngotracheoesophageal cleft: a case report&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The patient experienced frequent vomiting and aspiration pneumonia&#34;
@@ -7932,6 +8194,7 @@ genetic:
   association: Associated
   evidence:
   - reference: DOI:10.1038/s41598-024-53098-w
+    reference_title: &#34;Single-cell analysis reveals the spatial-temporal expression of genes associated with esophageal malformations&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;FOXF1, FOXC1, and FOXD1, as well as the SRY-box transcription factor,
@@ -7948,6 +8211,7 @@ genetic:
   association: Associated
   evidence:
   - reference: DOI:10.1038/s41598-024-53098-w
+    reference_title: &#34;Single-cell analysis reveals the spatial-temporal expression of genes associated with esophageal malformations&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;FOXF1, FOXC1, and FOXD1, as well as the SRY-box transcription factor,
@@ -7964,6 +8228,7 @@ genetic:
   association: Associated
   evidence:
   - reference: DOI:10.1038/s41598-024-53098-w
+    reference_title: &#34;Single-cell analysis reveals the spatial-temporal expression of genes associated with esophageal malformations&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;FOXF1, FOXC1, and FOXD1, as well as the SRY-box transcription factor,
@@ -8317,7 +8582,7 @@ Laryngotracheoesophageal cleft is a congenital foregut partitioning defect in wh
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Laryngotracheoesophageal Cleft", "mondoId": "MONDO:0016060", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Laryngotracheoesophageal_Cleft", "yamlRevision": "f7a25bdd8408"};
+        const OS_CONFIG = {"diseaseName": "Laryngotracheoesophageal Cleft", "mondoId": "MONDO:0016060", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Laryngotracheoesophageal_Cleft", "yamlRevision": "1c3513f94cb3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8736,5 +9001,73 @@ Laryngotracheoesophageal cleft is a congenital foregut partitioning defect in wh
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

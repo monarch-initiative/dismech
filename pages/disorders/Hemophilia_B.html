@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hemophilia B</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hemophilia B</h1>
             <div class="header-meta">
 
@@ -3678,6 +3800,8 @@
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Bleeding Disorder</span>
 
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Coagulation Disorder</span>
+
+                <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">hemophilia</span>
 
                 <button class="badge badge-openscientist" id="os-ask-btn"
                         onclick="toggleOpenScientist()">
@@ -3986,6 +4110,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23430394" target="_blank">PMID:23430394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4083,6 +4208,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23430394" target="_blank">PMID:23430394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4158,15 +4284,17 @@
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-1">HP:0001892</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp">HP:0001892</a>
-
-
+This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4186,6 +4314,7 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23430394" target="_blank">PMID:23430394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4222,15 +4351,17 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005261" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0005261</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint hemorrhage (HP:0005261). HP:0005261 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005261" target="_blank" class="curie-chip curie-chip-hp">HP:0005261</a>
-
-
+This clinical feature is Joint hemorrhage (HP:0005261). HP:0005261 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4250,6 +4381,7 @@ This clinical feature is Joint hemorrhage (HP:0005261). HP:0005261 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301668" target="_blank">PMID:20301668</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4303,15 +4435,17 @@ This clinical feature is Joint hemorrhage (HP:0005261). HP:0005261 is a phenotyp
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is F9 (hgnc:3551). hgnc:3551 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: F9
 
 
-    <a href="https://bioregistry.io/hgnc:3551" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3551</a>
+    <a href="https://bioregistry.io/hgnc:3551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:3551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is F9 (hgnc:3551). hgnc:3551 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4332,6 +4466,7 @@ This disease-associated gene is F9 (hgnc:3551). hgnc:3551 is a gene from the HUG
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_3d56d08d-48d0-4523-b433-dbd44c5b9e45-2019-05-22T190226.728Z" target="_blank">CGGV:assertion_3d56d08d-48d0-4523-b433-dbd44c5b9e45-2019-05-22T190226.728Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4363,6 +4498,9 @@ This disease-associated gene is F9 (hgnc:3551). hgnc:3551 is a gene from the HUG
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4379,17 +4517,17 @@ This disease-associated gene is F9 (hgnc:3551). hgnc:3551 is a gene from the HUG
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-4">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-4">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -4431,6 +4569,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23430394" target="_blank">PMID:23430394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4450,6 +4589,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39043543" target="_blank">PMID:39043543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4481,17 +4621,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-5">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-5">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -4533,6 +4673,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23430394" target="_blank">PMID:23430394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4553,6 +4694,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39950390" target="_blank">PMID:39950390</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4572,6 +4714,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39043543" target="_blank">PMID:39043543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4603,18 +4746,18 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-6">enzyme replacement or supplementation therapy<span class="pill-tip" role="tooltip" id="pill-tip-6">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">enzyme replacement or supplementation therapy</span>
+This treatment is enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Protein Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">NCIT:C16221</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16221">NCIT:C16221</a>
 
 
 
@@ -4656,6 +4799,7 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41087175" target="_blank">PMID:41087175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4686,18 +4830,18 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-7">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-7">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -4738,6 +4882,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41087175" target="_blank">PMID:41087175</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4783,7 +4928,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse190760">
                 <div class="item-name">
                     Single-Cell RNA sequencing reveals prophylactic Prednisone blunts cellular immunity in hemophilia B gene therapy
 
@@ -4854,11 +4999,11 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hemophilia B
 creation_date: &#39;2026-02-02T00:16:36Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Genetic
 parents:
 - Bleeding Disorder
 - Coagulation Disorder
+- hemophilia
 disease_term:
   preferred_term: hemophilia B
   term:
@@ -4877,6 +5022,7 @@ prevalence:
     prevalence at birth was higher at 5.0 per 100,000 male births.
   evidence:
   - reference: PMID:31499529
+    reference_title: &#34;Establishing the Prevalence and Prevalence at Birth of Hemophilia in Males: A Meta-analytic Approach Using National Registries&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Results: Prevalence (per 100 000 males) is 17.1 cases for all severities of hemophilia A, 6.0 cases for severe hemophilia A, 3.8 cases for all severities of hemophilia B, and 1.1 cases for severe hemophilia B. Prevalence at birth (per 100 000 males) is 24.6 cases for all severities of hemophilia A, 9.5 cases for severe hemophilia A, 5.0 cases for all severities of hemophilia B, and 1.5 cases for severe hemophilia B.&#34;
@@ -4891,6 +5037,7 @@ prevalence:
     expectancy in some settings and modern treatment availability is uneven.
   evidence:
   - reference: PMID:31499529
+    reference_title: &#34;Establishing the Prevalence and Prevalence at Birth of Hemophilia in Males: A Meta-analytic Approach Using National Registries&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Results: Prevalence (per 100 000 males) is 17.1 cases for all severities of hemophilia A, 6.0 cases for severe hemophilia A, 3.8 cases for all severities of hemophilia B, and 1.1 cases for severe hemophilia B. Prevalence at birth (per 100 000 males) is 24.6 cases for all severities of hemophilia A, 9.5 cases for severe hemophilia A, 5.0 cases for all severities of hemophilia B, and 1.5 cases for severe hemophilia B.&#34;
@@ -5713,7 +5860,7 @@ AAV gene therapy (adult severe–moderately severe HB)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hemophilia B", "mondoId": "MONDO:0010604", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemophilia_B", "yamlRevision": "771cb4566967"};
+        const OS_CONFIG = {"diseaseName": "Hemophilia B", "mondoId": "MONDO:0010604", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemophilia_B", "yamlRevision": "90ee39f436a2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6132,5 +6279,73 @@ AAV gene therapy (adult severe–moderately severe HB)
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

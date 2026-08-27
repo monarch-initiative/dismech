@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Diffuse Astrocytoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Diffuse Astrocytoma</h1>
             <div class="header-meta">
 
@@ -3879,34 +4001,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Glioma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3953,7 +4162,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-idh-mutant">
 
                     <div class="item-name">
                         Astrocytoma, IDH-mutant (adult-type, grade 2-4)
@@ -3989,6 +4198,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26061751" target="_blank">PMID:26061751</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4015,7 +4225,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dmg-h3k27-altered">
 
                     <div class="item-name">
                         Diffuse midline glioma, H3 K27-altered (paediatric-type, grade 4)
@@ -4051,6 +4261,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35169084" target="_blank">PMID:35169084</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4077,7 +4288,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhg-h3g34-mutant">
 
                     <div class="item-name">
                         Diffuse hemispheric glioma, H3 G34-mutant
@@ -4111,6 +4322,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23079654" target="_blank">PMID:23079654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4137,7 +4349,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-paediatric-hgg">
 
                     <div class="item-name">
                         Diffuse paediatric-type high-grade glioma, H3-wildtype and IDH-wildtype
@@ -4170,6 +4382,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34185076" target="_blank">PMID:34185076</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4226,18 +4439,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4268,18 +4483,20 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4341,6 +4558,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34185076" target="_blank">PMID:34185076</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4374,18 +4592,20 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4413,18 +4633,20 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal tricarboxylic acid cycle (GO:0006099). GO:0006099 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         tricarboxylic acid cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go">GO:0006099</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal tricarboxylic acid cycle (GO:0006099). GO:0006099 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4482,6 +4704,7 @@ This pathophysiological event involves abnormal tricarboxylic acid cycle (GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40916936" target="_blank">PMID:40916936</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4522,18 +4745,20 @@ This pathophysiological event involves abnormal tricarboxylic acid cycle (GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased DNA methylation, annotated with DNA modification (GO:0006304). GO:0006304 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA methylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go">GO:0006304</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006304</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased DNA methylation, annotated with DNA modification (GO:0006304). GO:0006304 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4554,18 +4779,20 @@ This pathophysiological event involves increased DNA methylation, annotated with
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glial cell differentiation (GO:0010001). GO:0010001 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glial cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010001" target="_blank" class="curie-chip curie-chip-go">GO:0010001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0010001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glial cell differentiation (GO:0010001). GO:0010001 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4623,6 +4850,7 @@ This pathophysiological event involves decreased glial cell differentiation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22343889" target="_blank">PMID:22343889</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4656,18 +4884,20 @@ This pathophysiological event involves decreased glial cell differentiation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4713,6 +4943,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26061751" target="_blank">PMID:26061751</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4746,18 +4977,20 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4786,18 +5019,20 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased histone H3K27 methyltransferase activity (GO:0046976). GO:0046976 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         histone H3K27 methyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046976" target="_blank" class="curie-chip curie-chip-go">GO:0046976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0046976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone H3K27 methyltransferase activity (GO:0046976). GO:0046976 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4824,18 +5059,20 @@ This pathophysiological event involves decreased histone H3K27 methyltransferase
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pons (UBERON:0000988). UBERON:0000988 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000988" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000988</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000988</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pons (UBERON:0000988). UBERON:0000988 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4857,6 +5094,7 @@ This pathophysiological event occurs in pons (UBERON:0000988). UBERON:0000988 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35169084" target="_blank">PMID:35169084</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4891,18 +5129,20 @@ This pathophysiological event occurs in pons (UBERON:0000988). UBERON:0000988 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4948,6 +5188,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22286061" target="_blank">PMID:22286061</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4969,6 +5210,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23079654" target="_blank">PMID:23079654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5010,18 +5252,20 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5063,6 +5307,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15758010" target="_blank">PMID:15758010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5122,6 +5367,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36651583" target="_blank">PMID:36651583</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5157,7 +5403,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-diffuse-glioma">
                 <div class="item-name">
                     Diffuse Glioma
 
@@ -5180,6 +5426,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36651583" target="_blank">PMID:36651583</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5255,15 +5502,17 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5289,15 +5538,17 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp">HP:0002315</a>
-
-
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5323,15 +5574,17 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
-
-
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5357,15 +5610,17 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001269</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp">HP:0001269</a>
-
-
+This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5401,6 +5656,28 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IDH1
+
+
+    <a href="https://bioregistry.io/hgnc:5382" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:5382</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IDH1 (hgnc:5382). hgnc:5382 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5413,6 +5690,28 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     IDH2
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IDH2
+
+
+    <a href="https://bioregistry.io/hgnc:5383" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:5383</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IDH2 (hgnc:5383). hgnc:5383 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5431,6 +5730,28 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ATRX
+
+
+    <a href="https://bioregistry.io/hgnc:886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:886</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATRX (hgnc:886). hgnc:886 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5445,6 +5766,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26061751" target="_blank">PMID:26061751</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5478,6 +5800,28 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:11998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5492,6 +5836,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26061751" target="_blank">PMID:26061751</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5540,6 +5885,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22286061" target="_blank">PMID:22286061</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5587,6 +5933,28 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CDKN2A
+
+
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:1787</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5599,6 +5967,28 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     MGMT
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Epigenetic Silencing)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MGMT
+
+
+    <a href="https://bioregistry.io/hgnc:7059" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:7059</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MGMT (hgnc:7059). hgnc:7059 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5616,6 +6006,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15758010" target="_blank">PMID:15758010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5662,6 +6053,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5678,17 +6072,17 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Gross Total Resection<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Gross Total Resection (NCIT:C131672). NCIT:C131672 is a clinical intervention from the NCI Thesaurus.">Gross Total Resection</span>
+This treatment is Gross Total Resection (NCIT:C131672). NCIT:C131672 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C131672" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Gross Total Resection (NCIT:C131672). NCIT:C131672 is a clinical intervention from the NCI Thesaurus.">NCIT:C131672</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C131672" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C131672">NCIT:C131672</a>
 
 
 
@@ -5728,17 +6122,17 @@ This treatment is Gross Total Resection (NCIT:C131672). NCIT:C131672 is a clinic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">Radiation Therapy</span>
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -5778,18 +6172,18 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -5829,17 +6223,17 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5864,18 +6258,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses vorasidenib (NCIT:C152914). NCIT:C152914 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         vorasidenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152914" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152914</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152914" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C152914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vorasidenib (NCIT:C152914). NCIT:C152914 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5938,7 +6334,7 @@ This treatment uses vorasidenib (NCIT:C152914). NCIT:C152914 is a therapeutic ag
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04164901">
                 <div class="item-name">
                     NCT04164901
 
@@ -5956,18 +6352,20 @@ This treatment uses vorasidenib (NCIT:C152914). NCIT:C152914 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Glioma (HP:0009733). HP:0009733 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Glioma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009733" target="_blank" class="curie-chip curie-chip-hp">HP:0009733</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0009733</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Glioma (HP:0009733). HP:0009733 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5985,6 +6383,7 @@ This clinical trial targets Glioma (HP:0009733). HP:0009733 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04164901" target="_blank">clinicaltrials:NCT04164901</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6032,7 +6431,6 @@ This clinical trial targets Glioma (HP:0009733). HP:0009733 is a phenotype from 
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Diffuse Astrocytoma
 creation_date: &#39;2026-05-14T10:00:00Z&#39;
-updated_date: &#39;2026-05-14T10:00:00Z&#39;
 description: &gt;-
   Diffuse astrocytoma is an infiltrative glial neoplasm of the central nervous
   system characterised by diffuse parenchymal invasion of astrocytic tumour
@@ -6397,18 +6795,33 @@ phenotypes:
       label: Hemiparesis
 genetic:
 - name: IDH1
+  gene_term:
+    preferred_term: IDH1
+    term:
+      id: hgnc:5382
+      label: IDH1
   association: Somatic Mutation
   notes: &gt;-
     IDH1 R132H is the dominant driver in the adult-type IDH-mutant subtype
     (&gt;90% of IDH-mutant astrocytomas). Detectable by R132H-specific
     immunohistochemistry; other R132 variants require sequencing.
 - name: IDH2
+  gene_term:
+    preferred_term: IDH2
+    term:
+      id: hgnc:5383
+      label: IDH2
   association: Somatic Mutation
   notes: &gt;-
     IDH2 R172 mutations account for ~3% of IDH-mutant diffuse gliomas and are
     enriched in oligodendrogliomas; in astrocytic lineage they require
     sequencing for detection.
 - name: ATRX
+  gene_term:
+    preferred_term: ATRX
+    term:
+      id: hgnc:886
+      label: ATRX
   association: Somatic Mutation
   evidence:
   - reference: PMID:26061751
@@ -6423,6 +6836,11 @@ genetic:
     loss is mutually exclusive with 1p/19q codeletion and is part of the
     operational definition of astrocytic versus oligodendroglial lineage.
 - name: TP53
+  gene_term:
+    preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
   association: Somatic Mutation
   evidence:
   - reference: PMID:26061751
@@ -6455,12 +6873,22 @@ genetic:
     H3.1 K27M mutations in HIST1H3B (and less commonly HIST1H3C) drive a
     subset of pontine paediatric midline diffuse astrocytomas (DIPG variant).
 - name: CDKN2A
+  gene_term:
+    preferred_term: CDKN2A
+    term:
+      id: hgnc:1787
+      label: CDKN2A
   association: Homozygous Deletion
   notes: &gt;-
     Homozygous deletion of CDKN2A/CDKN2B (9p21) upgrades IDH-mutant
     astrocytoma to WHO grade 4 independent of histology and predicts poor
     outcome.
 - name: MGMT
+  gene_term:
+    preferred_term: MGMT
+    term:
+      id: hgnc:7059
+      label: MGMT
   association: Epigenetic Silencing
   evidence:
   - reference: PMID:15758010
@@ -6571,6 +6999,7 @@ clinical_trials:
       label: Glioma
   evidence:
   - reference: clinicaltrials:NCT04164901
+    reference_title: &#34;A Phase 3, Multicenter, Randomized, Double-blind, Placebo-Controlled Study of AG-881 in Subjects With Residual or Recurrent Grade 2 Glioma With an IDH1 or IDH2 Mutation&#34;
     supports: SUPPORT
     snippet: &#34;Study AG881-C-004 is a phase 3, multicenter, randomized, double-blind, placebo-controlled study comparing the efficacy of vorasidenib to placebo in participants with residual or recurrent Grade 2 glioma with an IDH1 or IDH2 mutation who have undergone surgery as their only treatment.&#34;
     explanation: Trial summary confirms the INDIGO study design (Phase 3 vorasidenib vs placebo) and the IDH-mutant Grade 2 glioma target population.
@@ -6644,7 +7073,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diffuse Astrocytoma", "mondoId": "MONDO:0016686", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diffuse_Astrocytoma", "yamlRevision": "1add067d553e"};
+        const OS_CONFIG = {"diseaseName": "Diffuse Astrocytoma", "mondoId": "MONDO:0016686", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diffuse_Astrocytoma", "yamlRevision": "84d6bef29f47"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7063,5 +7492,73 @@ classifications:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

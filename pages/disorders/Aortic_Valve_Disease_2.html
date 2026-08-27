@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Aortic Valve Disease 2</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Aortic Valve Disease 2</h1>
             <div class="header-meta">
 
@@ -3967,7 +4089,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-disease-framing-for-aortic-valve-disease-2">
                 <div class="item-name">Clinical disease framing for aortic valve disease 2</div>
 
                 <div class="item-desc">Aortic valve disease 2 is a congenital SMAD6-associated valvulo-aortic disorder defined by bicuspid aortic valve with associated left-sided outflow-tract malformations and/or thoracic aortopathy.</div>
@@ -4013,6 +4135,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4034,6 +4157,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4059,7 +4183,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-molecular-definition-for-aortic-valve-disease-2">
                 <div class="item-name">Molecular definition for aortic valve disease 2</div>
 
                 <div class="item-desc">Molecularly, this entry captures heterozygous deleterious SMAD6 variants that impair inhibitory control of BMP signaling in bicuspid aortic valve and related aortopathy.</div>
@@ -4105,6 +4229,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4141,7 +4266,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4190,6 +4315,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4211,6 +4337,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4276,17 +4403,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6772</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4319,18 +4450,20 @@ This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased negative regulation of BMP signaling pathway (GO:0030514). GO:0030514 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030514" target="_blank" class="curie-chip curie-chip-go">GO:0030514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of BMP signaling pathway (GO:0030514). GO:0030514 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4396,6 +4529,7 @@ This pathophysiological event involves decreased negative regulation of BMP sign
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36414630" target="_blank">PMID:36414630</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4417,6 +4551,7 @@ This pathophysiological event involves decreased negative regulation of BMP sign
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4458,18 +4593,20 @@ This pathophysiological event involves decreased negative regulation of BMP sign
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal heart valve morphogenesis (GO:0003179). GO:0003179 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         heart valve morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003179" target="_blank" class="curie-chip curie-chip-go">GO:0003179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal heart valve morphogenesis (GO:0003179). GO:0003179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4527,6 +4664,7 @@ This pathophysiological event involves abnormal heart valve morphogenesis (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4548,6 +4686,7 @@ This pathophysiological event involves abnormal heart valve morphogenesis (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4646,6 +4785,7 @@ This pathophysiological event involves abnormal heart valve morphogenesis (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4667,6 +4807,7 @@ This pathophysiological event involves abnormal heart valve morphogenesis (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4708,18 +4849,20 @@ This pathophysiological event involves abnormal heart valve morphogenesis (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4785,6 +4928,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30848080" target="_blank">PMID:30848080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4807,6 +4951,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25383261" target="_blank">PMID:25383261</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4828,6 +4973,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10655064" target="_blank">PMID:10655064</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4869,18 +5015,20 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal vasculature development (GO:0001944). GO:0001944 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         vasculature development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001944" target="_blank" class="curie-chip curie-chip-go">GO:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001944" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal vasculature development (GO:0001944). GO:0001944 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4908,18 +5056,20 @@ This pathophysiological event involves abnormal vasculature development (GO:0001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in ascending aorta (UBERON:0001496). UBERON:0001496 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         ascending aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001496" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001496</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001496" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001496</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ascending aorta (UBERON:0001496). UBERON:0001496 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4965,6 +5115,7 @@ This pathophysiological event occurs in ascending aorta (UBERON:0001496). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4986,6 +5137,7 @@ This pathophysiological event occurs in ascending aorta (UBERON:0001496). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30848080" target="_blank">PMID:30848080</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5075,16 +5227,20 @@ This pathophysiological event occurs in ascending aorta (UBERON:0001496). UBERON
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001647</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phenotype from the Human Phenotype Ontology.">
-                        Bicuspid aortic valve
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" class="curie-chip curie-chip-hp">HP:0001647</a>
-
-
+This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5104,6 +5260,7 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5137,16 +5294,20 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic valve stenosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp">HP:0001650</a>
-
-
+This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5166,6 +5327,7 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5188,6 +5350,7 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5221,16 +5384,22 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aortic regurgitation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001659</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic regurgitation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp">HP:0001659</a>
-
-
+This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5250,6 +5419,7 @@ This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35867195" target="_blank">PMID:35867195</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5283,16 +5453,20 @@ This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002647</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic dissection
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp">HP:0002647</a>
-
-
+This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5312,6 +5486,7 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35867195" target="_blank">PMID:35867195</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5345,16 +5520,20 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001680</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phenotype from the Human Phenotype Ontology.">
-                        Coarctation of aorta
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" class="curie-chip curie-chip-hp">HP:0001680</a>
-
-
+This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5374,6 +5553,7 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5416,16 +5596,20 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012727</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.">
-                        Thoracic aortic aneurysm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp">HP:0012727</a>
-
-
+This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5445,6 +5629,7 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5467,6 +5652,7 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30848080" target="_blank">PMID:30848080</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5500,16 +5686,22 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal aortic valve morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001646</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic valve calcification, annotated with Abnormal aortic valve morphology (HP:0001646). HP:0001646 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal aortic valve morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001646" target="_blank" class="curie-chip curie-chip-hp">HP:0001646</a>
-
-
+This clinical feature is Aortic valve calcification, annotated with Abnormal aortic valve morphology (HP:0001646). HP:0001646 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5529,6 +5721,7 @@ This clinical feature is Aortic valve calcification, annotated with Abnormal aor
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30848080" target="_blank">PMID:30848080</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5608,15 +5801,17 @@ This clinical feature is Aortic valve calcification, annotated with Abnormal aor
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:6772</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5642,6 +5837,7 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5663,6 +5859,7 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5702,15 +5899,17 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:6772</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -5729,6 +5928,8 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5740,6 +5941,7 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5779,15 +5981,17 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6772</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -5806,6 +6010,8 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5817,6 +6023,7 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275001" target="_blank">PMID:22275001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5853,6 +6060,84 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-clingen-smad6-gene-disease-validity-assertion">
+
+
+    <div class="item-name">ClinGen SMAD6 gene-disease validity assertion</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">ClinGen</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">gene disease validity lumped assertion</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://search.clinicalgenome.org/CCID:009009" target="_blank" rel="noopener noreferrer" title="Open CCID:009009">CCID:009009</a>
+
+
+    </div>
+
+    <div class="item-desc">ClinGen curated SMAD6 under a lumped disease entity anchored to syndromic craniosynostosis, incorporating aortic valve disease 2, craniosynostosis 7, and radioulnar synostosis.</div>
+
+
+
+    <div class="mapping-notes">This external assertion is broader than the present entry, which intentionally isolates the cardiovascular pathophysiology branch for dismech.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36414630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36414630" target="_blank">PMID:36414630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SMAD6 encodes an intracellular inhibitor of the bone morphogenetic protein (BMP) signalling pathway."</div>
+
+
+                <div class="evidence-explanation">Companion review supporting the lumped SMAD6 gene-disease validity context that ClinGen curates and that this entry isolates a cardiovascular branch of.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5871,18 +6156,18 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5924,6 +6209,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35867195" target="_blank">PMID:35867195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5945,6 +6231,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24332283" target="_blank">PMID:24332283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5978,18 +6265,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">surgical procedure on cardiovascular system<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure on cardiovascular system, annotated with Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">surgical procedure on cardiovascular system</span>
+This treatment is surgical procedure on cardiovascular system, annotated with Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure on cardiovascular system, annotated with Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">NCIT:C157806</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157806">NCIT:C157806</a>
 
 
 
@@ -6020,48 +6307,54 @@ This treatment is surgical procedure on cardiovascular system, annotated with Ca
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Aortic valve stenosis (HP:0001650). HP:0001650 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Aortic valve stenosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp">HP:0001650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Aortic valve stenosis (HP:0001650). HP:0001650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Aortic regurgitation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp">HP:0001659</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001659</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Thoracic aortic aneurysm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp">HP:0012727</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012727</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6080,6 +6373,7 @@ This treatment targets Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35867195" target="_blank">PMID:35867195</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6102,6 +6396,7 @@ This treatment targets Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24332283" target="_blank">PMID:24332283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6135,17 +6430,17 @@ This treatment targets Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a ph
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6187,6 +6482,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659821" target="_blank">PMID:28659821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6208,6 +6504,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30848080" target="_blank">PMID:30848080</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7953,5 +8250,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

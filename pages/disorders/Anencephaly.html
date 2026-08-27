@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Anencephaly</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Anencephaly</h1>
             <div class="header-meta">
 
@@ -3905,29 +4027,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification" title="Congenital malformation of the central nervous system (open cranial neural tube defect).">NEUROLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="Multifactorial disorder of development with polygenic/oligogenic susceptibility (folate one-carbon metabolism and planar cell polarity pathways) interacting with environmental exposures.">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3945,7 +4145,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-multifactorial-polygenic-with-oligogenic-contributions">
                 <div class="item-name">
                     Multifactorial / polygenic with oligogenic contributions
 
@@ -3989,6 +4189,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29205322" target="_blank">PMID:29205322</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4083,6 +4284,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37443734" target="_blank">PMID:37443734</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4162,6 +4364,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1677062" target="_blank">PMID:1677062</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4214,17 +4417,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MTHFR (hgnc:7436). hgnc:7436 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MTHFR
 
 
-    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7436</a>
+    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7436</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MTHFR (hgnc:7436). hgnc:7436 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4253,18 +4460,20 @@ This pathophysiological event involves MTHFR (hgnc:7436). hgnc:7436 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased tetrahydrofolate interconversion (GO:0035999). GO:0035999 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         tetrahydrofolate interconversion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035999" target="_blank" class="curie-chip curie-chip-go">GO:0035999</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035999" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0035999</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tetrahydrofolate interconversion (GO:0035999). GO:0035999 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4322,6 +4531,7 @@ This pathophysiological event involves decreased tetrahydrofolate interconversio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25808073" target="_blank">PMID:25808073</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4355,18 +4565,20 @@ This pathophysiological event involves decreased tetrahydrofolate interconversio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuroepithelial cell, annotated with neurecto-epithelial cell (CL:0000710). CL:0000710 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuroepithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000710" target="_blank" class="curie-chip curie-chip-cl">CL:0000710</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000710" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuroepithelial cell, annotated with neurecto-epithelial cell (CL:0000710). CL:0000710 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4394,17 +4606,21 @@ This pathophysiological event involves neuroepithelial cell, annotated with neur
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:8617</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4429,17 +4645,21 @@ This pathophysiological event involves PAX3 (hgnc:8617). hgnc:8617 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8803</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4468,18 +4688,20 @@ This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neural tube closure (GO:0001843). GO:0001843 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neural tube closure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001843" target="_blank" class="curie-chip curie-chip-go">GO:0001843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural tube closure (GO:0001843). GO:0001843 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4500,18 +4722,20 @@ This pathophysiological event involves decreased neural tube closure (GO:0001843
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves apical constriction driving neural fold bending, annotated with apical constriction (GO:0003383). GO:0003383 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apical constriction driving neural fold bending
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003383" target="_blank" class="curie-chip curie-chip-go">GO:0003383</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003383" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0003383</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apical constriction driving neural fold bending, annotated with apical constriction (GO:0003383). GO:0003383 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4535,18 +4759,20 @@ This pathophysiological event involves apical constriction driving neural fold b
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4592,6 +4818,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4632,17 +4859,21 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VANGL1 (hgnc:15512). hgnc:15512 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VANGL1
 
 
-    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15512</a>
+    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:15512</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VANGL1 (hgnc:15512). hgnc:15512 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4667,17 +4898,21 @@ This pathophysiological event involves VANGL1 (hgnc:15512). hgnc:15512 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VANGL2 (hgnc:15511). hgnc:15511 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VANGL2
 
 
-    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15511</a>
+    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:15511</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VANGL2 (hgnc:15511). hgnc:15511 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4706,18 +4941,20 @@ This pathophysiological event involves VANGL2 (hgnc:15511). hgnc:15511 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased convergent extension in neural plate elongation, annotated with convergent extension involved in neural plate elongation (GO:0022007). GO:0022007 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         convergent extension in neural plate elongation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022007" target="_blank" class="curie-chip curie-chip-go">GO:0022007</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022007" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0022007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased convergent extension in neural plate elongation, annotated with convergent extension involved in neural plate elongation (GO:0022007). GO:0022007 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4775,6 +5012,7 @@ This pathophysiological event involves decreased convergent extension in neural 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4815,18 +5053,20 @@ This pathophysiological event involves decreased convergent extension in neural 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal forebrain development (GO:0030900). GO:0030900 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         forebrain development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go">GO:0030900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal forebrain development (GO:0030900). GO:0030900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4854,48 +5094,54 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranium (UBERON:0003128). UBERON:0003128 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003128" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003128</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003128" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0003128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranium (UBERON:0003128). UBERON:0003128 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in scalp (UBERON:0000403). UBERON:0000403 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         scalp
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000403" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000403</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000403" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000403</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in scalp (UBERON:0000403). UBERON:0000403 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4956,6 +5202,7 @@ This pathophysiological event occurs in scalp (UBERON:0000403). UBERON:0000403 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5047,16 +5294,20 @@ This pathophysiological event occurs in scalp (UBERON:0000403). UBERON:0000403 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.">
-                        Polyhydramnios
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp">HP:0001561</a>
-
-
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5078,6 +5329,7 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16827827" target="_blank">PMID:16827827</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5122,16 +5374,20 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002323" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002323</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anencephaly (HP:0002323). HP:0002323 is a phenotype from the Human Phenotype Ontology.">
-                        Anencephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002323" target="_blank" class="curie-chip curie-chip-hp">HP:0002323</a>
-
-
+This clinical feature is Anencephaly (HP:0002323). HP:0002323 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5151,6 +5407,7 @@ This clinical feature is Anencephaly (HP:0002323). HP:0002323 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17409324" target="_blank">PMID:17409324</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5184,16 +5441,20 @@ This clinical feature is Anencephaly (HP:0002323). HP:0002323 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030769</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Exencephaly (HP:0030769). HP:0030769 is a phenotype from the Human Phenotype Ontology.">
-                        Exencephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030769" target="_blank" class="curie-chip curie-chip-hp">HP:0030769</a>
-
-
+This clinical feature is Exencephaly (HP:0030769). HP:0030769 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5213,6 +5474,7 @@ This clinical feature is Exencephaly (HP:0030769). HP:0030769 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5248,16 +5510,22 @@ This clinical feature is Exencephaly (HP:0030769). HP:0030769 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Acrania</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acrania (absent calvaria), annotated with Acrania (HP:0030716). HP:0030716 is a phenotype from the Human Phenotype Ontology.">
-                        Acrania
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030716" target="_blank" class="curie-chip curie-chip-hp">HP:0030716</a>
-
-
+This clinical feature is Acrania (absent calvaria), annotated with Acrania (HP:0030716). HP:0030716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5277,6 +5545,7 @@ This clinical feature is Acrania (absent calvaria), annotated with Acrania (HP:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27429697" target="_blank">PMID:27429697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5310,16 +5579,20 @@ This clinical feature is Acrania (absent calvaria), annotated with Acrania (HP:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000835</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Adrenal hypoplasia (HP:0000835). HP:0000835 is a phenotype from the Human Phenotype Ontology.">
-                        Adrenal hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000835" target="_blank" class="curie-chip curie-chip-hp">HP:0000835</a>
-
-
+This clinical feature is Adrenal hypoplasia (HP:0000835). HP:0000835 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5339,6 +5612,7 @@ This clinical feature is Adrenal hypoplasia (HP:0000835). HP:0000835 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2625322" target="_blank">PMID:2625322</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5416,15 +5690,17 @@ This clinical feature is Adrenal hypoplasia (HP:0000835). HP:0000835 is a phenot
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MTHFR
 
 
-    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7436</a>
+    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:7436</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5447,6 +5723,7 @@ This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25808073" target="_blank">PMID:25808073</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5483,15 +5760,17 @@ This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is VANGL1 (hgnc:15512). hgnc:15512 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VANGL1
 
 
-    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15512</a>
+    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:15512</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VANGL1 (hgnc:15512). hgnc:15512 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5514,6 +5793,7 @@ This disease-associated gene is VANGL1 (hgnc:15512). hgnc:15512 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17409324" target="_blank">PMID:17409324</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5550,15 +5830,17 @@ This disease-associated gene is VANGL1 (hgnc:15512). hgnc:15512 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is VANGL2 (hgnc:15511). hgnc:15511 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VANGL2
 
 
-    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15511</a>
+    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:15511</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VANGL2 (hgnc:15511). hgnc:15511 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5581,6 +5863,7 @@ This disease-associated gene is VANGL2 (hgnc:15511). hgnc:15511 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5617,15 +5900,17 @@ This disease-associated gene is VANGL2 (hgnc:15511). hgnc:15511 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:8617</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5648,6 +5933,7 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5684,15 +5970,17 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8803</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5715,6 +6003,7 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29205322" target="_blank">PMID:29205322</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5746,6 +6035,9 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5762,17 +6054,17 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5797,18 +6089,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         folic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27470" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:27470</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27470" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:27470</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5834,6 +6128,7 @@ This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1307234" target="_blank">PMID:1307234</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5855,6 +6150,7 @@ This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1677062" target="_blank">PMID:1677062</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5886,17 +6182,17 @@ This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5938,6 +6234,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29205322" target="_blank">PMID:29205322</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5976,6 +6273,33 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-folate-deficiency" data-dismech-node="Maternal Folate Deficiency" data-dismech-type="environmental">
                 <div class="item-name">Maternal Folate Deficiency</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        low maternal folic acid exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000123" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-29">ECTO:9000123</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is decreased low maternal folic acid exposure, annotated with exposure to folic acid (ECTO:9000123). ECTO:9000123 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Inadequate periconceptional folate is the strongest modifiable risk factor for neural tube defects; folic acid supplementation and food fortification substantially reduce anencephaly incidence.</div>
@@ -5993,6 +6317,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1677062" target="_blank">PMID:1677062</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6043,6 +6368,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1677062" target="_blank">PMID:1677062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6073,6 +6399,33 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-valproate-exposure" data-dismech-node="Maternal Valproate Exposure" data-dismech-type="environmental">
                 <div class="item-name">Maternal Valproate Exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        gestational maternal valproate exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001598" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-30">XCO:0001598</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is gestational maternal valproate exposure, annotated with gestational maternal exposure to valproate (XCO:0001598). XCO:0001598 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Periconceptional exposure to the antiepileptic valproic acid interferes with folate metabolism and histone deacetylation and increases the risk of neural tube defects.</div>
@@ -6090,6 +6443,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16639967" target="_blank">PMID:16639967</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6140,6 +6494,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16639967" target="_blank">PMID:16639967</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6172,6 +6527,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Poorly controlled maternal diabetes mellitus is an established risk factor for neural tube defects including anencephaly.</div>
 
 
@@ -6187,6 +6546,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6237,6 +6597,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6269,6 +6630,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Maternal obesity is a reported risk factor for anencephaly and other neural tube defects. Its contribution is recorded as an association rather than a sufficient cause in this multifactorial disorder.</div>
 
 
@@ -6284,6 +6649,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33544785" target="_blank">PMID:33544785</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6334,6 +6700,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33544785" target="_blank">PMID:33544785</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6364,6 +6731,33 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-hyperthermia" data-dismech-node="Maternal Hyperthermia" data-dismech-type="environmental">
                 <div class="item-name">Maternal Hyperthermia</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        maternal exposure to increased temperature
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_4000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-31">ECTO:4000001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is maternal exposure to increased temperature, annotated with exposure to increased temperature (ECTO:4000001). ECTO:4000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">First-trimester maternal hyperthermia (febrile illness, hot tub/sauna) is associated with an increased risk of neural tube defects.</div>
@@ -6381,6 +6775,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703536" target="_blank">PMID:15703536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6431,6 +6826,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703536" target="_blank">PMID:15703536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6478,7 +6874,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-encephalocele">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Encephalocele</span>
@@ -6526,6 +6922,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24009034" target="_blank">PMID:24009034</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6551,7 +6948,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-iniencephaly">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Iniencephaly</span>
@@ -6599,6 +6996,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9688130" target="_blank">PMID:9688130</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6624,7 +7022,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-craniorachischisis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Craniorachischisis</span>
@@ -6671,6 +7069,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38846167" target="_blank">PMID:38846167</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6767,6 +7166,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37443734" target="_blank">PMID:37443734</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6788,6 +7188,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37090564" target="_blank">PMID:37090564</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6864,6 +7265,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31628096" target="_blank">PMID:31628096</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7466,6 +7868,12 @@ genetic:
       rare damaging PDGFRA frameshift variant among candidate anencephaly genes.
 environmental:
 - name: Maternal Folate Deficiency
+  exposure_term:
+    preferred_term: low maternal folic acid exposure
+    modifier: DECREASED
+    term:
+      id: ECTO:9000123
+      label: exposure to folic acid
   influences_mechanisms:
   - target: Disrupted Folate One-Carbon Metabolism
     environmental_effect: TRIGGERS
@@ -7503,6 +7911,11 @@ environmental:
       acid prevents NTDs, implicating folate status as the key modifiable
       determinant.
 - name: Maternal Valproate Exposure
+  exposure_term:
+    preferred_term: gestational maternal valproate exposure
+    term:
+      id: XCO:0001598
+      label: gestational maternal exposure to valproate
   influences_mechanisms:
   - target: Failure of Cranial Neuropore Closure
     environmental_effect: TRIGGERS
@@ -7604,6 +8017,11 @@ environmental:
       The disease-specific review lists maternal obesity among reported
       environmental risk factors for anencephaly.
 - name: Maternal Hyperthermia
+  exposure_term:
+    preferred_term: maternal exposure to increased temperature
+    term:
+      id: ECTO:4000001
+      label: exposure to increased temperature
   influences_mechanisms:
   - target: Failure of Cranial Neuropore Closure
     environmental_effect: PREDISPOSES
@@ -8052,6 +8470,7 @@ discussions:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8118,6 +8537,7 @@ discussions:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33544785" target="_blank">PMID:33544785</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9212,7 +9632,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Anencephaly", "mondoId": "MONDO:0000819", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anencephaly", "yamlRevision": "246e981ffb76"};
+        const OS_CONFIG = {"diseaseName": "Anencephaly", "mondoId": "MONDO:0000819", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anencephaly", "yamlRevision": "a5f6150d3889"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9631,5 +10051,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

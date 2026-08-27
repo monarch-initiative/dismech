@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Ischemic Stroke</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Ischemic Stroke</h1>
             <div class="header-meta">
 
@@ -3908,18 +4030,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3947,18 +4071,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3979,18 +4105,20 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         platelet aggregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0070527</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4048,6 +4176,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20670828" target="_blank">PMID:20670828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4081,18 +4210,20 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4109,18 +4240,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4137,18 +4270,20 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4176,18 +4311,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4208,18 +4345,20 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4285,6 +4424,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21628695" target="_blank">PMID:21628695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4306,6 +4446,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20670828" target="_blank">PMID:20670828</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4340,18 +4481,20 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4379,18 +4522,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4411,18 +4556,20 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4465,6 +4612,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21628695" target="_blank">PMID:21628695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4486,6 +4634,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28417216" target="_blank">PMID:28417216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4520,18 +4669,20 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4548,18 +4699,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4576,18 +4729,20 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4615,18 +4770,20 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4647,18 +4804,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cell-cell signaling (GO:0007267). GO:0007267 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell-cell signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007267" target="_blank" class="curie-chip curie-chip-go">GO:0007267</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007267" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007267</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell-cell signaling (GO:0007267). GO:0007267 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4701,6 +4860,7 @@ This pathophysiological event involves abnormal cell-cell signaling (GO:0007267)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21738161" target="_blank">PMID:21738161</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4722,6 +4882,7 @@ This pathophysiological event involves abnormal cell-cell signaling (GO:0007267)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21628695" target="_blank">PMID:21628695</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4813,16 +4974,22 @@ This pathophysiological event involves abnormal cell-cell signaling (GO:0007267)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ischemic stroke</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002140</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
-                        Ischemic stroke
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
-
-
+This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4842,6 +5009,7 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23652265" target="_blank">PMID:23652265</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4884,16 +5052,20 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4913,6 +5085,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39342159" target="_blank">PMID:39342159</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4955,16 +5128,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001269</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.">
-                        Hemiparesis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp">HP:0001269</a>
-
-
+This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4984,6 +5161,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35204601" target="_blank">PMID:35204601</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5017,16 +5195,20 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002381</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.">
-                        Aphasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp">HP:0002381</a>
-
-
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5046,6 +5228,7 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32173230" target="_blank">PMID:32173230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5079,16 +5262,20 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5108,6 +5295,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33580596" target="_blank">PMID:33580596</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5171,6 +5359,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5187,17 +5378,17 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5222,18 +5413,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses alteplase (NCIT:C39607). NCIT:C39607 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         alteplase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C39607" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C39607</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C39607" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C39607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses alteplase (NCIT:C39607). NCIT:C39607 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5277,6 +5470,7 @@ This treatment uses alteplase (NCIT:C39607). NCIT:C39607 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7477192" target="_blank">PMID:7477192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5298,6 +5492,7 @@ This treatment uses alteplase (NCIT:C39607). NCIT:C39607 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36123777" target="_blank">PMID:36123777</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5329,18 +5524,18 @@ This treatment uses alteplase (NCIT:C39607). NCIT:C39607 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5400,6 +5595,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26898852" target="_blank">PMID:26898852</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5430,17 +5626,17 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5465,18 +5661,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Antiplatelet Agent (NCIT:C1327). NCIT:C1327 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Antiplatelet Agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1327" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1327</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1327" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C1327</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Antiplatelet Agent (NCIT:C1327). NCIT:C1327 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5520,6 +5718,7 @@ This treatment uses Antiplatelet Agent (NCIT:C1327). NCIT:C1327 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34024115" target="_blank">PMID:34024115</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5550,17 +5749,17 @@ This treatment uses Antiplatelet Agent (NCIT:C1327). NCIT:C1327 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5585,18 +5784,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Anticoagulant Agent (NCIT:C263). NCIT:C263 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Anticoagulant Agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C263" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C263</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C263" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Anticoagulant Agent (NCIT:C263). NCIT:C263 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5640,6 +5841,7 @@ This treatment uses Anticoagulant Agent (NCIT:C263). NCIT:C263 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31984228" target="_blank">PMID:31984228</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5670,18 +5872,18 @@ This treatment uses Anticoagulant Agent (NCIT:C263). NCIT:C263 is a therapeutic 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5741,6 +5943,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39429201" target="_blank">PMID:39429201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5780,6 +5983,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-name">Vascular and metabolic risk-factor burden</div>
 
 
+
+
+
+
                 <div class="item-desc">Smoking, high-sodium diet, hypertension, high LDL cholesterol, kidney dysfunction, hyperglycemia, and high BMI are major modifiable contributors to ischemic stroke burden.</div>
 
 
@@ -5796,6 +6003,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37197995" target="_blank">PMID:37197995</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5839,7 +6047,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse272125">
                 <div class="item-name">
                     Transfer RNAs, not microRNAs, are linked to ischemic stroke and major bleeding in patients with end-stage kidney disease
 
@@ -5882,7 +6090,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse308369">
                 <div class="item-name">
                     Ischemic stroke accelerates atherosclerosis progression via FTO-mediated epigenetic modification [RNA-Seq]
 
@@ -5921,7 +6129,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse307081">
                 <div class="item-name">
                     Ischemic stroke accelerates atherosclerosis progression via FTO-mediated epigenetic modification
 
@@ -5960,7 +6168,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000060">
                 <div class="item-name">
                     A genome-wide meta analysis on stroke and ischemic stroke within four populations
 
@@ -5995,7 +6203,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000936">
                 <div class="item-name">
                     Ischemic stroke in a Swedish case-control study.
 
@@ -6030,7 +6238,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs000102">
                 <div class="item-name">
                     Ischemic Stroke Genetics Study (ISGS)
 
@@ -6091,7 +6299,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ischemic Stroke
 creation_date: &#34;2026-05-06T03:10:37Z&#34;
-updated_date: &#34;2026-05-06T04:14:47Z&#34;
 description: &gt;-
   Ischemic stroke is an acute symptomatic central nervous system infarction
   caused by interruption of cerebral blood flow, usually from thrombosis,
@@ -7065,7 +7272,7 @@ These changes occurred across 7,837,849 stroke/TIA admissions from 2,865 hospita
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ischemic Stroke", "mondoId": "MONDO:1060198", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ischemic_Stroke", "yamlRevision": "2723bdc5a163"};
+        const OS_CONFIG = {"diseaseName": "Ischemic Stroke", "mondoId": "MONDO:1060198", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ischemic_Stroke", "yamlRevision": "bf400f34851c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7484,5 +7691,73 @@ These changes occurred across 7,837,849 stroke/TIA admissions from 2,865 hospita
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

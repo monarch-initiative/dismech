@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Acquired Angioedema</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acquired Angioedema</h1>
             <div class="header-meta">
 
@@ -3964,6 +4086,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37844846" target="_blank">PMID:37844846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3985,6 +4108,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39756409" target="_blank">PMID:39756409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4059,6 +4183,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9508789" target="_blank">PMID:9508789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4080,6 +4205,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9508789" target="_blank">PMID:9508789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4154,6 +4280,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4175,6 +4302,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4249,6 +4377,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34956216" target="_blank">PMID:34956216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4322,6 +4451,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19796797" target="_blank">PMID:19796797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4355,18 +4485,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4394,18 +4526,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of vascular permeability (GO:0043117). GO:0043117 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of vascular permeability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043117" target="_blank" class="curie-chip curie-chip-go">GO:0043117</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043117" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0043117</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of vascular permeability (GO:0043117). GO:0043117 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4495,6 +4629,7 @@ This pathophysiological event involves increased positive regulation of vascular
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19796797" target="_blank">PMID:19796797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4516,6 +4651,7 @@ This pathophysiological event involves increased positive regulation of vascular
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4607,16 +4743,20 @@ This pathophysiological event involves increased positive regulation of vascular
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0000282</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is facial edema (HP:0000282), qualified as temporality recurrent. HP:0000282 is a phenotype from the Human Phenotype Ontology.">
-                        Facial edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp">HP:0000282</a>
-
-
+This clinical feature is facial edema (HP:0000282), qualified as temporality recurrent. HP:0000282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4654,6 +4794,7 @@ This clinical feature is facial edema (HP:0000282), qualified as temporality rec
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4696,16 +4837,20 @@ This clinical feature is facial edema (HP:0000282), qualified as temporality rec
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0012398</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is peripheral edema (HP:0012398), qualified as temporality recurrent. HP:0012398 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp">HP:0012398</a>
-
-
+This clinical feature is peripheral edema (HP:0012398), qualified as temporality recurrent. HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4743,6 +4888,7 @@ This clinical feature is peripheral edema (HP:0012398), qualified as temporality
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4785,16 +4931,20 @@ This clinical feature is peripheral edema (HP:0012398), qualified as temporality
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0100665</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is angioedema (HP:0100665), qualified as temporality recurrent. HP:0100665 is a phenotype from the Human Phenotype Ontology.">
-                        Angioedema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp">HP:0100665</a>
-
-
+This clinical feature is angioedema (HP:0100665), qualified as temporality recurrent. HP:0100665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4833,6 +4983,7 @@ This clinical feature is angioedema (HP:0100665), qualified as temporality recur
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4865,16 +5016,20 @@ This clinical feature is angioedema (HP:0100665), qualified as temporality recur
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0012027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is laryngeal edema (HP:0012027), qualified as temporality recurrent; severity severe. HP:0012027 is a phenotype from the Human Phenotype Ontology.">
-                        Laryngeal edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012027" target="_blank" class="curie-chip curie-chip-hp">HP:0012027</a>
-
-
+This clinical feature is laryngeal edema (HP:0012027), qualified as temporality recurrent; severity severe. HP:0012027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4915,6 +5070,7 @@ This clinical feature is laryngeal edema (HP:0012027), qualified as temporality 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30866985" target="_blank">PMID:30866985</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4947,16 +5103,22 @@ This clinical feature is laryngeal edema (HP:0012027), qualified as temporality 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Intestinal edema</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005225" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0005225</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is intestinal edema (HP:0005225), qualified as temporality recurrent. HP:0005225 is a phenotype from the Human Phenotype Ontology.">
-                        Intestinal edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005225" target="_blank" class="curie-chip curie-chip-hp">HP:0005225</a>
-
-
+This clinical feature is intestinal edema (HP:0005225), qualified as temporality recurrent. HP:0005225 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4994,6 +5156,7 @@ This clinical feature is intestinal edema (HP:0005225), qualified as temporality
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5057,6 +5220,9 @@ This clinical feature is intestinal edema (HP:0005225), qualified as temporality
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5073,17 +5239,17 @@ This clinical feature is intestinal edema (HP:0005225), qualified as temporality
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-8">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-8">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5108,18 +5274,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         human C1-esterase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C87730</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-9">NCIT:C87730</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5153,6 +5321,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30866985" target="_blank">PMID:30866985</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5195,6 +5364,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30866985" target="_blank">PMID:30866985</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5225,17 +5395,17 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5260,18 +5430,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses conestat alfa (NCIT:C96366). NCIT:C96366 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         conestat alfa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C96366" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C96366</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C96366" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-11">NCIT:C96366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses conestat alfa (NCIT:C96366). NCIT:C96366 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5305,6 +5477,7 @@ This treatment uses conestat alfa (NCIT:C96366). NCIT:C96366 is a therapeutic ag
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5347,6 +5520,7 @@ This treatment uses conestat alfa (NCIT:C96366). NCIT:C96366 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5377,17 +5551,17 @@ This treatment uses conestat alfa (NCIT:C96366). NCIT:C96366 is a therapeutic ag
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5412,18 +5586,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         icatibant
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_68556" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:68556</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_68556" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-13">CHEBI:68556</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5457,6 +5633,7 @@ This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19796797" target="_blank">PMID:19796797</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5499,6 +5676,7 @@ This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5529,17 +5707,17 @@ This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5564,18 +5742,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         tranexamic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:48669</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:48669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5601,6 +5781,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5622,6 +5803,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5653,17 +5835,17 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5688,18 +5870,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         berotralstat
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C169808" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C169808</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C169808" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-17">NCIT:C169808</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5733,6 +5917,7 @@ This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35212456" target="_blank">PMID:35212456</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5775,6 +5960,7 @@ This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37914894" target="_blank">PMID:37914894</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5805,18 +5991,18 @@ This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">therapeutic procedure</span>
+This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
 
 
 
@@ -5867,6 +6053,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5908,6 +6095,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5938,17 +6126,17 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5973,18 +6161,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6018,6 +6208,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39756409" target="_blank">PMID:39756409</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6060,6 +6251,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37844846" target="_blank">PMID:37844846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6081,6 +6273,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39756409" target="_blank">PMID:39756409</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6112,17 +6305,17 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6147,18 +6340,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         human C1-esterase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C87730</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C87730</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6192,6 +6387,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6234,6 +6430,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6255,6 +6452,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6342,6 +6540,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6381,6 +6580,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6453,6 +6653,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6492,6 +6693,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6564,6 +6766,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6603,6 +6806,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32753245" target="_blank">PMID:32753245</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6675,6 +6879,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6714,6 +6919,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6755,7 +6961,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hereditary-angioedema-with-c1-inhibitor-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Hereditary_Angioedema.html">Hereditary Angioedema with C1 Inhibitor Deficiency</a>
@@ -6802,6 +7008,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6824,6 +7031,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42165046" target="_blank">PMID:42165046</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6845,6 +7053,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6871,7 +7080,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hereditary-angioedema-with-normal-c1-inhibitor">
                 <div class="item-name">
 
                     Hereditary Angioedema with Normal C1 Inhibitor
@@ -6912,6 +7121,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34956216" target="_blank">PMID:34956216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6937,7 +7147,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-ace-inhibitor-or-ras-blocker-associated-angioedema">
                 <div class="item-name">
 
                     ACE Inhibitor- or RAS-Blocker-Associated Angioedema
@@ -6978,6 +7188,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7003,7 +7214,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mast-cell-mediated-angioedema-or-chronic-spontaneous-urticaria">
                 <div class="item-name">
 
                     Mast-Cell-Mediated Angioedema or Chronic Spontaneous Urticaria
@@ -7044,6 +7255,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31899843" target="_blank">PMID:31899843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7065,6 +7277,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38670233" target="_blank">PMID:38670233</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7104,7 +7317,7 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06818474">
                 <div class="item-name">
                     NCT06818474
 
@@ -7122,18 +7335,20 @@ This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         angioedema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp">HP:0100665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100665</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7151,6 +7366,7 @@ This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06818474" target="_blank">clinicaltrials:NCT06818474</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7175,7 +7391,7 @@ This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype f
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07266805">
                 <div class="item-name">
                     NCT07266805
 
@@ -7193,18 +7409,20 @@ This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype f
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         angioedema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp">HP:0100665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100665</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7222,6 +7440,7 @@ This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07266805" target="_blank">clinicaltrials:NCT07266805</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7244,6 +7463,7 @@ This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38494092" target="_blank">PMID:38494092</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9703,5 +9923,73 @@ A 2023 Orphanet Journal paper further argues CAC measurements can aid prediction
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

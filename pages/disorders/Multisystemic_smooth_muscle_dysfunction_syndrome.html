@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Multisystemic smooth muscle dysfunction syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Multisystemic smooth muscle dysfunction syndrome</h1>
             <div class="header-meta">
 
@@ -3849,7 +3971,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3899,7 +4021,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3943,6 +4065,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4001,18 +4124,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4040,17 +4165,21 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ACTA2 (hgnc:130). hgnc:130 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ACTA2
 
 
-    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:130</a>
+    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:130</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACTA2 (hgnc:130). hgnc:130 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4079,18 +4208,20 @@ This pathophysiological event involves ACTA2 (hgnc:130). hgnc:130 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased muscle contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006936</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased muscle contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4164,6 +4295,7 @@ This pathophysiological event involves decreased muscle contraction (GO:0006936)
                         <a href="https://bioregistry.io/DOI:10.1186/s13023-019-1186-2" target="_blank">DOI:10.1186/s13023-019-1186-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4197,18 +4329,20 @@ This pathophysiological event involves decreased muscle contraction (GO:0006936)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4236,18 +4370,20 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood vessel remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go">GO:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4289,6 +4425,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22831780" target="_blank">PMID:22831780</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4390,16 +4527,20 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001643</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a phenotype from the Human Phenotype Ontology.">
-                        Patent ductus arteriosus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp">HP:0001643</a>
-
-
+This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4419,6 +4560,7 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4452,16 +4594,22 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aortic dissection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002647</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic dissection
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp">HP:0002647</a>
-
-
+This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4481,6 +4629,7 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4514,16 +4663,20 @@ This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002140</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
-                        Ischemic stroke
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
-
-
+This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4543,6 +4696,7 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4576,16 +4730,20 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002092</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary arterial hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp">HP:0002092</a>
-
-
+This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4605,6 +4763,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.62775" target="_blank">DOI:10.1002/ajmg.a.62775</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4647,16 +4806,20 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4676,6 +4839,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4709,16 +4873,22 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperintensity of cerebral white matter on MRI</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0030890</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030890). HP:0030890 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperintensity of cerebral white matter on MRI
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp">HP:0030890</a>
-
-
+This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030890). HP:0030890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4738,6 +4908,7 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4780,16 +4951,22 @@ This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral congenital mydriasis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007932" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0007932</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congenital mydriasis, annotated with Bilateral congenital mydriasis (HP:0007932). HP:0007932 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral congenital mydriasis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007932" target="_blank" class="curie-chip curie-chip-hp">HP:0007932</a>
-
-
+This clinical feature is Congenital mydriasis, annotated with Bilateral congenital mydriasis (HP:0007932). HP:0007932 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4809,6 +4986,7 @@ This clinical feature is Congenital mydriasis, annotated with Bilateral congenit
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4859,6 +5037,7 @@ This clinical feature is Congenital mydriasis, annotated with Bilateral congenit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4891,16 +5070,20 @@ This clinical feature is Congenital mydriasis, annotated with Bilateral congenit
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100771</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intestinal hypoperistalsis, annotated with Hypoperistalsis (HP:0100771). HP:0100771 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoperistalsis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100771" target="_blank" class="curie-chip curie-chip-hp">HP:0100771</a>
-
-
+This clinical feature is Intestinal hypoperistalsis, annotated with Hypoperistalsis (HP:0100771). HP:0100771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4920,6 +5103,7 @@ This clinical feature is Intestinal hypoperistalsis, annotated with Hypoperistal
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4999,15 +5183,17 @@ This clinical feature is Intestinal hypoperistalsis, annotated with Hypoperistal
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACTA2
 
 
-    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:130</a>
+    <a href="https://bioregistry.io/hgnc:130" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:130</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5028,6 +5214,7 @@ This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.62775" target="_blank">DOI:10.1002/ajmg.a.62775</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5050,6 +5237,7 @@ This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_2f4fb1fe-4b82-481d-a81d-398eea46acc5-2025-01-24T170000.000Z" target="_blank">CGGV:assertion_2f4fb1fe-4b82-481d-a81d-398eea46acc5-2025-01-24T170000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5081,13 +5269,16 @@ This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HU
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-lifelong-multidisciplinary-surveillance-and-organ-directed-management" data-dismech-node="Lifelong multidisciplinary surveillance and organ-directed management" data-dismech-type="treatment">
@@ -5097,18 +5288,18 @@ This disease-associated gene is ACTA2 (hgnc:130). hgnc:130 is a gene from the HU
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5150,6 +5341,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5171,6 +5363,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s13023-019-1186-2" target="_blank">DOI:10.1186/s13023-019-1186-2</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5202,18 +5395,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">magnetic resonance imaging procedure<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is magnetic resonance imaging procedure, annotated with Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a clinical intervention from the NCI Thesaurus.">magnetic resonance imaging procedure</span>
+This treatment is magnetic resonance imaging procedure, annotated with Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Magnetic Resonance Imaging</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is magnetic resonance imaging procedure, annotated with Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a clinical intervention from the NCI Thesaurus.">NCIT:C16809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16809">NCIT:C16809</a>
 
 
 
@@ -5255,6 +5448,7 @@ This treatment is magnetic resonance imaging procedure, annotated with Magnetic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5285,18 +5479,18 @@ This treatment is magnetic resonance imaging procedure, annotated with Magnetic 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5338,6 +5532,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29300374" target="_blank">PMID:29300374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5349,6 +5544,157 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                 <div class="evidence-explanation">This supports elective open or endovascular aortic repair in selected high-risk SMDS aortic disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-sapropterin-kuvan" data-dismech-node="Sapropterin (Kuvan)" data-dismech-type="treatment">
+                <div class="item-name">
+                    Sapropterin (Kuvan)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        sapropterin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_59560" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:59560</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sapropterin (CHEBI:59560). CHEBI:59560 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Sapropterin dihydrochloride (Kuvan) was identified by molecular dynamics simulation and in silico drug screening as a candidate capable of restoring actin polymerization disrupted by the ACTA2 p.R179H variant. Patient-derived fibroblasts showed improved actin organization on treatment, and off-label use in a first-in-human pediatric patient with ACTA2-MSMDS was followed by observed cerebrovascular stabilization.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42503698" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42503698" target="_blank">PMID:42503698</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using molecular dynamics simulations and in silico drug screening, we identified that sapropterin dihydrochloride (Kuvan) is a candidate capable of restoring p.R179H mutation disrupted actin polymerization."</div>
+
+
+                <div class="evidence-explanation">This demonstrates the in silico identification of sapropterin as capable of restoring ACTA2 p.R179H-disrupted actin polymerization through computational structure-based approaches.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42503698" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42503698" target="_blank">PMID:42503698</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient-derived fibroblasts demonstrated improved actin organization with Kuvan treatment."</div>
+
+
+                <div class="evidence-explanation">This in vitro validation demonstrates improved actin organization in patient fibroblasts following sapropterin treatment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42503698" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42503698" target="_blank">PMID:42503698</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Off-label treatment in a single pediatric patient with ACTA2-MSMDS resulted in observed cerebrovascular stabilization and clinical improvement on longitudinal follow-up."</div>
+
+
+                <div class="evidence-explanation">This first-in-human case provides clinical evidence of cerebrovascular stabilization and disease improvement with sapropterin therapy in ACTA2-MSMDS.</div>
 
 
 
@@ -5385,7 +5731,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06280482">
                 <div class="item-name">
                     NCT06280482
 
@@ -5403,25 +5749,29 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Relation: this clinical trial targets this phenotype
-This clinical trial targets Aortic aneurysm and dissection.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" tabindex="0" aria-describedby="pill-tip-21">
                         Aortic aneurysm and dissection
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Relation: this clinical trial targets this phenotype
+This clinical trial targets Aortic aneurysm and dissection.</span>
                     </span>
 
                 </div>
@@ -5439,6 +5789,7 @@ This clinical trial targets Aortic aneurysm and dissection.">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06280482" target="_blank">clinicaltrials:NCT06280482</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5488,7 +5839,6 @@ This clinical trial targets Aortic aneurysm and dissection.">
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Multisystemic smooth muscle dysfunction syndrome
 creation_date: &#34;2026-05-05T20:46:40Z&#34;
-updated_date: &#34;2026-05-05T22:45:00Z&#34;
 category: Mendelian
 description: &gt;-
   Multisystemic smooth muscle dysfunction syndrome is a rare autosomal dominant
@@ -5990,6 +6340,61 @@ treatments:
     explanation: &gt;-
       This supports elective open or endovascular aortic repair in selected
       high-risk SMDS aortic disease.
+- name: Sapropterin (Kuvan)
+  description: &gt;-
+    Sapropterin dihydrochloride (Kuvan) was identified by molecular dynamics
+    simulation and in silico drug screening as a candidate capable of restoring
+    actin polymerization disrupted by the ACTA2 p.R179H variant. Patient-derived
+    fibroblasts showed improved actin organization on treatment, and off-label
+    use in a first-in-human pediatric patient with ACTA2-MSMDS was followed by
+    observed cerebrovascular stabilization.
+  notes: &gt;-
+    n-of-1 off-label experience only; sapropterin is not approved for MSMDS, and
+    the authors state that further studies are needed to establish a robust
+    therapeutic effect and to elucidate the mechanism underlying the observed
+    cerebrovascular benefit.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: sapropterin
+      term:
+        id: CHEBI:59560
+        label: sapropterin
+  evidence:
+  - reference: PMID:42503698
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &gt;-
+      Using molecular dynamics simulations and in silico drug screening, we identified
+      that sapropterin dihydrochloride (Kuvan) is a candidate capable of restoring
+      p.R179H mutation disrupted actin polymerization.
+    explanation: &gt;-
+      This demonstrates the in silico identification of sapropterin as capable of
+      restoring ACTA2 p.R179H-disrupted actin polymerization through computational
+      structure-based approaches.
+  - reference: PMID:42503698
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Patient-derived fibroblasts demonstrated improved actin organization with Kuvan
+      treatment.
+    explanation: &gt;-
+      This in vitro validation demonstrates improved actin organization in patient
+      fibroblasts following sapropterin treatment.
+  - reference: PMID:42503698
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Off-label treatment in a single pediatric patient with ACTA2-MSMDS resulted in
+      observed cerebrovascular stabilization and clinical improvement on longitudinal
+      follow-up.
+    explanation: &gt;-
+      This first-in-human case provides clinical evidence of cerebrovascular
+      stabilization and disease improvement with sapropterin therapy in ACTA2-MSMDS.
 clinical_trials:
 - name: NCT06280482
   phase: PHASE_I
@@ -7078,7 +7483,7 @@ A 2023 preclinical study reports that Acta2R179C/+ SMCs exhibit immature feature
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multisystemic smooth muscle dysfunction syndrome", "mondoId": "MONDO:0013452", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multisystemic_smooth_muscle_dysfunction_syndrome", "yamlRevision": "dcc8d1c1f238"};
+        const OS_CONFIG = {"diseaseName": "Multisystemic smooth muscle dysfunction syndrome", "mondoId": "MONDO:0013452", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multisystemic_smooth_muscle_dysfunction_syndrome", "yamlRevision": "91b23a4e6955"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7497,5 +7902,73 @@ A 2023 preclinical study reports that Acta2R179C/+ SMCs exhibit immature feature
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

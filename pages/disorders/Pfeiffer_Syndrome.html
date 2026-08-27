@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Pfeiffer Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Pfeiffer Syndrome</h1>
             <div class="header-meta">
 
@@ -3675,7 +3797,7 @@
                     Show in embeddings browser
                 </a>
 
-                <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">FGFR1-related disorder</span>
+                <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">FGFR-related disorder</span>
 
                 <span class="badge badge-category" style="background: rgba(0,131,143,0.08);">Craniosynostosis syndrome</span>
 
@@ -3693,7 +3815,9 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                This entry covers FGFR1-related Pfeiffer syndrome specifically. Pfeiffer syndrome is a craniosynostosis syndrome that can be caused by gain-of-function mutations in either FGFR1 or FGFR2; FGFR2 mutations are more common and can cause all three clinical subtypes, but are not covered here. FGFR1 mutations (particularly p.Pro252Arg) account for a subset of cases, typically presenting with the milder Type 1 (classic) phenotype characterized by premature fusion of cranial sutures, broad thumbs and great toes, variable syndactyly, and normal intelligence. Types 2 and 3, which are more severe with cloverleaf skull or multisuture synostosis, are predominantly associated with FGFR2 mutations.
+                Pfeiffer syndrome is an autosomal dominant craniosynostosis syndrome comprising bilateral coronal craniosynostosis, midface hypoplasia with a beaked nasal tip, and broad, medially deviated thumbs and great toes — the digital features that separate it from the otherwise similar Crouzon syndrome. It is genetically heterogeneous, with two loci: FGFR1 on chromosome 8, where the recurrent p.Pro252Arg allele accounts for a minority of cases, and FGFR2 on 10q25, which accounts for the majority and is classified by ClinGen as a definitive gene-disease relationship.
+The disorder is conventionally divided into three clinical subtypes (Cohen 1993) that differ sharply in prognosis rather than in kind. Type 1 is the classic, milder form, commonly with normal intelligence and good outcome, and is the subtype found dominantly inherited in families. Type 2 adds cloverleaf skull and elbow ankylosis to the Pfeiffer hands and feet; type 3 is similar without the cloverleaf skull, with severe proptosis and a markedly short anterior cranial base. Types 2 and 3 have occurred only sporadically and carry a substantially worse neurological and survival outlook — though later series showed that a favourable outcome is achievable in some with aggressive management, so the classification is prognostically informative rather than deterministic. Cohen&#39;s own framing is worth preserving: the three subtypes do not have status as separate entities.
+Note on scope: this entry covers Pfeiffer syndrome as a whole (MONDO:0007043), both loci and all three subtypes. It previously carried a description restricting it to the FGFR1-related form while its own genetic block already curated FGFR2 with ClinGen evidence — a scope contradiction, now resolved in favour of the whole disease, which is what the disease_term asserts.
             </p>
 
         </header>
@@ -3855,6 +3979,14 @@
             </a>
 
 
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
+
 
 
 
@@ -3875,6 +4007,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3884,9 +4086,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 33 &#34;Craniosynostosis syndromes&#34;; listed as &#34;Pfeiffer syndrome&#34;.">craniosynostosis syndromes</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3904,7 +4122,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3949,6 +4167,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3976,6 +4195,241 @@
 
 
         <!-- Subtypes -->
+
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-type-1">
+
+                    <div class="item-name">
+                        Type 1 (classic Pfeiffer syndrome)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The classic and mildest form: bilateral coronal craniosynostosis, midface hypoplasia, broad medially deviated thumbs and great toes, commonly with normal intelligence and good outcome. This is the subtype seen in dominantly inherited families, and the one the recurrent FGFR1 p.Pro252Arg allele typically produces.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8434615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8434615" target="_blank">PMID:8434615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Type 1 is commonly associated with normal intelligence, generally good outcome, and can be found dominantly inherited in some families."</div>
+
+
+                <div class="evidence-explanation">Defines the type 1 phenotype and its inheritance and prognostic profile.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-type-2">
+
+                    <div class="item-name">
+                        Type 2 (cloverleaf skull with elbow ankylosis)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Cloverleaf skull together with the Pfeiffer hands and feet and ankylosis of the elbows. All reported instances have been sporadic, and outcome is poor.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8434615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8434615" target="_blank">PMID:8434615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Type 2 consists of cloverleaf skull with Pfeiffer hands and feet together with ankylosis of the elbows. Such patients do poorly with an early death. All reported instances to date have been sporadic."</div>
+
+
+                <div class="evidence-explanation">Defines type 2 and records its sporadic occurrence and prognosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-type-3">
+
+                    <div class="item-name">
+                        Type 3 (severe proptosis without cloverleaf skull)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Similar to type 2 but without cloverleaf skull, with severe ocular proptosis and a markedly short anterior cranial base. Recognizing it matters diagnostically: extreme proptosis without a cloverleaf skull, accompanied by visceral anomalies, has led to patients being labelled as undiagnosed or as a new entity.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8434615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8434615" target="_blank">PMID:8434615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Type 3 is similar to type 2 but without cloverleaf skull. Ocular proptosis is severe in degree and the anterior cranial base is markedly short."</div>
+
+
+                <div class="evidence-explanation">Defines type 3 against type 2.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8434615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8434615" target="_blank">PMID:8434615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recognition of type 3 is particularly important because extreme ocular proptosis in the absence of cloverleaf skull but with various visceral anomalies can result in failure to diagnose Pfeiffer syndrome"</div>
+
+
+                <div class="evidence-explanation">The diagnostic reason the subtype is worth curating separately.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+        </div>
 
 
         <!-- Comorbidities -->
@@ -4006,18 +4460,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4043,17 +4499,21 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves increased FGFR1 (hgnc:3688). hgnc:3688 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FGFR1
 
 
-    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3688</a>
+    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3688</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased FGFR1 (hgnc:3688). hgnc:3688 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4086,18 +4546,20 @@ This pathophysiological event involves increased FGFR1 (hgnc:3688). hgnc:3688 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased FGFR signaling pathway, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         FGFR signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased FGFR signaling pathway, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4118,18 +4580,20 @@ This pathophysiological event involves increased FGFR signaling pathway, annotat
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cranial suture morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go">GO:0060363</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0060363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4146,18 +4610,20 @@ This pathophysiological event involves Cranial suture morphogenesis (GO:0060363)
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Bone development (GO:0060348). GO:0060348 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Bone development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" class="curie-chip curie-chip-go">GO:0060348</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0060348</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Bone development (GO:0060348). GO:0060348 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4219,6 +4685,7 @@ This pathophysiological event involves Bone development (GO:0060348). GO:0060348
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4253,18 +4720,20 @@ This pathophysiological event involves Bone development (GO:0060348). GO:0060348
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4292,18 +4761,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4331,18 +4802,20 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial suture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0003685</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4379,6 +4852,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4421,18 +4895,20 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cranial suture morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go">GO:0060363</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0060363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4453,18 +4929,20 @@ This pathophysiological event involves dysregulated cranial suture morphogenesis
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4492,18 +4970,20 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial suture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0003685</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4548,6 +5028,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4671,6 +5152,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16740155" target="_blank">PMID:16740155</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4692,6 +5174,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33083874" target="_blank">PMID:33083874</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4783,6 +5266,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16740155" target="_blank">PMID:16740155</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4804,6 +5288,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129254" target="_blank">PMID:25129254</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4899,16 +5384,20 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000520</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.">
-                        Proptosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp">HP:0000520</a>
-
-
+This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4928,6 +5417,7 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16740155" target="_blank">PMID:16740155</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4963,16 +5453,20 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000316</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertelorism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp">HP:0000316</a>
-
-
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4992,6 +5486,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16740155" target="_blank">PMID:16740155</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5036,16 +5531,20 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001363</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.">
-                        Craniosynostosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp">HP:0001363</a>
-
-
+This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5065,6 +5564,7 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5100,16 +5600,20 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005280</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.">
-                        Depressed nasal bridge
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp">HP:0005280</a>
-
-
+This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5132,16 +5636,20 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011800</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.">
-                        Midface retrusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp">HP:0011800</a>
-
-
+This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5161,6 +5669,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129254" target="_blank">PMID:25129254</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5196,16 +5705,20 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000218</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype from the Human Phenotype Ontology.">
-                        High palate
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp">HP:0000218</a>
-
-
+This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5225,6 +5738,7 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/957376" target="_blank">PMID:957376</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5269,16 +5783,20 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0011304</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype from the Human Phenotype Ontology.">
-                        Broad thumb
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp">HP:0011304</a>
-
-
+This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5298,6 +5816,7 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5333,16 +5852,22 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Broad hallux</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010055" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0010055</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype from the Human Phenotype Ontology.">
-                        Broad hallux
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010055" target="_blank" class="curie-chip curie-chip-hp">HP:0010055</a>
-
-
+This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5362,6 +5887,7 @@ This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5397,16 +5923,20 @@ This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001159</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from the Human Phenotype Ontology.">
-                        Syndactyly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" class="curie-chip curie-chip-hp">HP:0001159</a>
-
-
+This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5426,6 +5956,7 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16740155" target="_blank">PMID:16740155</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5470,16 +6001,20 @@ This clinical feature is Syndactyly (HP:0001159). HP:0001159 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000238</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.">
-                        Hydrocephalus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp">HP:0000238</a>
-
-
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5499,6 +6034,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33083874" target="_blank">PMID:33083874</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5534,16 +6070,20 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5563,6 +6103,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33083874" target="_blank">PMID:33083874</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5642,15 +6183,17 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FGFR1 (hgnc:3688). hgnc:3688 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FGFR1
 
 
-    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3688</a>
+    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:3688</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR1 (hgnc:3688). hgnc:3688 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5671,6 +6214,7 @@ This disease-associated gene is FGFR1 (hgnc:3688). hgnc:3688 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29019756" target="_blank">PMID:29019756</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5709,15 +6253,17 @@ This disease-associated gene is FGFR1 (hgnc:3688). hgnc:3688 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:3689</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5729,7 +6275,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5738,6 +6284,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_eccfe56b-15d7-4ba9-abf2-163dfd3dab3c-2022-03-21T210958.425Z" target="_blank">CGGV:assertion_eccfe56b-15d7-4ba9-abf2-163dfd3dab3c-2022-03-21T210958.425Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5750,6 +6297,52 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                 <div class="evidence-explanation">ClinGen classifies the FGFR2-Pfeiffer syndrome gene-disease relationship as definitive with autosomal dominant inheritance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7795583" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7795583" target="_blank">PMID:7795583</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report a second locus for PS on chromosome 10q25, and present evidence that mutations in the fibroblast growth factor receptor-2 (FGFR2) gene on 10q25 cause PS in an additional subset of familial and sporadic cases."</div>
+
+
+                <div class="evidence-explanation">Establishes FGFR2 on 10q25 as the second Pfeiffer locus, alongside FGFR1 on chromosome 8 — the genetic heterogeneity this entry now covers in full.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7795583" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7795583" target="_blank">PMID:7795583</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Interestingly, this T to C change is identical to a mutation in FGFR2 previously reported in Crouzon syndrome, a phenotypically similar disorder but one lacking the hand and foot anomalies seen in PS."</div>
+
+
+                <div class="evidence-explanation">Records that an identical FGFR2 allele is reported in both Pfeiffer and Crouzon syndrome, so genotype alone does not separate them — the digital features do.</div>
 
 
 
@@ -5769,6 +6362,9 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5785,18 +6381,18 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Cranial vault reconstruction<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Cranial vault reconstruction, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Cranial vault reconstruction</span>
+This treatment is Cranial vault reconstruction, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Cranial vault reconstruction, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5836,18 +6432,18 @@ This treatment is Cranial vault reconstruction, annotated with Surgical Procedur
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Midface advancement<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Midface advancement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Midface advancement</span>
+This treatment is Midface advancement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Midface advancement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5870,12 +6466,68 @@ This treatment is Midface advancement, annotated with Surgical Procedure (NCIT:C
 
 
 
-                <div class="item-desc">Le Fort III or monobloc osteotomy to advance the midface, improving airway, proptosis, and facial appearance.</div>
+                <div class="item-desc">Le Fort III or monobloc osteotomy to advance the midface, improving airway, proptosis, and facial appearance. Repeat midface surgery is common in FGFR-related syndromic craniosynostosis, and the scarring left by earlier procedures is itself a risk factor: the first reported paediatric case of bilateral posterior ischaemic optic neuropathy after craniofacial surgery occurred in a 13-year-old with Pfeiffer syndrome undergoing Le Fort II advancement, attributed to bicoronal flap tightness from prior Le Fort III surgery combined with permissive hypotension and anaemia. This is a single case and does not establish a rate, but it identifies a mechanism — cumulative operative scarring plus intraoperative hypoperfusion — specific to the repeatedly operated syndromic craniosynostosis patient.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42153645" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42153645" target="_blank">PMID:42153645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It was determined on institutional review that his vision loss was attributed to the tightness of the bicoronal flap due to scarring from past Le Fort III procedures in combination with permissive hypotension and anemia."</div>
+
+
+                <div class="evidence-explanation">Identifies the proposed mechanism of a severe visual complication of repeated midface advancement in Pfeiffer syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42153645" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42153645" target="_blank">PMID:42153645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This case demonstrates the only documented episode of bilateral posterior ischemic optic neuropathy in a pediatric patient and describes a rarely documented risk factor."</div>
+
+
+                <div class="evidence-explanation">Records that this is a single documented case, so no frequency claim is made.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5920,26 +6572,88 @@ This treatment is Midface advancement, annotated with Surgical Procedure (NCIT:C
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pfeiffer Syndrome
 creation_date: &#39;2026-02-06T03:25:37Z&#39;
-updated_date: &#39;2026-04-04T18:00:00Z&#39;
 category: Mendelian
 description: &gt;-
-  This entry covers FGFR1-related Pfeiffer syndrome specifically. Pfeiffer syndrome
-  is a craniosynostosis syndrome that can be caused by gain-of-function mutations in
-  either FGFR1 or FGFR2; FGFR2 mutations are more common and can cause all three
-  clinical subtypes, but are not covered here. FGFR1 mutations (particularly p.Pro252Arg)
-  account for a subset of cases, typically presenting with the milder Type 1 (classic)
-  phenotype characterized by premature fusion of cranial sutures, broad thumbs and
-  great toes, variable syndactyly, and normal intelligence. Types 2 and 3, which are
-  more severe with cloverleaf skull or multisuture synostosis, are predominantly
-  associated with FGFR2 mutations.
+  Pfeiffer syndrome is an autosomal dominant craniosynostosis syndrome comprising
+  bilateral coronal craniosynostosis, midface hypoplasia with a beaked nasal tip, and
+  broad, medially deviated thumbs and great toes — the digital features that separate
+  it from the otherwise similar Crouzon syndrome. It is genetically heterogeneous, with
+  two loci: FGFR1 on chromosome 8, where the recurrent p.Pro252Arg allele accounts for a
+  minority of cases, and FGFR2 on 10q25, which accounts for the majority and is
+  classified by ClinGen as a definitive gene-disease relationship.
+
+  The disorder is conventionally divided into three clinical subtypes (Cohen 1993) that
+  differ sharply in prognosis rather than in kind. Type 1 is the classic, milder form,
+  commonly with normal intelligence and good outcome, and is the subtype found
+  dominantly inherited in families. Type 2 adds cloverleaf skull and elbow ankylosis to
+  the Pfeiffer hands and feet; type 3 is similar without the cloverleaf skull, with
+  severe proptosis and a markedly short anterior cranial base. Types 2 and 3 have
+  occurred only sporadically and carry a substantially worse neurological and survival
+  outlook — though later series showed that a favourable outcome is achievable in some
+  with aggressive management, so the classification is prognostically informative rather
+  than deterministic. Cohen&#39;s own framing is worth preserving: the three subtypes do not
+  have status as separate entities.
+
+  Note on scope: this entry covers Pfeiffer syndrome as a whole (MONDO:0007043), both
+  loci and all three subtypes. It previously carried a description restricting it to the
+  FGFR1-related form while its own genetic block already curated FGFR2 with ClinGen
+  evidence — a scope contradiction, now resolved in favour of the whole disease, which is
+  what the disease_term asserts.
 disease_term:
   preferred_term: Pfeiffer syndrome
   term:
     id: MONDO:0007043
     label: Pfeiffer syndrome
 parents:
-- FGFR1-related disorder
+- FGFR-related disorder
 - Craniosynostosis syndrome
+has_subtypes:
+- name: Type 1
+  display_name: Type 1 (classic Pfeiffer syndrome)
+  description: &gt;-
+    The classic and mildest form: bilateral coronal craniosynostosis, midface hypoplasia,
+    broad medially deviated thumbs and great toes, commonly with normal intelligence and
+    good outcome. This is the subtype seen in dominantly inherited families, and the one
+    the recurrent FGFR1 p.Pro252Arg allele typically produces.
+  evidence:
+  - reference: PMID:8434615
+    reference_title: &#34;Pfeiffer syndrome update, clinical subtypes, and guidelines for differential diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Type 1 is commonly associated with normal intelligence, generally good outcome, and can be found dominantly inherited in some families.&#34;
+    explanation: Defines the type 1 phenotype and its inheritance and prognostic profile.
+- name: Type 2
+  display_name: Type 2 (cloverleaf skull with elbow ankylosis)
+  description: &gt;-
+    Cloverleaf skull together with the Pfeiffer hands and feet and ankylosis of the
+    elbows. All reported instances have been sporadic, and outcome is poor.
+  evidence:
+  - reference: PMID:8434615
+    reference_title: &#34;Pfeiffer syndrome update, clinical subtypes, and guidelines for differential diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Type 2 consists of cloverleaf skull with Pfeiffer hands and feet together with ankylosis of the elbows. Such patients do poorly with an early death. All reported instances to date have been sporadic.&#34;
+    explanation: Defines type 2 and records its sporadic occurrence and prognosis.
+- name: Type 3
+  display_name: Type 3 (severe proptosis without cloverleaf skull)
+  description: &gt;-
+    Similar to type 2 but without cloverleaf skull, with severe ocular proptosis and a
+    markedly short anterior cranial base. Recognizing it matters diagnostically: extreme
+    proptosis without a cloverleaf skull, accompanied by visceral anomalies, has led to
+    patients being labelled as undiagnosed or as a new entity.
+  evidence:
+  - reference: PMID:8434615
+    reference_title: &#34;Pfeiffer syndrome update, clinical subtypes, and guidelines for differential diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Type 3 is similar to type 2 but without cloverleaf skull. Ocular proptosis is severe in degree and the anterior cranial base is markedly short.&#34;
+    explanation: Defines type 3 against type 2.
+  - reference: PMID:8434615
+    reference_title: &#34;Pfeiffer syndrome update, clinical subtypes, and guidelines for differential diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Recognition of type 3 is particularly important because extreme ocular proptosis in the absence of cloverleaf skull but with various visceral anomalies can result in failure to diagnose Pfeiffer syndrome&#34;
+    explanation: The diagnostic reason the subtype is worth curating separately.
 inheritance:
 - name: Autosomal dominant
   inheritance_term:
@@ -5952,6 +6666,7 @@ inheritance:
     FGFR mutations are gain-of-function type.
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most of these mutations are inherited in an autosomal dominant fashion and are gain-of-function-type mutations.&#34;
@@ -6000,6 +6715,7 @@ pathophysiology:
       label: bone development
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FGFR1, FGFR2, and FGFR3 are crucial for both chondrogenesis and osteogenesis. Mutations in the genes encoding FGFRs, types 1-3, are responsible for various skeletal dysplasias and craniosynostosis syndromes.&#34;
@@ -6039,6 +6755,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FGFR1, FGFR2, and FGFR3 are crucial for both chondrogenesis and osteogenesis. Mutations in the genes encoding FGFRs, types 1-3, are responsible for various skeletal dysplasias and craniosynostosis syndromes.&#34;
@@ -6076,6 +6793,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;premature fusion of cranial sutures and deviated broad thumbs and toes in PS;&#34;
@@ -6239,6 +6957,7 @@ phenotypes:
       label: Craniosynostosis
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;premature fusion of cranial sutures and deviated broad thumbs and toes in PS&#34;
@@ -6253,6 +6972,7 @@ phenotypes:
       label: Broad thumb
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;premature fusion of cranial sutures and deviated broad thumbs and toes in PS&#34;
@@ -6267,6 +6987,7 @@ phenotypes:
       label: Broad hallux
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;premature fusion of cranial sutures and deviated broad thumbs and toes in PS&#34;
@@ -6281,6 +7002,7 @@ phenotypes:
       label: Syndactyly
   evidence:
   - reference: PMID:16740155
+    reference_title: &#34;Pfeiffer syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;partial syndactyly on hands and feet.&#34;
@@ -6295,6 +7017,7 @@ phenotypes:
       label: Proptosis
   evidence:
   - reference: PMID:16740155
+    reference_title: &#34;Pfeiffer syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;severe ocular proptosis&#34;
@@ -6309,6 +7032,7 @@ phenotypes:
       label: Hypertelorism
   evidence:
   - reference: PMID:16740155
+    reference_title: &#34;Pfeiffer syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;craniosynostosis, hypertelorism with proptosis, and broad thumb&#34;
@@ -6331,6 +7055,7 @@ phenotypes:
       label: Midface retrusion
   evidence:
   - reference: PMID:25129254
+    reference_title: &#34;Pfeiffer syndrome: clinical and genetic findings in five Brazilian families.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pfeiffer syndrome (PS) is mainly characterized by craniosysnostosis, midface hypoplasia, great toes with partial syndactyly of the digits, broad and medially deviated thumbs.&#34;
@@ -6345,6 +7070,7 @@ phenotypes:
       label: Hydrocephalus
   evidence:
   - reference: PMID:33083874
+    reference_title: &#34;Nervous system involvement in Pfeiffer syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Secondary anomalies are the result of skull deformity and include intracranial hypertension, hydrocephalus, and Chiari type I malformation.&#34;
@@ -6359,6 +7085,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:33083874
+    reference_title: &#34;Nervous system involvement in Pfeiffer syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The main neurological abnormalities are mental retardation, learning difficulties, and seizures.&#34;
@@ -6373,6 +7100,7 @@ phenotypes:
       label: High palate
   evidence:
   - reference: PMID:957376
+    reference_title: &#34;Pfeiffer syndrome: report of a family and review of the literature.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;high-arched palate&#34;
@@ -6391,6 +7119,7 @@ genetic:
     more common and can cause all three types.
   evidence:
   - reference: PMID:29019756
+    reference_title: &#34;Imaging of Skeletal Disorders Caused by Fibroblast Growth Factor Receptor Gene Mutations.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Skeletal disorders caused by type 1 mutations include Pfeiffer syndrome (PS) and osteoglophonic dysplasia&#34;
@@ -6409,6 +7138,22 @@ genetic:
     evidence_source: OTHER
     snippet: &#34;FGFR2 | HGNC:3689 | Pfeiffer syndrome | MONDO:0007043 | AD | Definitive&#34;
     explanation: ClinGen classifies the FGFR2-Pfeiffer syndrome gene-disease relationship as definitive with autosomal dominant inheritance.
+  - reference: PMID:7795583
+    reference_title: &#34;Mutations in FGFR1 and FGFR2 cause familial and sporadic Pfeiffer syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here we report a second locus for PS on chromosome 10q25, and present evidence that mutations in the fibroblast growth factor receptor-2 (FGFR2) gene on 10q25 cause PS in an additional subset of familial and sporadic cases.&#34;
+    explanation: &gt;-
+      Establishes FGFR2 on 10q25 as the second Pfeiffer locus, alongside FGFR1 on
+      chromosome 8 — the genetic heterogeneity this entry now covers in full.
+  - reference: PMID:7795583
+    reference_title: &#34;Mutations in FGFR1 and FGFR2 cause familial and sporadic Pfeiffer syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Interestingly, this T to C change is identical to a mutation in FGFR2 previously reported in Crouzon syndrome, a phenotypically similar disorder but one lacking the hand and foot anomalies seen in PS.&#34;
+    explanation: &gt;-
+      Records that an identical FGFR2 allele is reported in both Pfeiffer and Crouzon
+      syndrome, so genotype alone does not separate them — the digital features do.
 treatments:
 - name: Cranial vault reconstruction
   description: &gt;-
@@ -6423,13 +7168,39 @@ treatments:
 - name: Midface advancement surgery
   description: &gt;-
     Le Fort III or monobloc osteotomy to advance the midface, improving airway,
-    proptosis, and facial appearance.
+    proptosis, and facial appearance. Repeat midface surgery is common in
+    FGFR-related syndromic craniosynostosis, and the scarring left by earlier
+    procedures is itself a risk factor: the first reported paediatric case of
+    bilateral posterior ischaemic optic neuropathy after craniofacial surgery
+    occurred in a 13-year-old with Pfeiffer syndrome undergoing Le Fort II
+    advancement, attributed to bicoronal flap tightness from prior Le Fort III
+    surgery combined with permissive hypotension and anaemia. This is a single
+    case and does not establish a rate, but it identifies a mechanism —
+    cumulative operative scarring plus intraoperative hypoperfusion — specific to
+    the repeatedly operated syndromic craniosynostosis patient.
   therapeutic_modality: SURGERY
   treatment_term:
     preferred_term: Midface advancement
     term:
       id: NCIT:C15329
       label: Surgical Procedure
+  evidence:
+  - reference: PMID:42153645
+    reference_title: &#34;Bilateral Posterior Ischemic Optic Neuropathy Following Midface Advancement Surgery in a Pediatric Patient With Pfeiffer Syndrome.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;It was determined on institutional review that his vision loss was attributed to the tightness of the bicoronal flap due to scarring from past Le Fort III procedures in combination with permissive hypotension and anemia.&#34;
+    explanation: &gt;-
+      Identifies the proposed mechanism of a severe visual complication of
+      repeated midface advancement in Pfeiffer syndrome.
+  - reference: PMID:42153645
+    reference_title: &#34;Bilateral Posterior Ischemic Optic Neuropathy Following Midface Advancement Surgery in a Pediatric Patient With Pfeiffer Syndrome.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This case demonstrates the only documented episode of bilateral posterior ischemic optic neuropathy in a pediatric patient and describes a rarely documented risk factor.&#34;
+    explanation: &gt;-
+      Records that this is a single documented case, so no frequency claim is
+      made.
 </pre>
             </div>
         </div>
@@ -6686,7 +7457,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pfeiffer Syndrome", "mondoId": "MONDO:0007043", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pfeiffer_Syndrome", "yamlRevision": "b975dcd12b35"};
+        const OS_CONFIG = {"diseaseName": "Pfeiffer Syndrome", "mondoId": "MONDO:0007043", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pfeiffer_Syndrome", "yamlRevision": "9de19fddc84a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7105,5 +7876,73 @@ treatments:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

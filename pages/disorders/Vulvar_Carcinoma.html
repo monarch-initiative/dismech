@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Vulvar Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Vulvar Carcinoma</h1>
             <div class="header-meta">
 
@@ -3924,7 +4046,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinicopathologic-definition">
                 <div class="item-name">Clinicopathologic definition</div>
 
                 <div class="item-desc">Vulvar carcinoma is a vulvar epithelial cancer, most commonly squamous cell carcinoma, diagnosed by biopsy of a suspicious vulvar lesion and staged with clinical, pathologic, and imaging assessment of local and nodal disease.</div>
@@ -3970,6 +4092,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38791925" target="_blank">PMID:38791925</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3991,6 +4114,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4053,7 +4177,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hpv-associated-vscc">
 
                     <div class="item-name">
                         HPV-associated vulvar squamous cell carcinoma
@@ -4087,6 +4211,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37840151" target="_blank">PMID:37840151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4108,6 +4233,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4135,7 +4261,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hpv-independent-tp53-altered-vscc">
 
                     <div class="item-name">
                         HPV-independent TP53-altered vulvar squamous cell carcinoma
@@ -4169,6 +4295,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37840151" target="_blank">PMID:37840151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4191,6 +4318,7 @@
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4212,6 +4340,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16244216" target="_blank">DOI:10.3390/cancers16244216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4239,7 +4368,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hpv-independent-p53-wild-type-vscc">
 
                     <div class="item-name">
                         HPV-independent p53-wild-type vulvar squamous cell carcinoma
@@ -4273,6 +4402,7 @@
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16244216" target="_blank">DOI:10.3390/cancers16244216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4294,6 +4424,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16244216" target="_blank">DOI:10.3390/cancers16244216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4365,7 +4496,7 @@
 
 
 
-    <span class="entity-ref-chip">experimental_models#VCC1 Lichen-Sclerosus-Associated VSCC Cell Line</span>
+    <a class="entity-ref-chip" href="#experimental-model-vcc1-lichen-sclerosus-associated-vscc-cell-line">experimental_models#VCC1 Lichen-Sclerosus-Associated VSCC Cell Line</a>
 
 
 
@@ -4392,11 +4523,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type patient-derived tumor organoid coculture perturbation experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         patient-derived tumor organoid coculture perturbation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type patient-derived tumor organoid coculture perturbation experiment.</span>
     </span>
 
 
@@ -4439,6 +4574,7 @@ This experiment is of type patient-derived tumor organoid coculture perturbation
 
 
 
+
         </div>
 
         <div class="item-meta">
@@ -4447,17 +4583,21 @@ This experiment is of type patient-derived tumor organoid coculture perturbation
 
 
 
-    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+
+
+    <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4483,17 +4623,21 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this experimental model uses this anatomical location
-This experimental model uses vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+
+
+    <span class="tag tag-location">
 
         vulva
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0000997</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
     </span>
 
 
@@ -4522,17 +4666,21 @@ This experimental model uses vulva, annotated with mammalian vulva (UBERON:00009
 
 
 
-    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+
+
+    <span class="tag tag-cell">
 
         vulvar squamous carcinoma cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000312</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4557,17 +4705,21 @@ This experimental model uses vulvar squamous carcinoma cell, annotated with kera
 
 
 
-    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+
+
+    <span class="tag tag-cell">
 
         cancer-associated fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4707,11 +4859,15 @@ This experimental model uses cancer-associated fibroblast, annotated with fibrob
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by three-dimensional invasion assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         three-dimensional invasion assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by three-dimensional invasion assay.</span>
     </span>
 
 
@@ -4772,11 +4928,15 @@ This readout is measured by three-dimensional invasion assay.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by histopathologic assessment.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         histopathologic assessment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by histopathologic assessment.</span>
     </span>
 
 
@@ -4801,11 +4961,15 @@ This readout is measured by histopathologic assessment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by single-cell transcriptomic profiling.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
 
         single-cell transcriptomic profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
+This readout is measured by single-cell transcriptomic profiling.</span>
     </span>
 
 
@@ -4918,6 +5082,12 @@ This readout is measured by single-cell transcriptomic profiling.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4941,6 +5111,7 @@ This readout is measured by single-cell transcriptomic profiling.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654625" target="_blank">PMID:31654625</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4962,6 +5133,7 @@ This readout is measured by single-cell transcriptomic profiling.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654625" target="_blank">PMID:31654625</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5008,18 +5180,20 @@ This readout is measured by single-cell transcriptomic profiling.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5047,18 +5221,20 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to virus (GO:0009615). GO:0009615 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go">GO:0009615</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0009615</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to virus (GO:0009615). GO:0009615 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5082,18 +5258,20 @@ This pathophysiological event involves response to virus (GO:0009615). GO:000961
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5147,6 +5325,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37840151" target="_blank">PMID:37840151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5180,18 +5359,20 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5219,17 +5400,21 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5258,18 +5443,20 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         proteasome-mediated ubiquitin-dependent protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go">GO:0043161</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0043161</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5327,6 +5514,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2175676" target="_blank">PMID:2175676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5348,6 +5536,7 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25340830" target="_blank">PMID:25340830</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5382,18 +5571,20 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5421,17 +5612,21 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RB1
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:9884</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5460,18 +5655,20 @@ This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased G1/S transition of mitotic cell cycle (GO:0000082). GO:0000082 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         G1/S transition of mitotic cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go">GO:0000082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0000082</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased G1/S transition of mitotic cell cycle (GO:0000082). GO:0000082 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5529,6 +5726,7 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2537532" target="_blank">PMID:2537532</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5551,6 +5749,7 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25340830" target="_blank">PMID:25340830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5572,6 +5771,7 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25340830" target="_blank">PMID:25340830</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5606,18 +5806,20 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5645,18 +5847,20 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5684,18 +5888,20 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5757,6 +5963,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                         <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1106318" target="_blank">DOI:10.3389/fmed.2023.1106318</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5778,6 +5985,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1106318" target="_blank">DOI:10.3389/fmed.2023.1106318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5812,18 +6020,20 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5851,18 +6061,20 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epithelial cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go">GO:0050673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0050673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5890,18 +6102,20 @@ This pathophysiological event involves increased epithelial cell proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5939,6 +6153,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5960,6 +6175,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5994,18 +6210,20 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6033,18 +6251,20 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epithelial cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go">GO:0050673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0050673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6072,18 +6292,20 @@ This pathophysiological event involves increased epithelial cell proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6121,6 +6343,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6143,6 +6366,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6164,6 +6388,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/diagnostics14161799" target="_blank">DOI:10.3390/diagnostics14161799</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6198,18 +6423,20 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6237,17 +6464,21 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6272,17 +6503,21 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:11730</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6307,17 +6542,21 @@ This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:1787</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6342,17 +6581,21 @@ This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:7881</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6377,17 +6620,21 @@ This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FAT1
 
 
-    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3595</a>
+    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:3595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6416,18 +6663,20 @@ This pathophysiological event involves FAT1 (hgnc:3595). hgnc:3595 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6448,18 +6697,20 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6525,6 +6776,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6546,6 +6798,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6587,17 +6840,21 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:8975</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6626,18 +6883,20 @@ This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6695,6 +6954,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6735,17 +6995,21 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HRAS
 
 
-    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5173</a>
+    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:5173</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6774,18 +7038,20 @@ This pathophysiological event involves HRAS (hgnc:5173). hgnc:5173 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6806,18 +7072,20 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6875,6 +7143,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-63913-z" target="_blank">DOI:10.1038/s41598-024-63913-z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6908,18 +7177,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6947,18 +7218,20 @@ This pathophysiological event involves vulvar keratinocyte, annotated with kerat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6986,18 +7259,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7036,18 +7311,20 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar squamous carcinoma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7078,18 +7355,20 @@ This pathophysiological event involves vulvar squamous carcinoma cell, annotated
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7175,6 +7454,7 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38791925" target="_blank">PMID:38791925</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7218,18 +7498,20 @@ This pathophysiological event occurs in vulva, annotated with mammalian vulva (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in inguinal lymph node (UBERON:0001542). UBERON:0001542 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         inguinal lymph node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001542" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001542</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001542" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0001542</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in inguinal lymph node (UBERON:0001542). UBERON:0001542 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7252,6 +7534,7 @@ This pathophysiological event occurs in inguinal lymph node (UBERON:0001542). UB
                         <a href="https://bioregistry.io/DOI:10.3389/or.2024.1389035" target="_blank">DOI:10.3389/or.2024.1389035</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7273,6 +7556,7 @@ This pathophysiological event occurs in inguinal lymph node (UBERON:0001542). UB
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/or.2024.1389035" target="_blank">DOI:10.3389/or.2024.1389035</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7307,18 +7591,20 @@ This pathophysiological event occurs in inguinal lymph node (UBERON:0001542). UB
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cancer-associated fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-46">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7335,18 +7621,20 @@ This pathophysiological event involves cancer-associated fibroblast, annotated w
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vulvar squamous carcinoma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7374,18 +7662,20 @@ This pathophysiological event involves vulvar squamous carcinoma cell, annotated
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7445,6 +7735,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654625" target="_blank">PMID:31654625</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7466,6 +7757,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654625" target="_blank">PMID:31654625</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7502,7 +7794,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-hpv-associated-high-grade-squamous-intraepithelial-lesion-hsil-uvin">
                 <div class="item-name">
                     HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)
 
@@ -7523,6 +7815,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7545,6 +7838,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39202286" target="_blank">PMID:39202286</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7569,7 +7863,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-differentiated-vulvar-intraepithelial-neoplasia-dvin">
                 <div class="item-name">
                     Differentiated Vulvar Intraepithelial Neoplasia (dVIN)
 
@@ -7590,6 +7884,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7612,6 +7907,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39202286" target="_blank">PMID:39202286</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7636,7 +7932,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-squamous-cell-carcinoma">
                 <div class="item-name">
                     Squamous Cell Carcinoma
 
@@ -7657,6 +7953,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38791925" target="_blank">PMID:38791925</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7743,16 +8040,22 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Localized skin lesion</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011355" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0011355</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is vulvar lesion, annotated with Localized skin lesion (HP:0011355). HP:0011355 is a phenotype from the Human Phenotype Ontology.">
-                        Localized skin lesion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011355" target="_blank" class="curie-chip curie-chip-hp">HP:0011355</a>
-
-
+This clinical feature is vulvar lesion, annotated with Localized skin lesion (HP:0011355). HP:0011355 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7772,6 +8075,7 @@ This clinical feature is vulvar lesion, annotated with Localized skin lesion (HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38791925" target="_blank">PMID:38791925</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7805,16 +8109,22 @@ This clinical feature is vulvar lesion, annotated with Localized skin lesion (HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Skin ulcer</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0200042</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is vulvar ulcer, annotated with Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
-                        Skin ulcer
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
-
-
+This clinical feature is vulvar ulcer, annotated with Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7834,6 +8144,7 @@ This clinical feature is vulvar ulcer, annotated with Skin ulcer (HP:0200042). H
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ijgo.13881" target="_blank">DOI:10.1002/ijgo.13881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7876,16 +8187,22 @@ This clinical feature is vulvar ulcer, annotated with Skin ulcer (HP:0200042). H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Vulvar neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0030416</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is vulvar neoplasm (HP:0030416). HP:0030416 is a phenotype from the Human Phenotype Ontology.">
-                        Vulvar neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030416" target="_blank" class="curie-chip curie-chip-hp">HP:0030416</a>
-
-
+This clinical feature is vulvar neoplasm (HP:0030416). HP:0030416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7905,6 +8222,7 @@ This clinical feature is vulvar neoplasm (HP:0030416). HP:0030416 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ijgo.13881" target="_blank">DOI:10.1002/ijgo.13881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7938,16 +8256,22 @@ This clinical feature is vulvar neoplasm (HP:0030416). HP:0030416 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Pruritus vulvae</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0032004</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is pruritus vulvae (HP:0032004). HP:0032004 is a phenotype from the Human Phenotype Ontology.">
-                        Pruritus vulvae
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032004" target="_blank" class="curie-chip curie-chip-hp">HP:0032004</a>
-
-
+This clinical feature is pruritus vulvae (HP:0032004). HP:0032004 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7967,6 +8291,7 @@ This clinical feature is pruritus vulvae (HP:0032004). HP:0032004 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ijgo.13881" target="_blank">DOI:10.1002/ijgo.13881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7989,6 +8314,7 @@ This clinical feature is pruritus vulvae (HP:0032004). HP:0032004 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1106318" target="_blank">DOI:10.3389/fmed.2023.1106318</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8022,16 +8348,22 @@ This clinical feature is pruritus vulvae (HP:0032004). HP:0032004 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Vulvodynia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0030943</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is vulvodynia (HP:0030943). HP:0030943 is a phenotype from the Human Phenotype Ontology.">
-                        Vulvodynia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030943" target="_blank" class="curie-chip curie-chip-hp">HP:0030943</a>
-
-
+This clinical feature is vulvodynia (HP:0030943). HP:0030943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8051,6 +8383,7 @@ This clinical feature is vulvodynia (HP:0030943). HP:0030943 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ijgo.13881" target="_blank">DOI:10.1002/ijgo.13881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8073,6 +8406,7 @@ This clinical feature is vulvodynia (HP:0030943). HP:0030943 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1106318" target="_blank">DOI:10.3389/fmed.2023.1106318</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8152,15 +8486,17 @@ This clinical feature is vulvodynia (HP:0030943). HP:0030943 is a phenotype from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8181,6 +8517,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37840151" target="_blank">PMID:37840151</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8219,15 +8556,17 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:8975</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8248,6 +8587,7 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8286,15 +8626,17 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:11730</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8315,6 +8657,7 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8353,15 +8696,17 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:1787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8382,6 +8727,7 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8420,15 +8766,17 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8449,6 +8797,7 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8487,15 +8836,17 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FAT1
 
 
-    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3595</a>
+    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:3595</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8516,6 +8867,7 @@ This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34650187" target="_blank">PMID:34650187</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8554,15 +8906,17 @@ This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HRAS
 
 
-    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5173</a>
+    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:5173</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8583,6 +8937,7 @@ This disease-associated gene is HRAS (hgnc:5173). hgnc:5173 is a gene from the H
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-63913-z" target="_blank">DOI:10.1038/s41598-024-63913-z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8614,6 +8969,9 @@ This disease-associated gene is HRAS (hgnc:5173). hgnc:5173 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8630,18 +8988,18 @@ This disease-associated gene is HRAS (hgnc:5173). hgnc:5173 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8701,6 +9059,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="https://bioregistry.io/DOI:10.6004/jnccn.2024.7002" target="_blank">DOI:10.6004/jnccn.2024.7002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8731,18 +9090,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">radiation therapy</span>
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -8802,6 +9161,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="https://bioregistry.io/DOI:10.6004/jnccn.2024.7002" target="_blank">DOI:10.6004/jnccn.2024.7002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8832,18 +9192,18 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">radiation therapy</span>
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -8903,6 +9263,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="https://bioregistry.io/DOI:10.3389/or.2024.1389035" target="_blank">DOI:10.3389/or.2024.1389035</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8924,6 +9285,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/or.2024.1389035" target="_blank">DOI:10.3389/or.2024.1389035</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8955,18 +9317,18 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.">chemoradiotherapy</span>
+This treatment is chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemoradiotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C94626" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.">NCIT:C94626</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C94626" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C94626">NCIT:C94626</a>
 
 
 
@@ -9026,6 +9388,7 @@ This treatment is chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34669204" target="_blank">PMID:34669204</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9056,18 +9419,18 @@ This treatment is chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -9092,18 +9455,20 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses platinum compound (NCIT:C1450). NCIT:C1450 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         platinum compound
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1450" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1450</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1450" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C1450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses platinum compound (NCIT:C1450). NCIT:C1450 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9147,6 +9512,7 @@ This treatment uses platinum compound (NCIT:C1450). NCIT:C1450 is a therapeutic 
                         <a href="https://clinicaltrials.gov/study/NCT07101848" target="_blank">clinicaltrials:NCT07101848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9177,18 +9543,18 @@ This treatment uses platinum compound (NCIT:C1450). NCIT:C1450 is a therapeutic 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">vaccination</span>
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">NCIT:C15346</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15346">NCIT:C15346</a>
 
 
 
@@ -9213,18 +9579,20 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses human papillomavirus vaccine, annotated with Human Papilloma Virus Vaccine (NCIT:C1951). NCIT:C1951 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         human papillomavirus vaccine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1951" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1951</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1951" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-68">NCIT:C1951</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses human papillomavirus vaccine, annotated with Human Papilloma Virus Vaccine (NCIT:C1951). NCIT:C1951 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9268,6 +9636,7 @@ This treatment uses human papillomavirus vaccine, annotated with Human Papilloma
                         <a href="https://bioregistry.io/DOI:10.3390/vaccines12111291" target="_blank">DOI:10.3390/vaccines12111291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9289,6 +9658,7 @@ This treatment uses human papillomavirus vaccine, annotated with Human Papilloma
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1001/jamanetworkopen.2024.31807" target="_blank">DOI:10.1001/jamanetworkopen.2024.31807</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9320,18 +9690,18 @@ This treatment uses human papillomavirus vaccine, annotated with Human Papilloma
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">topical corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.">topical corticosteroid therapy</span>
+This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Topical Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122078" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.">NCIT:C122078</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122078" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122078">NCIT:C122078</a>
 
 
 
@@ -9391,6 +9761,7 @@ This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is
                         <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1106318" target="_blank">DOI:10.3389/fmed.2023.1106318</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9412,6 +9783,7 @@ This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1106318" target="_blank">DOI:10.3389/fmed.2023.1106318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9454,23 +9826,29 @@ This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is cigarette smoking exposure, annotated with exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         cigarette smoking exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0100003</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-70">ECTO:0100003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is cigarette smoking exposure, annotated with exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -9489,6 +9867,7 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38503056" target="_blank">PMID:38503056</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9538,6 +9917,7 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38503056" target="_blank">PMID:38503056</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9622,6 +10002,7 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9661,6 +10042,7 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37840151" target="_blank">PMID:37840151</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9729,6 +10111,7 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                         <a href="https://bioregistry.io/DOI:10.1055/a-1545-4279" target="_blank">DOI:10.1055/a-1545-4279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9768,6 +10151,7 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37840151" target="_blank">PMID:37840151</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9810,7 +10194,7 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05903833">
                 <div class="item-name">
                     NCT05903833
 
@@ -9828,10 +10212,12 @@ This environmental factor is cigarette smoking exposure, annotated with exposure
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Relation: this clinical trial targets this phenotype
-This clinical trial targets Recurrent, persistent, metastatic, or locally advanced vulvar cancer.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" tabindex="0" aria-describedby="pill-tip-71">
                         Recurrent, persistent, metastatic, or locally advanced vulvar cancer
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent, persistent, metastatic, or locally advanced vulvar cancer.</span>
                     </span>
 
                 </div>
@@ -9849,6 +10235,7 @@ This clinical trial targets Recurrent, persistent, metastatic, or locally advanc
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05903833" target="_blank">clinicaltrials:NCT05903833</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9871,7 +10258,7 @@ This clinical trial targets Recurrent, persistent, metastatic, or locally advanc
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07101848">
                 <div class="item-name">
                     NCT07101848
 
@@ -9889,10 +10276,12 @@ This clinical trial targets Recurrent, persistent, metastatic, or locally advanc
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Relation: this clinical trial targets this phenotype
-This clinical trial targets Advanced or recurrent vulvar squamous cell carcinoma.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" tabindex="0" aria-describedby="pill-tip-72">
                         Advanced or recurrent vulvar squamous cell carcinoma
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Relation: this clinical trial targets this phenotype
+This clinical trial targets Advanced or recurrent vulvar squamous cell carcinoma.</span>
                     </span>
 
                 </div>
@@ -9910,6 +10299,7 @@ This clinical trial targets Advanced or recurrent vulvar squamous cell carcinoma
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07101848" target="_blank">clinicaltrials:NCT07101848</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9932,7 +10322,7 @@ This clinical trial targets Advanced or recurrent vulvar squamous cell carcinoma
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07290894">
                 <div class="item-name">
                     NCT07290894
 
@@ -9950,10 +10340,12 @@ This clinical trial targets Advanced or recurrent vulvar squamous cell carcinoma
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Relation: this clinical trial targets this phenotype
-This clinical trial targets Vulvar cancer.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" tabindex="0" aria-describedby="pill-tip-73">
                         Vulvar cancer
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Relation: this clinical trial targets this phenotype
+This clinical trial targets Vulvar cancer.</span>
                     </span>
 
                 </div>
@@ -9971,6 +10363,7 @@ This clinical trial targets Vulvar cancer.">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07290894" target="_blank">clinicaltrials:NCT07290894</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10022,31 +10415,35 @@ This clinical trial targets Vulvar cancer.">
                 <div class="tag-list" style="margin-top: 10px;">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         vulvar squamous carcinoma cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-74">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         cancer-associated fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-75">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -10057,17 +10454,19 @@ This experimental model uses cancer-associated fibroblast, annotated with fibrob
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-76">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-76">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -10075,17 +10474,19 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
 
-                        <div class="model-detail-value" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this experimental model uses this anatomical location
-This experimental model uses vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                        <div class="model-detail-value">
 
                             vulva
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-77">UBERON:0000997</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-77">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -10144,6 +10545,7 @@ This experimental model uses vulva, annotated with mammalian vulva (UBERON:00009
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654625" target="_blank">PMID:31654625</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10221,6 +10623,7 @@ This experimental model uses vulva, annotated with mammalian vulva (UBERON:00009
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654625" target="_blank">PMID:31654625</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10242,6 +10645,7 @@ This experimental model uses vulva, annotated with mammalian vulva (UBERON:00009
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654625" target="_blank">PMID:31654625</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10288,7 +10692,6 @@ This experimental model uses vulva, annotated with mammalian vulva (UBERON:00009
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Vulvar Carcinoma
 creation_date: &#34;2026-05-07T18:59:34Z&#34;
-updated_date: &#34;2026-05-07T19:58:48Z&#34;
 synonyms:
 - Vulvar cancer
 - Carcinoma of the vulva
@@ -12831,7 +13234,7 @@ These features are highlighted in recent clinical overviews and updates. (corte2
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Vulvar Carcinoma", "mondoId": "MONDO:0005215", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vulvar_Carcinoma", "yamlRevision": "ed497131562f"};
+        const OS_CONFIG = {"diseaseName": "Vulvar Carcinoma", "mondoId": "MONDO:0005215", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vulvar_Carcinoma", "yamlRevision": "50ad2f567527"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13250,5 +13653,73 @@ These features are highlighted in recent clinical overviews and updates. (corte2
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

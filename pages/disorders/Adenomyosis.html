@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Adenomyosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adenomyosis</h1>
             <div class="header-meta">
 
@@ -3899,27 +4021,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
+
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4063,6 +4262,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19644696" target="_blank">PMID:19644696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4084,6 +4284,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4150,6 +4351,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566849" target="_blank">PMID:29566849</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4171,6 +4373,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4234,6 +4437,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36099328" target="_blank">PMID:36099328</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4337,6 +4541,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4360,6 +4570,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566849" target="_blank">PMID:29566849</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4381,6 +4592,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4454,6 +4666,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566849" target="_blank">PMID:29566849</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4510,18 +4723,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves uterine smooth muscle cell (CL:0002601). CL:0002601 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         uterine smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002601" target="_blank" class="curie-chip curie-chip-cl">CL:0002601</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002601" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves uterine smooth muscle cell (CL:0002601). CL:0002601 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4549,18 +4764,20 @@ This pathophysiological event involves uterine smooth muscle cell (CL:0002601). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         wound healing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4588,33 +4805,37 @@ This pathophysiological event involves increased wound healing (GO:0042060). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         myometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001296</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001296</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:0001295 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         endometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001295" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001295</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001295" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0001295</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:0001295 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4663,6 +4884,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19644696" target="_blank">PMID:19644696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4684,6 +4906,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19644696" target="_blank">PMID:19644696</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4736,18 +4959,20 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased estrogen biosynthetic process (GO:0006703). GO:0006703 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         estrogen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go">GO:0006703</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006703</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased estrogen biosynthetic process (GO:0006703). GO:0006703 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4768,18 +4993,20 @@ This pathophysiological event involves increased estrogen biosynthetic process (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cellular response to estrogen stimulus (GO:0071391). GO:0071391 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular response to estrogen stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071391" target="_blank" class="curie-chip curie-chip-go">GO:0071391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0071391</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular response to estrogen stimulus (GO:0071391). GO:0071391 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4856,6 +5083,7 @@ This pathophysiological event involves increased cellular response to estrogen s
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19644696" target="_blank">PMID:19644696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4900,18 +5128,20 @@ This pathophysiological event involves increased cellular response to estrogen s
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves glandular epithelial cell of endometrium (CL:0009084). CL:0009084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         glandular epithelial cell of endometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009084" target="_blank" class="curie-chip curie-chip-cl">CL:0009084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0009084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glandular epithelial cell of endometrium (CL:0009084). CL:0009084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4939,17 +5169,21 @@ This pathophysiological event involves glandular epithelial cell of endometrium 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KRAS
 
 
-    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6407</a>
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:6407</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4978,18 +5212,20 @@ This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Ras protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go">GO:0007265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007265</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5058,6 +5294,7 @@ This pathophysiological event involves increased Ras protein signal transduction
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5080,6 +5317,7 @@ This pathophysiological event involves increased Ras protein signal transduction
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5101,6 +5339,7 @@ This pathophysiological event involves increased Ras protein signal transduction
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5146,18 +5385,20 @@ This pathophysiological event involves increased Ras protein signal transduction
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves glandular epithelial cell of endometrium (CL:0009084). CL:0009084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         glandular epithelial cell of endometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009084" target="_blank" class="curie-chip curie-chip-cl">CL:0009084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0009084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glandular epithelial cell of endometrium (CL:0009084). CL:0009084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5174,18 +5415,20 @@ This pathophysiological event involves glandular epithelial cell of endometrium 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endometrial stromal cell, annotated with stromal cell of endometrium (CL:0002255). CL:0002255 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endometrial stromal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl">CL:0002255</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endometrial stromal cell, annotated with stromal cell of endometrium (CL:0002255). CL:0002255 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5213,18 +5456,20 @@ This pathophysiological event involves endometrial stromal cell, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5245,18 +5490,20 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5284,18 +5531,20 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         myometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001296</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001296</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5352,6 +5601,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566849" target="_blank">PMID:29566849</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5374,6 +5624,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566849" target="_blank">PMID:29566849</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5395,6 +5646,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19644696" target="_blank">PMID:19644696</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5429,18 +5681,20 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5457,18 +5711,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         myofibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl">CL:0000186</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5485,18 +5741,20 @@ This pathophysiological event involves myofibroblast, annotated with myofibrobla
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves uterine smooth muscle cell (CL:0002601). CL:0002601 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         uterine smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002601" target="_blank" class="curie-chip curie-chip-cl">CL:0002601</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002601" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves uterine smooth muscle cell (CL:0002601). CL:0002601 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5524,18 +5782,20 @@ This pathophysiological event involves uterine smooth muscle cell (CL:0002601). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5556,18 +5816,20 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5588,18 +5850,20 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         wound healing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0042060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5627,18 +5891,20 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         myometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001296</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0001296</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5676,6 +5942,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36099328" target="_blank">PMID:36099328</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5697,6 +5964,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36099328" target="_blank">PMID:36099328</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5731,18 +5999,20 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endometrial stromal cell, annotated with stromal cell of endometrium (CL:0002255). CL:0002255 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endometrial stromal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl">CL:0002255</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endometrial stromal cell, annotated with stromal cell of endometrium (CL:0002255). CL:0002255 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5770,18 +6040,20 @@ This pathophysiological event involves endometrial stromal cell, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased estrogen biosynthetic process (GO:0006703). GO:0006703 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         estrogen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go">GO:0006703</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006703</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased estrogen biosynthetic process (GO:0006703). GO:0006703 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5802,18 +6074,20 @@ This pathophysiological event involves increased estrogen biosynthetic process (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased response to progesterone (GO:0032570). GO:0032570 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to progesterone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032570" target="_blank" class="curie-chip curie-chip-go">GO:0032570</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032570" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0032570</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased response to progesterone (GO:0032570). GO:0032570 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5871,6 +6145,7 @@ This pathophysiological event involves decreased response to progesterone (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36925057" target="_blank">PMID:36925057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5892,6 +6167,7 @@ This pathophysiological event involves decreased response to progesterone (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36925057" target="_blank">PMID:36925057</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5926,18 +6202,20 @@ This pathophysiological event involves decreased response to progesterone (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves uterine smooth muscle cell (CL:0002601). CL:0002601 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         uterine smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002601" target="_blank" class="curie-chip curie-chip-cl">CL:0002601</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002601" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0002601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves uterine smooth muscle cell (CL:0002601). CL:0002601 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5965,18 +6243,20 @@ This pathophysiological event involves uterine smooth muscle cell (CL:0002601). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased uterine smooth muscle cell proliferation, annotated with smooth muscle cell proliferation (GO:0048659). GO:0048659 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         uterine smooth muscle cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go">GO:0048659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0048659</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased uterine smooth muscle cell proliferation, annotated with smooth muscle cell proliferation (GO:0048659). GO:0048659 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5997,18 +6277,20 @@ This pathophysiological event involves increased uterine smooth muscle cell prol
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6029,18 +6311,20 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6068,18 +6352,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         myometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001296</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0001296</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6102,6 +6388,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6123,6 +6410,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6159,7 +6447,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-endometrial-glands-and-stroma-within-the-myometrium">
                 <div class="item-name">
                     Endometrial glands and stroma within the myometrium
 
@@ -6180,6 +6468,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6268,16 +6557,22 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Menorrhagia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000132</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype from the Human Phenotype Ontology.">
-                        Menorrhagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000132" target="_blank" class="curie-chip curie-chip-hp">HP:0000132</a>
-
-
+This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6297,6 +6592,7 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6319,6 +6615,7 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36099328" target="_blank">PMID:36099328</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6352,16 +6649,20 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001903</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.">
-                        Anemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp">HP:0001903</a>
-
-
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6381,6 +6682,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6423,16 +6725,20 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030016</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspareunia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030016" target="_blank" class="curie-chip curie-chip-hp">HP:0030016</a>
-
-
+This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6452,6 +6758,7 @@ This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37244746" target="_blank">PMID:37244746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6485,16 +6792,20 @@ This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000789</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.">
-                        Infertility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp">HP:0000789</a>
-
-
+This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6514,6 +6825,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28865548" target="_blank">PMID:28865548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6536,6 +6848,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28865548" target="_blank">PMID:28865548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6578,16 +6891,20 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100607</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysmenorrhea (HP:0100607). HP:0100607 is a phenotype from the Human Phenotype Ontology.">
-                        Dysmenorrhea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100607" target="_blank" class="curie-chip curie-chip-hp">HP:0100607</a>
-
-
+This clinical feature is Dysmenorrhea (HP:0100607). HP:0100607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6607,6 +6924,7 @@ This clinical feature is Dysmenorrhea (HP:0100607). HP:0100607 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566849" target="_blank">PMID:29566849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6629,6 +6947,7 @@ This clinical feature is Dysmenorrhea (HP:0100607). HP:0100607 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25241270" target="_blank">PMID:25241270</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6662,16 +6981,20 @@ This clinical feature is Dysmenorrhea (HP:0100607). HP:0100607 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0034267</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.">
-                        Pelvic pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp">HP:0034267</a>
-
-
+This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6691,6 +7014,7 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566849" target="_blank">PMID:29566849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6770,15 +7094,17 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KRAS
 
 
-    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6407</a>
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:6407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6802,6 +7128,7 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36925057" target="_blank">PMID:36925057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6824,6 +7151,7 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6845,6 +7173,7 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31857578" target="_blank">PMID:31857578</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6885,15 +7214,17 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ARID1A
 
 
-    <a href="https://bioregistry.io/hgnc:11110" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11110</a>
+    <a href="https://bioregistry.io/hgnc:11110" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:11110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6916,6 +7247,7 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36708516" target="_blank">PMID:36708516</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6947,6 +7279,9 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6963,17 +7298,17 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6998,18 +7333,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses dienogest (CHEBI:70708). CHEBI:70708 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         dienogest
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_70708" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:70708</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_70708" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:70708</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dienogest (CHEBI:70708). CHEBI:70708 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7053,6 +7390,7 @@ This treatment uses dienogest (CHEBI:70708). CHEBI:70708 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40166680" target="_blank">PMID:40166680</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7074,6 +7412,7 @@ This treatment uses dienogest (CHEBI:70708). CHEBI:70708 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31857578" target="_blank">PMID:31857578</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7105,17 +7444,17 @@ This treatment uses dienogest (CHEBI:70708). CHEBI:70708 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7140,18 +7479,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         levonorgestrel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6443" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6443</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6443" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:6443</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7195,6 +7536,7 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40166680" target="_blank">PMID:40166680</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7225,17 +7567,17 @@ This treatment uses levonorgestrel (CHEBI:6443). CHEBI:6443 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7260,18 +7602,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         leuprolide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6427" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6427</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6427" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:6427</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7315,6 +7659,7 @@ This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28865548" target="_blank">PMID:28865548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7336,6 +7681,7 @@ This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28865548" target="_blank">PMID:28865548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7367,17 +7713,17 @@ This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7402,18 +7748,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         oral contraceptive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C389" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C389</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C389" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7457,6 +7805,7 @@ This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37244746" target="_blank">PMID:37244746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7487,17 +7836,17 @@ This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7522,18 +7871,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses nonsteroidal anti-inflammatory drug, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         nonsteroidal anti-inflammatory drug
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C257</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nonsteroidal anti-inflammatory drug, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7558,6 +7909,7 @@ This treatment uses nonsteroidal anti-inflammatory drug, annotated with Nonstero
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37244746" target="_blank">PMID:37244746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7589,17 +7941,17 @@ This treatment uses nonsteroidal anti-inflammatory drug, annotated with Nonstero
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7624,18 +7976,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         tranexamic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:48669</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:48669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7660,6 +8014,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37244746" target="_blank">PMID:37244746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7691,18 +8046,18 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">uterine artery embolization<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is uterine artery embolization, annotated with Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical intervention from the NCI Thesaurus.">uterine artery embolization</span>
+This treatment is uterine artery embolization, annotated with Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Embolization Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15230" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is uterine artery embolization, annotated with Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical intervention from the NCI Thesaurus.">NCIT:C15230</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15230" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15230">NCIT:C15230</a>
 
 
 
@@ -7762,6 +8117,7 @@ This treatment is uterine artery embolization, annotated with Embolization Thera
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37244746" target="_blank">PMID:37244746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7792,18 +8148,18 @@ This treatment is uterine artery embolization, annotated with Embolization Thera
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">endometrial ablation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is endometrial ablation (NCIT:C157834). NCIT:C157834 is a clinical intervention from the NCI Thesaurus.">endometrial ablation</span>
+This treatment is endometrial ablation (NCIT:C157834). NCIT:C157834 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Endometrial Ablation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157834" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is endometrial ablation (NCIT:C157834). NCIT:C157834 is a clinical intervention from the NCI Thesaurus.">NCIT:C157834</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157834" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157834">NCIT:C157834</a>
 
 
 
@@ -7845,6 +8201,7 @@ This treatment is endometrial ablation (NCIT:C157834). NCIT:C157834 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37244746" target="_blank">PMID:37244746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7875,18 +8232,18 @@ This treatment is endometrial ablation (NCIT:C157834). NCIT:C157834 is a clinica
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">hysterectomy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.">hysterectomy</span>
+This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hysterectomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15256" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.">NCIT:C15256</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15256" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15256">NCIT:C15256</a>
 
 
 
@@ -7946,6 +8303,7 @@ This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37244746" target="_blank">PMID:37244746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7976,17 +8334,17 @@ This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Surgical Procedure</span>
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8046,6 +8404,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28865548" target="_blank">PMID:28865548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8086,6 +8445,10 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">Adenomyosis is estrogen-dependent and its severity tracks with ovarian steroid exposure and ovulatory cycles — a feature that distinguishes it from many other uterine disorders and underlies both its progression through the reproductive years and its regression after menopause or ovarian suppression.</div>
 
 
@@ -8101,6 +8464,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8146,7 +8510,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-uterine-leiomyoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Uterine_Leiomyoma.html">Uterine leiomyoma</a>
@@ -8174,6 +8538,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34131719" target="_blank">PMID:34131719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8199,7 +8564,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-endometriosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Endometriosis.html">Endometriosis</a>
@@ -8227,6 +8592,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36925057" target="_blank">PMID:36925057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8248,6 +8614,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25241270" target="_blank">PMID:25241270</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10838,5 +11205,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

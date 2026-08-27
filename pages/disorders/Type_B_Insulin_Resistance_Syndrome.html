@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Type B Insulin Resistance Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Type B Insulin Resistance Syndrome</h1>
             <div class="header-meta">
 
@@ -3660,7 +3782,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Type%20B%20Insulin%20Resistance%20Syndrome"
@@ -3693,7 +3815,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                A rare acquired autoimmune disorder in which polyclonal IgG autoantibodies directed against the insulin receptor cause extreme insulin resistance. The autoantibodies act as partial agonists of the receptor, so glycemic control is characteristically bimodal and titer-dependent: high antibody titers block insulin action and produce refractory hyperglycemia with hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women, whereas lower titers may stimulate the receptor and produce fasting/autoimmune hypoglycemia. The syndrome most often affects middle-aged women (classically of African ancestry) and is almost invariably associated with other autoimmune diseases, most commonly systemic lupus erythematosus. It is one of the classic &#34;extreme insulin resistance&#34; syndromes, distinguished from the genetic (type A, Donohue, Rabson-Mendenhall) forms by its autoimmune, acquired basis. Treatment centers on immunomodulation to suppress pathogenic autoantibody production.
+                A rare acquired autoimmune disorder in which polyclonal IgG autoantibodies directed against the insulin receptor cause extreme insulin resistance. The autoantibodies act as partial agonists of the receptor, so glycemic control is characteristically bimodal and titer-dependent: high antibody titers block insulin action and produce refractory hyperglycemia with hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women, whereas lower titers may stimulate the receptor and produce fasting/autoimmune hypoglycemia. The syndrome has been reported most often in middle-aged women (classically of African ancestry) and is frequently associated with systemic autoimmune disease. It is one of the classic &#34;extreme insulin resistance&#34; syndromes, distinguished from the genetic (type A, Donohue, Rabson-Mendenhall) forms by its autoimmune, acquired basis. Treatment centers on immunomodulation to suppress pathogenic autoantibody production.
             </p>
 
         </header>
@@ -3801,7 +3923,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3811,7 +3933,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3822,7 +3944,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3833,7 +3955,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3848,7 +3970,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3887,31 +4009,33 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-insulin-receptor-autoantibody-production" data-dismech-node="Anti-Insulin Receptor Autoantibody Production" data-dismech-type="pathophysiology">
-                <div class="item-name">Anti-Insulin Receptor Autoantibody Production</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-anti-insulin-receptor-autoantibody-production" data-dismech-node="Pathogenic Anti-Insulin-Receptor Autoantibody Production" data-dismech-type="pathophysiology">
+                <div class="item-name">Pathogenic Anti-Insulin-Receptor Autoantibody Production</div>
 
-                <div class="item-desc">Loss of B-cell tolerance in a predisposed, frequently autoimmune host leads to production of polyclonal IgG autoantibodies directed against the insulin receptor. This humoral autoimmunity is the primary lesion of the syndrome and is the target of immunomodulatory therapy.</div>
+                <div class="item-desc">Autoreactive B-cell and plasma-cell activity produces the pathogenic IgG autoantibodies directed against the insulin receptor. This cellular source is the principal target of combination immunomodulatory therapy.</div>
 
 
 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3928,18 +4052,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3967,18 +4093,20 @@ This pathophysiological event involves Plasma cell (CL:0000786). CL:0000786 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4012,9 +4140,91 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Insulin Receptor Blockade and Partial Agonism</span>
+	                            <span class="crosslink-meta">Anti-Insulin Receptor Autoantibodies</span>
 
-	                            <span class="crosslink-desc">Secreted anti-insulin-receptor IgG binds the cell-surface insulin receptor, initiating receptor blockade and partial agonism.</span>
+	                            <span class="crosslink-desc">Autoantibody production generates the circulating receptor-directed IgG lesion.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20484479" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This report focuses on seven patients who were treated with an intensive combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids aimed at control of pathogenic autoantibody production."</div>
+
+
+                <div class="evidence-explanation">Directly identifies pathogenic autoantibody production as the therapeutic target.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-insulin-receptor-autoantibodies" data-dismech-node="Anti-Insulin Receptor Autoantibodies" data-dismech-type="pathophysiology">
+                <div class="item-name">Anti-Insulin Receptor Autoantibodies</div>
+
+                <div class="item-desc">Circulating IgG autoantibodies directed against the cell-surface insulin receptor are the defining acquired autoimmune lesion. Antibody concentration determines opposing hyperglycemic and hypoglycemic receptor effects.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">High-Titer Insulin Receptor Antagonism</span>
+
+	                            <span class="crosslink-desc">At high titer, the receptor-directed antibodies predominantly antagonize insulin action.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Low-Titer Insulin Receptor Agonism</span>
+
+	                            <span class="crosslink-desc">At low titer, the same receptor-directed antibodies can act as insulin mimetics.</span>
 
 
 	                        </div>
@@ -4035,6 +4245,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42438801" target="_blank">PMID:42438801</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4057,6 +4268,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4081,10 +4293,10 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-receptor-blockade-and-partial-agonism" data-dismech-node="Insulin Receptor Blockade and Partial Agonism" data-dismech-type="pathophysiology">
-                <div class="item-name">Insulin Receptor Blockade and Partial Agonism</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-titer-insulin-receptor-antagonism" data-dismech-node="High-Titer Insulin Receptor Antagonism" data-dismech-type="pathophysiology">
+                <div class="item-name">High-Titer Insulin Receptor Antagonism</div>
 
-                <div class="item-desc">The autoantibodies bind the insulin receptor and behave as partial agonists. At high titer they predominantly block insulin binding/signaling, producing severe insulin resistance; at low titer they can stimulate the receptor, producing hypoglycemia. This titer-dependent partial agonism explains the hallmark bimodal glycemic course.</div>
+                <div class="item-desc">At high antibody titer, insulin-receptor binding predominantly blocks insulin action and initiates the severe insulin-resistant, hyperglycemic state.</div>
 
 
 
@@ -4107,7 +4319,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Impaired Insulin Signaling and Extreme Insulin Resistance</span>
+	                            <span class="crosslink-meta">Impaired Insulin Receptor Signaling</span>
 
 	                            <span class="crosslink-desc">At high antibody titer, receptor blockade impairs downstream insulin signaling, driving extreme insulin resistance and hyperglycemia.</span>
 
@@ -4130,6 +4342,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4154,28 +4367,104 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-insulin-signaling-and-extreme-insulin-resistance" data-dismech-node="Impaired Insulin Signaling and Extreme Insulin Resistance" data-dismech-type="pathophysiology">
-                <div class="item-name">Impaired Insulin Signaling and Extreme Insulin Resistance</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-low-titer-insulin-receptor-agonism" data-dismech-node="Low-Titer Insulin Receptor Agonism" data-dismech-type="pathophysiology">
+                <div class="item-name">Low-Titer Insulin Receptor Agonism</div>
 
-                <div class="item-desc">Antibody-mediated blockade of the insulin receptor impairs the downstream insulin receptor signaling pathway in insulin target tissues (liver, muscle, adipose), producing extreme insulin resistance, refractory hyperglycemia, compensatory hyperinsulinemia, hypercatabolism/weight loss, acanthosis nigricans, and hyperandrogenism in women.</div>
+                <div class="item-desc">At low antibody titer, partial agonism of the insulin receptor can mimic insulin action and produce spontaneous hypoglycemia without exogenous insulin.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Autoimmune Hypoglycemia</span>
+
+	                            <span class="crosslink-desc">Low-titer receptor agonism can drive spontaneous, sometimes intractable hypoglycemia.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer."</div>
+
+
+                <div class="evidence-explanation">Supports the low-titer receptor-agonist state.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-insulin-receptor-signaling" data-dismech-node="Impaired Insulin Receptor Signaling" data-dismech-type="pathophysiology">
+                <div class="item-name">Impaired Insulin Receptor Signaling</div>
+
+                <div class="item-desc">Antibody-mediated blockade of the insulin receptor impairs the downstream insulin receptor signaling pathway in insulin target tissues including liver, skeletal muscle, and adipose tissue.</div>
 
 
 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4192,18 +4481,20 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4220,18 +4511,20 @@ This pathophysiological event involves Adipocyte (CL:0000136). CL:0000136 is a c
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4259,18 +4552,20 @@ This pathophysiological event involves Skeletal muscle cell, annotated with cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Insulin receptor signaling pathway (GO:0008286). GO:0008286 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Insulin receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go">GO:0008286</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008286</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Insulin receptor signaling pathway (GO:0008286). GO:0008286 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4299,6 +4594,53 @@ This pathophysiological event involves decreased Insulin receptor signaling path
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Severe Insulin Resistance</span>
+
+	                            <span class="crosslink-desc">Impaired insulin action produces the defining extreme insulin-resistant state.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Refractory Hyperglycemia</span>
+
+	                            <span class="crosslink-desc">Loss of insulin action produces severe, often refractory hyperglycemia.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acanthosis Nigricans</span>
+
+	                            <span class="crosslink-desc">Severe loss of insulin action is associated with marked acanthosis nigricans.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperandrogenism</span>
+
+	                            <span class="crosslink-desc">In affected women, the severe insulin-resistant state can produce hyperandrogenism.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Weight Loss</span>
+
+	                            <span class="crosslink-desc">Failure of insulin action produces a hypercatabolic state with severe weight loss.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4312,6 +4654,7 @@ This pathophysiological event involves decreased Insulin receptor signaling path
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4335,10 +4678,11 @@ This pathophysiological event involves decreased Insulin receptor signaling path
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27254267" target="_blank">PMID:27254267</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4383,7 +4727,7 @@ This pathophysiological event involves decreased Insulin receptor signaling path
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-Insulin Receptor Autoantibody Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of B-cell tolerance in a predisposed, frequently autoimmune host leads to production of polyclonal IgG autoantibodies directed against the insulin receptor. This humoral autoimmunity is the primary lesion of the syndrome and is the target of immunomodulatory therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\", \"Plasma cell\"], \"biological_processes\": [\"Immunoglobulin production\"]}}, {\"id\": \"Combination Immunomodulatory Therapy (Rituximab, Cyclophosphamide, Pulse Corticosteroids)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The NIH combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids is aimed at suppressing pathogenic anti-insulin-receptor autoantibody production and has induced durable remission in treated patients.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\", \"corticosteroid\"]}}, {\"id\": \"Impaired Insulin Signaling and Extreme Insulin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibody-mediated blockade of the insulin receptor impairs the downstream insulin receptor signaling pathway in insulin target tissues (liver, muscle, adipose), producing extreme insulin resistance, refractory hyperglycemia, compensatory hyperinsulinemia, hypercatabolism/weight loss, acanthosis nigricans, and hyperandrogenism in women.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\", \"Adipocyte\", \"Skeletal muscle cell\"], \"biological_processes\": [\"Insulin receptor signaling pathway\"]}}, {\"id\": \"Insulin Receptor Blockade and Partial Agonism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autoantibodies bind the insulin receptor and behave as partial agonists. At high titer they predominantly block insulin binding/signaling, producing severe insulin resistance; at low titer they can stimulate the receptor, producing hypoglycemia. This titer-dependent partial agonism explains the hallmark bimodal glycemic course.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Anti-Insulin Receptor Autoantibody Production\", \"target\": \"Insulin Receptor Blockade and Partial Agonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Secreted anti-insulin-receptor IgG binds the cell-surface insulin receptor, initiating receptor blockade and partial agonism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin Receptor Blockade and Partial Agonism\", \"target\": \"Impaired Insulin Signaling and Extreme Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At high antibody titer, receptor blockade impairs downstream insulin signaling, driving extreme insulin resistance and hyperglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combination Immunomodulatory Therapy (Rituximab, Cyclophosphamide, Pulse Corticosteroids)\", \"target\": \"Anti-Insulin Receptor Autoantibody Production\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acanthosis Nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperpigmented, velvety skin thickening characteristic of severe insulin resistance states, typically severe in type B insulin resistance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000956\"}}, {\"id\": \"Anti-Insulin Receptor Autoantibodies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating IgG autoantibodies directed against the cell-surface insulin receptor are the defining acquired autoimmune lesion. Antibody concentration determines opposing hyperglycemic and hypoglycemic receptor effects.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Autoimmune Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting or intractable hypoglycemia without exogenous insulin, occurring when antibody titers are low and the autoantibodies act as receptor agonists. Historically a major driver of mortality. A rare subgroup has isolated hypoglycemia with suppressed, rather than elevated, insulin and may have a delayed association with aggressive lymphoma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Combination Immunomodulatory Therapy (Rituximab, Cyclophosphamide, Pulse Corticosteroids)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The NIH combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids is aimed at suppressing pathogenic anti-insulin-receptor autoantibody production and induced remission in the reported cohort.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\", \"corticosteroid\"]}}, {\"id\": \"High-Titer Insulin Receptor Antagonism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At high antibody titer, insulin-receptor binding predominantly blocks insulin action and initiates the severe insulin-resistant, hyperglycemic state.\", \"meta\": {\"evidence_count\": 1, \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Hyperandrogenism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Signs of androgen excess (e.g., hirsutism, elevated testosterone) in affected women, reflecting the hyperinsulinemic/insulin-resistant state.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030348\"}}, {\"id\": \"Impaired Insulin Receptor Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibody-mediated blockade of the insulin receptor impairs the downstream insulin receptor signaling pathway in insulin target tissues including liver, skeletal muscle, and adipose tissue.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\", \"Adipocyte\", \"Skeletal muscle cell\"], \"biological_processes\": [\"Insulin receptor signaling pathway\"], \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Low-Titer Insulin Receptor Agonism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At low antibody titer, partial agonism of the insulin receptor can mimic insulin action and produce spontaneous hypoglycemia without exogenous insulin.\", \"meta\": {\"evidence_count\": 1, \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Pathogenic Anti-Insulin-Receptor Autoantibody Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive B-cell and plasma-cell activity produces the pathogenic IgG autoantibodies directed against the insulin receptor. This cellular source is the principal target of combination immunomodulatory therapy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"Plasma cell\"], \"biological_processes\": [\"Immunoglobulin production\"], \"role\": \"TRIGGER\"}}, {\"id\": \"Refractory Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe hyperglycemia that is often refractory to very high doses of exogenous insulin, corresponding to high autoantibody titers.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003074\"}}, {\"id\": \"Rituximab and azathioprine immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rituximab with azathioprine is an alternative reported immunosuppressive combination aimed at controlling pathogenic autoantibody production.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Severe Insulin Resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extreme, often refractory insulin resistance requiring very high exogenous insulin doses; a cardinal feature of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked hypercatabolism with weight loss (cachexia) accompanies the severe insulin-resistant, hyperglycemic phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Pathogenic Anti-Insulin-Receptor Autoantibody Production\", \"target\": \"Anti-Insulin Receptor Autoantibodies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoantibody production generates the circulating receptor-directed IgG lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-Insulin Receptor Autoantibodies\", \"target\": \"High-Titer Insulin Receptor Antagonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At high titer, the receptor-directed antibodies predominantly antagonize insulin action.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-Insulin Receptor Autoantibodies\", \"target\": \"Low-Titer Insulin Receptor Agonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At low titer, the same receptor-directed antibodies can act as insulin mimetics.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High-Titer Insulin Receptor Antagonism\", \"target\": \"Impaired Insulin Receptor Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At high antibody titer, receptor blockade impairs downstream insulin signaling, driving extreme insulin resistance and hyperglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-Titer Insulin Receptor Agonism\", \"target\": \"Autoimmune Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low-titer receptor agonism can drive spontaneous, sometimes intractable hypoglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Insulin Receptor Signaling\", \"target\": \"Severe Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired insulin action produces the defining extreme insulin-resistant state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Insulin Receptor Signaling\", \"target\": \"Refractory Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of insulin action produces severe, often refractory hyperglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Insulin Receptor Signaling\", \"target\": \"Acanthosis Nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe loss of insulin action is associated with marked acanthosis nigricans.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Insulin Receptor Signaling\", \"target\": \"Hyperandrogenism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In affected women, the severe insulin-resistant state can produce hyperandrogenism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Insulin Receptor Signaling\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of insulin action produces a hypercatabolic state with severe weight loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combination Immunomodulatory Therapy (Rituximab, Cyclophosphamide, Pulse Corticosteroids)\", \"target\": \"Pathogenic Anti-Insulin-Receptor Autoantibody Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab and azathioprine immunosuppression\", \"target\": \"Pathogenic Anti-Insulin-Receptor Autoantibody Production\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4396,25 +4740,181 @@ This pathophysiological event involves decreased Insulin receptor signaling path
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diabetic-ketoacidosis" data-dismech-node="Diabetic Ketoacidosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Diabetic Ketoacidosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001953</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diabetic ketoacidosis (HP:0001953). HP:0001953 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a 20-year-old Hispanic woman who presented with diabetic ketoacidosis (DKA), severe refractory hyperglycemia, and extreme insulin resistance requiring high doses of U-500 insulin."</div>
+
+
+                <div class="evidence-explanation">Directly documents DKA as the presenting manifestation in a confirmed type B insulin resistance case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Autoimmunity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002960</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27254267" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27254267" target="_blank">PMID:27254267</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This disorder is most frequently reported in middle-aged black women and is invariably associated with other autoimmune diseases."</div>
+
+
+                <div class="evidence-explanation">Narrative review supports structured representation of the autoimmune host context while newer cases caution against treating the demographic as exclusive.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -4427,16 +4927,20 @@ This pathophysiological event involves decreased Insulin receptor signaling path
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000956</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.">
-                        Acanthosis nigricans
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp">HP:0000956</a>
-
-
+This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4456,6 +4960,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4485,7 +4990,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -4498,16 +5003,20 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000855</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Insulin resistance (HP:0000855), qualified as severity severe. HP:0000855 is a phenotype from the Human Phenotype Ontology.">
-                        Insulin resistance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp">HP:0000855</a>
-
-
+This clinical feature is Insulin resistance (HP:0000855), qualified as severity severe. HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4546,10 +5055,11 @@ This clinical feature is Insulin resistance (HP:0000855), qualified as severity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27254267" target="_blank">PMID:27254267</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4578,16 +5088,20 @@ This clinical feature is Insulin resistance (HP:0000855), qualified as severity 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003074</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperglycemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp">HP:0003074</a>
-
-
+This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4607,6 +5121,7 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4640,16 +5155,20 @@ This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001943</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoglycemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp">HP:0001943</a>
-
-
+This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4669,6 +5188,7 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29264467" target="_blank">PMID:29264467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4691,6 +5211,7 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37552775" target="_blank">PMID:37552775</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4720,29 +5241,33 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss-and-hypercatabolism" data-dismech-node="Weight Loss and Hypercatabolism" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Weight Loss and Hypercatabolism
+                        Weight Loss
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4762,6 +5287,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4791,7 +5317,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
@@ -4804,16 +5330,22 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating androgen concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030348</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperandrogenism, annotated with Increased circulating androgen concentration (HP:0030348). HP:0030348 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating androgen concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030348" target="_blank" class="curie-chip curie-chip-hp">HP:0030348</a>
-
-
+This clinical feature is Hyperandrogenism, annotated with Increased circulating androgen concentration (HP:0030348). HP:0030348 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4833,6 +5365,7 @@ This clinical feature is Hyperandrogenism, annotated with Increased circulating 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4896,13 +5429,16 @@ This clinical feature is Hyperandrogenism, annotated with Increased circulating 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-combination-immunomodulatory-therapy-rituximab-cyclophosphamide-pulse-corticosteroids" data-dismech-node="Combination Immunomodulatory Therapy (Rituximab, Cyclophosphamide, Pulse Corticosteroids)" data-dismech-type="treatment">
@@ -4912,17 +5448,17 @@ This clinical feature is Hyperandrogenism, annotated with Increased circulating 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -4947,55 +5483,61 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-17">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cyclophosphamide (NCIT:C405). NCIT:C405 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C405" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C405</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C405" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-18">NCIT:C405</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (NCIT:C405). NCIT:C405 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">The NIH combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids is aimed at suppressing pathogenic anti-insulin-receptor autoantibody production and has induced durable remission in treated patients.</div>
+                <div class="item-desc">The NIH combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids is aimed at suppressing pathogenic anti-insulin-receptor autoantibody production and induced remission in the reported cohort.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -5005,11 +5547,44 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
-                        <strong style="color: #5b21b6;">Anti-Insulin Receptor Autoantibody Production</strong>
+                        <strong style="color: #5b21b6;">Pathogenic Anti-Insulin-Receptor Autoantibody Production</strong>
 
-                        <span style="color: #7c3aed;"> &mdash; Immunomodulation depletes B cells and suppresses pathogenic autoantibody production, the primary lesion of the syndrome.</span>
+                        <span style="color: #7c3aed;"> &mdash; Combination immunomodulation is directed at controlling the pathogenic insulin-receptor autoantibody burden.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20484479" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This report focuses on seven patients who were treated with an intensive combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids aimed at control of pathogenic autoantibody production."</div>
+
+
+                <div class="evidence-explanation">Directly supports the regimen targeting pathogenic autoantibody production.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -5032,6 +5607,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5053,6 +5629,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20484479" target="_blank">PMID:20484479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5084,17 +5661,17 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5119,18 +5696,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5155,6 +5734,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42438801" target="_blank">PMID:42438801</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5186,17 +5766,17 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">Plasmapheresis</span>
+This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">NCIT:C15304</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
 
 
 
@@ -5219,7 +5799,7 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
-                <div class="item-desc">Therapeutic plasma exchange has been used to lower circulating autoantibody burden, with variable outcomes, in patients without spontaneous remission.</div>
+                <div class="item-desc">Therapeutic plasma exchange has been used with variable outcomes in patients without spontaneous remission.</div>
 
 
 
@@ -5237,6 +5817,7 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29264467" target="_blank">PMID:29264467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5268,17 +5849,17 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5303,18 +5884,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         insulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_145810" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:145810</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_145810" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:145810</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5330,15 +5913,39 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29264467" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29264467" target="_blank">PMID:29264467</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment in the hyperglycemic phase is usually with high doses of insulin (average, 5100 U/d in some studies)"</div>
+
+
+                <div class="evidence-explanation">Human clinical review supports high-dose insulin as supportive therapy during the hyperglycemic phase.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5363,38 +5970,65 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
             </div>
 
-        </div>
+            <div class="item-box treatment-box anchor-target" id="treatment-metformin-with-low-dose-semaglutide" data-dismech-node="Metformin with low-dose semaglutide" data-dismech-type="treatment">
+                <div class="item-name">
+                    Metformin with low-dose semaglutide
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-        <!-- Environmental Factors -->
-
-        <div class="card">
-            <div class="card-header">
-                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
-                <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">1</span>
-            </div>
-
-            <div class="item-box environmental-box anchor-target" id="environmental-coexisting-autoimmune-disease" data-dismech-node="Coexisting Autoimmune Disease" data-dismech-type="environmental">
-                <div class="item-name">Coexisting Autoimmune Disease</div>
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
-                <div class="item-desc">Type B insulin resistance is almost invariably associated with another autoimmune disorder, most classically systemic lupus erythematosus, which reflects the underlying autoimmune diathesis rather than an external exposure.</div>
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Adjunctive metformin and a GLP-1 receptor agonist can reduce the extraordinary insulin requirement during the severe hyperglycemic phase. Evidence is currently limited to a case report, so this is supportive rather than disease-modifying care.</div>
+
+
+
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27254267" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27254267" target="_blank">PMID:27254267</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5403,32 +6037,10 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
                 </div>
 
-                <div class="evidence-snippet">"This disorder is most frequently reported in middle-aged black women and is invariably associated with other autoimmune diseases."</div>
+                <div class="evidence-snippet">"Adjunctive therapy with metformin and low-dose semaglutide reduced daily insulin requirements from over 5,000 units to 200 units."</div>
 
 
-                <div class="evidence-explanation">Establishes the near-invariable association with other autoimmune diseases and the classic demographic.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29264467" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29264467" target="_blank">PMID:29264467</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Most cases occur in the African American population in association with other underlying autoimmune systemic diseases."</div>
-
-
-                <div class="evidence-explanation">Corroborates the demographic predominance and autoimmune association.</div>
+                <div class="evidence-explanation">Directly reports a large insulin-dose reduction with this adjunctive combination in one TBIR case.</div>
 
 
 
@@ -5439,10 +6051,313 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
     </details>
 
 
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-rituximab-and-azathioprine-immunosuppression" data-dismech-node="Rituximab and azathioprine immunosuppression" data-dismech-type="treatment">
+                <div class="item-name">
+                    Rituximab and azathioprine immunosuppression
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Rituximab with azathioprine is an alternative reported immunosuppressive combination aimed at controlling pathogenic autoantibody production.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Pathogenic Anti-Insulin-Receptor Autoantibody Production</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; The regimen suppresses the cellular production of pathogenic receptor autoantibodies.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subsequent treatment with rituximab and azathioprine led to complete discontinuation of insulin within one week."</div>
+
+
+                <div class="evidence-explanation">Human response supports immunosuppression of the pathogenic autoantibody-producing process.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subsequent treatment with rituximab and azathioprine led to complete discontinuation of insulin within one week."</div>
+
+
+                <div class="evidence-explanation">Directly reports insulin discontinuation after the regimen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-diazoxide-for-recurrent-hypoglycemia" data-dismech-node="Diazoxide for recurrent hypoglycemia" data-dismech-type="treatment">
+                <div class="item-name">
+                    Diazoxide for recurrent hypoglycemia
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Low-dose diazoxide can be used to control recurrent fasting hypoglycemia in the agonistic/low-titer phase when hypoglycemia recurs after steroid taper.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, the course was complicated by serum sickness-like illness and recurrent fasting hypoglycemia, which was managed with glucocorticoids and diazoxide."</div>
+
+
+                <div class="evidence-explanation">Directly supports diazoxide in the recurrent hypoglycemic phase of the reported case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-continuous-glucose-monitoring" data-dismech-node="Continuous glucose monitoring" data-dismech-type="treatment">
+                <div class="item-name">
+                    Continuous glucose monitoring
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">continuous blood glucose assessment<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is continuous blood glucose assessment, annotated with Blood Glucose Measurement (NCIT:C92744). NCIT:C92744 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Blood Glucose Measurement</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92744" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C92744">NCIT:C92744</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Continuous glucose monitoring supports dynamic insulin titration across the hyperglycemic phase and early detection of transition to severe hypoglycemia.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Continuous glucose monitoring proved essential in guiding therapy and preventing severe hypoglycemia."</div>
+
+
+                <div class="evidence-explanation">Directly supports CGM for treatment guidance and safety in biphasic TBIR.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
         </div>
+
+
+        <!-- Environmental Factors -->
 
 
         <!-- Biochemical Markers -->
@@ -5451,7 +6366,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box biochemical-box anchor-target" id="biochemical-insulin-receptor-autoantibodies" data-dismech-node="Insulin Receptor Autoantibodies" data-dismech-type="biochemical">
@@ -5475,6 +6390,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42438801" target="_blank">PMID:42438801</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5521,6 +6437,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29264467" target="_blank">PMID:29264467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5532,6 +6449,52 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
                 <div class="evidence-explanation">Documents high serum insulin levels as a laboratory feature of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-elevated-adiponectin" data-dismech-node="Elevated adiponectin" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Elevated adiponectin
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42255432" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Laboratory findings showed elevated C-peptide and adiponectin, with positive antinuclear and anti-Smith ribonucleoprotein antibodies."</div>
+
+
+                <div class="evidence-explanation">Directly documents elevated adiponectin and C-peptide in a confirmed TBIR case.</div>
 
 
 
@@ -5595,20 +6558,20 @@ description: &gt;-
   insulin action and produce refractory hyperglycemia with hypercatabolism,
   severe acanthosis nigricans, and hyperandrogenism in women, whereas lower
   titers may stimulate the receptor and produce fasting/autoimmune hypoglycemia.
-  The syndrome most often affects middle-aged women (classically of African
-  ancestry) and is almost invariably associated with other autoimmune diseases,
-  most commonly systemic lupus erythematosus. It is one of the classic &#34;extreme
+  The syndrome has been reported most often in middle-aged women (classically
+  of African ancestry) and is frequently associated with systemic autoimmune
+  disease. It is one of the classic &#34;extreme
   insulin resistance&#34; syndromes, distinguished from the genetic (type A,
   Donohue, Rabson-Mendenhall) forms by its autoimmune, acquired basis. Treatment
   centers on immunomodulation to suppress pathogenic autoantibody production.
 pathophysiology:
-- name: Anti-Insulin Receptor Autoantibody Production
+- name: Pathogenic Anti-Insulin-Receptor Autoantibody Production
+  role: TRIGGER
   biological_scale: CELLULAR
   description: &gt;-
-    Loss of B-cell tolerance in a predisposed, frequently autoimmune host leads
-    to production of polyclonal IgG autoantibodies directed against the insulin
-    receptor. This humoral autoimmunity is the primary lesion of the syndrome
-    and is the target of immunomodulatory therapy.
+    Autoreactive B-cell and plasma-cell activity produces the pathogenic IgG
+    autoantibodies directed against the insulin receptor. This cellular source
+    is the principal target of combination immunomodulatory therapy.
   cell_types:
   - preferred_term: B cell
     term:
@@ -5625,19 +6588,59 @@ pathophysiology:
       label: immunoglobulin production
     modifier: INCREASED
   downstream:
-  - target: Insulin Receptor Blockade and Partial Agonism
-    description: &gt;-
-      Secreted anti-insulin-receptor IgG binds the cell-surface insulin receptor,
-      initiating receptor blockade and partial agonism.
+  - target: Anti-Insulin Receptor Autoantibodies
+    description: Autoantibody production generates the circulating receptor-directed IgG lesion.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20484479
+      reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This report focuses on seven patients who were treated with an intensive combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids aimed at control of pathogenic autoantibody production.&#34;
+      explanation: The response to a regimen explicitly aimed at production supports this cellular source of the pathogenic antibodies.
+  evidence:
+  - reference: PMID:20484479
+    reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This report focuses on seven patients who were treated with an intensive combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids aimed at control of pathogenic autoantibody production.&#34;
+    explanation: Directly identifies pathogenic autoantibody production as the therapeutic target.
+- name: Anti-Insulin Receptor Autoantibodies
+  role: CENTRAL_EFFECTOR
+  biological_scale: MOLECULAR
+  description: &gt;-
+    Circulating IgG autoantibodies directed against the cell-surface insulin
+    receptor are the defining acquired autoimmune lesion. Antibody concentration
+    determines opposing hyperglycemic and hypoglycemic receptor effects.
+  downstream:
+  - target: High-Titer Insulin Receptor Antagonism
+    description: &gt;-
+      At high titer, the receptor-directed antibodies predominantly antagonize
+      insulin action.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:42255432
+      reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
+      explanation: Directly supports a high-titer antagonistic state causing severe insulin resistance and hyperglycemia.
+  - target: Low-Titer Insulin Receptor Agonism
+    description: At low titer, the same receptor-directed antibodies can act as insulin mimetics.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:42255432
+      reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
+      explanation: Directly supports low-titer agonistic antibody activity and hypoglycemia.
   evidence:
   - reference: PMID:42438801
     reference_title: &#34;Type B insulin resistance syndrome coexisting with aplastic anemia responsive to early immunosuppressive therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Type B insulin resistance syndrome (IRS) is a rare autoimmune disorder
-      characterized by severe insulin resistance caused by autoantibodies against
-      the insulin receptor.&#34;
+    snippet: &#34;Type B insulin resistance syndrome (IRS) is a rare autoimmune disorder characterized by severe insulin resistance caused by autoantibodies against the insulin receptor.&#34;
     explanation: &gt;-
       Establishes the primary autoimmune lesion — autoantibodies against the insulin
       receptor as the cause of the syndrome.
@@ -5645,43 +6648,69 @@ pathophysiology:
     reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Type B insulin resistance belongs to a class of diseases caused by an
-      autoantibody to a cell surface receptor.&#34;
+    snippet: &#34;Type B insulin resistance belongs to a class of diseases caused by an autoantibody to a cell surface receptor.&#34;
     explanation: &gt;-
       Classifies type B insulin resistance among autoantibody-to-cell-surface-receptor
       diseases, supporting the humoral autoimmune mechanism.
-- name: Insulin Receptor Blockade and Partial Agonism
+- name: High-Titer Insulin Receptor Antagonism
+  role: CENTRAL_EFFECTOR
   biological_scale: MOLECULAR
   description: &gt;-
-    The autoantibodies bind the insulin receptor and behave as partial agonists.
-    At high titer they predominantly block insulin binding/signaling, producing
-    severe insulin resistance; at low titer they can stimulate the receptor,
-    producing hypoglycemia. This titer-dependent partial agonism explains the
-    hallmark bimodal glycemic course.
+    At high antibody titer, insulin-receptor binding predominantly blocks insulin
+    action and initiates the severe insulin-resistant, hyperglycemic state.
   downstream:
-  - target: Impaired Insulin Signaling and Extreme Insulin Resistance
+  - target: Impaired Insulin Receptor Signaling
     description: &gt;-
       At high antibody titer, receptor blockade impairs downstream insulin
       signaling, driving extreme insulin resistance and hyperglycemia.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20484479
+      reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+      explanation: Directly supports loss of insulin action as the proximal consequence of receptor blockade.
   evidence:
   - reference: PMID:42255432
     reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin
-      resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
+    snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
     explanation: &gt;-
       Directly documents the partial-agonist behavior of the anti-receptor antibodies
       and the titer-dependent bimodal glycemic consequence.
-- name: Impaired Insulin Signaling and Extreme Insulin Resistance
+- name: Low-Titer Insulin Receptor Agonism
+  role: CENTRAL_EFFECTOR
+  biological_scale: MOLECULAR
+  description: &gt;-
+    At low antibody titer, partial agonism of the insulin receptor can mimic
+    insulin action and produce spontaneous hypoglycemia without exogenous insulin.
+  downstream:
+  - target: Autoimmune Hypoglycemia
+    description: Low-titer receptor agonism can drive spontaneous, sometimes intractable hypoglycemia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:42255432
+      reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
+      explanation: Directly attributes hypoglycemia to low-titer partial agonism.
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
+    explanation: Supports the low-titer receptor-agonist state.
+- name: Impaired Insulin Receptor Signaling
+  role: CENTRAL_EFFECTOR
   biological_scale: CELLULAR
   description: &gt;-
     Antibody-mediated blockade of the insulin receptor impairs the downstream
-    insulin receptor signaling pathway in insulin target tissues (liver, muscle,
-    adipose), producing extreme insulin resistance, refractory hyperglycemia,
-    compensatory hyperinsulinemia, hypercatabolism/weight loss, acanthosis
-    nigricans, and hyperandrogenism in women.
+    insulin receptor signaling pathway in insulin target tissues including liver,
+    skeletal muscle, and adipose tissue.
   cell_types:
   - preferred_term: Hepatocyte
     term:
@@ -5701,22 +6730,71 @@ pathophysiology:
       id: GO:0008286
       label: insulin receptor signaling pathway
     modifier: DECREASED
+  downstream:
+  - target: Severe Insulin Resistance
+    description: Impaired insulin action produces the defining extreme insulin-resistant state.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:42255432
+      reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
+      explanation: Directly links the high-titer antibody effect to severe insulin resistance.
+  - target: Refractory Hyperglycemia
+    description: Loss of insulin action produces severe, often refractory hyperglycemia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20484479
+      reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+      explanation: Directly links blockade of insulin action to hyperglycemia.
+  - target: Acanthosis Nigricans
+    description: Severe loss of insulin action is associated with marked acanthosis nigricans.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20484479
+      reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+      explanation: Directly names severe acanthosis nigricans as a result of insulin-action blockade.
+  - target: Hyperandrogenism
+    description: In affected women, the severe insulin-resistant state can produce hyperandrogenism.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20484479
+      reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+      explanation: Directly attributes hyperandrogenism in women to blockade of insulin action.
+  - target: Weight Loss
+    description: Failure of insulin action produces a hypercatabolic state with severe weight loss.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20484479
+      reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+      explanation: Directly attributes hypercatabolism to blockade of insulin action.
   evidence:
   - reference: PMID:20484479
     reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism,
-      severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+    snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
     explanation: &gt;-
       Links receptor blockade to the downstream metabolic and dermatologic phenotype
       of the syndrome.
   - reference: PMID:27254267
     reference_title: &#34;Type B insulin resistance syndrome.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;refractory transient hyperglycemia and extreme insulin resistance are
-      the cardinal features, but hypoglycemia may also occur&#34;
+    evidence_source: OTHER
+    snippet: &#34;refractory transient hyperglycemia and extreme insulin resistance are the cardinal features, but hypoglycemia may also occur&#34;
     explanation: &gt;-
       Identifies refractory hyperglycemia and extreme insulin resistance as the cardinal
       metabolic consequences.
@@ -5735,9 +6813,8 @@ phenotypes:
   - reference: PMID:27254267
     reference_title: &#34;Type B insulin resistance syndrome.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;refractory transient hyperglycemia and extreme insulin resistance are
-      the cardinal features, but hypoglycemia may also occur&#34;
+    evidence_source: OTHER
+    snippet: &#34;refractory transient hyperglycemia and extreme insulin resistance are the cardinal features, but hypoglycemia may also occur&#34;
     explanation: &gt;-
       Extreme insulin resistance is named as a cardinal feature of the syndrome.
 - name: Refractory Hyperglycemia
@@ -5754,8 +6831,7 @@ phenotypes:
     reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;She had cachexia, acanthosis nigricans, and persistent hyperglycemia
-      despite intravenous insulin infusion exceeding 4 units/kg/day.&#34;
+    snippet: &#34;She had cachexia, acanthosis nigricans, and persistent hyperglycemia despite intravenous insulin infusion exceeding 4 units/kg/day.&#34;
     explanation: &gt;-
       Documents refractory hyperglycemia persisting despite extraordinarily high insulin
       infusion rates.
@@ -5776,8 +6852,7 @@ phenotypes:
     reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;fluctuating glucose levels (ranging from hyperglycemia with extreme insulin
-      resistance to intractable hypoglycemia without exogenous insulin administration)&#34;
+    snippet: &#34;fluctuating glucose levels (ranging from hyperglycemia with extreme insulin resistance to intractable hypoglycemia without exogenous insulin administration)&#34;
     explanation: &gt;-
       Documents intractable hypoglycemia without exogenous insulin as part of the fluctuating
       glycemic course.
@@ -5808,8 +6883,7 @@ phenotypes:
     reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism,
-      severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+    snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
     explanation: &gt;-
       Names severe acanthosis nigricans as a consequence of insulin-receptor blockade.
 - name: Hyperandrogenism
@@ -5826,11 +6900,10 @@ phenotypes:
     reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism,
-      severe acanthosis nigricans, and hyperandrogenism in women.&#34;
+    snippet: &#34;Blockade of insulin action results in hyperglycemia, hypercatabolism, severe acanthosis nigricans, and hyperandrogenism in women.&#34;
     explanation: &gt;-
       Names hyperandrogenism in women as a feature of the syndrome.
-- name: Weight Loss and Hypercatabolism
+- name: Weight Loss
   description: &gt;-
     Marked hypercatabolism with weight loss (cachexia) accompanies the severe
     insulin-resistant, hyperglycemic phase.
@@ -5844,10 +6917,43 @@ phenotypes:
     reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;She had cachexia, acanthosis nigricans, and persistent hyperglycemia
-      despite intravenous insulin infusion exceeding 4 units/kg/day.&#34;
+    snippet: &#34;She had cachexia, acanthosis nigricans, and persistent hyperglycemia despite intravenous insulin infusion exceeding 4 units/kg/day.&#34;
     explanation: &gt;-
       Documents cachexia (weight loss/hypercatabolism) accompanying the hyperglycemic phase.
+- name: Autoimmunity
+  description: &gt;-
+    Coexisting systemic autoimmune disease is a common host context for type B
+    insulin resistance; it is represented as a phenotype rather than an external
+    environmental exposure.
+  phenotype_term:
+    preferred_term: Autoimmunity
+    term:
+      id: HP:0002960
+      label: Autoimmunity
+  evidence:
+  - reference: PMID:27254267
+    reference_title: &#34;Type B insulin resistance syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;This disorder is most frequently reported in middle-aged black women and is invariably associated with other autoimmune diseases.&#34;
+    explanation: Narrative review supports structured representation of the autoimmune host context while newer cases caution against treating the demographic as exclusive.
+- name: Diabetic Ketoacidosis
+  description: &gt;-
+    Diabetic ketoacidosis can be an initial manifestation of the severe
+    insulin-resistant hyperglycemic phase; it is retained as a directly observed
+    rare presentation without a frequency band or a stronger causal edge.
+  phenotype_term:
+    preferred_term: Diabetic ketoacidosis
+    term:
+      id: HP:0001953
+      label: Diabetic ketoacidosis
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We report a 20-year-old Hispanic woman who presented with diabetic ketoacidosis (DKA), severe refractory hyperglycemia, and extreme insulin resistance requiring high doses of U-500 insulin.&#34;
+    explanation: Directly documents DKA as the presenting manifestation in a confirmed type B insulin resistance case.
 biochemical:
 - name: Insulin Receptor Autoantibodies
   notes: &gt;-
@@ -5859,14 +6965,14 @@ biochemical:
     reference_title: &#34;Type B insulin resistance syndrome coexisting with aplastic anemia responsive to early immunosuppressive therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Markedly elevated insulin receptor autoantibody titers (85.9%) confirmed
-      the diagnosis of type B IRS.&#34;
+    snippet: &#34;Markedly elevated insulin receptor autoantibody titers (85.9%) confirmed the diagnosis of type B IRS.&#34;
     explanation: &gt;-
       Insulin receptor autoantibody titer is the confirmatory diagnostic marker.
 - name: Hyperinsulinemia
   notes: &gt;-
-    High serum insulin concentrations accompany the insulin-resistant state,
-    present in both the hyperglycemic and hypoglycemic phases.
+    High serum insulin concentrations can accompany both hyperglycemic and
+    hypoglycemic phases in the classic phenotype. A rare isolated-hypoglycemia
+    subgroup instead has suppressed insulin.
   evidence:
   - reference: PMID:29264467
     reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
@@ -5875,36 +6981,159 @@ biochemical:
     snippet: &#34;high serum insulin levels, and insulin receptor autoantibodies&#34;
     explanation: &gt;-
       Documents high serum insulin levels as a laboratory feature of the syndrome.
-environmental:
-- name: Coexisting Autoimmune Disease
-  description: &gt;-
-    Type B insulin resistance is almost invariably associated with another
-    autoimmune disorder, most classically systemic lupus erythematosus, which
-    reflects the underlying autoimmune diathesis rather than an external exposure.
+- name: Elevated adiponectin
+  notes: &gt;-
+    Paradoxically elevated adiponectin, often with preserved or elevated C-peptide,
+    supports receptor-level severe insulin resistance rather than typical metabolic
+    syndrome physiology.
   evidence:
-  - reference: PMID:27254267
-    reference_title: &#34;Type B insulin resistance syndrome.&#34;
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This disorder is most frequently reported in middle-aged black women
-      and is invariably associated with other autoimmune diseases.&#34;
-    explanation: &gt;-
-      Establishes the near-invariable association with other autoimmune diseases and
-      the classic demographic.
+    snippet: &#34;Laboratory findings showed elevated C-peptide and adiponectin, with positive antinuclear and anti-Smith ribonucleoprotein antibodies.&#34;
+    explanation: Directly documents elevated adiponectin and C-peptide in a confirmed TBIR case.
+prevalence:
+- population: Worldwide
+  prevalence_class: UNKNOWN
+  notes: &gt;-
+    The syndrome is rare, and available literature does not establish a
+    denominator-based prevalence estimate or a well-defined natural history.
+  evidence:
   - reference: PMID:29264467
     reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Most cases occur in the African American population in association with
-      other underlying autoimmune systemic diseases.&#34;
-    explanation: &gt;-
-      Corroborates the demographic predominance and autoimmune association.
+    snippet: &#34;The exact prevalence and disease course are not well known because of the rarity of this syndrome.&#34;
+    explanation: The review explicitly states that prevalence is unknown.
+progression:
+- phase: High-titer insulin-resistant phase
+  age_range: Acquired disease, most often reported in adulthood
+  notes: &gt;-
+    High antibody titers can produce abrupt or refractory hyperglycemia, extreme
+    insulin resistance, cachexia, and very high insulin requirements.
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;She had cachexia, acanthosis nigricans, and persistent hyperglycemia despite intravenous insulin infusion exceeding 4 units/kg/day.&#34;
+    explanation: A human case documents the severe high-titer clinical phase.
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;These antibodies act as partial agonists, resulting in severe insulin resistance and hyperglycemia at high titer, and hypoglycemia at low titer.&#34;
+    explanation: Supports the antibody-titer framing of the insulin-resistant phase.
+- phase: Low-titer hypoglycemic phase
+  age_range: May follow or alternate with the insulin-resistant phase
+  notes: &gt;-
+    As antibody concentration and functional balance change, patients may
+    transition to spontaneous fasting or recurrent hypoglycemia; isolated
+    low-insulin hypoglycemia is a rare subgroup.
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This biphasic glycemic course underscores the complex immunopathophysiology of TBIR.&#34;
+    explanation: The report explicitly characterizes the hyperglycemia-to-hypoglycemia course as biphasic.
+clinical_burden:
+  burden_level: HIGH
+  rationale: &gt;-
+    Extreme insulin resistance may require thousands of insulin units per day,
+    while a later hypoglycemic phase can be refractory and fatal. Management
+    requires vigilant glucose monitoring and immunosuppression, and historical
+    mortality was strongly associated with hypoglycemia despite modern gains.
+  evidence:
+  - reference: PMID:27254267
+    reference_title: &#34;Type B insulin resistance syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Traditionally, the high reported mortality rate was typically attributed to the hypoglycemia.&#34;
+    explanation: Review supports the high burden and mortality associated with the hypoglycemic phase.
+  - reference: PMID:29264467
+    reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Treatment in the hyperglycemic phase is usually with high doses of insulin (average, 5100 U/d in some studies)&#34;
+    explanation: Supports the exceptionally intensive treatment burden of the hyperglycemic phase.
+diagnosis:
+- name: Insulin receptor autoantibody testing
+  description: &gt;-
+    Detection of circulating insulin receptor autoantibodies confirms type B
+    insulin resistance in a compatible acquired syndrome of extreme insulin
+    resistance, glycemic fluctuation, and autoimmune disease.
+  diagnosis_term:
+    preferred_term: laboratory procedure
+    term:
+      id: NCIT:C25294
+      label: Laboratory Procedure
+  evidence:
+  - reference: PMID:42438801
+    reference_title: &#34;Type B insulin resistance syndrome coexisting with aplastic anemia responsive to early immunosuppressive therapy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Markedly elevated insulin receptor autoantibody titers (85.9%) confirmed the diagnosis of type B IRS.&#34;
+    explanation: A human case directly identifies the confirmatory antibody test.
+- name: Clinical and metabolic pattern recognition
+  description: &gt;-
+    The diagnostic pattern includes extreme insulin resistance or spontaneous
+    hypoglycemia, high insulin in the classic phenotype, acanthosis nigricans,
+    and a frequent coexisting systemic autoimmune disorder. The rare isolated
+    hypoglycemia subgroup may instead have suppressed insulin.
+  diagnosis_term:
+    preferred_term: clinical assessment
+    term:
+      id: NCIT:C124351
+      label: Clinical Evaluation
+  evidence:
+  - reference: PMID:27254267
+    reference_title: &#34;Type B insulin resistance syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Typically, refractory transient hyperglycemia and extreme insulin resistance are the cardinal features, but hypoglycemia may also occur.&#34;
+    explanation: Review states the cardinal clinical-metabolic diagnostic pattern.
+  - reference: PMID:37552775
+    reference_title: &#34;Systematic Review-Type B Insulin Resistance With Isolated Hypoglycemia and Suppressed Insulin.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Isolated hypoglycemia with low insulin forms a rare subgroup of type B insulin resistance.&#34;
+    explanation: Systematic review prevents the classic high-insulin pattern from being treated as universal.
+  - reference: PMID:29264467
+    reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;glucose levels (ranging from hyperglycemia with extreme insulin resistance to intractable hypoglycemia without exogenous insulin administration), high serum insulin levels, and insulin receptor autoantibodies.&#34;
+    explanation: Human case review supports the classic fluctuating glucose, hyperinsulinemia, and receptor-autoantibody pattern.
+  - reference: PMID:29264467
+    reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Most cases occur in the African American population in association with other underlying autoimmune systemic diseases.&#34;
+    explanation: Supports systemic autoimmunity and the historically reported demographic as diagnostic context, without treating them as requirements.
+  - reference: PMID:29264467
+    reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Other associated features are hyperandrogenism and acanthosis nigricans&#34;
+    explanation: Supports the associated physical findings included in clinical pattern recognition.
+notes: &gt;-
+  Type B insulin resistance is frequently reported with systemic autoimmune
+  disease and historically in middle-aged Black or African American women, but
+  recent cases demonstrate that it can occur in younger people and across ethnic
+  groups. Coexisting autoimmunity is an associated host context, not an external
+  environmental exposure, so it is no longer modeled under `environmental`.
+  Evidence for the demographic and autoimmune association includes:
+  PMID:27254267 reports that the disorder is most frequently described in
+  middle-aged Black women and associated with other autoimmune diseases, while
+  PMID:42255432 explicitly notes younger and ethnically diverse presentations.
 treatments:
 - name: Combination Immunomodulatory Therapy (Rituximab, Cyclophosphamide, Pulse Corticosteroids)
   description: &gt;-
     The NIH combination protocol of rituximab, cyclophosphamide, and pulse
     corticosteroids is aimed at suppressing pathogenic anti-insulin-receptor
-    autoantibody production and has induced durable remission in treated patients.
+    autoantibody production and induced remission in the reported cohort.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -5924,27 +7153,31 @@ treatments:
         id: CHEBI:50858
         label: corticosteroid
   target_mechanisms:
-  - target: Anti-Insulin Receptor Autoantibody Production
+  - target: Pathogenic Anti-Insulin-Receptor Autoantibody Production
     treatment_effect: INHIBITS
     description: &gt;-
-      Immunomodulation depletes B cells and suppresses pathogenic autoantibody
-      production, the primary lesion of the syndrome.
+      Combination immunomodulation is directed at controlling the pathogenic
+      insulin-receptor autoantibody burden.
+    evidence:
+    - reference: PMID:20484479
+      reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This report focuses on seven patients who were treated with an intensive combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids aimed at control of pathogenic autoantibody production.&#34;
+      explanation: Directly supports the regimen targeting pathogenic autoantibody production.
   evidence:
   - reference: PMID:20484479
     reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;This report focuses on seven patients who were treated with an intensive
-      combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids
-      aimed at control of pathogenic autoantibody production.&#34;
+    snippet: &#34;This report focuses on seven patients who were treated with an intensive combination protocol of rituximab, cyclophosphamide, and pulse corticosteroids aimed at control of pathogenic autoantibody production.&#34;
     explanation: &gt;-
       Describes the combination immunomodulatory protocol and its rationale.
   - reference: PMID:20484479
     reference_title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;All seven treated patients achieved remission, defined as amelioration
-      of hyperglycemia, discontinuation of insulin therapy, and resolution of hyperandrogenism.&#34;
+    snippet: &#34;All seven treated patients achieved remission, defined as amelioration of hyperglycemia, discontinuation of insulin therapy, and resolution of hyperandrogenism.&#34;
     explanation: &gt;-
       Documents remission of the metabolic and endocrine phenotype after the protocol.
 - name: Glucocorticoid Therapy
@@ -5967,14 +7200,13 @@ treatments:
     reference_title: &#34;Type B insulin resistance syndrome coexisting with aplastic anemia responsive to early immunosuppressive therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The addition of glucocorticoid therapy resulted in rapid clinical improvement
-      and marked reduction in the insulin receptor autoantibody titers&#34;
+    snippet: &#34;The addition of glucocorticoid therapy resulted in rapid clinical improvement and marked reduction in the insulin receptor autoantibody titers&#34;
     explanation: &gt;-
       Documents glucocorticoid-induced improvement and autoantibody titer reduction.
 - name: Plasmapheresis
   description: &gt;-
-    Therapeutic plasma exchange has been used to lower circulating autoantibody
-    burden, with variable outcomes, in patients without spontaneous remission.
+    Therapeutic plasma exchange has been used with variable outcomes in patients
+    without spontaneous remission.
   treatment_term:
     preferred_term: Plasmapheresis
     term:
@@ -5985,8 +7217,7 @@ treatments:
     reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Treatments with high-dose steroids, immunosuppressants, and plasmapheresis
-      have been used, with variable outcomes, in patients without spontaneous remission.&#34;
+    snippet: &#34;Treatments with high-dose steroids, immunosuppressants, and plasmapheresis have been used, with variable outcomes, in patients without spontaneous remission.&#34;
     explanation: &gt;-
       Lists plasmapheresis among treatments used, with variable outcomes.
 - name: High-Dose Insulin Therapy (Supportive)
@@ -6005,15 +7236,120 @@ treatments:
         id: CHEBI:145810
         label: insulin
   evidence:
+  - reference: PMID:29264467
+    reference_title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Treatment in the hyperglycemic phase is usually with high doses of insulin (average, 5100 U/d in some studies)&#34;
+    explanation: Human clinical review supports high-dose insulin as supportive therapy during the hyperglycemic phase.
   - reference: PMID:42255432
     reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;She had cachexia, acanthosis nigricans, and persistent hyperglycemia
-      despite intravenous insulin infusion exceeding 4 units/kg/day.&#34;
+    snippet: &#34;She had cachexia, acanthosis nigricans, and persistent hyperglycemia despite intravenous insulin infusion exceeding 4 units/kg/day.&#34;
     explanation: &gt;-
       Illustrates the use of very high-dose intravenous insulin and its frequent inadequacy,
       supporting insulin as supportive (not curative) therapy.
+- name: Metformin with low-dose semaglutide
+  description: &gt;-
+    Adjunctive metformin and a GLP-1 receptor agonist can reduce the extraordinary
+    insulin requirement during the severe hyperglycemic phase. Evidence is currently
+    limited to a case report, so this is supportive rather than disease-modifying care.
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Adjunctive therapy with metformin and low-dose semaglutide reduced daily insulin requirements from over 5,000 units to 200 units.&#34;
+    explanation: Directly reports a large insulin-dose reduction with this adjunctive combination in one TBIR case.
+- name: Rituximab and azathioprine immunosuppression
+  description: &gt;-
+    Rituximab with azathioprine is an alternative reported immunosuppressive
+    combination aimed at controlling pathogenic autoantibody production.
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  target_mechanisms:
+  - target: Pathogenic Anti-Insulin-Receptor Autoantibody Production
+    treatment_effect: INHIBITS
+    description: The regimen suppresses the cellular production of pathogenic receptor autoantibodies.
+    evidence:
+    - reference: PMID:42255432
+      reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Subsequent treatment with rituximab and azathioprine led to complete discontinuation of insulin within one week.&#34;
+      explanation: Human response supports immunosuppression of the pathogenic autoantibody-producing process.
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Subsequent treatment with rituximab and azathioprine led to complete discontinuation of insulin within one week.&#34;
+    explanation: Directly reports insulin discontinuation after the regimen.
+- name: Diazoxide for recurrent hypoglycemia
+  description: &gt;-
+    Low-dose diazoxide can be used to control recurrent fasting hypoglycemia in
+    the agonistic/low-titer phase when hypoglycemia recurs after steroid taper.
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;However, the course was complicated by serum sickness-like illness and recurrent fasting hypoglycemia, which was managed with glucocorticoids and diazoxide.&#34;
+    explanation: Directly supports diazoxide in the recurrent hypoglycemic phase of the reported case.
+- name: Continuous glucose monitoring
+  description: &gt;-
+    Continuous glucose monitoring supports dynamic insulin titration across the
+    hyperglycemic phase and early detection of transition to severe hypoglycemia.
+  treatment_term:
+    preferred_term: continuous blood glucose assessment
+    term:
+      id: NCIT:C92744
+      label: Blood Glucose Measurement
+  evidence:
+  - reference: PMID:42255432
+    reference_title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Continuous glucose monitoring proved essential in guiding therapy and preventing severe hypoglycemia.&#34;
+    explanation: Directly supports CGM for treatment guidance and safety in biphasic TBIR.
+genetic: []
+experimental_models: []
+animal_models: []
+datasets: []
+review_notes: &gt;-
+  Review was anchored to the acquired autoimmune MONDO entity rather than the
+  inherited type A and receptoropathy syndromes. No causal genetic lesion,
+  disease-specific public molecular dataset, or evidence-supported experimental
+  or animal model was identified in the retained repository sources, so those
+  sections are explicitly empty. The pathograph separates high-titer receptor
+  antagonism from low-titer receptor agonism and gives every causal edge its own
+  evidence. A Monarch D2P audit returned 44 additional Orphanet assertions,
+  including many associated autoimmune diseases and nonspecific laboratory
+  findings without local source evidence; these were screened rather than
+  imported wholesale. DKA was added because the retained case source directly
+  documents it, but it remains unwired because that observation alone does not
+  establish the exact causal intermediates. Demographic language is descriptive
+  rather than exclusive because younger and ethnically diverse cases occur. The
+  cellular autoantibody-production node is retained separately from the antibody
+  molecule because B/plasma-cell production is the direct target of the reported
+  immunomodulatory regimens. Coexisting autoimmunity is structured as a phenotype,
+  not an ECTO exposure. Phase-specific supportive therapies and elevated adiponectin
+  were added from the retained 2026 case report. No phenotype frequency band was
+  assigned without a denominator or source-mapped qualitative frequency.
 references:
 - reference: PMID:20484479
   title: &#34;Treatment of type B insulin resistance: a novel approach to reduce insulin receptor autoantibodies.&#34;
@@ -6021,6 +7357,14 @@ references:
   title: &#34;Type B insulin resistance syndrome.&#34;
 - reference: PMID:11889410
   title: &#34;Clinical course of the syndrome of autoantibodies to the insulin receptor (type B insulin resistance): a 28-year perspective.&#34;
+- reference: PMID:29264467
+  title: &#34;Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.&#34;
+- reference: PMID:37552775
+  title: &#34;Systematic Review-Type B Insulin Resistance With Isolated Hypoglycemia and Suppressed Insulin.&#34;
+- reference: PMID:42255432
+  title: &#34;Type B insulin resistance with glycemic extremes: a case report and literature review.&#34;
+- reference: PMID:42438801
+  title: &#34;Type B insulin resistance syndrome coexisting with aplastic anemia responsive to early immunosuppressive therapy.&#34;
 </pre>
             </div>
         </div>
@@ -6036,7 +7380,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">3</span>
+                    <span class="card-count">7</span>
                 </div>
 
                 <div class="reference-entry">
@@ -6081,6 +7425,74 @@ references:
                             </div>
 
                             <div class="reference-title">Clinical course of the syndrome of autoantibodies to the insulin receptor (type B insulin resistance): a 28-year perspective.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29264467" target="_blank">PMID:29264467</a>
+                            </div>
+
+                            <div class="reference-title">Immunosuppressive Therapy in Treatment of Refractory Hypoglycemia in Type B Insulin Resistance: A Case Report.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37552775" target="_blank">PMID:37552775</a>
+                            </div>
+
+                            <div class="reference-title">Systematic Review-Type B Insulin Resistance With Isolated Hypoglycemia and Suppressed Insulin.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42255432" target="_blank">PMID:42255432</a>
+                            </div>
+
+                            <div class="reference-title">Type B insulin resistance with glycemic extremes: a case report and literature review.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42438801" target="_blank">PMID:42438801</a>
+                            </div>
+
+                            <div class="reference-title">Type B insulin resistance syndrome coexisting with aplastic anemia responsive to early immunosuppressive therapy.</div>
 
                         </div>
 
@@ -6149,7 +7561,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Type B Insulin Resistance Syndrome", "mondoId": "MONDO:0016464", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Type_B_Insulin_Resistance_Syndrome", "yamlRevision": "f231139ca077"};
+        const OS_CONFIG = {"diseaseName": "Type B Insulin Resistance Syndrome", "mondoId": "MONDO:0016464", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Type_B_Insulin_Resistance_Syndrome", "yamlRevision": "30371d58ebaf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6568,5 +7980,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

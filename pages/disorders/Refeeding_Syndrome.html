@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Refeeding Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Refeeding Syndrome</h1>
             <div class="header-meta">
 
@@ -3955,6 +4077,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4043,6 +4166,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4133,6 +4257,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4206,6 +4331,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36936877" target="_blank">PMID:36936877</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4246,18 +4372,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal phosphate ion transport (GO:0006817). GO:0006817 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phosphate ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006817" target="_blank" class="curie-chip curie-chip-go">GO:0006817</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006817</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal phosphate ion transport (GO:0006817). GO:0006817 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4278,18 +4406,20 @@ This pathophysiological event involves abnormal phosphate ion transport (GO:0006
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal potassium ion transport (GO:0006813). GO:0006813 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         potassium ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="curie-chip curie-chip-go">GO:0006813</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006813</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal potassium ion transport (GO:0006813). GO:0006813 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4310,18 +4440,20 @@ This pathophysiological event involves abnormal potassium ion transport (GO:0006
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal magnesium ion transport (GO:0015693). GO:0015693 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         magnesium ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015693" target="_blank" class="curie-chip curie-chip-go">GO:0015693</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015693" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0015693</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal magnesium ion transport (GO:0015693). GO:0015693 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4395,6 +4527,7 @@ This pathophysiological event involves abnormal magnesium ion transport (GO:0015
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4467,6 +4600,7 @@ This pathophysiological event involves abnormal magnesium ion transport (GO:0015
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40738722" target="_blank">PMID:40738722</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4549,6 +4683,7 @@ This pathophysiological event involves abnormal magnesium ion transport (GO:0015
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4589,18 +4724,20 @@ This pathophysiological event involves abnormal magnesium ion transport (GO:0015
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal thiamine metabolic process (GO:0006772). GO:0006772 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         thiamine metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006772" target="_blank" class="curie-chip curie-chip-go">GO:0006772</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006772" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006772</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal thiamine metabolic process (GO:0006772). GO:0006772 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4665,6 +4802,7 @@ This pathophysiological event involves abnormal thiamine metabolic process (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29448987" target="_blank">PMID:29448987</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4755,6 +4893,7 @@ This pathophysiological event involves abnormal thiamine metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4836,6 +4975,7 @@ This pathophysiological event involves abnormal thiamine metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41246683" target="_blank">PMID:41246683</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4876,18 +5016,20 @@ This pathophysiological event involves abnormal thiamine metabolic process (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal fatty acid metabolic process (GO:0006631). GO:0006631 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         fatty acid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006631" target="_blank" class="curie-chip curie-chip-go">GO:0006631</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006631" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006631</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal fatty acid metabolic process (GO:0006631). GO:0006631 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4953,6 +5095,7 @@ This pathophysiological event involves abnormal fatty acid metabolic process (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39310593" target="_blank">PMID:39310593</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4988,7 +5131,7 @@ This pathophysiological event involves abnormal fatty acid metabolic process (GO
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-cardiomyocyte-atrophy-with-nuclear-swelling">
                 <div class="item-name">
                     Cardiomyocyte atrophy with nuclear swelling
 
@@ -5009,6 +5152,7 @@ This pathophysiological event involves abnormal fatty acid metabolic process (GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39310593" target="_blank">PMID:39310593</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5105,16 +5249,20 @@ This pathophysiological event involves abnormal fatty acid metabolic process (GO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001876</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.">
-                        Pancytopenia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp">HP:0001876</a>
-
-
+This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5134,6 +5282,7 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41239620" target="_blank">PMID:41239620</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5178,16 +5327,20 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0011675</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.">
-                        Arrhythmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp">HP:0011675</a>
-
-
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5207,6 +5360,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5242,16 +5396,20 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5271,6 +5429,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5315,16 +5474,20 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000969</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.">
-                        Edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp">HP:0000969</a>
-
-
+This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5344,6 +5507,7 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5388,16 +5552,20 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5417,6 +5585,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41171118" target="_blank">PMID:41171118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5452,16 +5621,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031258</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from the Human Phenotype Ontology.">
-                        Delirium
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp">HP:0031258</a>
-
-
+This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5481,6 +5654,7 @@ This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38054139" target="_blank">PMID:38054139</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5503,6 +5677,7 @@ This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39033818" target="_blank">PMID:39033818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5547,16 +5722,20 @@ This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
-
-
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5576,6 +5755,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5636,6 +5816,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39310593" target="_blank">PMID:39310593</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5699,6 +5880,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5715,18 +5899,18 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">nutrition intervention<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is nutrition intervention, annotated with Nutritional Intervention (NCIT:C67022). NCIT:C67022 is a clinical intervention from the NCI Thesaurus.">nutrition intervention</span>
+This treatment is nutrition intervention, annotated with Nutritional Intervention (NCIT:C67022). NCIT:C67022 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C67022" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is nutrition intervention, annotated with Nutritional Intervention (NCIT:C67022). NCIT:C67022 is a clinical intervention from the NCI Thesaurus.">NCIT:C67022</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C67022" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C67022">NCIT:C67022</a>
 
 
 
@@ -5777,6 +5961,7 @@ This treatment is nutrition intervention, annotated with Nutritional Interventio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41171118" target="_blank">PMID:41171118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5822,6 +6007,7 @@ This treatment is nutrition intervention, annotated with Nutritional Interventio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41239620" target="_blank">PMID:41239620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5863,6 +6049,7 @@ This treatment is nutrition intervention, annotated with Nutritional Interventio
                         <a href="https://clinicaltrials.gov/study/NCT02488109" target="_blank">clinicaltrials:NCT02488109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5885,6 +6072,7 @@ This treatment is nutrition intervention, annotated with Nutritional Interventio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41171118" target="_blank">PMID:41171118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5906,6 +6094,7 @@ This treatment is nutrition intervention, annotated with Nutritional Interventio
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41239620" target="_blank">PMID:41239620</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5937,18 +6126,18 @@ This treatment is nutrition intervention, annotated with Nutritional Interventio
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">nutritional supplementation</span>
+This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -5999,6 +6188,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41146174" target="_blank">PMID:41146174</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6044,6 +6234,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41171118" target="_blank">PMID:41171118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6085,6 +6276,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41146174" target="_blank">PMID:41146174</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6106,6 +6298,7 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41171118" target="_blank">PMID:41171118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6137,18 +6330,18 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">vitamin B1 supplementation<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is vitamin B1 supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">vitamin B1 supplementation</span>
+This treatment is vitamin B1 supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is vitamin B1 supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -6199,6 +6392,7 @@ This treatment is vitamin B1 supplementation, annotated with Nutritional Support
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29448987" target="_blank">PMID:29448987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6240,6 +6434,7 @@ This treatment is vitamin B1 supplementation, annotated with Nutritional Support
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29448987" target="_blank">PMID:29448987</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6270,18 +6465,18 @@ This treatment is vitamin B1 supplementation, annotated with Nutritional Support
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">micronutrient supplementation<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is micronutrient supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">micronutrient supplementation</span>
+This treatment is micronutrient supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is micronutrient supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -6323,6 +6518,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39947042" target="_blank">PMID:39947042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6363,6 +6559,10 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
 
 
+
+
+
+
                 <div class="item-desc">Refeeding syndrome typically occurs after days to weeks of malnutrition or starvation followed by reintroduction of nutrition.</div>
 
 
@@ -6378,6 +6578,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6428,6 +6629,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6460,6 +6662,10 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
 
 
+
+
+
+
                 <div class="item-desc">Rapid or aggressive enteral or parenteral feeding in a malnourished patient can precipitate refeeding syndrome.</div>
 
 
@@ -6475,6 +6681,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6525,6 +6732,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6557,6 +6765,10 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
 
 
+
+
+
+
                 <div class="item-desc">Refeeding syndrome occurs during early nutritional management in inpatient children with severe acute malnutrition.</div>
 
 
@@ -6572,6 +6784,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41007088" target="_blank">PMID:41007088</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6622,6 +6835,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41007088" target="_blank">PMID:41007088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6654,6 +6868,10 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
 
 
+
+
+
+
                 <div class="item-desc">Starvation associated with severe mental illness can precede refeeding syndrome during inpatient nutritional rehabilitation.</div>
 
 
@@ -6669,6 +6887,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40933623" target="_blank">PMID:40933623</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6718,6 +6937,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40933623" target="_blank">PMID:40933623</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6839,6 +7059,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6917,6 +7138,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6997,6 +7219,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7076,6 +7299,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29448987" target="_blank">PMID:29448987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7116,7 +7340,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-alcoholic-ketoacidosis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Alcoholic ketoacidosis</span>
@@ -7162,6 +7386,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41146174" target="_blank">PMID:41146174</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7187,7 +7412,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hyperventilation-induced-hypophosphatemia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Hyperventilation-induced hypophosphatemia</span>
@@ -7233,6 +7458,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41281097" target="_blank">PMID:41281097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7258,7 +7484,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-thyrotoxic-periodic-paralysis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Thyrotoxic periodic paralysis</span>
@@ -7304,6 +7530,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39896956" target="_blank">PMID:39896956</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7342,7 +7569,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02488109">
                 <div class="item-name">
                     NCT02488109
 
@@ -7370,6 +7597,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                         <a href="https://clinicaltrials.gov/study/NCT02488109" target="_blank">clinicaltrials:NCT02488109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7393,7 +7621,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04966858">
                 <div class="item-name">
                     NCT04966858
 
@@ -7420,6 +7648,7 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04966858" target="_blank">clinicaltrials:NCT04966858</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7469,7 +7698,6 @@ This treatment is micronutrient supplementation, annotated with Nutritional Supp
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Refeeding Syndrome
 creation_date: &#39;2026-02-01T20:31:01Z&#39;
-updated_date: &#39;2026-05-19T18:26:22Z&#39;
 description: &gt;-
   A potentially dangerous constellation of metabolic disturbances that occurs when
   nutrition is reintroduced after a period of malnutrition or starvation, often
@@ -8368,6 +8596,7 @@ treatments:
       explanation: Stepwise calorie escalation corrected the hallmark electrolyte abnormality.
   evidence:
   - reference: clinicaltrials:NCT02488109
+    reference_title: &#34;Multi-center Randomized Controlled Trial of Refeeding in Anorexia Nervosa&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The purpose of this study is to compare the efficacy, safety, and cost-effectiveness of lower calorie refeeding versus higher calorie refeeding in hospitalized adolescents with anorexia nervosa.
@@ -8561,6 +8790,7 @@ clinical_trials:
   description: Randomized trial comparing lower calorie versus higher calorie refeeding in hospitalized adolescents with anorexia nervosa.
   evidence:
   - reference: clinicaltrials:NCT02488109
+    reference_title: &#34;Multi-center Randomized Controlled Trial of Refeeding in Anorexia Nervosa&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The purpose of this study is to compare the efficacy, safety, and cost-effectiveness of lower calorie refeeding versus higher calorie refeeding in hospitalized adolescents with anorexia nervosa.
@@ -8571,6 +8801,7 @@ clinical_trials:
   description: Trial comparing individualized caloric refeeding to higher calorie refeeding in hospitalized patients with atypical anorexia nervosa.
   evidence:
   - reference: clinicaltrials:NCT04966858
+    reference_title: &#34;Renewal of the Multi-center Randomized Controlled Trial of Refeeding in Anorexia Nervosa&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The primary purpose of the trial is to compare the efficacy and safety of Individualized Caloric Refeeding (ICR) to the new standard of care, Higher Calorie Refeeding (HCR), in hospitalized patients with atypical anorexia nervosa (AAN), and clinical remission over one year of follow-up.
@@ -9032,7 +9263,7 @@ Typical sequence: (1) Starvation with depletion of intracellular phosphate, K+, 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Refeeding Syndrome", "mondoId": "MONDO:0400005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Refeeding_Syndrome", "yamlRevision": "0c46046f13f8"};
+        const OS_CONFIG = {"diseaseName": "Refeeding Syndrome", "mondoId": "MONDO:0400005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Refeeding_Syndrome", "yamlRevision": "5e11e69e003d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9451,5 +9682,73 @@ Typical sequence: (1) Starvation with depletion of intracellular phosphate, K+, 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

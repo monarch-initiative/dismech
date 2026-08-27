@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Acquired Immunodeficiency Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acquired Immunodeficiency Syndrome</h1>
             <div class="header-meta">
 
@@ -3890,7 +4012,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-cdc-hiv-stage-3-surveillance-case-definition">
                 <div class="item-name">CDC HIV stage-3 surveillance case definition</div>
 
                 <div class="item-desc">In the U.S. CDC framework, AIDS is HIV infection classified as stage 3. The surveillance framework uses severe CD4 depletion and AIDS-defining clinical conditions; it is intended for population surveillance and is not, by itself, a clinical decision rule for an individual patient.</div>
@@ -3936,6 +4058,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24717910" target="_blank">PMID:24717910</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3957,6 +4080,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24717910" target="_blank">PMID:24717910</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3982,7 +4106,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-historical-adult-and-adolescent-cd4-depletion-threshold">
                 <div class="item-name">Historical adult and adolescent CD4-depletion threshold</div>
 
                 <div class="item-desc">The 1993 expanded U.S. CDC surveillance definition for adolescents and adults included HIV infection with a CD4 T-cell count below 200 cells per microliter or a CD4 percentage below 14 percent.</div>
@@ -4027,6 +4151,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8093740" target="_blank">PMID:8093740</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4089,18 +4214,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4128,18 +4255,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal viral process (GO:0016032). GO:0016032 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         viral process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go">GO:0016032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal viral process (GO:0016032). GO:0016032 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4221,6 +4350,7 @@ This pathophysiological event involves abnormal viral process (GO:0016032). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23772614" target="_blank">PMID:23772614</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4254,18 +4384,20 @@ This pathophysiological event involves abnormal viral process (GO:0016032). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4296,18 +4428,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4344,6 +4478,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297256" target="_blank">PMID:23297256</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4385,18 +4520,20 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4454,6 +4591,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297256" target="_blank">PMID:23297256</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4487,18 +4625,20 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4526,18 +4666,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased pyroptotic inflammatory response (GO:0070269). GO:0070269 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         pyroptotic inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go">GO:0070269</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0070269</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased pyroptotic inflammatory response (GO:0070269). GO:0070269 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4595,6 +4737,7 @@ This pathophysiological event involves increased pyroptotic inflammatory respons
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24356306" target="_blank">PMID:24356306</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4628,18 +4771,20 @@ This pathophysiological event involves increased pyroptotic inflammatory respons
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4700,6 +4845,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23772614" target="_blank">PMID:23772614</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4733,18 +4879,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4812,6 +4960,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23772614" target="_blank">PMID:23772614</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4893,6 +5042,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16182595" target="_blank">PMID:16182595</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4983,6 +5133,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12525676" target="_blank">PMID:12525676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5016,18 +5167,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5058,18 +5211,20 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5107,6 +5262,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604237" target="_blank">PMID:25604237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5140,18 +5296,20 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5197,6 +5355,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29744964" target="_blank">PMID:29744964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5219,6 +5378,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29744964" target="_blank">PMID:29744964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5240,6 +5400,7 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37317962" target="_blank">PMID:37317962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5331,16 +5492,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020102" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0020102</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:0020102 is a phenotype from the Human Phenotype Ontology.">
-                        Pneumocystis jirovecii pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020102" target="_blank" class="curie-chip curie-chip-hp">HP:0020102</a>
-
-
+This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:0020102 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5360,6 +5525,7 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16182595" target="_blank">PMID:16182595</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5402,16 +5568,22 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Kaposi&#39;s sarcoma</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0100726</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phenotype from the Human Phenotype Ontology.">
-                        Kaposi&#39;s sarcoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100726" target="_blank" class="curie-chip curie-chip-hp">HP:0100726</a>
-
-
+This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5431,6 +5603,7 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18366449" target="_blank">PMID:18366449</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5490,6 +5663,7 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18366449" target="_blank">PMID:18366449</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5538,6 +5712,7 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8876905" target="_blank">PMID:8876905</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5588,6 +5763,7 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8093740" target="_blank">PMID:8093740</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5636,6 +5812,7 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604237" target="_blank">PMID:25604237</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5699,6 +5876,9 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5717,17 +5897,17 @@ This clinical feature is Kaposi&#39;s sarcoma (HP:0100726). HP:0100726 is a phen
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Antiretroviral Therapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinical intervention from the NCI Thesaurus.">Antiretroviral Therapy</span>
+This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C94631" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinical intervention from the NCI Thesaurus.">NCIT:C94631</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C94631" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C94631">NCIT:C94631</a>
 
 
 
@@ -5778,6 +5958,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308326" target="_blank">PMID:36308326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5823,6 +6004,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11424971" target="_blank">PMID:11424971</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5864,6 +6046,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39616604" target="_blank">PMID:39616604</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5886,6 +6069,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308326" target="_blank">PMID:36308326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5907,6 +6091,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982978" target="_blank">PMID:36982978</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5940,18 +6125,18 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">preventative therapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is preventative therapy, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.">preventative therapy</span>
+This treatment is preventative therapy, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Preventive Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15843" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is preventative therapy, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.">NCIT:C15843</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15843" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15843">NCIT:C15843</a>
 
 
 
@@ -6002,6 +6187,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28723333" target="_blank">PMID:28723333</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6042,6 +6228,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28723333" target="_blank">PMID:28723333</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6129,6 +6316,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                         <a href="https://bioregistry.io/url:https://www.cdc.gov/mmwr/pdf/rr/rr6303.pdf" target="_blank">url:https://www.cdc.gov/mmwr/pdf/rr/rr6303.pdf</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6151,6 +6339,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                         <a href="https://bioregistry.io/url:https://www.cdc.gov/mmwr/pdf/rr/rr6303.pdf" target="_blank">url:https://www.cdc.gov/mmwr/pdf/rr/rr6303.pdf</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6172,6 +6361,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.cdc.gov/mmwr/pdf/rr/rr6303.pdf" target="_blank">url:https://www.cdc.gov/mmwr/pdf/rr/rr6303.pdf</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6212,6 +6402,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8093740" target="_blank">PMID:8093740</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6284,6 +6475,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308326" target="_blank">PMID:36308326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6323,6 +6515,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308326" target="_blank">PMID:36308326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6364,7 +6557,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hiv-infection-without-aids">
                 <div class="item-name">
 
                     HIV Infection Without AIDS
@@ -6405,6 +6598,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24717910" target="_blank">PMID:24717910</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6430,7 +6624,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-idiopathic-cd4-lymphocytopenia">
                 <div class="item-name">
 
                     Idiopathic CD4 Lymphocytopenia
@@ -6471,6 +6665,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16763460" target="_blank">PMID:16763460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6492,6 +6687,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16763460" target="_blank">PMID:16763460</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6518,7 +6714,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-secondary-non-hiv-cd4-lymphocytopenia">
                 <div class="item-name">
 
                     Secondary Non-HIV CD4 Lymphocytopenia
@@ -6558,6 +6754,7 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16763460" target="_blank">PMID:16763460</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8837,5 +9034,73 @@ AIDS is the clinical end-stage of chronic HIV infection, driven by sustained vir
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

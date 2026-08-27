@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Generalized Epilepsy with Febrile Seizures Plus</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Generalized Epilepsy with Febrile Seizures Plus</h1>
             <div class="header-meta">
 
@@ -3923,7 +4045,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-with-incomplete-penetrance">
                 <div class="item-name">
                     Autosomal dominant with incomplete penetrance
 
@@ -3970,6 +4092,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11591834" target="_blank">PMID:11591834</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3991,6 +4114,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301494" target="_blank">PMID:20301494</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4061,7 +4185,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gefs-2-scn1a">
 
                     <div class="item-name">
                         GEFS+ type 2 (SCN1A, Nav1.1)
@@ -4074,18 +4198,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SCN1A
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10585</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4116,6 +4242,7 @@ This subtype is caused by variation in SCN1A (hgnc:10585). hgnc:10585 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11254444" target="_blank">PMID:11254444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4142,7 +4269,7 @@ This subtype is caused by variation in SCN1A (hgnc:10585). hgnc:10585 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gefs-1-scn1b">
 
                     <div class="item-name">
                         GEFS+ type 1 (SCN1B, Nav beta-1)
@@ -4155,18 +4282,20 @@ This subtype is caused by variation in SCN1A (hgnc:10585). hgnc:10585 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SCN1B (hgnc:10586). hgnc:10586 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SCN1B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:10586" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10586</a>
+    <a href="https://bioregistry.io/hgnc:10586" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10586</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SCN1B (hgnc:10586). hgnc:10586 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4197,6 +4326,7 @@ This subtype is caused by variation in SCN1B (hgnc:10586). hgnc:10586 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697698" target="_blank">PMID:9697698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4223,7 +4353,7 @@ This subtype is caused by variation in SCN1B (hgnc:10586). hgnc:10586 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gabrg2">
 
                     <div class="item-name">
                         GEFS+ (GABRG2, GABA-A receptor gamma-2)
@@ -4236,18 +4366,20 @@ This subtype is caused by variation in SCN1B (hgnc:10586). hgnc:10586 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in GABRG2 (hgnc:4087). hgnc:4087 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 GABRG2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4087" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4087</a>
+    <a href="https://bioregistry.io/hgnc:4087" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4087</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GABRG2 (hgnc:4087). hgnc:4087 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4278,6 +4410,7 @@ This subtype is caused by variation in GABRG2 (hgnc:4087). hgnc:4087 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4304,7 +4437,7 @@ This subtype is caused by variation in GABRG2 (hgnc:4087). hgnc:4087 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-stx1b">
 
                     <div class="item-name">
                         GEFS+ (STX1B, syntaxin-1B)
@@ -4317,18 +4450,20 @@ This subtype is caused by variation in GABRG2 (hgnc:4087). hgnc:4087 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in STX1B (hgnc:18539). hgnc:18539 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 STX1B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18539" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18539</a>
+    <a href="https://bioregistry.io/hgnc:18539" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:18539</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in STX1B (hgnc:18539). hgnc:18539 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4353,7 +4488,7 @@ This subtype is caused by variation in STX1B (hgnc:18539). hgnc:18539 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-scn9a">
 
                     <div class="item-name">
                         GEFS+ (SCN9A, Nav1.7)
@@ -4366,18 +4501,20 @@ This subtype is caused by variation in STX1B (hgnc:18539). hgnc:18539 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SCN9A
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:10597</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4402,7 +4539,7 @@ This subtype is caused by variation in SCN9A (hgnc:10597). hgnc:10597 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gabrd">
 
                     <div class="item-name">
                         GEFS+ (GABRD, GABA-A receptor delta)
@@ -4415,18 +4552,20 @@ This subtype is caused by variation in SCN9A (hgnc:10597). hgnc:10597 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in GABRD (hgnc:4084). hgnc:4084 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 GABRD
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4084" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4084</a>
+    <a href="https://bioregistry.io/hgnc:4084" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:4084</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GABRD (hgnc:4084). hgnc:4084 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4515,11 +4654,15 @@ This subtype is caused by variation in GABRD (hgnc:4084). hgnc:4084 is a gene fr
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type family-based genetic modifier association study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
 
         family-based genetic modifier association study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
+This experiment is of type family-based genetic modifier association study.</span>
     </span>
 
 
@@ -4577,17 +4720,21 @@ This experiment is of type family-based genetic modifier association study.">
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on increased Action potential (GO:0001508). GO:0001508 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         Action potential
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go">GO:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001508</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on increased Action potential (GO:0001508). GO:0001508 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4623,11 +4770,15 @@ This readout reports on increased Action potential (GO:0001508). GO:0001508 is a
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by whole genome sequencing.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-9">
 
         whole genome sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this readout is measured by this assay
+This readout is measured by whole genome sequencing.</span>
     </span>
 
 
@@ -4652,11 +4803,15 @@ This readout is measured by whole genome sequencing.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by polygenic risk score analysis.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-10">
 
         polygenic risk score analysis
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this readout is measured by this assay
+This readout is measured by polygenic risk score analysis.</span>
     </span>
 
 
@@ -4741,6 +4896,12 @@ This readout is measured by polygenic risk score analysis.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4763,6 +4924,7 @@ This readout is measured by polygenic risk score analysis.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11591834" target="_blank">PMID:11591834</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4842,11 +5004,15 @@ This readout is measured by polygenic risk score analysis.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type temperature-controlled electrophysiology experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-11">
 
         temperature-controlled electrophysiology experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this experiment is of type this experiment type
+This experiment is of type temperature-controlled electrophysiology experiment.</span>
     </span>
 
 
@@ -4904,17 +5070,21 @@ This experiment is of type temperature-controlled electrophysiology experiment."
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on increased Membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         Membrane depolarization
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go">GO:0051899</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0051899</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on increased Membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4943,17 +5113,21 @@ This readout reports on increased Membrane depolarization (GO:0051899). GO:00518
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on decreased GABAergic synaptic transmission, annotated with synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         GABAergic synaptic transmission
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0051932</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased GABAergic synaptic transmission, annotated with synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4989,11 +5163,15 @@ This readout reports on decreased GABAergic synaptic transmission, annotated wit
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by patch-clamp electrophysiology.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-14">
 
         patch-clamp electrophysiology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Relation: this readout is measured by this assay
+This readout is measured by patch-clamp electrophysiology.</span>
     </span>
 
 
@@ -5018,11 +5196,15 @@ This readout is measured by patch-clamp electrophysiology.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by multielectrode array recording.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-15">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -5114,6 +5296,12 @@ This readout is measured by multielectrode array recording.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5136,6 +5324,7 @@ This readout is measured by multielectrode array recording.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25362483" target="_blank">PMID:25362483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5208,11 +5397,15 @@ This readout is measured by multielectrode array recording.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type genotype-function-severity correlation study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-16">
 
         genotype-function-severity correlation study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Relation: this experiment is of type this experiment type
+This experiment is of type genotype-function-severity correlation study.</span>
     </span>
 
 
@@ -5270,17 +5463,21 @@ This experiment is of type genotype-function-severity correlation study.">
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on decreased Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         Sodium ion transmembrane transport
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go">GO:0035725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0035725</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5316,11 +5513,15 @@ This readout reports on decreased Sodium ion transmembrane transport (GO:0035725
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by patch-clamp electrophysiology.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-18">
 
         patch-clamp electrophysiology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Relation: this readout is measured by this assay
+This readout is measured by patch-clamp electrophysiology.</span>
     </span>
 
 
@@ -5405,6 +5606,12 @@ This readout is measured by patch-clamp electrophysiology.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5427,6 +5634,7 @@ This readout is measured by patch-clamp electrophysiology.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11591834" target="_blank">PMID:11591834</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5473,18 +5681,20 @@ This readout is measured by patch-clamp electrophysiology.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves GABAergic inhibitory interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         GABAergic inhibitory interneuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic inhibitory interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5512,18 +5722,20 @@ This pathophysiological event involves GABAergic inhibitory interneuron, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Sodium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go">GO:0035725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0035725</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5544,18 +5756,20 @@ This pathophysiological event involves abnormal Sodium ion transmembrane transpo
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Membrane depolarization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go">GO:0051899</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0051899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5621,6 +5835,7 @@ This pathophysiological event involves increased Membrane depolarization (GO:005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697698" target="_blank">PMID:9697698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5642,6 +5857,7 @@ This pathophysiological event involves increased Membrane depolarization (GO:005
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697698" target="_blank">PMID:9697698</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5676,18 +5892,20 @@ This pathophysiological event involves increased Membrane depolarization (GO:005
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves GABAergic inhibitory interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         GABAergic inhibitory interneuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic inhibitory interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5715,18 +5933,20 @@ This pathophysiological event involves GABAergic inhibitory interneuron, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased GABAergic synaptic transmission, annotated with synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         GABAergic synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0051932</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased GABAergic synaptic transmission, annotated with synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5747,18 +5967,20 @@ This pathophysiological event involves decreased GABAergic synaptic transmission
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased GABA signaling pathway, annotated with gamma-aminobutyric acid signaling pathway (GO:0007214). GO:0007214 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         GABA signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go">GO:0007214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0007214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased GABA signaling pathway, annotated with gamma-aminobutyric acid signaling pathway (GO:0007214). GO:0007214 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5779,18 +6001,20 @@ This pathophysiological event involves decreased GABA signaling pathway, annotat
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Chloride transmembrane transport (GO:1902476). GO:1902476 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Chloride transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go">GO:1902476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:1902476</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Chloride transmembrane transport (GO:1902476). GO:1902476 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5848,6 +6072,7 @@ This pathophysiological event involves decreased Chloride transmembrane transpor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5869,6 +6094,7 @@ This pathophysiological event involves decreased Chloride transmembrane transpor
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5903,18 +6129,20 @@ This pathophysiological event involves decreased Chloride transmembrane transpor
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves GABAergic inhibitory interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         GABAergic inhibitory interneuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic inhibitory interneuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5942,18 +6170,20 @@ This pathophysiological event involves GABAergic inhibitory interneuron, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Synaptic vesicle exocytosis (GO:0016079). GO:0016079 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Synaptic vesicle exocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016079" target="_blank" class="curie-chip curie-chip-go">GO:0016079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0016079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Synaptic vesicle exocytosis (GO:0016079). GO:0016079 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6011,6 +6241,7 @@ This pathophysiological event involves decreased Synaptic vesicle exocytosis (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25362483" target="_blank">PMID:25362483</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6032,6 +6263,7 @@ This pathophysiological event involves decreased Synaptic vesicle exocytosis (GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25362483" target="_blank">PMID:25362483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6066,18 +6298,20 @@ This pathophysiological event involves decreased Synaptic vesicle exocytosis (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Excitatory pyramidal neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Excitatory pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Excitatory pyramidal neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6105,18 +6339,20 @@ This pathophysiological event involves Excitatory pyramidal neuron, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Action potential (GO:0001508). GO:0001508 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go">GO:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0001508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Action potential (GO:0001508). GO:0001508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6222,6 +6458,7 @@ This pathophysiological event involves increased Action potential (GO:0001508). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697698" target="_blank">PMID:9697698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6312,16 +6549,22 @@ This pathophysiological event involves increased Action potential (GO:0001508). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Febrile seizure (within the age range of 3 months to 6 years)</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002373</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Febrile seizure, annotated with Febrile seizure (within the age range of 3 months to 6 years) (HP:0002373). HP:0002373 is a phenotype from the Human Phenotype Ontology.">
-                        Febrile seizure (within the age range of 3 months to 6 years)
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp">HP:0002373</a>
-
-
+This clinical feature is Febrile seizure, annotated with Febrile seizure (within the age range of 3 months to 6 years) (HP:0002373). HP:0002373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6341,6 +6584,7 @@ This clinical feature is Febrile seizure, annotated with Febrile seizure (within
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11591834" target="_blank">PMID:11591834</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6363,6 +6607,7 @@ This clinical feature is Febrile seizure, annotated with Febrile seizure (within
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697698" target="_blank">PMID:9697698</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6396,16 +6641,22 @@ This clinical feature is Febrile seizure, annotated with Febrile seizure (within
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002069</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral tonic-clonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
-
-
+This clinical feature is Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6425,6 +6676,7 @@ This clinical feature is Generalized tonic-clonic seizure, annotated with Bilate
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6460,16 +6712,22 @@ This clinical feature is Generalized tonic-clonic seizure, annotated with Bilate
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized non-motor (absence) seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized non-motor (absence) seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp">HP:0002121</a>
-
-
+This clinical feature is Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6489,6 +6747,7 @@ This clinical feature is Absence seizure, annotated with Generalized non-motor (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11591834" target="_blank">PMID:11591834</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6511,6 +6770,7 @@ This clinical feature is Absence seizure, annotated with Generalized non-motor (
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:36387" target="_blank">ORPHA:36387</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6546,16 +6806,22 @@ This clinical feature is Absence seizure, annotated with Generalized non-motor (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized myoclonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002123</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonic seizure, annotated with Generalized myoclonic seizure (HP:0002123). HP:0002123 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized myoclonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002123" target="_blank" class="curie-chip curie-chip-hp">HP:0002123</a>
-
-
+This clinical feature is Myoclonic seizure, annotated with Generalized myoclonic seizure (HP:0002123). HP:0002123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6575,6 +6841,7 @@ This clinical feature is Myoclonic seizure, annotated with Generalized myoclonic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11591834" target="_blank">PMID:11591834</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6608,16 +6875,20 @@ This clinical feature is Myoclonic seizure, annotated with Generalized myoclonic
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0007359</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.">
-                        Focal-onset seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp">HP:0007359</a>
-
-
+This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6637,6 +6908,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6679,16 +6951,22 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Complex febrile seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011172" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0011172</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Febrile seizures plus (febrile seizures persisting beyond age 6 or with afebrile seizures), annotated with Complex febrile seizure (HP:0011172), qualified as temporality prolonged. HP:0011172 is a phenotype from the Human Phenotype Ontology.">
-                        Complex febrile seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011172" target="_blank" class="curie-chip curie-chip-hp">HP:0011172</a>
-
-
+This clinical feature is Febrile seizures plus (febrile seizures persisting beyond age 6 or with afebrile seizures), annotated with Complex febrile seizure (HP:0011172), qualified as temporality prolonged. HP:0011172 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6727,6 +7005,7 @@ This clinical feature is Febrile seizures plus (febrile seizures persisting beyo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697698" target="_blank">PMID:9697698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6761,16 +7040,20 @@ This clinical feature is Febrile seizures plus (febrile seizures persisting beyo
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0010819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.">
-                        Atonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp">HP:0010819</a>
-
-
+This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6790,6 +7073,7 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11591834" target="_blank">PMID:11591834</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6869,15 +7153,17 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN1A
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:10585</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6907,6 +7193,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11254444" target="_blank">PMID:11254444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6929,6 +7216,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11254444" target="_blank">PMID:11254444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6950,6 +7238,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11254445" target="_blank">PMID:11254445</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6988,15 +7277,17 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN1B
 
 
-    <a href="https://bioregistry.io/hgnc:10586" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10586</a>
+    <a href="https://bioregistry.io/hgnc:10586" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:10586</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7025,6 +7316,7 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697698" target="_blank">PMID:9697698</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7063,15 +7355,17 @@ This disease-associated gene is SCN1B (hgnc:10586). hgnc:10586 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GABRG2
 
 
-    <a href="https://bioregistry.io/hgnc:4087" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4087</a>
+    <a href="https://bioregistry.io/hgnc:4087" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:4087</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7101,6 +7395,7 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7122,6 +7417,7 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7160,15 +7456,17 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is STX1B (hgnc:18539). hgnc:18539 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STX1B
 
 
-    <a href="https://bioregistry.io/hgnc:18539" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18539</a>
+    <a href="https://bioregistry.io/hgnc:18539" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:18539</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STX1B (hgnc:18539). hgnc:18539 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7198,6 +7496,7 @@ This disease-associated gene is STX1B (hgnc:18539). hgnc:18539 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25362483" target="_blank">PMID:25362483</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7219,6 +7518,7 @@ This disease-associated gene is STX1B (hgnc:18539). hgnc:18539 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7257,15 +7557,17 @@ This disease-associated gene is STX1B (hgnc:18539). hgnc:18539 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:10597</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7294,6 +7596,7 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7332,15 +7635,17 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GABRD (hgnc:4084). hgnc:4084 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GABRD
 
 
-    <a href="https://bioregistry.io/hgnc:4084" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4084</a>
+    <a href="https://bioregistry.io/hgnc:4084" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:4084</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GABRD (hgnc:4084). hgnc:4084 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7369,6 +7674,7 @@ This disease-associated gene is GABRD (hgnc:4084). hgnc:4084 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7400,6 +7706,105 @@ This disease-associated gene is GABRD (hgnc:4084). hgnc:4084 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-generalized-epilepsy-with-febrile-seizures-plus-record">
+
+
+    <div class="item-name">Orphanet generalized epilepsy with febrile seizures plus record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=36387" target="_blank" rel="noopener noreferrer" title="Open ORPHA:36387">ORPHA:36387</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:36387 structured record for generalized epilepsy with febrile seizures plus includes the exact MONDO and OMIM cross-references, autosomal dominant inheritance, and HPO seizure annotations used in this entry.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:36387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:36387" target="_blank">ORPHA:36387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0018214 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:36387 exactly to the MONDO identifier used by this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:36387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:36387" target="_blank">ORPHA:36387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:604233 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists OMIM:604233 as an exact external cross-reference for the GEFS+ phenotypic series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7416,17 +7821,17 @@ This disease-associated gene is GABRD (hgnc:4084). hgnc:4084 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Anticonvulsant Therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">Anticonvulsant Therapy</span>
+This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
 
 
 
@@ -7451,48 +7856,54 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         valproic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:39867</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:39867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         levetiracetam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6437" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6437</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6437" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:6437</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         clobazam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31413" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31413</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31413" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:31413</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7518,6 +7929,7 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301494" target="_blank">PMID:20301494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7539,6 +7951,7 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39143639" target="_blank">PMID:39143639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7570,18 +7983,18 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">avoidance of contraindicated anti-seizure medication<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is avoidance of contraindicated anti-seizure medication, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">avoidance of contraindicated anti-seizure medication</span>
+This treatment is avoidance of contraindicated anti-seizure medication, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is avoidance of contraindicated anti-seizure medication, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
 
 
 
@@ -7623,6 +8036,7 @@ This treatment is avoidance of contraindicated anti-seizure medication, annotate
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301494" target="_blank">PMID:20301494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7653,18 +8067,18 @@ This treatment is avoidance of contraindicated anti-seizure medication, annotate
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -7706,6 +8120,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301494" target="_blank">PMID:20301494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7736,17 +8151,17 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7788,6 +8203,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301494" target="_blank">PMID:20301494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7818,18 +8234,18 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -7870,6 +8286,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05419492" target="_blank">clinicaltrials:NCT05419492</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7918,7 +8335,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05419492">
                 <div class="item-name">
                     NCT05419492
 
@@ -7936,18 +8353,20 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Generalized tonic-clonic seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002069</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Generalized tonic-clonic seizure, annotated with Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7965,6 +8384,7 @@ This clinical trial targets Generalized tonic-clonic seizure, annotated with Bil
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05419492" target="_blank">clinicaltrials:NCT05419492</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10327,5 +10747,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

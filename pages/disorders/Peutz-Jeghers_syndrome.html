@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Peutz-Jeghers syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Peutz-Jeghers syndrome</h1>
             <div class="header-meta">
 
@@ -3991,7 +4113,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-peutz-jeghers-syndrome-definition">
                 <div class="item-name">Orphanet Peutz-Jeghers syndrome definition</div>
 
                 <div class="item-desc">A genetic intestinal polyposis syndrome with characteristic GI hamartomatous polyps, mucocutaneous pigmentation, and substantially increased risk of GI and extra-GI malignancies.
@@ -4036,6 +4158,7 @@
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4072,7 +4195,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4117,6 +4240,7 @@
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4138,6 +4262,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19916169" target="_blank">PMID:19916169</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4197,18 +4322,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4225,18 +4352,20 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves stromal cell of small intestinal lamina propria, annotated with stromal cell of lamina propria of small intestine (CL:0009022). CL:0009022 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         stromal cell of small intestinal lamina propria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009022" target="_blank" class="curie-chip curie-chip-cl">CL:0009022</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009022" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0009022</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves stromal cell of small intestinal lamina propria, annotated with stromal cell of lamina propria of small intestine (CL:0009022). CL:0009022 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4264,17 +4393,21 @@ This pathophysiological event involves stromal cell of small intestinal lamina p
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STK11
 
 
-    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11389</a>
+    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11389</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4303,18 +4436,20 @@ This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go">GO:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4335,18 +4470,20 @@ This pathophysiological event involves decreased signal transduction (GO:0007165
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased regulation of cell proliferation, annotated with regulation of cell population proliferation (GO:0042127). GO:0042127 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go">GO:0042127</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of cell proliferation, annotated with regulation of cell population proliferation (GO:0042127). GO:0042127 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4374,33 +4511,37 @@ This pathophysiological event involves decreased regulation of cell proliferatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         colon
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001155</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4457,6 +4598,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4478,6 +4620,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37054692" target="_blank">PMID:37054692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4513,18 +4656,20 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4552,17 +4697,21 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STK11
 
 
-    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11389</a>
+    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11389</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4591,18 +4740,20 @@ This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased activation of protein kinase activity (GO:0032147). GO:0032147 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         activation of protein kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032147" target="_blank" class="curie-chip curie-chip-go">GO:0032147</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032147" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0032147</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased activation of protein kinase activity (GO:0032147). GO:0032147 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4628,18 +4779,20 @@ This pathophysiological event involves decreased activation of protein kinase ac
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased AMP-activated protein kinase activity (GO:0004679). GO:0004679 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         AMP-activated protein kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004679" target="_blank" class="curie-chip curie-chip-go">GO:0004679</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004679" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0004679</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased AMP-activated protein kinase activity (GO:0004679). GO:0004679 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4697,6 +4850,7 @@ This pathophysiological event involves decreased AMP-activated protein kinase ac
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38660671" target="_blank">PMID:38660671</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4731,18 +4885,20 @@ This pathophysiological event involves decreased AMP-activated protein kinase ac
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4770,18 +4926,20 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased mTORC1 signaling, annotated with TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mTORC1 signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0031929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased mTORC1 signaling, annotated with TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4802,18 +4960,20 @@ This pathophysiological event involves increased mTORC1 signaling, annotated wit
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell proliferation, annotated with cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell proliferation, annotated with cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4881,6 +5041,7 @@ This pathophysiological event involves increased cell proliferation, annotated w
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19541609" target="_blank">PMID:19541609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4915,18 +5076,20 @@ This pathophysiological event involves increased cell proliferation, annotated w
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves stromal cell of small intestinal lamina propria, annotated with stromal cell of lamina propria of small intestine (CL:0009022). CL:0009022 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         stromal cell of small intestinal lamina propria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009022" target="_blank" class="curie-chip curie-chip-cl">CL:0009022</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009022" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0009022</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves stromal cell of small intestinal lamina propria, annotated with stromal cell of lamina propria of small intestine (CL:0009022). CL:0009022 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4943,18 +5106,20 @@ This pathophysiological event involves stromal cell of small intestinal lamina p
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         myofibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl">CL:0000186</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4982,17 +5147,21 @@ This pathophysiological event involves myofibroblast, annotated with myofibrobla
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STK11
 
 
-    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11389</a>
+    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:11389</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5021,18 +5190,20 @@ This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased TGF-beta receptor signaling, annotated with transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         TGF-beta receptor signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased TGF-beta receptor signaling, annotated with transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5053,18 +5224,20 @@ This pathophysiological event involves decreased TGF-beta receptor signaling, an
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epithelial cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go">GO:0050673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0050673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5092,18 +5265,20 @@ This pathophysiological event involves increased epithelial cell proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5151,6 +5326,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18311138" target="_blank">PMID:18311138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5172,6 +5348,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18311138" target="_blank">PMID:18311138</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5207,18 +5384,20 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5235,18 +5414,20 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves enteric smooth muscle cell (CL:0002504). CL:0002504 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         enteric smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002504" target="_blank" class="curie-chip curie-chip-cl">CL:0002504</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002504" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002504</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enteric smooth muscle cell (CL:0002504). CL:0002504 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5274,18 +5455,20 @@ This pathophysiological event involves enteric smooth muscle cell (CL:0002504). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased prostaglandin biosynthetic process (GO:0001516). GO:0001516 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         prostaglandin biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001516" target="_blank" class="curie-chip curie-chip-go">GO:0001516</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001516" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0001516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased prostaglandin biosynthetic process (GO:0001516). GO:0001516 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5306,18 +5489,20 @@ This pathophysiological event involves increased prostaglandin biosynthetic proc
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cyclooxygenase pathway (GO:0019371). GO:0019371 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cyclooxygenase pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019371" target="_blank" class="curie-chip curie-chip-go">GO:0019371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0019371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cyclooxygenase pathway (GO:0019371). GO:0019371 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5376,6 +5561,7 @@ This pathophysiological event involves increased cyclooxygenase pathway (GO:0019
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12650805" target="_blank">PMID:12650805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5410,18 +5596,20 @@ This pathophysiological event involves increased cyclooxygenase pathway (GO:0019
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5452,18 +5640,20 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5533,6 +5723,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5554,6 +5745,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36970589" target="_blank">PMID:36970589</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5589,18 +5781,20 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5628,17 +5822,21 @@ This pathophysiological event involves intestinal epithelial cell (CL:0002563). 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STK11
 
 
-    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11389</a>
+    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11389</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5667,18 +5865,20 @@ This pathophysiological event involves STK11 (hgnc:11389). hgnc:11389 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased regulation of cell proliferation, annotated with regulation of cell population proliferation (GO:0042127). GO:0042127 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go">GO:0042127</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0042127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased regulation of cell proliferation, annotated with regulation of cell population proliferation (GO:0042127). GO:0042127 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5763,15 +5963,62 @@ This pathophysiological event involves increased regulation of cell proliferatio
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10398133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10398133" target="_blank">PMID:10398133</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This study confirms allelic loss at LKB1 in PJS polyps and shows that LOH also occurs in cancers of the colon, breast, and cervix in PJS patients."</div>
+
+
+                <div class="evidence-explanation">Direct evidence for the somatic second hit at STK11 in Peutz-Jeghers lesions, which is what this node asserts. The systematic-review item below establishes the cancer risk but not the allelic mechanism behind it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10398133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10398133" target="_blank">PMID:10398133</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results provide molecular evidence that PJS patients are predisposed to cancers at several sites, as a direct result of selection for loss of the &#39;wild-type&#39; LKB1 allele in tumours."</div>
+
+
+                <div class="evidence-explanation">States the selective mechanism explicitly: the cancer risk follows from selection for loss of the wild-type allele, which ties the second hit to the malignant transformation this node also asserts.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:20051941" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20051941" target="_blank">PMID:20051941</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5863,6 +6110,7 @@ This pathophysiological event involves increased regulation of cell proliferatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5884,6 +6132,7 @@ This pathophysiological event involves increased regulation of cell proliferatio
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5919,18 +6168,20 @@ This pathophysiological event involves increased regulation of cell proliferatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5958,18 +6209,20 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased pigmentation (GO:0043473). GO:0043473 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         pigmentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="curie-chip curie-chip-go">GO:0043473</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0043473</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased pigmentation (GO:0043473). GO:0043473 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5990,18 +6243,20 @@ This pathophysiological event involves increased pigmentation (GO:0043473). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased melanin biosynthetic process (GO:0042438). GO:0042438 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         melanin biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042438" target="_blank" class="curie-chip curie-chip-go">GO:0042438</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042438" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0042438</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased melanin biosynthetic process (GO:0042438). GO:0042438 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6069,6 +6324,7 @@ This pathophysiological event involves increased melanin biosynthetic process (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6117,7 +6373,7 @@ This pathophysiological event involves increased melanin biosynthetic process (G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain results from polyp-related obstruction, intussusception, and other GI complications.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic GI blood loss from polyps can produce anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Breast carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Breast carcinoma is part of the extra-GI malignancy spectrum in women with PJS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003002\"}}, {\"id\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS hamartomatous polyps overexpress COX-2/PTGS2 in epithelial and stromal compartments, increasing local prostaglandin biosynthesis. This supports an investigational chemoprevention rationale for COX-2 inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"enteric smooth muscle cell\"], \"biological_processes\": [\"prostaglandin biosynthetic process\", \"cyclooxygenase pathway\"]}}, {\"id\": \"COX-2 inhibitor chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"COX-2 inhibition with celecoxib is investigational for reducing PJS polyp burden, based on COX-2 overexpression in PJS hamartomas and preclinical rationale; it is not established standard care.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"celecoxib\"]}}, {\"id\": \"Cervix cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Females with PJS are at risk for adenoma malignum of the cervix, a rare aggressive cervical cancer.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030079\"}}, {\"id\": \"Gastrointestinal carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PJS carries high risk of GI malignancies, including colorectal, gastric, pancreatic, small intestinal, and other epithelial cancers.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002672\"}}, {\"id\": \"Gastrointestinal hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polyp ulceration and chronic bleeding cause occult or overt GI hemorrhage and can lead to anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002239\"}}, {\"id\": \"Gonadal Sex-Cord Tumor Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The PJS neoplasia spectrum includes sex-specific gonadal sex-cord tumors: ovarian sex cord tumors with annular tubules in females and estrogen- secreting large calcifying Sertoli cell tumors in males. Estrogen secretion from Sertoli cell tumors can cause gynecomastia.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gynecomastia secondary to Sertoli cell tumors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Estrogen secretion from PJS-associated Sertoli cell tumors can cause gynecomastia in affected males.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000771\"}}, {\"id\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Characteristic PJS hamartomatous GI polyps, especially in the small bowel, create a mechanical and bleeding complication branch. Polyp ulceration causes chronic GI hemorrhage and anemia, while large or pedunculated polyps cause recurrent obstruction, intussusception, and abdominal pain.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Hamartomatous intestinal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic hamartomatous polyps throughout the GI tract, especially the small intestine, define the syndrome and cause bleeding, obstruction, and intussusception.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030256\"}}, {\"id\": \"Intestinal obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large polyps can cause recurrent obstruction and serve as lead points for intussusception.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005214\"}}, {\"id\": \"Intussusception\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pedunculated small-intestinal polyps act as lead points for intussusception, with cumulative risk increasing through adulthood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002576\"}}, {\"id\": \"LKB1/AMPK pathway inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1 normally activates AMPK-family kinases. In PJS polyp tissue, pathogenic STK11 variants reduce phosphorylated AMPK, weakening energy- and polarity-linked growth control and contributing to downstream mTORC1 hyperactivation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"activation of protein kinase activity\"], \"molecular_functions\": [\"AMP-activated protein kinase activity\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}]}}, {\"id\": \"Large calcifying Sertoli cell tumor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Males with PJS can develop estrogen-secreting large calcifying Sertoli cell tumors of the testes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010788\"}}, {\"id\": \"Mucocutaneous melanocyte hyperpigmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS causes characteristic dark blue to brown macules around the mouth, eyes, nostrils, perianal area, buccal mucosa, lips, and extremities. The precise melanocyte-intrinsic mechanism remains incompletely defined, but pigmentation commonly appears in childhood before GI complications.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"pigmentation\", \"melanin biosynthetic process\"]}}, {\"id\": \"Mucocutaneous pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark macules on the lips, oral mucosa, periorificial skin, and acral sites are a hallmark and often present early in childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100669\"}}, {\"id\": \"Multiple lentigines\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple lentiginous macules are part of the characteristic cutaneous PJS pigmentation pattern.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001003\"}}, {\"id\": \"Pancreatic adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatic adenocarcinoma is one of the GI and extra-intestinal cancers included in PJS surveillance recommendations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006725\"}}, {\"id\": \"STK11 germline loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous pathogenic variants in STK11, encoding the LKB1 serine/threonine kinase, initiate PJS. Loss of tumor-suppressor kinase function perturbs epithelial polarity, growth-control, and stromal paracrine signaling, creating the inherited background for hamartomatous polyposis, mucocutaneous pigmentation, and cancer susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"stromal cell of small intestinal lamina propria\"], \"biological_processes\": [\"signal transduction\", \"regulation of cell proliferation\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}], \"locations\": [\"small intestine\", \"colon\"]}}, {\"id\": \"STK11 germline pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Sex cord tumor with annular tubules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Females with PJS are at risk for ovarian sex cord tumors with annular tubules; HPO lacks a specific SCTAT term, so this is bound to the broader ovarian neoplasm term.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100615\"}}, {\"id\": \"Sirolimus mTOR inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibition is investigational in PJS. Mouse-model data show rapamycin suppression of preexisting GI polyps, supporting mechanism-directed interest in the LKB1/AMPK/mTORC1 axis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"Somatic STK11 second-hit and malignant transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline STK11 pathogenic variants confer inherited susceptibility, while somatic loss of the remaining STK11 allele and cooperating oncogenic events drive the high lifetime risk of GI and extra-GI epithelial malignancies.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"regulation of cell proliferation\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}]}}, {\"id\": \"Stromal TGF-beta signaling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mesenchymal/stromal LKB1 loss can drive PJS-like GI polyposis by reducing stromal TGF-beta signaling to the epithelium. This paracrine defect removes a local growth-suppressive brake and helps explain the arborizing stromal architecture of PJS hamartomas.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"stromal cell of small intestinal lamina propria\", \"myofibroblast\"], \"biological_processes\": [\"TGF-beta receptor signaling\", \"epithelial cell proliferation\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}], \"locations\": [\"small intestine\"]}}, {\"id\": \"mTORC1 pathway hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1-deficient PJS tissues show increased mTORC1 signaling with elevated HIF-1alpha and GLUT1, supporting proliferative polyp growth and providing a mechanism-directed rationale for investigational mTOR inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"mTORC1 signaling\", \"cell proliferation\"]}}], \"edges\": [{\"source\": \"STK11 germline loss-of-function\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of catalytically active LKB1 reduces AMPK activation and removes AMPK-mediated restraint on mTORC1 signaling.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 loss in mesenchymal/stromal compartments impairs TGF-beta-mediated epithelial growth restraint.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mesenchymal STK11 loss and impaired SMAD-dependent paracrine signaling\"]}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Germline STK11 loss creates the inherited background on which somatic second hits and cooperating events drive malignancy.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"LKB1/AMPK pathway inactivation\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced LKB1/AMPK signaling removes inhibitory control over mTORC1 in PJS polyp tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"mTORC1 pathway hyperactivation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTORC1 activation promotes epithelial growth programs that contribute to hamartomatous polyp burden.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased mTORC1-dependent translation and HIF-1alpha/GLUT1 metabolic signaling\"]}, {\"source\": \"mTORC1 pathway hyperactivation\", \"target\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTORC1-supported polyp growth contributes to the polyp burden that causes bleeding, obstruction, intussusception, and abdominal symptoms.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hamartomatous intestinal polyposis\"]}, {\"source\": \"Stromal TGF-beta signaling defect\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of stromal TGF-beta-mediated epithelial restraint permits local epithelial and stromal overgrowth.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stromal TGF-beta signaling defect\", \"target\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stromal loss of epithelial growth restraint produces GI polyp burden that can mechanically obstruct, bleed, and serve as an intussusception lead point.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated prostaglandin signaling may support polyp growth and persistence.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Gastrointestinal hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polyp bleeding causes occult or overt gastrointestinal hemorrhage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic polyp bleeding depletes blood iron and produces anemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic gastrointestinal bleeding\"]}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Intestinal obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large PJS polyps can obstruct the bowel lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Intussusception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pedunculated small-bowel polyps serve as lead points for intussusception.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polyp obstruction and intussusception produce abdominal pain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Polyp-related obstruction\", \"Intussusception\"]}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Gastrointestinal carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events produces the high GI carcinoma risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Breast carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events contributes to the extra-GI breast carcinoma risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Pancreatic adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events contributes to the pancreatic adenocarcinoma risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Cervix cancer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events contributes to the gynecologic malignancy risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Gonadal Sex-Cord Tumor Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PJS tumor-predisposition biology also includes sex-specific ovarian and testicular sex-cord tumors.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gonadal Sex-Cord Tumor Predisposition\", \"target\": \"Sex cord tumor with annular tubules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PJS predisposes females to ovarian SCTAT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gonadal Sex-Cord Tumor Predisposition\", \"target\": \"Large calcifying Sertoli cell tumor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PJS predisposes males to large calcifying Sertoli cell tumors of the testes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gonadal Sex-Cord Tumor Predisposition\", \"target\": \"Gynecomastia secondary to Sertoli cell tumors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Estrogen secretion from PJS-associated Sertoli cell tumors causes gynecomastia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Estrogen secretion from Sertoli cell tumor\"]}, {\"source\": \"Mucocutaneous melanocyte hyperpigmentation\", \"target\": \"Mucocutaneous pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Melanocyte hyperpigmentation produces the oral, lip, periorificial, and acral macules used in clinical recognition of PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucocutaneous melanocyte hyperpigmentation\", \"target\": \"Multiple lentigines\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same melanocyte hyperpigmentation branch accounts for multiple lentiginous macules in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COX-2 inhibitor chemoprevention\", \"target\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus mTOR inhibition\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"STK11 germline loss-of-function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain results from polyp-related obstruction, intussusception, and other GI complications.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic GI blood loss from polyps can produce anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Breast carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Breast carcinoma is part of the extra-GI malignancy spectrum in women with PJS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003002\"}}, {\"id\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS hamartomatous polyps overexpress COX-2/PTGS2 in epithelial and stromal compartments, increasing local prostaglandin biosynthesis. This supports an investigational chemoprevention rationale for COX-2 inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\", \"enteric smooth muscle cell\"], \"biological_processes\": [\"prostaglandin biosynthetic process\", \"cyclooxygenase pathway\"]}}, {\"id\": \"COX-2 inhibitor chemoprevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"COX-2 inhibition with celecoxib is investigational for reducing PJS polyp burden, based on COX-2 overexpression in PJS hamartomas and preclinical rationale; it is not established standard care.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"celecoxib\"]}}, {\"id\": \"Cervix cancer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Females with PJS are at risk for adenoma malignum of the cervix, a rare aggressive cervical cancer.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030079\"}}, {\"id\": \"Gastrointestinal carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"PJS carries high risk of GI malignancies, including colorectal, gastric, pancreatic, small intestinal, and other epithelial cancers.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002672\"}}, {\"id\": \"Gastrointestinal hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polyp ulceration and chronic bleeding cause occult or overt GI hemorrhage and can lead to anemia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002239\"}}, {\"id\": \"Gonadal Sex-Cord Tumor Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The PJS neoplasia spectrum includes sex-specific gonadal sex-cord tumors: ovarian sex cord tumors with annular tubules in females and estrogen- secreting large calcifying Sertoli cell tumors in males. Estrogen secretion from Sertoli cell tumors can cause gynecomastia.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gynecomastia secondary to Sertoli cell tumors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Estrogen secretion from PJS-associated Sertoli cell tumors can cause gynecomastia in affected males.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000771\"}}, {\"id\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Characteristic PJS hamartomatous GI polyps, especially in the small bowel, create a mechanical and bleeding complication branch. Polyp ulceration causes chronic GI hemorrhage and anemia, while large or pedunculated polyps cause recurrent obstruction, intussusception, and abdominal pain.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Hamartomatous intestinal polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic hamartomatous polyps throughout the GI tract, especially the small intestine, define the syndrome and cause bleeding, obstruction, and intussusception.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030256\"}}, {\"id\": \"Intestinal obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large polyps can cause recurrent obstruction and serve as lead points for intussusception.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005214\"}}, {\"id\": \"Intussusception\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pedunculated small-intestinal polyps act as lead points for intussusception, with cumulative risk increasing through adulthood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002576\"}}, {\"id\": \"LKB1/AMPK pathway inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1 normally activates AMPK-family kinases. In PJS polyp tissue, pathogenic STK11 variants reduce phosphorylated AMPK, weakening energy- and polarity-linked growth control and contributing to downstream mTORC1 hyperactivation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"activation of protein kinase activity\"], \"molecular_functions\": [\"AMP-activated protein kinase activity\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}]}}, {\"id\": \"Large calcifying Sertoli cell tumor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Males with PJS can develop estrogen-secreting large calcifying Sertoli cell tumors of the testes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010788\"}}, {\"id\": \"Mucocutaneous melanocyte hyperpigmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PJS causes characteristic dark blue to brown macules around the mouth, eyes, nostrils, perianal area, buccal mucosa, lips, and extremities. The precise melanocyte-intrinsic mechanism remains incompletely defined, but pigmentation commonly appears in childhood before GI complications.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"pigmentation\", \"melanin biosynthetic process\"]}}, {\"id\": \"Mucocutaneous pigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark macules on the lips, oral mucosa, periorificial skin, and acral sites are a hallmark and often present early in childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100669\"}}, {\"id\": \"Multiple lentigines\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple lentiginous macules are part of the characteristic cutaneous PJS pigmentation pattern.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001003\"}}, {\"id\": \"Pancreatic adenocarcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pancreatic adenocarcinoma is one of the GI and extra-intestinal cancers included in PJS surveillance recommendations.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006725\"}}, {\"id\": \"STK11 germline loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous pathogenic variants in STK11, encoding the LKB1 serine/threonine kinase, initiate PJS. Loss of tumor-suppressor kinase function perturbs epithelial polarity, growth-control, and stromal paracrine signaling, creating the inherited background for hamartomatous polyposis, mucocutaneous pigmentation, and cancer susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"stromal cell of small intestinal lamina propria\"], \"biological_processes\": [\"signal transduction\", \"regulation of cell proliferation\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}], \"locations\": [\"small intestine\", \"colon\"]}}, {\"id\": \"STK11 germline pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Sex cord tumor with annular tubules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Females with PJS are at risk for ovarian sex cord tumors with annular tubules; HPO lacks a specific SCTAT term, so this is bound to the broader ovarian neoplasm term.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100615\"}}, {\"id\": \"Sirolimus mTOR inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibition is investigational in PJS. Mouse-model data show rapamycin suppression of preexisting GI polyps, supporting mechanism-directed interest in the LKB1/AMPK/mTORC1 axis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"Somatic STK11 second-hit and malignant transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline STK11 pathogenic variants confer inherited susceptibility, while somatic loss of the remaining STK11 allele and cooperating oncogenic events drive the high lifetime risk of GI and extra-GI epithelial malignancies.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"regulation of cell proliferation\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}]}}, {\"id\": \"Stromal TGF-beta signaling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mesenchymal/stromal LKB1 loss can drive PJS-like GI polyposis by reducing stromal TGF-beta signaling to the epithelium. This paracrine defect removes a local growth-suppressive brake and helps explain the arborizing stromal architecture of PJS hamartomas.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"stromal cell of small intestinal lamina propria\", \"myofibroblast\"], \"biological_processes\": [\"TGF-beta receptor signaling\", \"epithelial cell proliferation\"], \"genes\": [\"STK11\"], \"gene_terms\": [{\"label\": \"STK11\", \"id\": \"hgnc:11389\"}], \"locations\": [\"small intestine\"]}}, {\"id\": \"mTORC1 pathway hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LKB1-deficient PJS tissues show increased mTORC1 signaling with elevated HIF-1alpha and GLUT1, supporting proliferative polyp growth and providing a mechanism-directed rationale for investigational mTOR inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"mTORC1 signaling\", \"cell proliferation\"]}}], \"edges\": [{\"source\": \"STK11 germline loss-of-function\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of catalytically active LKB1 reduces AMPK activation and removes AMPK-mediated restraint on mTORC1 signaling.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 loss in mesenchymal/stromal compartments impairs TGF-beta-mediated epithelial growth restraint.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mesenchymal STK11 loss and impaired SMAD-dependent paracrine signaling\"]}, {\"source\": \"STK11 germline loss-of-function\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Germline STK11 loss creates the inherited background on which somatic second hits and cooperating events drive malignancy.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"LKB1/AMPK pathway inactivation\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced LKB1/AMPK signaling removes inhibitory control over mTORC1 in PJS polyp tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"mTORC1 pathway hyperactivation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTORC1 activation promotes epithelial growth programs that contribute to hamartomatous polyp burden.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased mTORC1-dependent translation and HIF-1alpha/GLUT1 metabolic signaling\"]}, {\"source\": \"mTORC1 pathway hyperactivation\", \"target\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTORC1-supported polyp growth contributes to the polyp burden that causes bleeding, obstruction, intussusception, and abdominal symptoms.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hamartomatous intestinal polyposis\"]}, {\"source\": \"Stromal TGF-beta signaling defect\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of stromal TGF-beta-mediated epithelial restraint permits local epithelial and stromal overgrowth.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stromal TGF-beta signaling defect\", \"target\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stromal loss of epithelial growth restraint produces GI polyp burden that can mechanically obstruct, bleed, and serve as an intussusception lead point.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"target\": \"Hamartomatous intestinal polyposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated prostaglandin signaling may support polyp growth and persistence.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Gastrointestinal hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polyp bleeding causes occult or overt gastrointestinal hemorrhage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic polyp bleeding depletes blood iron and produces anemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic gastrointestinal bleeding\"]}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Intestinal obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large PJS polyps can obstruct the bowel lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Intussusception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pedunculated small-bowel polyps serve as lead points for intussusception.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hamartomatous Polyp Burden and Mechanical Complications\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polyp obstruction and intussusception produce abdominal pain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Polyp-related obstruction\", \"Intussusception\"]}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Gastrointestinal carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events produces the high GI carcinoma risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Breast carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events contributes to the extra-GI breast carcinoma risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Pancreatic adenocarcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events contributes to the pancreatic adenocarcinoma risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Cervix cancer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"STK11 tumor-suppressor loss plus secondary somatic events contributes to the gynecologic malignancy risk observed in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic STK11 second-hit and malignant transformation\", \"target\": \"Gonadal Sex-Cord Tumor Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PJS tumor-predisposition biology also includes sex-specific ovarian and testicular sex-cord tumors.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gonadal Sex-Cord Tumor Predisposition\", \"target\": \"Sex cord tumor with annular tubules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PJS predisposes females to ovarian SCTAT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gonadal Sex-Cord Tumor Predisposition\", \"target\": \"Large calcifying Sertoli cell tumor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PJS predisposes males to large calcifying Sertoli cell tumors of the testes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Gonadal Sex-Cord Tumor Predisposition\", \"target\": \"Gynecomastia secondary to Sertoli cell tumors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Estrogen secretion from PJS-associated Sertoli cell tumors causes gynecomastia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Estrogen secretion from Sertoli cell tumor\"]}, {\"source\": \"Mucocutaneous melanocyte hyperpigmentation\", \"target\": \"Mucocutaneous pigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Melanocyte hyperpigmentation produces the oral, lip, periorificial, and acral macules used in clinical recognition of PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucocutaneous melanocyte hyperpigmentation\", \"target\": \"Multiple lentigines\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same melanocyte hyperpigmentation branch accounts for multiple lentiginous macules in PJS.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COX-2 inhibitor chemoprevention\", \"target\": \"COX-2 / prostaglandin biosynthetic upregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus mTOR inhibition\", \"target\": \"mTORC1 pathway hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"LKB1/AMPK pathway inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"STK11 germline loss-of-function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Somatic STK11 second-hit and malignant transformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STK11 germline pathogenic variants\", \"target\": \"Stromal TGF-beta signaling defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6169,16 +6425,20 @@ This pathophysiological event involves increased melanin biosynthetic process (G
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002239</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.">
-                        Gastrointestinal hemorrhage
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp">HP:0002239</a>
-
-
+This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6198,6 +6458,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6220,6 +6481,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6255,16 +6517,20 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001903</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.">
-                        Anemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp">HP:0001903</a>
-
-
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6284,6 +6550,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6306,6 +6573,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6350,16 +6618,20 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003002</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotype from the Human Phenotype Ontology.">
-                        Breast carcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp">HP:0003002</a>
-
-
+This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6379,6 +6651,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6401,6 +6674,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20051941" target="_blank">PMID:20051941</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6436,16 +6710,20 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000771</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype from the Human Phenotype Ontology.">
-                        Gynecomastia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp">HP:0000771</a>
-
-
+This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6465,6 +6743,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6546,16 +6825,22 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Small intestinal polyposis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0030256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is a phenotype from the Human Phenotype Ontology.">
-                        Small intestinal polyposis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030256" target="_blank" class="curie-chip curie-chip-hp">HP:0030256</a>
-
-
+This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6575,6 +6860,7 @@ This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6597,6 +6883,7 @@ This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37054692" target="_blank">PMID:37054692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6632,16 +6919,20 @@ This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0005214</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a phenotype from the Human Phenotype Ontology.">
-                        Intestinal obstruction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank" class="curie-chip curie-chip-hp">HP:0005214</a>
-
-
+This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6661,6 +6952,7 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6683,6 +6975,7 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6718,16 +7011,20 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0006725</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a phenotype from the Human Phenotype Ontology.">
-                        Pancreatic adenocarcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006725" target="_blank" class="curie-chip curie-chip-hp">HP:0006725</a>
-
-
+This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6747,6 +7044,7 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6769,6 +7067,7 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6813,16 +7112,22 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Testicular neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010788" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0010788</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Large calcifying Sertoli cell tumor, annotated with Testicular neoplasm (HP:0010788). HP:0010788 is a phenotype from the Human Phenotype Ontology.">
-                        Testicular neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010788" target="_blank" class="curie-chip curie-chip-hp">HP:0010788</a>
-
-
+This clinical feature is Large calcifying Sertoli cell tumor, annotated with Testicular neoplasm (HP:0010788). HP:0010788 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6842,6 +7147,7 @@ This clinical feature is Large calcifying Sertoli cell tumor, annotated with Tes
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6923,16 +7229,22 @@ This clinical feature is Large calcifying Sertoli cell tumor, annotated with Tes
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal pigmentation of the oral mucosa</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100669" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0100669</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal pigmentation of the oral mucosa (HP:0100669). HP:0100669 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal pigmentation of the oral mucosa
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100669" target="_blank" class="curie-chip curie-chip-hp">HP:0100669</a>
-
-
+This clinical feature is Abnormal pigmentation of the oral mucosa (HP:0100669). HP:0100669 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6952,6 +7264,7 @@ This clinical feature is Abnormal pigmentation of the oral mucosa (HP:0100669). 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6974,6 +7287,7 @@ This clinical feature is Abnormal pigmentation of the oral mucosa (HP:0100669). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7018,16 +7332,20 @@ This clinical feature is Abnormal pigmentation of the oral mucosa (HP:0100669). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7047,6 +7365,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7091,16 +7410,20 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001003</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a phenotype from the Human Phenotype Ontology.">
-                        Multiple lentigines
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001003" target="_blank" class="curie-chip curie-chip-hp">HP:0001003</a>
-
-
+This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7120,6 +7443,7 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7155,16 +7479,20 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002576" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002576</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intussusception (HP:0002576). HP:0002576 is a phenotype from the Human Phenotype Ontology.">
-                        Intussusception
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002576" target="_blank" class="curie-chip curie-chip-hp">HP:0002576</a>
-
-
+This clinical feature is Intussusception (HP:0002576). HP:0002576 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7184,6 +7512,7 @@ This clinical feature is Intussusception (HP:0002576). HP:0002576 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36970589" target="_blank">PMID:36970589</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7219,16 +7548,20 @@ This clinical feature is Intussusception (HP:0002576). HP:0002576 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002672" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002672</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal carcinoma (HP:0002672). HP:0002672 is a phenotype from the Human Phenotype Ontology.">
-                        Gastrointestinal carcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002672" target="_blank" class="curie-chip curie-chip-hp">HP:0002672</a>
-
-
+This clinical feature is Gastrointestinal carcinoma (HP:0002672). HP:0002672 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7248,6 +7581,7 @@ This clinical feature is Gastrointestinal carcinoma (HP:0002672). HP:0002672 is 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7270,6 +7604,7 @@ This clinical feature is Gastrointestinal carcinoma (HP:0002672). HP:0002672 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7305,16 +7640,20 @@ This clinical feature is Gastrointestinal carcinoma (HP:0002672). HP:0002672 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0030079</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Adenoma malignum of the cervix, annotated with Cervix cancer (HP:0030079). HP:0030079 is a phenotype from the Human Phenotype Ontology.">
-                        Cervix cancer
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030079" target="_blank" class="curie-chip curie-chip-hp">HP:0030079</a>
-
-
+This clinical feature is Adenoma malignum of the cervix, annotated with Cervix cancer (HP:0030079). HP:0030079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7334,6 +7673,7 @@ This clinical feature is Adenoma malignum of the cervix, annotated with Cervix c
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7356,6 +7696,7 @@ This clinical feature is Adenoma malignum of the cervix, annotated with Cervix c
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7424,16 +7765,22 @@ This clinical feature is Adenoma malignum of the cervix, annotated with Cervix c
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ovarian neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100615</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sex cord tumor with annular tubules, annotated with Ovarian neoplasm (HP:0100615). HP:0100615 is a phenotype from the Human Phenotype Ontology.">
-                        Ovarian neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" class="curie-chip curie-chip-hp">HP:0100615</a>
-
-
+This clinical feature is Sex cord tumor with annular tubules, annotated with Ovarian neoplasm (HP:0100615). HP:0100615 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7453,6 +7800,7 @@ This clinical feature is Sex cord tumor with annular tubules, annotated with Ova
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7565,15 +7913,17 @@ This clinical feature is Sex cord tumor with annular tubules, annotated with Ova
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STK11
 
 
-    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11389</a>
+    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:11389</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7599,6 +7949,7 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
                         <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7621,6 +7972,7 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37054692" target="_blank">PMID:37054692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7642,6 +7994,7 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19541609" target="_blank">PMID:19541609</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7675,6 +8028,106 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-peutz-jeghers-syndrome-record">
+
+
+    <div class="item-name">Orphanet Peutz-Jeghers syndrome record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=2869" target="_blank" rel="noopener noreferrer" title="Open ORPHA:2869">ORPHA:2869</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:2869 structured record provides the exact MONDO and OMIM mappings, autosomal dominant inheritance, syndrome definition, STK11 gene assertion, epidemiology, natural-history rows, and HPO phenotype rows used in this curation.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0008280 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:2869 exactly to the MONDO identifier used here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2869" target="_blank">ORPHA:2869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:175200 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:2869 exactly to OMIM:175200.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7691,18 +8144,18 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">endoscopic procedure<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical intervention from the NCI Thesaurus.">endoscopic procedure</span>
+This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Endoscopic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16546" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical intervention from the NCI Thesaurus.">NCIT:C16546</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16546" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16546">NCIT:C16546</a>
 
 
 
@@ -7745,6 +8198,7 @@ This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301443" target="_blank">PMID:20301443</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7775,18 +8229,18 @@ This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">surveillance for malignancies<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">surveillance for malignancies</span>
+This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">NCIT:C15406</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15406">NCIT:C15406</a>
 
 
 
@@ -7829,6 +8283,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35487765" target="_blank">PMID:35487765</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7851,6 +8306,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35487765" target="_blank">PMID:35487765</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7872,6 +8328,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31764758" target="_blank">PMID:31764758</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7905,18 +8362,18 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7959,6 +8416,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37054692" target="_blank">PMID:37054692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7989,17 +8447,17 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8024,18 +8482,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses celecoxib (CHEBI:41423). CHEBI:41423 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         celecoxib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_41423" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:41423</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_41423" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:41423</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses celecoxib (CHEBI:41423). CHEBI:41423 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8071,6 +8531,7 @@ This treatment uses celecoxib (CHEBI:41423). CHEBI:41423 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12650805" target="_blank">PMID:12650805</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8113,6 +8574,7 @@ This treatment uses celecoxib (CHEBI:41423). CHEBI:41423 is a therapeutic agent 
                         <a href="https://clinicaltrials.gov/study/NCT06722534" target="_blank">clinicaltrials:NCT06722534</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8143,17 +8605,17 @@ This treatment uses celecoxib (CHEBI:41423). CHEBI:41423 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8178,18 +8640,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         sirolimus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9168</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:9168</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8225,6 +8689,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19541609" target="_blank">PMID:19541609</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8266,6 +8731,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19541609" target="_blank">PMID:19541609</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8313,7 +8779,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-juvenile-polyposis-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Juvenile_Polyposis_Syndrome.html">Juvenile polyposis syndrome</a>
@@ -8361,6 +8827,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36925460" target="_blank">PMID:36925460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8386,7 +8853,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cowden-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Cowden_Syndrome.html">Cowden syndrome</a>
@@ -8434,6 +8901,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36925460" target="_blank">PMID:36925460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8469,7 +8937,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse196711">
                 <div class="item-name">
                     Immune profiling of premalignant lesions in patients with Peutz-Jeghers Syndrome
 
@@ -8512,7 +8980,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse251755">
                 <div class="item-name">
                     Differential gene expression profile of germline STK11 deletion in patient derived fibroblasts
 
@@ -8584,7 +9052,6 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                 <pre class="yaml-preview">name: Peutz-Jeghers syndrome
 category: Genetic
 creation_date: &#39;2026-05-04T01:04:44Z&#39;
-updated_date: &#39;2026-05-04T01:42:00Z&#39;
 synonyms:
 - PJS
 - Hamartomatous intestinal polyposis
@@ -8732,6 +9199,7 @@ progression:
     explanation: Orphanet records adult onset for PJS.
 pathophysiology:
 - name: STK11 germline loss-of-function
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Constitutional First-Hit Tumor Suppressor Inactivation&#34;
   description: &gt;
     Germline heterozygous pathogenic variants in STK11, encoding the LKB1
     serine/threonine kinase, initiate PJS. Loss of tumor-suppressor kinase
@@ -9071,11 +9539,35 @@ pathophysiology:
       snippet: &#34;HP:0002027 | Abdominal pain | Occasional (29-5%)&#34;
       explanation: Orphanet records abdominal pain among PJS phenotypes.
 - name: Somatic STK11 second-hit and malignant transformation
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Somatic Second-Hit Inactivation of the Wild-Type Allele&#34;
   description: &gt;
     Germline STK11 pathogenic variants confer inherited susceptibility, while
     somatic loss of the remaining STK11 allele and cooperating oncogenic events
     drive the high lifetime risk of GI and extra-GI epithelial malignancies.
   evidence:
+  - reference: PMID:10398133
+    reference_title: &#34;Allelic imbalance at the LKB1 (STK11) locus in tumours from patients with Peutz-Jeghers&#39; syndrome provides evidence for a hamartoma-(adenoma)-carcinoma sequence.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This study confirms allelic loss at LKB1 in PJS polyps and shows that LOH
+      also occurs in cancers of the colon, breast, and cervix in PJS patients.
+    explanation: &gt;-
+      Direct evidence for the somatic second hit at STK11 in Peutz-Jeghers
+      lesions, which is what this node asserts. The systematic-review item below
+      establishes the cancer risk but not the allelic mechanism behind it.
+  - reference: PMID:10398133
+    reference_title: &#34;Allelic imbalance at the LKB1 (STK11) locus in tumours from patients with Peutz-Jeghers&#39; syndrome provides evidence for a hamartoma-(adenoma)-carcinoma sequence.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      These results provide molecular evidence that PJS patients are predisposed
+      to cancers at several sites, as a direct result of selection for loss of
+      the &#39;wild-type&#39; LKB1 allele in tumours.
+    explanation: &gt;-
+      States the selective mechanism explicitly: the cancer risk follows from
+      selection for loss of the wild-type allele, which ties the second hit to
+      the malignant transformation this node also asserts.
   - reference: PMID:20051941
     reference_title: &#34;High cancer risk in Peutz-Jeghers syndrome: a systematic review and surveillance recommendations.&#34;
     supports: SUPPORT
@@ -9689,6 +10181,7 @@ treatments:
         label: celecoxib
   evidence:
   - reference: clinicaltrials:NCT06722534
+    reference_title: &#34;Celecoxib for Prevention of Progression in Peutz-Jeghers Syndrome: A Double-blind, Randomized, Placebo-controlled Trial&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cyclooxygenase (COX) is overexpressed in hamartomatous polyp tissue from PJS individuals, which may provide an avenue for possible effective chemoprevention of polyp formation and growth in PJS&#34;
@@ -10014,7 +10507,7 @@ base.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peutz-Jeghers syndrome", "mondoId": "MONDO:0008280", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peutz-Jeghers_syndrome", "yamlRevision": "4fd44bae1ba5"};
+        const OS_CONFIG = {"diseaseName": "Peutz-Jeghers syndrome", "mondoId": "MONDO:0008280", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peutz-Jeghers_syndrome", "yamlRevision": "c5869b6e3ae8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10433,5 +10926,73 @@ base.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

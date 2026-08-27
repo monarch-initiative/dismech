@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Placental Abruption</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Placental Abruption</h1>
             <div class="header-meta">
 
@@ -3984,6 +4106,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16513243" target="_blank">PMID:16513243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4006,6 +4129,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16513243" target="_blank">PMID:16513243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4027,6 +4151,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37164498" target="_blank">PMID:37164498</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4113,6 +4238,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35365209" target="_blank">PMID:35365209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4135,6 +4261,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35365209" target="_blank">PMID:35365209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4156,6 +4283,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40140972" target="_blank">PMID:40140972</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4229,6 +4357,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4300,6 +4429,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12164566" target="_blank">PMID:12164566</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4380,6 +4510,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19720393" target="_blank">PMID:19720393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4427,18 +4558,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves extravillous trophoblast (CL:0008036). CL:0008036 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         extravillous trophoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl">CL:0008036</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves extravillous trophoblast (CL:0008036). CL:0008036 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4455,18 +4588,20 @@ This pathophysiological event involves extravillous trophoblast (CL:0008036). CL
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         decidual cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl">CL:2000002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:2000002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4494,18 +4629,20 @@ This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4533,18 +4670,20 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in uterine spiral artery (UBERON:0015171). UBERON:0015171 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         uterine spiral artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0015171" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0015171</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0015171" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0015171</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in uterine spiral artery (UBERON:0015171). UBERON:0015171 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4583,6 +4722,7 @@ This pathophysiological event occurs in uterine spiral artery (UBERON:0015171). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39641171" target="_blank">PMID:39641171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4604,6 +4744,7 @@ This pathophysiological event occurs in uterine spiral artery (UBERON:0015171). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19897298" target="_blank">PMID:19897298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4639,18 +4780,20 @@ This pathophysiological event occurs in uterine spiral artery (UBERON:0015171). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         decidual cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl">CL:2000002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:2000002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4681,18 +4824,20 @@ This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in decidua basalis (UBERON:0000453). UBERON:0000453 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         decidua basalis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000453" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000453" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in decidua basalis (UBERON:0000453). UBERON:0000453 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4740,6 +4885,7 @@ This pathophysiological event occurs in decidua basalis (UBERON:0000453). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21890016" target="_blank">PMID:21890016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4784,18 +4930,20 @@ This pathophysiological event occurs in decidua basalis (UBERON:0000453). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:0001987 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         placenta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001987</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:0001987 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4834,6 +4982,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4868,18 +5017,20 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         decidual cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl">CL:2000002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:2000002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4907,18 +5058,20 @@ This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased blood coagulation, extrinsic pathway (GO:0007598). GO:0007598 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood coagulation, extrinsic pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007598" target="_blank" class="curie-chip curie-chip-go">GO:0007598</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007598" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation, extrinsic pathway (GO:0007598). GO:0007598 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4939,18 +5092,20 @@ This pathophysiological event involves increased blood coagulation, extrinsic pa
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased thrombin-activated receptor signaling pathway (GO:0070493). GO:0070493 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         thrombin-activated receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070493" target="_blank" class="curie-chip curie-chip-go">GO:0070493</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070493" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0070493</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased thrombin-activated receptor signaling pathway (GO:0070493). GO:0070493 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5018,6 +5173,7 @@ This pathophysiological event involves increased thrombin-activated receptor sig
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19720393" target="_blank">PMID:19720393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5039,6 +5195,7 @@ This pathophysiological event involves increased thrombin-activated receptor sig
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19720393" target="_blank">PMID:19720393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5074,18 +5231,20 @@ This pathophysiological event involves increased thrombin-activated receptor sig
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves myometrial cell (CL:0002366). CL:0002366 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         myometrial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl">CL:0002366</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myometrial cell (CL:0002366). CL:0002366 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5102,18 +5261,20 @@ This pathophysiological event involves myometrial cell (CL:0002366). CL:0002366 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5141,18 +5302,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased uterine smooth muscle contraction (GO:0070471). GO:0070471 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         uterine smooth muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070471" target="_blank" class="curie-chip curie-chip-go">GO:0070471</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070471" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0070471</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased uterine smooth muscle contraction (GO:0070471). GO:0070471 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5173,18 +5336,20 @@ This pathophysiological event involves increased uterine smooth muscle contracti
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased prostaglandin biosynthetic process (GO:0001516). GO:0001516 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         prostaglandin biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001516" target="_blank" class="curie-chip curie-chip-go">GO:0001516</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001516" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0001516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased prostaglandin biosynthetic process (GO:0001516). GO:0001516 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5205,18 +5370,20 @@ This pathophysiological event involves increased prostaglandin biosynthetic proc
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix disassembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go">GO:0022617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0022617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5244,18 +5411,20 @@ This pathophysiological event involves increased extracellular matrix disassembl
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         myometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001296</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0001296</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5277,6 +5446,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32365105" target="_blank">PMID:32365105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5301,6 +5471,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32365105" target="_blank">PMID:32365105</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5322,6 +5493,7 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19720393" target="_blank">PMID:19720393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5366,18 +5538,20 @@ This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5419,6 +5593,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5461,18 +5636,20 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5515,6 +5692,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21890016" target="_blank">PMID:21890016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5536,6 +5714,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5572,7 +5751,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-retroplacental-hematoma-with-compressed-villi">
                 <div class="item-name">
                     Retroplacental Hematoma with Compressed Villi
 
@@ -5594,6 +5773,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19897298" target="_blank">PMID:19897298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5618,7 +5798,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-chronic-decidual-lesions">
                 <div class="item-name">
                     Chronic Decidual Lesions
 
@@ -5640,6 +5820,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19897298" target="_blank">PMID:19897298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5664,7 +5845,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-couvelaire-uterus">
                 <div class="item-name">
                     Couvelaire Uterus
 
@@ -5686,6 +5867,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35880101" target="_blank">PMID:35880101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5710,7 +5892,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-decidual-neutrophil-infiltration">
                 <div class="item-name">
                     Decidual Neutrophil Infiltration
 
@@ -5733,6 +5915,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16251427" target="_blank">PMID:16251427</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5754,6 +5937,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16251427" target="_blank">PMID:16251427</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5778,7 +5962,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-maternal-vascular-malperfusion-amsterdam-terminology">
                 <div class="item-name">
                     Maternal Vascular Malperfusion (Amsterdam Terminology)
 
@@ -5800,6 +5984,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27223167" target="_blank">PMID:27223167</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5894,16 +6079,20 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0005521</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP:0005521 is a phenotype from the Human Phenotype Ontology.">
-                        Disseminated intravascular coagulation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp">HP:0005521</a>
-
-
+This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP:0005521 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5923,6 +6112,7 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5965,16 +6155,20 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001919</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.">
-                        Acute kidney injury
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp">HP:0001919</a>
-
-
+This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5994,6 +6188,7 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6036,16 +6231,22 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Premature birth</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.">
-                        Premature birth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp">HP:0001622</a>
-
-
+This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6065,6 +6266,7 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6087,6 +6289,7 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31955792" target="_blank">PMID:31955792</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6129,16 +6332,20 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6158,6 +6365,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37164498" target="_blank">PMID:37164498</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6191,16 +6399,20 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003418</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.">
-                        Back pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp">HP:0003418</a>
-
-
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6220,6 +6432,7 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22805996" target="_blank">PMID:22805996</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6263,16 +6476,22 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Small for gestational age</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.">
-                        Small for gestational age
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp">HP:0001518</a>
-
-
+This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6292,6 +6511,7 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6334,16 +6554,20 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0025328</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Antepartum hemorrhage (HP:0025328). HP:0025328 is a phenotype from the Human Phenotype Ontology.">
-                        Antepartum hemorrhage
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp">HP:0025328</a>
-
-
+This clinical feature is Antepartum hemorrhage (HP:0025328). HP:0025328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6363,6 +6587,7 @@ This clinical feature is Antepartum hemorrhage (HP:0025328). HP:0025328 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6396,16 +6621,22 @@ This clinical feature is Antepartum hemorrhage (HP:0025328). HP:0025328 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Placental abruption</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011419" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011419</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Placental abruption (HP:0011419). HP:0011419 is a phenotype from the Human Phenotype Ontology.">
-                        Placental abruption
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011419" target="_blank" class="curie-chip curie-chip-hp">HP:0011419</a>
-
-
+This clinical feature is Placental abruption (HP:0011419). HP:0011419 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6425,6 +6656,7 @@ This clinical feature is Placental abruption (HP:0011419). HP:0011419 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6475,6 +6707,7 @@ This clinical feature is Placental abruption (HP:0011419). HP:0011419 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19897298" target="_blank">PMID:19897298</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6507,16 +6740,22 @@ This clinical feature is Placental abruption (HP:0011419). HP:0011419 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Fetal distress</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025116" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025116</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fetal distress (HP:0025116). HP:0025116 is a phenotype from the Human Phenotype Ontology.">
-                        Fetal distress
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025116" target="_blank" class="curie-chip curie-chip-hp">HP:0025116</a>
-
-
+This clinical feature is Fetal distress (HP:0025116). HP:0025116 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6536,6 +6775,7 @@ This clinical feature is Fetal distress (HP:0025116). HP:0025116 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19897298" target="_blank">PMID:19897298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6558,6 +6798,7 @@ This clinical feature is Fetal distress (HP:0025116). HP:0025116 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22805996" target="_blank">PMID:22805996</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6591,16 +6832,20 @@ This clinical feature is Fetal distress (HP:0025116). HP:0025116 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100021</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral palsy (HP:0100021). HP:0100021 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebral palsy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100021" target="_blank" class="curie-chip curie-chip-hp">HP:0100021</a>
-
-
+This clinical feature is Cerebral palsy (HP:0100021). HP:0100021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6620,6 +6865,7 @@ This clinical feature is Cerebral palsy (HP:0100021). HP:0100021 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22805996" target="_blank">PMID:22805996</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6653,16 +6899,20 @@ This clinical feature is Cerebral palsy (HP:0100021). HP:0100021 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000310" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000310</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Preterm premature rupture of membranes (HP:6000310). HP:6000310 is a phenotype from the Human Phenotype Ontology.">
-                        Preterm premature rupture of membranes
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000310" target="_blank" class="curie-chip curie-chip-hp">HP:6000310</a>
-
-
+This clinical feature is Preterm premature rupture of membranes (HP:6000310). HP:6000310 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6682,6 +6932,7 @@ This clinical feature is Preterm premature rupture of membranes (HP:6000310). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31955792" target="_blank">PMID:31955792</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6704,6 +6955,7 @@ This clinical feature is Preterm premature rupture of membranes (HP:6000310). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16251427" target="_blank">PMID:16251427</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6754,6 +7006,7 @@ This clinical feature is Preterm premature rupture of membranes (HP:6000310). HP
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6786,16 +7039,20 @@ This clinical feature is Preterm premature rupture of membranes (HP:6000310). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012768</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal asphyxia (HP:0012768). HP:0012768 is a phenotype from the Human Phenotype Ontology.">
-                        Neonatal asphyxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012768" target="_blank" class="curie-chip curie-chip-hp">HP:0012768</a>
-
-
+This clinical feature is Neonatal asphyxia (HP:0012768). HP:0012768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6815,6 +7072,7 @@ This clinical feature is Neonatal asphyxia (HP:0012768). HP:0012768 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22805996" target="_blank">PMID:22805996</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6837,6 +7095,7 @@ This clinical feature is Neonatal asphyxia (HP:0012768). HP:0012768 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6932,6 +7191,7 @@ This clinical feature is Neonatal asphyxia (HP:0012768). HP:0012768 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6967,15 +7227,17 @@ This clinical feature is Neonatal asphyxia (HP:0012768). HP:0012768 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: F5
 
 
-    <a href="https://bioregistry.io/hgnc:3542" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3542</a>
+    <a href="https://bioregistry.io/hgnc:3542" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:3542</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6999,6 +7261,7 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16595080" target="_blank">PMID:16595080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7020,6 +7283,7 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16595080" target="_blank">PMID:16595080</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7043,6 +7307,7 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7079,15 +7344,17 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: F2
 
 
-    <a href="https://bioregistry.io/hgnc:3535" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3535</a>
+    <a href="https://bioregistry.io/hgnc:3535" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:3535</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7111,6 +7378,7 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16595080" target="_blank">PMID:16595080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7133,6 +7401,7 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16595080" target="_blank">PMID:16595080</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7169,15 +7438,17 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ABCC8 (hgnc:59). hgnc:59 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCC8
 
 
-    <a href="https://bioregistry.io/hgnc:59" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:59</a>
+    <a href="https://bioregistry.io/hgnc:59" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:59</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCC8 (hgnc:59). hgnc:59 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7200,6 +7471,7 @@ This disease-associated gene is ABCC8 (hgnc:59). hgnc:59 is a gene from the HUGO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7237,15 +7509,17 @@ This disease-associated gene is ABCC8 (hgnc:59). hgnc:59 is a gene from the HUGO
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNJ11
 
 
-    <a href="https://bioregistry.io/hgnc:6257" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6257</a>
+    <a href="https://bioregistry.io/hgnc:6257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:6257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7268,6 +7542,7 @@ This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7305,15 +7580,17 @@ This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ADAM12 (hgnc:190). hgnc:190 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ADAM12
 
 
-    <a href="https://bioregistry.io/hgnc:190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:190</a>
+    <a href="https://bioregistry.io/hgnc:190" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:190</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ADAM12 (hgnc:190). hgnc:190 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7336,6 +7613,7 @@ This disease-associated gene is ADAM12 (hgnc:190). hgnc:190 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7373,15 +7651,17 @@ This disease-associated gene is ADAM12 (hgnc:190). hgnc:190 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CTNND2 (hgnc:2516). hgnc:2516 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTNND2
 
 
-    <a href="https://bioregistry.io/hgnc:2516" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2516</a>
+    <a href="https://bioregistry.io/hgnc:2516" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:2516</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNND2 (hgnc:2516). hgnc:2516 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7404,6 +7684,7 @@ This disease-associated gene is CTNND2 (hgnc:2516). hgnc:2516 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7441,15 +7722,17 @@ This disease-associated gene is CTNND2 (hgnc:2516). hgnc:2516 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ZNF28 (hgnc:13073). hgnc:13073 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZNF28
 
 
-    <a href="https://bioregistry.io/hgnc:13073" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13073</a>
+    <a href="https://bioregistry.io/hgnc:13073" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:13073</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZNF28 (hgnc:13073). hgnc:13073 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7472,6 +7755,7 @@ This disease-associated gene is ZNF28 (hgnc:13073). hgnc:13073 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7509,15 +7793,17 @@ This disease-associated gene is ZNF28 (hgnc:13073). hgnc:13073 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is IRX1 (hgnc:14358). hgnc:14358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IRX1
 
 
-    <a href="https://bioregistry.io/hgnc:14358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14358</a>
+    <a href="https://bioregistry.io/hgnc:14358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:14358</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRX1 (hgnc:14358). hgnc:14358 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7540,6 +7826,7 @@ This disease-associated gene is IRX1 (hgnc:14358). hgnc:14358 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884306" target="_blank">PMID:29884306</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7572,6 +7859,9 @@ This disease-associated gene is IRX1 (hgnc:14358). hgnc:14358 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7588,17 +7878,17 @@ This disease-associated gene is IRX1 (hgnc:14358). hgnc:14358 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Emergency Cesarean Delivery<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a clinical intervention from the NCI Thesaurus.">Emergency Cesarean Delivery</span>
+This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C92772" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a clinical intervention from the NCI Thesaurus.">NCIT:C92772</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92772" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C92772">NCIT:C92772</a>
 
 
 
@@ -7651,6 +7941,7 @@ This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a cl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7692,6 +7983,7 @@ This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a cl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7713,6 +8005,7 @@ This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a cl
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7744,17 +8037,17 @@ This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a cl
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Blood Transfusion<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.">Blood Transfusion</span>
+This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15192" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.">NCIT:C15192</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15192" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15192">NCIT:C15192</a>
 
 
 
@@ -7807,6 +8100,7 @@ This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7848,6 +8142,7 @@ This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7869,6 +8164,7 @@ This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7900,17 +8196,17 @@ This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7935,18 +8231,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses betamethasone (CHEBI:3077). CHEBI:3077 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         betamethasone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3077" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:3077</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3077" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:3077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses betamethasone (CHEBI:3077). CHEBI:3077 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7972,6 +8270,7 @@ This treatment uses betamethasone (CHEBI:3077). CHEBI:3077 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12164566" target="_blank">PMID:12164566</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8004,17 +8303,17 @@ This treatment uses betamethasone (CHEBI:3077). CHEBI:3077 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8039,18 +8338,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         magnesium sulfate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:32599</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:32599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8076,6 +8377,7 @@ This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeuti
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00186069" target="_blank">clinicaltrials:NCT00186069</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8108,17 +8410,17 @@ This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeuti
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8143,18 +8445,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         tranexamic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:48669</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:48669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8200,6 +8504,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
                         <a href="https://clinicaltrials.gov/study/NCT05840471" target="_blank">clinicaltrials:NCT05840471</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8231,17 +8536,17 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Induction of Labor<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Induction of Labor (NCIT:C92814). NCIT:C92814 is a clinical intervention from the NCI Thesaurus.">Induction of Labor</span>
+This treatment is Induction of Labor (NCIT:C92814). NCIT:C92814 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C92814" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Induction of Labor (NCIT:C92814). NCIT:C92814 is a clinical intervention from the NCI Thesaurus.">NCIT:C92814</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92814" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C92814">NCIT:C92814</a>
 
 
 
@@ -8284,6 +8589,7 @@ This treatment is Induction of Labor (NCIT:C92814). NCIT:C92814 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8314,17 +8620,17 @@ This treatment is Induction of Labor (NCIT:C92814). NCIT:C92814 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Hysterectomy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.">Hysterectomy</span>
+This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15256" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.">NCIT:C15256</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15256" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15256">NCIT:C15256</a>
 
 
 
@@ -8367,6 +8673,7 @@ This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21241259" target="_blank">PMID:21241259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8397,17 +8704,17 @@ This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8450,6 +8757,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8471,6 +8779,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8510,6 +8819,33 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking" data-dismech-node="Cigarette Smoking" data-dismech-type="environmental">
                 <div class="item-name">Cigarette Smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cigarette smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-50">ECTO:0100003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Maternal smoking is the best-quantified modifiable risk factor for abruption, plausibly acting through vasoconstriction and chronic decidual ischemia and necrosis. It is notable for a large population attributable fraction and for super-additive interaction with hypertensive disorders of pregnancy, the cleanest documented exposure-exposure interaction in this disease.
@@ -8528,6 +8864,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10214847" target="_blank">PMID:10214847</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8551,6 +8888,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10214847" target="_blank">PMID:10214847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8572,6 +8910,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10214847" target="_blank">PMID:10214847</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8624,6 +8963,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10214847" target="_blank">PMID:10214847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8654,6 +8994,33 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-cocaine-use" data-dismech-node="Cocaine Use" data-dismech-type="environmental">
                 <div class="item-name">Cocaine Use</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cocaine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000265" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-51">ECTO:9000265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cocaine (ECTO:9000265). ECTO:9000265 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Cocaine produces acute vasoconstriction and hypertensive surges. It carries the largest reported effect size of any graded risk factor in the umbrella review, though with wide confidence limits and only suggestive (class III) evidence quality.
@@ -8672,6 +9039,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35365209" target="_blank">PMID:35365209</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8694,6 +9062,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8744,6 +9113,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35365209" target="_blank">PMID:35365209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8776,6 +9146,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">A previous cesarean delivery raises abruption risk in subsequent pregnancies, alongside larger increases in placenta previa and placenta accreta, consistent with a scarred, abnormally decidualized implantation bed.
 </div>
 
@@ -8792,6 +9166,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29360829" target="_blank">PMID:29360829</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8842,6 +9217,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29360829" target="_blank">PMID:29360829</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8874,6 +9250,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Blunt abdominal trauma, including motor vehicle collisions and intimate partner violence, shears the elastic uterus against the relatively inelastic placenta.
 </div>
 
@@ -8890,6 +9270,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8940,6 +9321,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8972,6 +9354,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Chronic hypertension and preeclampsia both raise abruption risk, consistent with the shared decidual vascular lesion of ischemic placental disease.
 </div>
 
@@ -8988,6 +9374,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9038,6 +9425,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9070,6 +9458,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">A previous abruption is among the strongest predictors of recurrence, consistent with a persistent underlying maternal vascular phenotype rather than a one-off accident. Recurrence risk is roughly five-fold, which is the single most important piece of evidence for the chronic-disease rather than accident model, and the basis for counselling in a subsequent pregnancy.
 </div>
 
@@ -9086,6 +9478,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38366767" target="_blank">PMID:38366767</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9109,6 +9502,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40140972" target="_blank">PMID:40140972</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9131,6 +9525,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9180,6 +9575,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38366767" target="_blank">PMID:38366767</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9324,6 +9720,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17087729" target="_blank">PMID:17087729</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9364,6 +9761,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17087729" target="_blank">PMID:17087729</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9386,6 +9784,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19720393" target="_blank">PMID:19720393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9432,6 +9831,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9472,7 +9872,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-placenta-previa">
                 <div class="item-name">
 
                     Placenta Previa
@@ -9501,6 +9901,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16582134" target="_blank">PMID:16582134</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9522,6 +9923,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16582134" target="_blank">PMID:16582134</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9549,7 +9951,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-vasa-previa">
                 <div class="item-name">
 
                     Vasa Previa
@@ -9577,6 +9979,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16582134" target="_blank">PMID:16582134</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9616,7 +10019,7 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05840471">
                 <div class="item-name">
                     NCT05840471
 
@@ -9635,18 +10038,20 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Antepartum hemorrhage (HP:0025328). HP:0025328 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Antepartum hemorrhage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp">HP:0025328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0025328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Antepartum hemorrhage (HP:0025328). HP:0025328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9664,6 +10069,7 @@ This clinical trial targets Antepartum hemorrhage (HP:0025328). HP:0025328 is a 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05840471" target="_blank">clinicaltrials:NCT05840471</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9688,7 +10094,7 @@ This clinical trial targets Antepartum hemorrhage (HP:0025328). HP:0025328 is a 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00186069">
                 <div class="item-name">
                     NCT00186069
 
@@ -9707,18 +10113,20 @@ This clinical trial targets Antepartum hemorrhage (HP:0025328). HP:0025328 is a 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Premature birth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp">HP:0001622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001622</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9736,6 +10144,7 @@ This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenot
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00186069" target="_blank">clinicaltrials:NCT00186069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9760,7 +10169,7 @@ This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenot
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03782168">
                 <div class="item-name">
                     NCT03782168
 
@@ -9787,6 +10196,7 @@ This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenot
                         <a href="https://clinicaltrials.gov/study/NCT03782168" target="_blank">clinicaltrials:NCT03782168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9810,7 +10220,7 @@ This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenot
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01279369">
                 <div class="item-name">
                     NCT01279369
 
@@ -9837,6 +10247,7 @@ This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenot
                         <a href="https://clinicaltrials.gov/study/NCT01279369" target="_blank">clinicaltrials:NCT01279369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9860,7 +10271,7 @@ This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenot
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02299414">
                 <div class="item-name">
                     NCT02299414
 
@@ -9888,6 +10299,7 @@ This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenot
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02299414" target="_blank">clinicaltrials:NCT02299414</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -11226,6 +11638,11 @@ genetic:
       because the threshold is suggestive only.
 environmental:
 - name: Cigarette Smoking
+  exposure_term:
+    preferred_term: exposure to cigarette smoking
+    term:
+      id: ECTO:0100003
+      label: exposure to cigarette smoking
   influences_mechanisms:
   - target: Decidual Vasculopathy and Spiral Artery Failure
     environmental_effect: PREDISPOSES
@@ -11278,6 +11695,11 @@ environmental:
     snippet: &#34;maternal smoking (OR 1.80, 95% CI 1.75-1.85)&#34;
     explanation: Gives the umbrella-review pooled effect size for maternal smoking, graded class III (suggestive).
 - name: Cocaine Use
+  exposure_term:
+    preferred_term: exposure to cocaine
+    term:
+      id: ECTO:9000265
+      label: exposure to cocaine
   influences_mechanisms:
   - target: Decidual Vasculopathy and Spiral Artery Failure
     environmental_effect: TRIGGERS
@@ -13431,7 +13853,7 @@ Massive thromboplastin (tissue factor) release from the disrupted decidua into t
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Placental Abruption", "mondoId": "MONDO:0004846", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Placental_Abruption", "yamlRevision": "ee72e6db4fc3"};
+        const OS_CONFIG = {"diseaseName": "Placental Abruption", "mondoId": "MONDO:0004846", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Placental_Abruption", "yamlRevision": "2d4cca57d95d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13850,5 +14272,73 @@ Massive thromboplastin (tissue factor) release from the disrupted decidua into t
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

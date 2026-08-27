@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Brucellosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Brucellosis</h1>
             <div class="header-meta">
 
@@ -3660,7 +3782,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 42</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 46</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Brucellosis"
@@ -3809,7 +3931,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3838,7 +3960,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">42</div>
+                <div class="stat-value">46</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3883,27 +4005,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">INFECTIOUS_DISEASES</span>
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3918,7 +4117,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-syndrome-definition">
                 <div class="item-name">Clinical syndrome definition</div>
 
                 <div class="item-desc">Brucellosis is a zoonotic Brucella infection with non-specific systemic symptoms such as fever, fatigue, and joint pain, and can cause focal complications including endocarditis and arthritis.</div>
@@ -3964,6 +4163,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3985,6 +4185,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1097/QCO.0000000000001045" target="_blank">DOI:10.1097/QCO.0000000000001045</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4082,11 +4283,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type randomized controlled trial.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         randomized controlled trial
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type randomized controlled trial.</span>
     </span>
 
 
@@ -4130,6 +4335,12 @@ This experiment is of type randomized controlled trial.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4152,6 +4363,7 @@ This experiment is of type randomized controlled trial.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18045560" target="_blank">PMID:18045560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4224,11 +4436,15 @@ This experiment is of type randomized controlled trial.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type prospective cohort study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-2">
 
         prospective cohort study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment is of type this experiment type
+This experiment is of type prospective cohort study.</span>
     </span>
 
 
@@ -4272,6 +4488,12 @@ This experiment is of type prospective cohort study.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4294,6 +4516,7 @@ This experiment is of type prospective cohort study.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18045560" target="_blank">PMID:18045560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4373,11 +4596,15 @@ This experiment is of type prospective cohort study.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type controlled perturbation experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-3">
 
         controlled perturbation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment is of type this experiment type
+This experiment is of type controlled perturbation experiment.</span>
     </span>
 
 
@@ -4421,6 +4648,12 @@ This experiment is of type controlled perturbation experiment.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4443,6 +4676,7 @@ This experiment is of type controlled perturbation experiment.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18045560" target="_blank">PMID:18045560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4476,8 +4710,128 @@ This experiment is of type controlled perturbation experiment.">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">17</span>
+                <span class="card-count">18</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-zoonotic-acquisition-and-inoculation" data-dismech-node="Zoonotic acquisition and inoculation" data-dismech-type="pathophysiology">
+                <div class="item-name">Zoonotic acquisition and inoculation</div>
+
+                <div class="item-desc">Entry of Brucella into the human host from infected animals or their products. Acquisition is occupational for breeders, veterinarians, abattoir and laboratory workers through direct contact with animals, birth products and aerosols, and food-borne for the general public through raw milk and unpasteurized dairy. Human-to-human transmission is anecdotal, so essentially every human case begins at an animal reservoir. This is the proximal step the rest of this entry assumes: every other pathophysiology node here is downstream of established infection.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intracellular macrophage survival</span>
+
+	                            <span class="crosslink-desc">Inoculated organisms cross the mucosal or cutaneous barrier and are taken up by phagocytes, which is how the intracellular niche modeled downstream is established. Mucosal penetration and phagocytic uptake are the known intervening steps and are not separate nodes in this entry.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37630630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37630630" target="_blank">PMID:37630630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, risk groups are breeders and their families, veterinarians, laboratory personnel and dairy and slaughterhouse workers."</div>
+
+
+                <div class="evidence-explanation">Names the occupational groups in whom acquisition occurs, which is the exposure route half of this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37630630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37630630" target="_blank">PMID:37630630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The general public is mainly affected by consuming raw milk and unpasteurized dairy products and, to a lesser extent, raw viscera, blood and offal"</div>
+
+
+                <div class="evidence-explanation">Names the food-borne route, the second half of how the organism reaches the human host.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22081201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22081201" target="_blank">PMID:22081201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Transmission of brucellosis to humans occurs through the consumption of infected, unpasteurized animal milk and milk products, through direct contact with infected animal parts, through ruptures of skin and mucous membranes and through the inhalation of infected aerosolized particles."</div>
+
+
+                <div class="evidence-explanation">Enumerates every route this node&#39;s description asserts in a single sentence, including the inhalational route that the One Health review does not mention.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-macrophage-survival" data-dismech-node="Intracellular macrophage survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular macrophage survival</div>
@@ -4489,18 +4843,20 @@ This experiment is of type controlled perturbation experiment.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4528,18 +4884,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated defense response to Gram-negative bacterium (GO:0050829). GO:0050829 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         defense response to Gram-negative bacterium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050829" target="_blank" class="curie-chip curie-chip-go">GO:0050829</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050829" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0050829</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated defense response to Gram-negative bacterium (GO:0050829). GO:0050829 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4597,6 +4955,7 @@ This pathophysiological event involves dysregulated defense response to Gram-neg
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0306429" target="_blank">DOI:10.1371/journal.pone.0306429</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4630,18 +4989,20 @@ This pathophysiological event involves dysregulated defense response to Gram-neg
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         bronchial epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4658,18 +5019,20 @@ This pathophysiological event involves bronchial epithelial cell (CL:0002328). C
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4686,18 +5049,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4714,18 +5079,20 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4753,18 +5120,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4822,6 +5191,7 @@ This pathophysiological event involves decreased antigen processing and presenta
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0306429" target="_blank">DOI:10.1371/journal.pone.0306429</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4843,6 +5213,7 @@ This pathophysiological event involves decreased antigen processing and presenta
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0306429" target="_blank">DOI:10.1371/journal.pone.0306429</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4877,18 +5248,20 @@ This pathophysiological event involves decreased antigen processing and presenta
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves epithelial cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl">CL:0000066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4905,18 +5278,20 @@ This pathophysiological event involves epithelial cell (CL:0000066). CL:0000066 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4944,18 +5319,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased regulation of cytokine production (GO:0001817). GO:0001817 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of cytokine production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001817" target="_blank" class="curie-chip curie-chip-go">GO:0001817</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001817</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased regulation of cytokine production (GO:0001817). GO:0001817 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4976,18 +5353,20 @@ This pathophysiological event involves increased regulation of cytokine producti
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5045,6 +5424,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0306429" target="_blank">DOI:10.1371/journal.pone.0306429</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5085,18 +5465,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated defense response to bacterium (GO:0042742). GO:0042742 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         defense response to bacterium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" class="curie-chip curie-chip-go">GO:0042742</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0042742</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated defense response to bacterium (GO:0042742). GO:0042742 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5161,6 +5543,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-69669-w" target="_blank">DOI:10.1038/s41598-024-69669-w</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5291,6 +5674,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5411,6 +5795,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1017/S0950268824000803" target="_blank">DOI:10.1017/S0950268824000803</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5772,18 +6157,20 @@ This pathophysiological event involves dysregulated defense response to bacteriu
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5811,18 +6198,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Biological Process Involved in Interaction with Host (GO:0051701). GO:0051701 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Biological Process Involved in Interaction with Host
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051701" target="_blank" class="curie-chip curie-chip-go">GO:0051701</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051701" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0051701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Biological Process Involved in Interaction with Host (GO:0051701). GO:0051701 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5876,6 +6265,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0306429" target="_blank">DOI:10.1371/journal.pone.0306429</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5897,6 +6287,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18611821" target="_blank">PMID:18611821</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5938,18 +6329,20 @@ This pathophysiological event involves Biological Process Involved in Interactio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0046677 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Response to Antibiotic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046677" target="_blank" class="curie-chip curie-chip-go">GO:0046677</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046677" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0046677</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0046677 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5987,6 +6380,7 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28639230" target="_blank">PMID:28639230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6028,18 +6422,20 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6077,6 +6473,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24336183" target="_blank">PMID:24336183</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6118,18 +6515,20 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves DNA-Templated Transcription (GO:0006351). GO:0006351 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA-Templated Transcription
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006351" target="_blank" class="curie-chip curie-chip-go">GO:0006351</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006351" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA-Templated Transcription (GO:0006351). GO:0006351 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6167,6 +6566,7 @@ This pathophysiological event involves DNA-Templated Transcription (GO:0006351).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32342856" target="_blank">PMID:32342856</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6216,7 +6616,7 @@ This pathophysiological event involves DNA-Templated Transcription (GO:0006351).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal organ involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disseminated abdominal involvement produces abdominal pain.\"}, {\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain is a recognized abdominal manifestation of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arthritis is a focal musculoskeletal complication of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Back pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Back pain is a frequent axial-musculoskeletal symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Bacterial RNA Polymerase (Rifamycin Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rifampicin, a component of the classic WHO-recommended doxycycline-rifampicin regimen, binds the beta subunit of bacterial DNA-dependent RNA polymerase and blocks nascent-transcript elongation. Because rifamycins are cell- and tissue-penetrant, this target is reachable in the intracellular Brucella reservoir; single rpoB point mutations confer high-level resistance, which is part of why rifampicin is used in combination rather than alone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA-Templated Transcription\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella, like other bacteria, depends on 70S-ribosome translation of its mRNA. Doxycycline (a tetracycline) binds the 30S subunit and blocks aminoacyl-tRNA delivery, and the aminoglycosides streptomycin and gentamicin also target the 30S ribosome \\u2014 the shared molecular target that anchors the doxycycline-plus-aminoglycoside brucellosis regimens. This is a bacterial target absent from the beta-lactam-inaccessible host cytoplasm, complementing the intracellular-niche gating node.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Translation\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Cardiac valve seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal Brucella infection of cardiac valves produces endocarditis.\"}, {\"id\": \"Central nervous system invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal neurologic infection produces neurobrucellosis.\"}, {\"id\": \"Doxycycline-gentamicin combination therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aminoglycoside-containing combination therapy that ranked highest for efficacy (SUCRA 0.94) in a 2024 network meta-analysis of randomized trials. Scope caveat: that meta-analysis restricted inclusion to trials of children and adolescents (pooled trial population aged 13-70), the doxycycline-gentamicin top ranking rested on only 2 trials, and the authors state their recommendations are not applicable to young children (\u003c8 years), pregnant women, or focal disease such as spondylitis, endocarditis, and neurobrucellosis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"doxycycline\", \"gentamicin\"]}}, {\"id\": \"Doxycycline-rifampicin combination therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard oral dual antibiotic therapy used for uncomplicated human brucellosis and bacteremic disease, though relapse risk can be higher than with some aminoglycoside-containing regimens.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"doxycycline\", \"rifampicin\"]}}, {\"id\": \"Doxycycline-streptomycin combination therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aminoglycoside-containing combination therapy with evidence of superior efficacy compared with doxycycline-rifampicin in network meta-analyses.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"doxycycline\", \"streptomycin\"]}}, {\"id\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emerging triple therapy identified as a potential strategy to reduce overall therapy failure, with very low-certainty evidence requiring confirmation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"doxycycline\", \"streptomycin\", \"hydroxychloroquine\"]}}, {\"id\": \"Endocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Endocarditis is a rare but serious focal complication and the leading cause of brucellosis-related death.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0100584\"}}, {\"id\": \"Epididymo-orchitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epididymo-orchitis is the most common genitourinary focal complication in men with brucellosis (roughly 1 in 10 male cases). The ontology term Orchitis is the closest available match for the epididymo-orchitis presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100796\"}}, {\"id\": \"Facultative Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella is a facultative intracellular pathogen that survives and replicates within host phagocytes (chiefly macrophages). This intracellular lifestyle shields the organism from antibodies and complement and, critically for therapy, from antibiotics that cannot accumulate inside eukaryotic cells \\u2014 notably the beta-lactams. Effective treatment is therefore restricted to cell-penetrant agents (doxycycline, aminoglycosides that concentrate at the site, rifampicin), and cure requires prolonged combination therapy to reach and clear the protected intracellular reservoir. This is the lifestyle-gating principle that constrains drug choice beyond any single molecular target.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"Biological Process Involved in Interaction with Host\"], \"role\": \"intrinsic_resistance\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue is part of the non-specific systemic presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is the dominant non-specific manifestation of human brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Genitourinary seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal genitourinary infection affects the epididymis and testis.\"}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is a frequent constitutional symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hematogenous dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella bacteraemia distributes organisms from the persistent systemic reservoir to distant tissues.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly is a common organ finding in systemic brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatosplenomegaly is documented among maternal-child brucellosis complications.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Intracellular macrophage survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella can survive inside macrophages, establishing an intracellular niche that supports persistence and immune evasion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"defense response to Gram-negative bacterium\"]}}, {\"id\": \"Joint pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a common non-specific musculoskeletal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"MHC-I surface down-modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella abortus RNA reduces IFN-gamma-induced surface MHC-I expression in epithelial, endothelial, and monocyte/macrophage contexts.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\", \"endothelial cell\", \"monocyte\", \"macrophage\"], \"biological_processes\": [\"antigen processing and presentation\"]}}, {\"id\": \"Malaise\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malaise is a frequent constitutional symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033834\"}}, {\"id\": \"Miscarriage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Miscarriage is a documented adverse pregnancy outcome of maternal brucellosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myalgia is a frequent musculoskeletal symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Neurobrucellosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurobrucellosis \\u2014 central nervous system involvement, most commonly presenting as meningitis or meningoencephalitis \\u2014 is an uncommon but serious focal complication. The ontology term Meningitis is used as the closest representative of this CNS syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001287\"}}, {\"id\": \"Osteoarticular seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal osteoarticular infection affects peripheral joints, sacroiliac joints, or vertebral structures.\"}, {\"id\": \"Persistent multisystem infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucellosis involves difficult-to-clear infection requiring prolonged combination therapy to clear infection and prevent relapse.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"defense response to bacterium\"]}}, {\"id\": \"Placental infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Maternal brucellosis can compromise pregnancy through placental involvement.\"}, {\"id\": \"Premature birth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature birth is a documented adverse pregnancy outcome of maternal brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001622\"}}, {\"id\": \"Pro-inflammatory cytokine induction in epithelial and endothelial cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella abortus RNA can increase IL-8 and IL-6 secretion in epithelial and endothelial cell models.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell\", \"endothelial cell\"], \"biological_processes\": [\"regulation of cytokine production\", \"inflammatory response\"]}}, {\"id\": \"Requirement for Cell-Penetrant Antimicrobials\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Efficacy against the intracellular Brucella reservoir tracks the intracellular concentration a drug achieves, not merely its in vitro MIC. Doxycycline, rifampicin, and aminoglycosides accumulate within (or otherwise reach) infected cells, whereas beta-lactams do not \\u2014 so the mainstay regimens are built from cell-penetrant agents given in prolonged combination. This is the cell-penetrant-drug requirement that the brucellosis treatments target.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Antibiotic\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Reticuloendothelial organ seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal infection of liver and spleen produces organ enlargement.\"}, {\"id\": \"Sacroiliitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sacroiliitis and spondylitis are the characteristic osteoarticular focal manifestations of brucellosis, reflecting the organism\u0027s tropism for the axial skeleton.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012317\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is a common organ finding in systemic brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Spondylitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spondylitis (with sacroiliitis) is a characteristic osteoarticular focal manifestation of brucellosis affecting the axial skeleton.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033631\"}}, {\"id\": \"Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profuse sweating is a classic constitutional feature of brucellosis (historically \\\"undulant fever\\\" with drenching sweats).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Systemic constitutional illness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human brucellosis commonly manifests as a systemic febrile illness with fatigue, malaise, sweats, musculoskeletal pain, headache, and weight loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weight loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weight loss accompanies the chronic constitutional illness of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Intracellular macrophage survival\", \"target\": \"MHC-I surface down-modulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular infection context is linked to reduced MHC-I surface expression and impaired CD8+ T-cell surveillance.\"}, {\"source\": \"MHC-I surface down-modulation\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired MHC-I surface expression may help Brucella persist by reducing CD8+ T-cell surveillance.\"}, {\"source\": \"Pro-inflammatory cytokine induction in epithelial and endothelial cells\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokine signaling contributes to systemic febrile illness.\"}, {\"source\": \"Persistent multisystem infection\", \"target\": \"Systemic constitutional illness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent systemic infection produces the characteristic constitutional and musculoskeletal symptom complex.\"}, {\"source\": \"Persistent multisystem infection\", \"target\": \"Hematogenous dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent infection enters the bloodstream and disseminates to distant tissues.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fatigue is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Joint pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arthralgia is a frequent musculoskeletal manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Back pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Back pain is a common symptom in the general musculoskeletal complex and is not assumed to represent focal axial infection in every patient.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Malaise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malaise is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sweating is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myalgia is a frequent musculoskeletal manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Headache is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Weight loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weight loss accompanies the systemic illness of brucellosis.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Osteoarticular seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream dissemination permits focal infection of joints, sacroiliac joints, and vertebral structures.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Cardiac valve seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream organisms can establish focal valvular infection.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Central nervous system invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream dissemination can lead to focal neurologic infection.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Genitourinary seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream dissemination can establish focal infection in the epididymis and testis.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Placental infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal infection can involve the placenta and threaten pregnancy.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Reticuloendothelial organ seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream organisms can localize in liver and spleen.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Abdominal organ involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated brucellosis can involve abdominal organs and produce abdominal pain.\"}, {\"source\": \"Osteoarticular seeding\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral joint infection may manifest as arthritis.\"}, {\"source\": \"Osteoarticular seeding\", \"target\": \"Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sacroiliac focal infection manifests as sacroiliitis.\"}, {\"source\": \"Osteoarticular seeding\", \"target\": \"Spondylitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral focal infection manifests as spondylitis.\"}, {\"source\": \"Cardiac valve seeding\", \"target\": \"Endocarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Valvular infection manifests as endocarditis.\"}, {\"source\": \"Central nervous system invasion\", \"target\": \"Neurobrucellosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement may manifest as meningitis or meningoencephalitis.\"}, {\"source\": \"Genitourinary seeding\", \"target\": \"Epididymo-orchitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epididymal and testicular infection manifests as epididymo-orchitis.\"}, {\"source\": \"Placental infection\", \"target\": \"Miscarriage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal infection may result in miscarriage.\"}, {\"source\": \"Placental infection\", \"target\": \"Premature birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal infection may result in premature birth.\"}, {\"source\": \"Reticuloendothelial organ seeding\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Combined liver and spleen enlargement is documented in maternal-child brucellosis.\"}, {\"source\": \"Reticuloendothelial organ seeding\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic involvement manifests as splenomegaly.\"}, {\"source\": \"Reticuloendothelial organ seeding\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic involvement manifests as hepatomegaly.\"}, {\"source\": \"Abdominal organ involvement\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal involvement manifests as abdominal pain.\"}, {\"source\": \"Facultative Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the intracellular niche excludes poorly penetrant drugs, effective brucellosis therapy is restricted to agents that accumulate inside host cells.\"}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Bacterial RNA Polymerase (Rifamycin Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin combination therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin combination therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin combination therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-gentamicin combination therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-gentamicin combination therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-gentamicin combination therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal organ involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disseminated abdominal involvement produces abdominal pain.\"}, {\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain is a recognized abdominal manifestation of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arthritis is a focal musculoskeletal complication of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Back pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Back pain is a frequent axial-musculoskeletal symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Bacterial RNA Polymerase (Rifamycin Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rifampicin, a component of the classic WHO-recommended doxycycline-rifampicin regimen, binds the beta subunit of bacterial DNA-dependent RNA polymerase and blocks nascent-transcript elongation. Because rifamycins are cell- and tissue-penetrant, this target is reachable in the intracellular Brucella reservoir; single rpoB point mutations confer high-level resistance, which is part of why rifampicin is used in combination rather than alone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA-Templated Transcription\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella, like other bacteria, depends on 70S-ribosome translation of its mRNA. Doxycycline (a tetracycline) binds the 30S subunit and blocks aminoacyl-tRNA delivery, and the aminoglycosides streptomycin and gentamicin also target the 30S ribosome \\u2014 the shared molecular target that anchors the doxycycline-plus-aminoglycoside brucellosis regimens. This is a bacterial target absent from the beta-lactam-inaccessible host cytoplasm, complementing the intracellular-niche gating node.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Translation\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Cardiac valve seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal Brucella infection of cardiac valves produces endocarditis.\"}, {\"id\": \"Central nervous system invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal neurologic infection produces neurobrucellosis.\"}, {\"id\": \"Doxycycline-gentamicin combination therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aminoglycoside-containing combination therapy that ranked highest for efficacy (SUCRA 0.94) in a 2024 network meta-analysis of randomized trials. Scope caveat: that meta-analysis restricted inclusion to trials of children and adolescents (pooled trial population aged 13-70), the doxycycline-gentamicin top ranking rested on only 2 trials, and the authors state their recommendations are not applicable to young children (\u003c8 years), pregnant women, or focal disease such as spondylitis, endocarditis, and neurobrucellosis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"doxycycline\", \"gentamicin\"]}}, {\"id\": \"Doxycycline-rifampicin combination therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard oral dual antibiotic therapy used for uncomplicated human brucellosis and bacteremic disease, though relapse risk can be higher than with some aminoglycoside-containing regimens.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"doxycycline\", \"rifampicin\"]}}, {\"id\": \"Doxycycline-streptomycin combination therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aminoglycoside-containing combination therapy with evidence of superior efficacy compared with doxycycline-rifampicin in network meta-analyses.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"doxycycline\", \"streptomycin\"]}}, {\"id\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emerging triple therapy identified as a potential strategy to reduce overall therapy failure, with very low-certainty evidence requiring confirmation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"doxycycline\", \"streptomycin\", \"hydroxychloroquine\"]}}, {\"id\": \"Endocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Endocarditis is a rare but serious focal complication and the leading cause of brucellosis-related death.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0100584\"}}, {\"id\": \"Epididymo-orchitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epididymo-orchitis is the most common genitourinary focal complication in men with brucellosis (roughly 1 in 10 male cases). The ontology term Orchitis is the closest available match for the epididymo-orchitis presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100796\"}}, {\"id\": \"Facultative Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella is a facultative intracellular pathogen that survives and replicates within host phagocytes (chiefly macrophages). This intracellular lifestyle shields the organism from antibodies and complement and, critically for therapy, from antibiotics that cannot accumulate inside eukaryotic cells \\u2014 notably the beta-lactams. Effective treatment is therefore restricted to cell-penetrant agents (doxycycline, aminoglycosides that concentrate at the site, rifampicin), and cure requires prolonged combination therapy to reach and clear the protected intracellular reservoir. This is the lifestyle-gating principle that constrains drug choice beyond any single molecular target.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"Biological Process Involved in Interaction with Host\"], \"role\": \"intrinsic_resistance\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue is part of the non-specific systemic presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is the dominant non-specific manifestation of human brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Genitourinary seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal genitourinary infection affects the epididymis and testis.\"}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is a frequent constitutional symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hematogenous dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella bacteraemia distributes organisms from the persistent systemic reservoir to distant tissues.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly is a common organ finding in systemic brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatosplenomegaly is documented among maternal-child brucellosis complications.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Inadequate One Health control infrastructure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Weak surveillance, diagnostic, veterinary, and public-health infrastructure can impair brucellosis control in endemic settings.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"risk factor\"}}, {\"id\": \"Intracellular macrophage survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella can survive inside macrophages, establishing an intracellular niche that supports persistence and immune evasion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"defense response to Gram-negative bacterium\"]}}, {\"id\": \"Joint pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a common non-specific musculoskeletal manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Livestock-dependent setting\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Livestock-dependent regions have higher exposure opportunity for zoonotic Brucella transmission.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"risk factor\"}}, {\"id\": \"MHC-I surface down-modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella abortus RNA reduces IFN-gamma-induced surface MHC-I expression in epithelial, endothelial, and monocyte/macrophage contexts.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\", \"endothelial cell\", \"monocyte\", \"macrophage\"], \"biological_processes\": [\"antigen processing and presentation\"]}}, {\"id\": \"Malaise\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malaise is a frequent constitutional symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033834\"}}, {\"id\": \"Maternal livestock exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"risk factor\"}}, {\"id\": \"Miscarriage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Miscarriage is a documented adverse pregnancy outcome of maternal brucellosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myalgia is a frequent musculoskeletal symptom of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Neurobrucellosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurobrucellosis \\u2014 central nervous system involvement, most commonly presenting as meningitis or meningoencephalitis \\u2014 is an uncommon but serious focal complication. The ontology term Meningitis is used as the closest representative of this CNS syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001287\"}}, {\"id\": \"Osteoarticular seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal osteoarticular infection affects peripheral joints, sacroiliac joints, or vertebral structures.\"}, {\"id\": \"Persistent multisystem infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucellosis involves difficult-to-clear infection requiring prolonged combination therapy to clear infection and prevent relapse.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"defense response to bacterium\"]}}, {\"id\": \"Placental infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Maternal brucellosis can compromise pregnancy through placental involvement.\"}, {\"id\": \"Premature birth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature birth is a documented adverse pregnancy outcome of maternal brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001622\"}}, {\"id\": \"Pro-inflammatory cytokine induction in epithelial and endothelial cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brucella abortus RNA can increase IL-8 and IL-6 secretion in epithelial and endothelial cell models.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell\", \"endothelial cell\"], \"biological_processes\": [\"regulation of cytokine production\", \"inflammatory response\"]}}, {\"id\": \"Requirement for Cell-Penetrant Antimicrobials\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Efficacy against the intracellular Brucella reservoir tracks the intracellular concentration a drug achieves, not merely its in vitro MIC. Doxycycline, rifampicin, and aminoglycosides accumulate within (or otherwise reach) infected cells, whereas beta-lactams do not \\u2014 so the mainstay regimens are built from cell-penetrant agents given in prolonged combination. This is the cell-penetrant-drug requirement that the brucellosis treatments target.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Antibiotic\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Reticuloendothelial organ seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal infection of liver and spleen produces organ enlargement.\"}, {\"id\": \"Sacroiliitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sacroiliitis and spondylitis are the characteristic osteoarticular focal manifestations of brucellosis, reflecting the organism\u0027s tropism for the axial skeleton.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012317\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is a common organ finding in systemic brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Spondylitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spondylitis (with sacroiliitis) is a characteristic osteoarticular focal manifestation of brucellosis affecting the axial skeleton.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033631\"}}, {\"id\": \"Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profuse sweating is a classic constitutional feature of brucellosis (historically \\\"undulant fever\\\" with drenching sweats).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Systemic constitutional illness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human brucellosis commonly manifests as a systemic febrile illness with fatigue, malaise, sweats, musculoskeletal pain, headache, and weight loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weight loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weight loss accompanies the chronic constitutional illness of brucellosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001824\"}}, {\"id\": \"Zoonotic acquisition and inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Entry of Brucella into the human host from infected animals or their products. Acquisition is occupational for breeders, veterinarians, abattoir and laboratory workers through direct contact with animals, birth products and aerosols, and food-borne for the general public through raw milk and unpasteurized dairy. Human-to-human transmission is anecdotal, so essentially every human case begins at an animal reservoir. This is the proximal step the rest of this entry assumes: every other pathophysiology node here is downstream of established infection.\", \"meta\": {\"evidence_count\": 3, \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Zoonotic acquisition and inoculation\", \"target\": \"Intracellular macrophage survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inoculated organisms cross the mucosal or cutaneous barrier and are taken up by phagocytes, which is how the intracellular niche modeled downstream is established. Mucosal penetration and phagocytic uptake are the known intervening steps and are not separate nodes in this entry.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Intracellular macrophage survival\", \"target\": \"MHC-I surface down-modulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular infection context is linked to reduced MHC-I surface expression and impaired CD8+ T-cell surveillance.\"}, {\"source\": \"MHC-I surface down-modulation\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired MHC-I surface expression may help Brucella persist by reducing CD8+ T-cell surveillance.\"}, {\"source\": \"Pro-inflammatory cytokine induction in epithelial and endothelial cells\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokine signaling contributes to systemic febrile illness.\"}, {\"source\": \"Persistent multisystem infection\", \"target\": \"Systemic constitutional illness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent systemic infection produces the characteristic constitutional and musculoskeletal symptom complex.\"}, {\"source\": \"Persistent multisystem infection\", \"target\": \"Hematogenous dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent infection enters the bloodstream and disseminates to distant tissues.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fatigue is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Joint pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arthralgia is a frequent musculoskeletal manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Back pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Back pain is a common symptom in the general musculoskeletal complex and is not assumed to represent focal axial infection in every patient.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Malaise\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malaise is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sweating is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myalgia is a frequent musculoskeletal manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Headache is a frequent constitutional manifestation of systemic brucellosis.\"}, {\"source\": \"Systemic constitutional illness\", \"target\": \"Weight loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weight loss accompanies the systemic illness of brucellosis.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Osteoarticular seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream dissemination permits focal infection of joints, sacroiliac joints, and vertebral structures.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Cardiac valve seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream organisms can establish focal valvular infection.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Central nervous system invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream dissemination can lead to focal neurologic infection.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Genitourinary seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream dissemination can establish focal infection in the epididymis and testis.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Placental infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal infection can involve the placenta and threaten pregnancy.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Reticuloendothelial organ seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bloodstream organisms can localize in liver and spleen.\"}, {\"source\": \"Hematogenous dissemination\", \"target\": \"Abdominal organ involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated brucellosis can involve abdominal organs and produce abdominal pain.\"}, {\"source\": \"Osteoarticular seeding\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral joint infection may manifest as arthritis.\"}, {\"source\": \"Osteoarticular seeding\", \"target\": \"Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sacroiliac focal infection manifests as sacroiliitis.\"}, {\"source\": \"Osteoarticular seeding\", \"target\": \"Spondylitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral focal infection manifests as spondylitis.\"}, {\"source\": \"Cardiac valve seeding\", \"target\": \"Endocarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Valvular infection manifests as endocarditis.\"}, {\"source\": \"Central nervous system invasion\", \"target\": \"Neurobrucellosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement may manifest as meningitis or meningoencephalitis.\"}, {\"source\": \"Genitourinary seeding\", \"target\": \"Epididymo-orchitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epididymal and testicular infection manifests as epididymo-orchitis.\"}, {\"source\": \"Placental infection\", \"target\": \"Miscarriage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal infection may result in miscarriage.\"}, {\"source\": \"Placental infection\", \"target\": \"Premature birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal infection may result in premature birth.\"}, {\"source\": \"Reticuloendothelial organ seeding\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Combined liver and spleen enlargement is documented in maternal-child brucellosis.\"}, {\"source\": \"Reticuloendothelial organ seeding\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic involvement manifests as splenomegaly.\"}, {\"source\": \"Reticuloendothelial organ seeding\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic involvement manifests as hepatomegaly.\"}, {\"source\": \"Abdominal organ involvement\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal involvement manifests as abdominal pain.\"}, {\"source\": \"Facultative Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the intracellular niche excludes poorly penetrant drugs, effective brucellosis therapy is restricted to agents that accumulate inside host cells.\"}, {\"source\": \"Livestock-dependent setting\", \"target\": \"Zoonotic acquisition and inoculation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A livestock-dependent economy is a determinant of how much contact a population has with the animal reservoir, not an exposure in itself. Proximity to infected animals and consumption of unpasteurized local dairy are the known intervening steps, and neither is a node in this graph.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal livestock exposure\", \"target\": \"Zoonotic acquisition and inoculation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Unlike the setting-level entry above, this is the exposure event itself: contact with infected livestock is how the organism reaches the host in this group, and the cited review puts the majority of cases on that route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inadequate One Health control infrastructure\", \"target\": \"Zoonotic acquisition and inoculation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Control infrastructure acts on the animal reservoir rather than on the person: weak veterinary surveillance, absent herd vaccination and unenforced milk pasteurization all leave more infected animals and products in contact with people. The review documents the infrastructural weakness but does not trace it through to a case count, so the intermediates are recorded as unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Bacterial RNA Polymerase (Rifamycin Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-rifampicin combination therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin combination therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin combination therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin combination therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-gentamicin combination therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-gentamicin combination therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-gentamicin combination therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"target\": \"Persistent multisystem infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"target\": \"Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-streptomycin-hydroxychloroquine triple therapy\", \"target\": \"Requirement for Cell-Penetrant Antimicrobials\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6274,16 +6674,20 @@ This pathophysiological event involves DNA-Templated Transcription (GO:0006351).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatosplenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
-
-
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6303,6 +6707,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s43088-024-00569-8" target="_blank">DOI:10.1186/s43088-024-00569-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6338,16 +6743,20 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001744</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.">
-                        Splenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp">HP:0001744</a>
-
-
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6367,6 +6776,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6411,16 +6821,20 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6440,6 +6854,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6484,16 +6899,22 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Meningitis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001287</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neurobrucellosis, annotated with Meningitis (HP:0001287). HP:0001287 is a phenotype from the Human Phenotype Ontology.">
-                        Meningitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp">HP:0001287</a>
-
-
+This clinical feature is Neurobrucellosis, annotated with Meningitis (HP:0001287). HP:0001287 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6513,6 +6934,7 @@ This clinical feature is Neurobrucellosis, annotated with Meningitis (HP:0001287
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6557,16 +6979,22 @@ This clinical feature is Neurobrucellosis, annotated with Meningitis (HP:0001287
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperhidrosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000975</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sweats, annotated with Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperhidrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp">HP:0000975</a>
-
-
+This clinical feature is Sweats, annotated with Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6586,6 +7014,7 @@ This clinical feature is Sweats, annotated with Hyperhidrosis (HP:0000975). HP:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6630,16 +7059,20 @@ This clinical feature is Sweats, annotated with Hyperhidrosis (HP:0000975). HP:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6659,6 +7092,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6703,16 +7137,20 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
-                        Arthritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
-
-
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6732,6 +7170,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6767,16 +7206,20 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0033631</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype from the Human Phenotype Ontology.">
-                        Spondylitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033631" target="_blank" class="curie-chip curie-chip-hp">HP:0033631</a>
-
-
+This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6796,6 +7239,7 @@ This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6840,16 +7284,20 @@ This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.">
-                        Headache
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp">HP:0002315</a>
-
-
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6869,6 +7317,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6913,16 +7362,20 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.">
-                        Premature birth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp">HP:0001622</a>
-
-
+This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6942,6 +7395,7 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s43088-024-00569-8" target="_blank">DOI:10.1186/s43088-024-00569-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6986,16 +7440,20 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7015,6 +7473,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7050,16 +7509,22 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Arthralgia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint pain, annotated with Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.">
-                        Arthralgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp">HP:0002829</a>
-
-
+This clinical feature is Joint pain, annotated with Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7079,6 +7544,7 @@ This clinical feature is Joint pain, annotated with Arthralgia (HP:0002829). HP:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7114,16 +7580,20 @@ This clinical feature is Joint pain, annotated with Arthralgia (HP:0002829). HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0033834</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from the Human Phenotype Ontology.">
-                        Malaise
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp">HP:0033834</a>
-
-
+This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7143,6 +7613,7 @@ This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7178,16 +7649,20 @@ This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.">
-                        Myalgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp">HP:0003326</a>
-
-
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7207,6 +7682,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7242,16 +7718,20 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003418</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.">
-                        Back pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp">HP:0003418</a>
-
-
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7271,6 +7751,7 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7306,16 +7787,20 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7335,6 +7820,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7379,16 +7865,20 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7408,6 +7898,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7452,16 +7943,20 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100584" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0100584</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Endocarditis (HP:0100584). HP:0100584 is a phenotype from the Human Phenotype Ontology.">
-                        Endocarditis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100584" target="_blank" class="curie-chip curie-chip-hp">HP:0100584</a>
-
-
+This clinical feature is Endocarditis (HP:0100584). HP:0100584 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7481,6 +7976,7 @@ This clinical feature is Endocarditis (HP:0100584). HP:0100584 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7516,16 +8012,22 @@ This clinical feature is Endocarditis (HP:0100584). HP:0100584 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sacroiliac arthritis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012317" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012317</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sacroiliitis, annotated with Sacroiliac arthritis (HP:0012317). HP:0012317 is a phenotype from the Human Phenotype Ontology.">
-                        Sacroiliac arthritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012317" target="_blank" class="curie-chip curie-chip-hp">HP:0012317</a>
-
-
+This clinical feature is Sacroiliitis, annotated with Sacroiliac arthritis (HP:0012317). HP:0012317 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7545,6 +8047,7 @@ This clinical feature is Sacroiliitis, annotated with Sacroiliac arthritis (HP:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7580,16 +8083,20 @@ This clinical feature is Sacroiliitis, annotated with Sacroiliac arthritis (HP:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100796" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0100796</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Epididymo-orchitis, annotated with Orchitis (HP:0100796). HP:0100796 is a phenotype from the Human Phenotype Ontology.">
-                        Orchitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100796" target="_blank" class="curie-chip curie-chip-hp">HP:0100796</a>
-
-
+This clinical feature is Epididymo-orchitis, annotated with Orchitis (HP:0100796). HP:0100796 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7609,6 +8116,7 @@ This clinical feature is Epididymo-orchitis, annotated with Orchitis (HP:0100796
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7663,6 +8171,7 @@ This clinical feature is Epididymo-orchitis, annotated with Orchitis (HP:0100796
                         <a href="https://bioregistry.io/DOI:10.1186/s43088-024-00569-8" target="_blank">DOI:10.1186/s43088-024-00569-8</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7684,6 +8193,7 @@ This clinical feature is Epididymo-orchitis, annotated with Orchitis (HP:0100796
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23236528" target="_blank">PMID:23236528</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7747,6 +8257,9 @@ This clinical feature is Epididymo-orchitis, annotated with Orchitis (HP:0100796
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7763,17 +8276,17 @@ This clinical feature is Epididymo-orchitis, annotated with Orchitis (HP:0100796
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7798,33 +8311,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         rifampicin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28077</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:28077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7858,6 +8375,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-69669-w" target="_blank">DOI:10.1038/s41598-024-69669-w</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7939,6 +8457,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-69669-w" target="_blank">DOI:10.1038/s41598-024-69669-w</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7960,6 +8479,7 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.37723/jumdc.v15i3.920" target="_blank">DOI:10.37723/jumdc.v15i3.920</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7991,17 +8511,17 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8026,33 +8546,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         streptomycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17076" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17076</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17076" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:17076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8086,6 +8610,7 @@ This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012010" target="_blank">DOI:10.1371/journal.pntd.0012010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8154,6 +8679,7 @@ This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic age
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012405" target="_blank">DOI:10.1371/journal.pntd.0012405</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8175,6 +8701,7 @@ This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-69669-w" target="_blank">DOI:10.1038/s41598-024-69669-w</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8206,17 +8733,17 @@ This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8241,33 +8768,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses gentamicin, annotated with gentamycin (CHEBI:17833). CHEBI:17833 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         gentamicin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17833" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17833</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17833" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:17833</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gentamicin, annotated with gentamycin (CHEBI:17833). CHEBI:17833 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8301,6 +8832,7 @@ This treatment uses gentamicin, annotated with gentamycin (CHEBI:17833). CHEBI:1
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012405" target="_blank">DOI:10.1371/journal.pntd.0012405</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8369,6 +8901,7 @@ This treatment uses gentamicin, annotated with gentamycin (CHEBI:17833). CHEBI:1
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012405" target="_blank">DOI:10.1371/journal.pntd.0012405</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8399,17 +8932,17 @@ This treatment uses gentamicin, annotated with gentamycin (CHEBI:17833). CHEBI:1
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8434,48 +8967,54 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         streptomycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17076" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17076</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17076" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:17076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         hydroxychloroquine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5801</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:5801</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8509,6 +9048,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012010" target="_blank">DOI:10.1371/journal.pntd.0012010</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8577,6 +9117,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012010" target="_blank">DOI:10.1371/journal.pntd.0012010</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8617,23 +9158,55 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
 
+
+
+
+                <div class="item-desc">Issue #8302 asked for an explicit decision on the Research Square preprint cited here rather than letting it stand by default. Decision: keep it, demoted to PARTIAL and no longer the primary support, with the peer-reviewed One Health review (PMID:37630630) carrying the claim. Its snippet does verify against the cached document; the objection was to its epistemic status, not its accuracy.</div>
+
+
                 <div class="item-desc">Livestock-dependent regions have higher exposure opportunity for zoonotic Brucella transmission.</div>
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.21203/rs.3.rs-4929733/v1" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37630630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37630630" target="_blank">PMID:37630630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"brucellosis is considered a severe problem in animals and humans in Asia, the Middle East, Africa and Ibero-America"</div>
+
+
+                <div class="evidence-explanation">Peer-reviewed support for the geographic concentration of brucellosis in the regions where livestock husbandry is economically dominant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.21203/rs.3.rs-4929733/v1" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-4929733/v1" target="_blank">DOI:10.21203/rs.3.rs-4929733/v1</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8643,7 +9216,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                 <div class="evidence-snippet">"Human brucellosis caused by various Brucella species is a significant global health concern, particularly in livestock-dependent regions."</div>
 
 
-                <div class="evidence-explanation">Supports livestock dependence as an epidemiologic exposure context.</div>
+                <div class="evidence-explanation">Names livestock-dependent regions directly, which no peer-reviewed source cited here does in those words. Downgraded from SUPPORT to PARTIAL because this is a Research Square preprint that has not been peer reviewed; it is retained as corroboration rather than as the item the claim rests on.</div>
 
 
 
@@ -8655,14 +9228,94 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Zoonotic acquisition and inoculation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A livestock-dependent economy is a determinant of how much contact a population has with the animal reservoir, not an exposure in itself. Proximity to infected animals and consumption of unpasteurized local dairy are the known intervening steps, and neither is a node in this graph.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37630630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37630630" target="_blank">PMID:37630630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"focused on high-risk groups (animal and human health workers, livestock owners, dairy farmers, abattoir workers, pastoralists, patients, students and residents"</div>
+
+
+                <div class="evidence-explanation">A 79-study, 22-country review whose high-risk groups are named as livestock owners, dairy farmers, abattoir workers and pastoralists - occupations defined by livestock dependence rather than by geography, which is what this link asserts the setting concentrates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-livestock-exposure" data-dismech-node="Maternal livestock exposure" data-dismech-type="environmental">
                 <div class="item-name">Maternal livestock exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                <div class="item-desc">Livestock exposure is a documented acquisition route among vulnerable maternal groups.</div>
+
+                    <span class="tag tag-env">
+                        exposure to livestock
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000000" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-54">ECTO:3000000</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to livestock, annotated with exposure to organism (ECTO:3000000). ECTO:3000000 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Bound to ECTO:3000000 exposure to organism, the most specific applicable ECTO term - ECTO has no Brucella, livestock, or raw-milk exposure class (searched 2026-08-25). Same fallback pattern as the viral exposures bound to ECTO:3000001. This reference has no PMID: the Beni-Suef University Journal of Basic and Applied Sciences is not PubMed-indexed, so unlike the other two exposures here it cannot be moved off a DOI and remains unchecked by linkml-reference-validator. Its snippet was verified by hand against the cached document.</div>
+
 
 
 
@@ -8677,6 +9330,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s43088-024-00569-8" target="_blank">DOI:10.1186/s43088-024-00569-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8700,11 +9354,70 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Zoonotic acquisition and inoculation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Unlike the setting-level entry above, this is the exposure event itself: contact with infected livestock is how the organism reaches the host in this group, and the cited review puts the majority of cases on that route.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s43088-024-00569-8" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s43088-024-00569-8" target="_blank">DOI:10.1186/s43088-024-00569-8</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Key findings demonstrate that zoonotic brucellosis acquisition from livestock exposures among vulnerable maternal groups accounts for up to 70% of cases."</div>
+
+
+                <div class="evidence-explanation">Quantifies livestock exposure as the dominant acquisition route in this group, which is exactly the node this link targets.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-inadequate-one-health-control-infrastructure" data-dismech-node="Inadequate One Health control infrastructure" data-dismech-type="environmental">
                 <div class="item-name">Inadequate One Health control infrastructure</div>
 
+
+
+
+
+
+                <div class="item-desc">Left unbound: this is a health-system determinant rather than an exposure, and ECTO has no class for control or surveillance infrastructure (searched 2026-08-25). Citations moved from DOI:10.3390/microorganisms11082070 to PMID:37630630, the same paper, so that linkml-reference-validator now checks these snippets instead of skipping them on the DOI prefix.</div>
 
 
                 <div class="item-desc">Weak surveillance, diagnostic, veterinary, and public-health infrastructure can impair brucellosis control in endemic settings.</div>
@@ -8717,11 +9430,12 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/microorganisms11082070" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37630630" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/microorganisms11082070" target="_blank">DOI:10.3390/microorganisms11082070</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37630630" target="_blank">PMID:37630630</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8739,11 +9453,12 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/microorganisms11082070" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37630630" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3390/microorganisms11082070" target="_blank">DOI:10.3390/microorganisms11082070</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37630630" target="_blank">PMID:37630630</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8767,6 +9482,59 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Zoonotic acquisition and inoculation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Control infrastructure acts on the animal reservoir rather than on the person: weak veterinary surveillance, absent herd vaccination and unenforced milk pasteurization all leave more infected animals and products in contact with people. The review documents the infrastructural weakness but does not trace it through to a case count, so the intermediates are recorded as unknown.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37630630" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37630630" target="_blank">PMID:37630630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Extended infrastructural weaknesses, often accentuated by geography and climate, are critically important."</div>
+
+
+                <div class="evidence-explanation">Names infrastructural weakness as critically important to brucellosis control. PARTIAL because the review argues its importance for control rather than measuring an effect on acquisition, which is what this link asserts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -8787,7 +9555,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse107554">
                 <div class="item-name">
                     Evaluation of immunological factors involved in initiation of chronic brucellosis in CD4+ T cells using miRNA array
 
@@ -8830,7 +9598,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse69597">
                 <div class="item-name">
                     Refining brucellosis diagnosis by blood transcriptional profiling.
 
@@ -8869,7 +9637,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse87537">
                 <div class="item-name">
                     MICRORNA EXPRESSİON PATTERNS OF CD8+ T CELLS IN ACUTE AND CHRONIC BRUCELLOSIS
 
@@ -8936,7 +9704,6 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Brucellosis
 creation_date: &#34;2026-05-08T13:18:32Z&#34;
-updated_date: &#34;2026-07-30T00:00:00Z&#34;
 category: Infectious Disease
 description: &gt;-
   Brucellosis is a zoonotic bacterial infection caused by Brucella species,
@@ -9112,6 +9879,60 @@ progression:
     snippet: &#34;Brucellosis is a difficult to treat infection that requires antibiotic combinations administered over several weeks for clearance of infection and relapse prevention.&#34;
     explanation: Supports relapse prevention as a key temporal treatment concern.
 pathophysiology:
+- name: Zoonotic acquisition and inoculation
+  description: &gt;-
+    Entry of Brucella into the human host from infected animals or their products.
+    Acquisition is occupational for breeders, veterinarians, abattoir and laboratory
+    workers through direct contact with animals, birth products and aerosols, and
+    food-borne for the general public through raw milk and unpasteurized dairy.
+    Human-to-human transmission is anecdotal, so essentially every human case begins
+    at an animal reservoir. This is the proximal step the rest of this entry assumes:
+    every other pathophysiology node here is downstream of established infection.
+  biological_scale: ORGANISM
+  role: trigger
+  downstream:
+  - target: Intracellular macrophage survival
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Inoculated organisms cross the mucosal or cutaneous barrier and are taken up by
+      phagocytes, which is how the intracellular niche modeled downstream is
+      established. Mucosal penetration and phagocytic uptake are the known intervening
+      steps and are not separate nodes in this entry.
+    evidence:
+    - reference: PMID:37630630
+      reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Humans contract the disease from infected animals and their products, and human-to-human transmission is only anecdotic.&#34;
+      explanation: &gt;-
+        Establishes the animal-to-human route that this edge starts from. PARTIAL
+        because the review states how humans acquire the organism but not the
+        phagocytic uptake step that reaches the target node.
+  evidence:
+  - reference: PMID:37630630
+    reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Thus, risk groups are breeders and their families, veterinarians, laboratory personnel and dairy and slaughterhouse workers.&#34;
+    explanation: &gt;-
+      Names the occupational groups in whom acquisition occurs, which is the exposure
+      route half of this node.
+  - reference: PMID:37630630
+    reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The general public is mainly affected by consuming raw milk and unpasteurized dairy products and, to a lesser extent, raw viscera, blood and offal&#34;
+    explanation: &gt;-
+      Names the food-borne route, the second half of how the organism reaches the
+      human host.
+  - reference: PMID:22081201
+    reference_title: An overview of Brucellosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Transmission of brucellosis to humans occurs through the consumption of infected, unpasteurized animal milk and milk products, through direct contact with infected animal parts, through ruptures of skin and mucous membranes and through the inhalation of infected aerosolized particles.&#34;
+    explanation: &gt;-
+      Enumerates every route this node&#39;s description asserts in a single sentence,
+      including the inhalational route that the One Health review does not mention.
 - name: Intracellular macrophage survival
   description: Brucella can survive inside macrophages, establishing an intracellular niche that supports persistence and immune evasion.
   cell_types:
@@ -10056,16 +10877,83 @@ environmental:
 - name: Livestock-dependent setting
   presence: risk factor
   description: Livestock-dependent regions have higher exposure opportunity for zoonotic Brucella transmission.
+  influences_mechanisms:
+  - target: Zoonotic acquisition and inoculation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A livestock-dependent economy is a determinant of how much contact a population
+      has with the animal reservoir, not an exposure in itself. Proximity to infected
+      animals and consumption of unpasteurized local dairy are the known intervening
+      steps, and neither is a node in this graph.
+    evidence:
+    - reference: PMID:37630630
+      reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;focused on high-risk groups (animal and human health workers, livestock owners, dairy farmers, abattoir workers, pastoralists, patients, students and residents&#34;
+      explanation: &gt;-
+        A 79-study, 22-country review whose high-risk groups are named as livestock
+        owners, dairy farmers, abattoir workers and pastoralists - occupations defined
+        by livestock dependence rather than by geography, which is what this link
+        asserts the setting concentrates.
   evidence:
+  - reference: PMID:37630630
+    reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;brucellosis is considered a severe problem in animals and humans in Asia, the Middle East, Africa and Ibero-America&#34;
+    explanation: &gt;-
+      Peer-reviewed support for the geographic concentration of brucellosis in the
+      regions where livestock husbandry is economically dominant.
   - reference: DOI:10.21203/rs.3.rs-4929733/v1
     reference_title: &#34;Global prevalence of human brucellosis: A systematic review and meta-analysis&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Human brucellosis caused by various Brucella species is a significant global health concern, particularly in livestock-dependent regions.&#34;
-    explanation: Supports livestock dependence as an epidemiologic exposure context.
+    explanation: &gt;-
+      Names livestock-dependent regions directly, which no peer-reviewed source cited
+      here does in those words. Downgraded from SUPPORT to PARTIAL because this is a
+      Research Square preprint that has not been peer reviewed; it is retained as
+      corroboration rather than as the item the claim rests on.
+  notes: &gt;-
+    Issue #8302 asked for an explicit decision on the Research Square preprint cited
+    here rather than letting it stand by default. Decision: keep it, demoted to
+    PARTIAL and no longer the primary support, with the peer-reviewed One Health
+    review (PMID:37630630) carrying the claim. Its snippet does verify against the
+    cached document; the objection was to its epistemic status, not its accuracy.
 - name: Maternal livestock exposure
   presence: risk factor
-  description: Livestock exposure is a documented acquisition route among vulnerable maternal groups.
+  exposure_term:
+    preferred_term: exposure to livestock
+    term:
+      id: ECTO:3000000
+      label: exposure to organism
+  influences_mechanisms:
+  - target: Zoonotic acquisition and inoculation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Unlike the setting-level entry above, this is the exposure event itself: contact
+      with infected livestock is how the organism reaches the host in this group, and
+      the cited review puts the majority of cases on that route.
+    evidence:
+    - reference: DOI:10.1186/s43088-024-00569-8
+      reference_title: &#34;Exploring the impact of brucellosis on maternal and child health: transmission mechanisms, patient effects, and current trends in drug use and resistance: a scoping review&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Key findings demonstrate that zoonotic brucellosis acquisition from livestock exposures among vulnerable maternal groups accounts for up to 70% of cases.&#34;
+      explanation: &gt;-
+        Quantifies livestock exposure as the dominant acquisition route in this group,
+        which is exactly the node this link targets.
+  notes: &gt;-
+    Bound to ECTO:3000000 exposure to organism, the most specific applicable ECTO term
+    - ECTO has no Brucella, livestock, or raw-milk exposure class (searched
+    2026-08-25). Same fallback pattern as the viral exposures bound to ECTO:3000001.
+    This reference has no PMID: the Beni-Suef University Journal of Basic and Applied
+    Sciences is not PubMed-indexed, so unlike the other two exposures here it cannot
+    be moved off a DOI and remains unchecked by linkml-reference-validator. Its
+    snippet was verified by hand against the cached document.
   evidence:
   - reference: DOI:10.1186/s43088-024-00569-8
     reference_title: &#34;Exploring the impact of brucellosis on maternal and child health: transmission mechanisms, patient effects, and current trends in drug use and resistance: a scoping review&#34;
@@ -10076,14 +10964,40 @@ environmental:
 - name: Inadequate One Health control infrastructure
   presence: risk factor
   description: Weak surveillance, diagnostic, veterinary, and public-health infrastructure can impair brucellosis control in endemic settings.
+  influences_mechanisms:
+  - target: Zoonotic acquisition and inoculation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Control infrastructure acts on the animal reservoir rather than on the person:
+      weak veterinary surveillance, absent herd vaccination and unenforced milk
+      pasteurization all leave more infected animals and products in contact with
+      people. The review documents the infrastructural weakness but does not trace it
+      through to a case count, so the intermediates are recorded as unknown.
+    evidence:
+    - reference: PMID:37630630
+      reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Extended infrastructural weaknesses, often accentuated by geography and climate, are critically important.&#34;
+      explanation: &gt;-
+        Names infrastructural weakness as critically important to brucellosis control.
+        PARTIAL because the review argues its importance for control rather than
+        measuring an effect on acquisition, which is what this link asserts.
+  notes: &gt;-
+    Left unbound: this is a health-system determinant rather than an exposure, and
+    ECTO has no class for control or surveillance infrastructure (searched
+    2026-08-25). Citations moved from DOI:10.3390/microorganisms11082070 to
+    PMID:37630630, the same paper, so that linkml-reference-validator now checks these
+    snippets instead of skipping them on the DOI prefix.
   evidence:
-  - reference: DOI:10.3390/microorganisms11082070
+  - reference: PMID:37630630
     reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Brucellosis One Health actors include Public Health and Veterinary Services, microbiologists, medical and veterinary practitioners and breeders.&#34;
     explanation: Supports multidisciplinary One Health control context.
-  - reference: DOI:10.3390/microorganisms11082070
+  - reference: PMID:37630630
     reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
     supports: SUPPORT
     evidence_source: OTHER
@@ -11535,7 +12449,7 @@ A 2024 global prevalence review also lists common manifestations (fever/fatigue/
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Brucellosis", "mondoId": "MONDO:0005683", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brucellosis", "yamlRevision": "10a160a28d40"};
+        const OS_CONFIG = {"diseaseName": "Brucellosis", "mondoId": "MONDO:0005683", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brucellosis", "yamlRevision": "474ed8255155"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11954,5 +12868,73 @@ A 2024 global prevalence review also lists common manifestations (fever/fatigue/
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

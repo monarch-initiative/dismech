@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hepatitis C</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hepatitis C</h1>
             <div class="header-meta">
 
@@ -3921,7 +4043,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-acute-hepatitis-c">
 
                     <div class="item-name">
                         Acute Hepatitis C
@@ -3949,7 +4071,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-chronic-hepatitis-c">
 
                     <div class="item-name">
                         Chronic Hepatitis C
@@ -4007,18 +4129,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4046,18 +4170,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves viral life cycle (GO:0019058). GO:0019058 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         viral life cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go">GO:0019058</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019058</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral life cycle (GO:0019058). GO:0019058 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4098,18 +4224,20 @@ This pathophysiological event involves viral life cycle (GO:0019058). GO:0019058
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatic stellate cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl">CL:0000632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4126,18 +4254,20 @@ This pathophysiological event involves hepatic stellate cell (CL:0000632). CL:00
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4165,18 +4295,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves chronic inflammatory response (GO:0002544). GO:0002544 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chronic inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002544" target="_blank" class="curie-chip curie-chip-go">GO:0002544</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002544" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002544</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves chronic inflammatory response (GO:0002544). GO:0002544 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4193,18 +4325,20 @@ This pathophysiological event involves chronic inflammatory response (GO:0002544
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves hepatic stellate cell activation (GO:0035733). GO:0035733 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         hepatic stellate cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035733" target="_blank" class="curie-chip curie-chip-go">GO:0035733</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035733" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0035733</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves hepatic stellate cell activation (GO:0035733). GO:0035733 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4221,18 +4355,20 @@ This pathophysiological event involves hepatic stellate cell activation (GO:0035
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves collagen biosynthetic process (GO:0032964). GO:0032964 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         collagen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go">GO:0032964</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0032964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves collagen biosynthetic process (GO:0032964). GO:0032964 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4271,6 +4407,7 @@ This pathophysiological event involves collagen biosynthetic process (GO:0032964
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26569658" target="_blank">PMID:26569658</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4303,18 +4440,20 @@ This pathophysiological event involves collagen biosynthetic process (GO:0032964
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4342,18 +4481,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves symbiont-mediated suppression of host type I interferon-mediated signaling pathway (GO:0039502). GO:0039502 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         symbiont-mediated suppression of host type I interferon-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0039502" target="_blank" class="curie-chip curie-chip-go">GO:0039502</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0039502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0039502</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves symbiont-mediated suppression of host type I interferon-mediated signaling pathway (GO:0039502). GO:0039502 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4392,6 +4533,7 @@ This pathophysiological event involves symbiont-mediated suppression of host typ
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16127453" target="_blank">PMID:16127453</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4426,18 +4568,20 @@ This pathophysiological event involves symbiont-mediated suppression of host typ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4483,6 +4627,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22537432" target="_blank">PMID:22537432</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4504,6 +4649,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19759533" target="_blank">PMID:19759533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4597,16 +4743,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000952</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.">
-                        Jaundice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp">HP:0000952</a>
-
-
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4629,16 +4779,20 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4661,16 +4815,20 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001394</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.">
-                        Cirrhosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp">HP:0001394</a>
-
-
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4691,6 +4849,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26569658" target="_blank">PMID:26569658</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4710,6 +4869,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24725239" target="_blank">PMID:24725239</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4743,16 +4903,20 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001402</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatocellular carcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp">HP:0001402</a>
-
-
+This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4772,6 +4936,7 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22537432" target="_blank">PMID:22537432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4816,16 +4981,22 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002910</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating hepatic transaminase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp">HP:0002910</a>
-
-
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4857,16 +5028,20 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4886,6 +5061,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16510035" target="_blank">PMID:16510035</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4975,6 +5151,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19759533" target="_blank">PMID:19759533</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4996,6 +5173,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19684573" target="_blank">PMID:19684573</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5027,6 +5205,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5043,18 +5224,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">antiviral therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical intervention from the NCI Thesaurus.">antiviral therapy</span>
+This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antiviral Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16119" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical intervention from the NCI Thesaurus.">NCIT:C16119</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16119" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16119">NCIT:C16119</a>
 
 
 
@@ -5097,6 +5278,7 @@ This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24725239" target="_blank">PMID:24725239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5117,6 +5299,7 @@ This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26569658" target="_blank">PMID:26569658</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5136,6 +5319,7 @@ This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical int
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36891719" target="_blank">PMID:36891719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5167,17 +5351,17 @@ This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">Liver Transplantation</span>
+This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">NCIT:C15271</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15271">NCIT:C15271</a>
 
 
 
@@ -5218,18 +5402,18 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">surveillance for malignancies<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">surveillance for malignancies</span>
+This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">NCIT:C15406</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15406">NCIT:C15406</a>
 
 
 
@@ -5272,6 +5456,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15042359" target="_blank">PMID:15042359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5310,11 +5495,94 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
             <div class="item-box environmental-box anchor-target" id="environmental-injection-drug-use" data-dismech-node="Injection Drug Use" data-dismech-type="environmental">
                 <div class="item-name">Injection Drug Use</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        injection drug use
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000007" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-20">ECTO:6000007</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is injection drug use, annotated with exposure to substance abuse (ECTO:6000007). ECTO:6000007 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Major route of HCV transmission through sharing of needles and drug preparation equipment</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24923487" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24923487" target="_blank">PMID:24923487</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The highest detected risk was intravenous drug users (IDUs) (OR = 9.6)"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of HCV risk factors: injecting drug use carries the single largest odds ratio of any exposure assessed, which is what makes it the major transmission route rather than merely one of several.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39066277" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39066277" target="_blank">PMID:39066277</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"injection drug use has become the major route of HCV transmission, especially in high-income countries, and it is emerging even in rural areas"</div>
+
+
+                <div class="evidence-explanation">Historical worldwide review of HCV transmission modes identifies injection drug use as the current major transmission route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5324,10 +5592,70 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                 <div class="item-name">Unsafe Medical Practices</div>
 
 
+
+
+
+
                 <div class="item-desc">Transmission through contaminated medical equipment, blood transfusions (pre-1992), and organ transplants</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18657711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18657711" target="_blank">PMID:18657711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"unsafe blood products and medical practices continue to increase transmission of HCV in many developing countries"</div>
+
+
+                <div class="evidence-explanation">States the iatrogenic transmission route this annotation records, and notes the geographic split: transfusion-related transmission has declined in developed countries while unsafe medical practice continues to drive it elsewhere.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25516637" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25516637" target="_blank">PMID:25516637</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the more important risk is represented by unsafe practices regarding injections, notably with the improper use of multidose vials used for multiple patients"</div>
+
+
+                <div class="evidence-explanation">Review of health care-associated HCV infection identifies unsafe injection practices, including improper multidose-vial use, as the leading contamination route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5337,10 +5665,70 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                 <div class="item-name">Occupational Exposure</div>
 
 
+
+
+
+
                 <div class="item-desc">Healthcare workers at risk through needlestick injuries</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15018469" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15018469" target="_blank">PMID:15018469</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of 4,403 exposed HCW, 14 seroconverted (0.31%; 95% CI 0.15-0.48)"</div>
+
+
+                <div class="evidence-explanation">Quantifies the per-exposure risk in 4,403 exposed healthcare workers. The same study found the risk concentrated in hollow-bore blood-filled needle injuries (0.74%) and raised sixfold by deep injury, so the annotation&#39;s needlestick framing is the right one.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16231252" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16231252" target="_blank">PMID:16231252</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All case patients were exposed to HCV-infected fluids through percutaneous injuries"</div>
+
+
+                <div class="evidence-explanation">European case-control study of HCV seroconversion in health care workers confirms percutaneous (needlestick) injury as the occupational exposure route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5350,10 +5738,70 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                 <div class="item-name">Tattoos and Body Piercing</div>
 
 
-                <div class="item-desc">Transmission risk when performed with non-sterile equipment</div>
 
 
 
+
+                <div class="item-desc">Both are established HCV risk factors; non-sterile equipment is the presumed route but is not itself evidenced by the cited studies</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20678951" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20678951" target="_blank">PMID:20678951</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pooled odds ratio (OR) and 95% confidence interval (CI) of the association of tattooing and hepatitis C from all studies was 2.74"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of 83 studies; the association is strongest in non-injection drug users (OR 5.74), which matters because it separates tattooing from confounding by injecting. PARTIAL because it covers the tattooing half of this exposure only -- piercing is evidenced by the item below -- and because it measures association rather than the sterility mechanism the note names.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24923487" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24923487" target="_blank">PMID:24923487</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other significant risk factors included poor education, older age, sharing sharp or blunt objects, MSM, tattooing, hijama, body piercing, minor operations and medical procedures"</div>
+
+
+                <div class="evidence-explanation">Covers the body-piercing half of this exposure, which the tattooing meta-analysis above does not. PARTIAL because the source lists piercing among significant risk factors without a per-factor odds ratio, so it establishes that piercing is a risk factor without quantifying it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5454,7 +5902,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse267834">
                 <div class="item-name">
                     Hepatitis C Virus-induced Differential Transcriptional Traits in Host Cells After Persistent Infection Elimination by Direct-Acting Antivirals In Cell Culture
 
@@ -5497,7 +5945,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse119117">
                 <div class="item-name">
                     Longitudinal transcriptomic characterization of the immune response to acute hepatitis C virus infection
 
@@ -5540,7 +5988,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse200809">
                 <div class="item-name">
                     The human liver circadian transcriptome and its carcinogenic perturbation by hepatitis C virus infection (RNA-Seq I)
 
@@ -5583,7 +6031,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000096">
                 <div class="item-name">
                     Identification of improved IL28B SNPs and haplotypes for prediction of drug response in treatment of hepatitis C using massively parallel sequencing in a cross-sectional European cohort
 
@@ -5618,7 +6066,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002324">
                 <div class="item-name">
                     Genome-to-genome analysis highlights the impact of the human innate and adaptive immune systems on the hepatitis C virus
 
@@ -5657,7 +6105,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs000430">
                 <div class="item-name">
                     Hepatitis C Antiviral Long-term Treatment Against Cirrhosis (HALT-C)
 
@@ -5690,7 +6138,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000088553">
                 <div class="item-name">
                     Site specific glycan analysis of hepatitis C virus E1E2 glycoprotein complex
 
@@ -5751,7 +6199,6 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hepatitis C
 creation_date: &#39;2026-01-09T05:44:55Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
 category: Infectious Disease
 description: &gt;
   Hepatitis C is a liver infection caused by the hepatitis C virus (HCV). It is primarily
@@ -5993,13 +6440,71 @@ genetic:
     explanation: Landmark GWAS linking the IL28B polymorphism to response to interferon-based HCV therapy.
 environmental:
 - name: Injection Drug Use
+  exposure_term:
+    preferred_term: injection drug use
+    term:
+      id: ECTO:6000007
+      label: exposure to substance abuse
   notes: Major route of HCV transmission through sharing of needles and drug preparation equipment
+  evidence:
+  - reference: PMID:24923487
+    reference_title: &#34;A comprehensive hepatitis C virus risk factors meta-analysis (1989-2013): do they differ in Egypt?&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The highest detected risk was intravenous drug users (IDUs) (OR = 9.6)&#34;
+    explanation: &#34;Meta-analysis of HCV risk factors: injecting drug use carries the single largest odds ratio of any exposure assessed, which is what makes it the major transmission route rather than merely one of several.&#34;
+  - reference: PMID:39066277
+    reference_title: &#34;Prevalence and Modes of Transmission of Hepatitis C Virus Infection: A Historical Worldwide Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;injection drug use has become the major route of HCV transmission, especially in high-income countries, and it is emerging even in rural areas&#34;
+    explanation: Historical worldwide review of HCV transmission modes identifies injection drug use as the current major transmission route.
 - name: Unsafe Medical Practices
   notes: Transmission through contaminated medical equipment, blood transfusions (pre-1992), and organ transplants
+  evidence:
+  - reference: PMID:18657711
+    reference_title: &#34;Acute hepatitis C.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;unsafe blood products and medical practices continue to increase transmission of HCV in many developing countries&#34;
+    explanation: &#34;States the iatrogenic transmission route this annotation records, and notes the geographic split: transfusion-related transmission has declined in developed countries while unsafe medical practice continues to drive it elsewhere.&#34;
+  - reference: PMID:25516637
+    reference_title: &#34;Health care-associated hepatitis C virus infection.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the more important risk is represented by unsafe practices regarding injections, notably with the improper use of multidose vials used for multiple patients&#34;
+    explanation: Review of health care-associated HCV infection identifies unsafe injection practices, including improper multidose-vial use, as the leading contamination route.
 - name: Occupational Exposure
   notes: Healthcare workers at risk through needlestick injuries
+  evidence:
+  - reference: PMID:15018469
+    reference_title: &#34;Risk of hepatitis C virus transmission following percutaneous exposure in healthcare workers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Of 4,403 exposed HCW, 14 seroconverted (0.31%; 95% CI 0.15-0.48)&#34;
+    explanation: &#34;Quantifies the per-exposure risk in 4,403 exposed healthcare workers. The same study found the risk concentrated in hollow-bore blood-filled needle injuries (0.74%) and raised sixfold by deep injury, so the annotation&#39;s needlestick framing is the right one.&#34;
+  - reference: PMID:16231252
+    reference_title: &#34;Risk factors for hepatitis C virus transmission to health care workers after occupational exposure: a European case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All case patients were exposed to HCV-infected fluids through percutaneous injuries&#34;
+    explanation: European case-control study of HCV seroconversion in health care workers confirms percutaneous (needlestick) injury as the occupational exposure route.
 - name: Tattoos and Body Piercing
-  notes: Transmission risk when performed with non-sterile equipment
+  notes: Both are established HCV risk factors; non-sterile equipment is the
+    presumed route but is not itself evidenced by the cited studies
+  evidence:
+  - reference: PMID:20678951
+    reference_title: &#34;Tattooing and the risk of transmission of hepatitis C: a systematic review and meta-analysis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The pooled odds ratio (OR) and 95% confidence interval (CI) of the association of tattooing and hepatitis C from all studies was 2.74&#34;
+    explanation: &#34;Meta-analysis of 83 studies; the association is strongest in non-injection drug users (OR 5.74), which matters because it separates tattooing from confounding by injecting. PARTIAL because it covers the tattooing half of this exposure only -- piercing is evidenced by the item below -- and because it measures association rather than the sterility mechanism the note names.&#34;
+  - reference: PMID:24923487
+    reference_title: &#34;A comprehensive hepatitis C virus risk factors meta-analysis (1989-2013): do they differ in Egypt?&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Other significant risk factors included poor education, older age, sharing sharp or blunt objects, MSM, tattooing, hijama, body piercing, minor operations and medical procedures&#34;
+    explanation: &#34;Covers the body-piercing half of this exposure, which the tattooing meta-analysis above does not. PARTIAL because the source lists piercing among significant risk factors without a per-factor odds ratio, so it establishes that piercing is a risk factor without quantifying it.&#34;
 treatments:
 - name: Direct-Acting Antivirals (DAAs)
   description: &gt;
@@ -6626,7 +7131,7 @@ Where mechanistic claims rely on review syntheses, we quoted the authors’ lang
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hepatitis C", "mondoId": "MONDO:0005231", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_C", "yamlRevision": "70d2bfae6bad"};
+        const OS_CONFIG = {"diseaseName": "Hepatitis C", "mondoId": "MONDO:0005231", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_C", "yamlRevision": "8c43e6acbf69"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7045,5 +7550,73 @@ Where mechanistic claims rely on review syntheses, we quoted the authors’ lang
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

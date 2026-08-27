@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Autosomal Recessive Congenital Ichthyosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autosomal Recessive Congenital Ichthyosis</h1>
             <div class="header-meta">
 
@@ -3931,7 +4053,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3975,6 +4097,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4033,7 +4156,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lamellar-ichthyosis">
 
                     <div class="item-name">
                         Lamellar Ichthyosis
@@ -4071,6 +4194,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4097,7 +4221,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-congenital-ichthyosiform-erythroderma">
 
                     <div class="item-name">
                         Congenital Ichthyosiform Erythroderma
@@ -4135,6 +4259,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4161,7 +4286,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-harlequin-ichthyosis">
 
                     <div class="item-name">
                         Harlequin Ichthyosis
@@ -4181,7 +4306,7 @@
 
                     </div>
 
-                    <div class="item-desc">Severe ARCI phenotype, most often linked to ABCA12 loss-of-function, with profound neonatal hyperkeratosis and barrier compromise.</div>
+                    <div class="item-desc">Severe ARCI phenotype, most often linked to ABCA12 loss-of-function, with profound neonatal hyperkeratosis and barrier compromise. The neonate is encased in thick plate-like armour separated by deep fissures, with ectropion, eclabium and flattened ears. It is no longer invariably fatal: with modern neonatal care, reported survival is around half, and deaths concentrate in the first three months from sepsis and respiratory failure - the direct consequences of a stratum corneum that cannot function as a barrier. Survivors carry a chronic severe scaling erythroderma. Genotype tracks outcome, with homozygous loss-of-function alleles reported in all deaths in the largest series and compound heterozygosity over-represented among survivors. The reported association between early oral retinoid treatment and survival in that series is deliberately not curated here as a treatment effect: it is a retrospective, questionnaire-based comparison with no randomisation and obvious scope for confounding by indication and by era of neonatal care, and the source itself claims only that early retinoids may improve survival.</div>
 
 
 
@@ -4189,7 +4314,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4198,6 +4323,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4215,6 +4341,54 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:21339420" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21339420" target="_blank">PMID:21339420</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of the 45 cases, the ages of the survivors ranged from 10 months to 25 years, with an overall survival rate of 56%. Death usually occurred in the first 3 months and was attributed to sepsis and/or respiratory failure in 75% of cases."</div>
+
+
+                <div class="evidence-explanation">Quantifies survival and the timing and cause of death in the largest reported harlequin ichthyosis series, establishing that the disorder is severe but not invariably fatal.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21339420" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21339420" target="_blank">PMID:21339420</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutation analysis revealed that 52% of survivors had compound heterozygous mutations, whereas all deaths were associated with homozygous mutations."</div>
+
+
+                <div class="evidence-explanation">Documents the genotype-outcome relationship. Note this is an observed association in a retrospective questionnaire-based series, not a demonstrated dose-response, and is curated as such.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4254,18 +4428,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4293,17 +4469,21 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TGM1 (hgnc:11777). hgnc:11777 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TGM1
 
 
-    <a href="https://bioregistry.io/hgnc:11777" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11777</a>
+    <a href="https://bioregistry.io/hgnc:11777" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11777</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGM1 (hgnc:11777). hgnc:11777 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4328,17 +4508,21 @@ This pathophysiological event involves TGM1 (hgnc:11777). hgnc:11777 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ABCA12 (hgnc:14637). hgnc:14637 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ABCA12
 
 
-    <a href="https://bioregistry.io/hgnc:14637" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14637</a>
+    <a href="https://bioregistry.io/hgnc:14637" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:14637</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCA12 (hgnc:14637). hgnc:14637 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4363,17 +4547,21 @@ This pathophysiological event involves ABCA12 (hgnc:14637). hgnc:14637 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ALOX12B (hgnc:430). hgnc:430 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALOX12B
 
 
-    <a href="https://bioregistry.io/hgnc:430" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:430</a>
+    <a href="https://bioregistry.io/hgnc:430" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:430</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALOX12B (hgnc:430). hgnc:430 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4398,17 +4586,21 @@ This pathophysiological event involves ALOX12B (hgnc:430). hgnc:430 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ALOXE3 (hgnc:13743). hgnc:13743 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALOXE3
 
 
-    <a href="https://bioregistry.io/hgnc:13743" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13743</a>
+    <a href="https://bioregistry.io/hgnc:13743" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:13743</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALOXE3 (hgnc:13743). hgnc:13743 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4433,17 +4625,21 @@ This pathophysiological event involves ALOXE3 (hgnc:13743). hgnc:13743 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CYP4F22 (hgnc:26820). hgnc:26820 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CYP4F22
 
 
-    <a href="https://bioregistry.io/hgnc:26820" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26820</a>
+    <a href="https://bioregistry.io/hgnc:26820" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:26820</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP4F22 (hgnc:26820). hgnc:26820 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4468,17 +4664,21 @@ This pathophysiological event involves CYP4F22 (hgnc:26820). hgnc:26820 is a gen
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NIPAL4 (hgnc:28018). hgnc:28018 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NIPAL4
 
 
-    <a href="https://bioregistry.io/hgnc:28018" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28018</a>
+    <a href="https://bioregistry.io/hgnc:28018" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:28018</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NIPAL4 (hgnc:28018). hgnc:28018 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4503,17 +4703,21 @@ This pathophysiological event involves NIPAL4 (hgnc:28018). hgnc:28018 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CERS3 (hgnc:23752). hgnc:23752 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CERS3
 
 
-    <a href="https://bioregistry.io/hgnc:23752" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23752</a>
+    <a href="https://bioregistry.io/hgnc:23752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:23752</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CERS3 (hgnc:23752). hgnc:23752 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4538,17 +4742,21 @@ This pathophysiological event involves CERS3 (hgnc:23752). hgnc:23752 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PNPLA1 (hgnc:21246). hgnc:21246 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PNPLA1
 
 
-    <a href="https://bioregistry.io/hgnc:21246" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21246</a>
+    <a href="https://bioregistry.io/hgnc:21246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:21246</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PNPLA1 (hgnc:21246). hgnc:21246 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4573,17 +4781,21 @@ This pathophysiological event involves PNPLA1 (hgnc:21246). hgnc:21246 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SDR9C7 (hgnc:29958). hgnc:29958 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SDR9C7
 
 
-    <a href="https://bioregistry.io/hgnc:29958" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29958</a>
+    <a href="https://bioregistry.io/hgnc:29958" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:29958</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SDR9C7 (hgnc:29958). hgnc:29958 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4608,17 +4820,21 @@ This pathophysiological event involves SDR9C7 (hgnc:29958). hgnc:29958 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SULT2B1 (hgnc:11459). hgnc:11459 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SULT2B1
 
 
-    <a href="https://bioregistry.io/hgnc:11459" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11459</a>
+    <a href="https://bioregistry.io/hgnc:11459" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11459</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SULT2B1 (hgnc:11459). hgnc:11459 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4647,18 +4863,20 @@ This pathophysiological event involves SULT2B1 (hgnc:11459). hgnc:11459 is a gen
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         keratinization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go">GO:0031424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0031424</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4679,18 +4897,20 @@ This pathophysiological event involves abnormal keratinization (GO:0031424). GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4718,18 +4938,20 @@ This pathophysiological event involves abnormal lipid metabolic process (GO:0006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4771,6 +4993,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4804,18 +5027,20 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4843,17 +5068,21 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TGM1 (hgnc:11777). hgnc:11777 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TGM1
 
 
-    <a href="https://bioregistry.io/hgnc:11777" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11777</a>
+    <a href="https://bioregistry.io/hgnc:11777" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:11777</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGM1 (hgnc:11777). hgnc:11777 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4882,18 +5111,20 @@ This pathophysiological event involves TGM1 (hgnc:11777). hgnc:11777 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal epidermal cell differentiation (GO:0009913). GO:0009913 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epidermal cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009913" target="_blank" class="curie-chip curie-chip-go">GO:0009913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0009913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal epidermal cell differentiation (GO:0009913). GO:0009913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4921,18 +5152,20 @@ This pathophysiological event involves abnormal epidermal cell differentiation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4968,6 +5201,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4989,6 +5223,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5023,18 +5258,20 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5062,17 +5299,21 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ABCA12 (hgnc:14637). hgnc:14637 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ABCA12
 
 
-    <a href="https://bioregistry.io/hgnc:14637" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14637</a>
+    <a href="https://bioregistry.io/hgnc:14637" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:14637</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCA12 (hgnc:14637). hgnc:14637 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5097,17 +5338,21 @@ This pathophysiological event involves ABCA12 (hgnc:14637). hgnc:14637 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ALOX12B (hgnc:430). hgnc:430 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALOX12B
 
 
-    <a href="https://bioregistry.io/hgnc:430" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:430</a>
+    <a href="https://bioregistry.io/hgnc:430" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:430</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALOX12B (hgnc:430). hgnc:430 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5132,17 +5377,21 @@ This pathophysiological event involves ALOX12B (hgnc:430). hgnc:430 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ALOXE3 (hgnc:13743). hgnc:13743 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALOXE3
 
 
-    <a href="https://bioregistry.io/hgnc:13743" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13743</a>
+    <a href="https://bioregistry.io/hgnc:13743" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:13743</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALOXE3 (hgnc:13743). hgnc:13743 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5167,17 +5416,21 @@ This pathophysiological event involves ALOXE3 (hgnc:13743). hgnc:13743 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CYP4F22 (hgnc:26820). hgnc:26820 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CYP4F22
 
 
-    <a href="https://bioregistry.io/hgnc:26820" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26820</a>
+    <a href="https://bioregistry.io/hgnc:26820" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:26820</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP4F22 (hgnc:26820). hgnc:26820 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5202,17 +5455,21 @@ This pathophysiological event involves CYP4F22 (hgnc:26820). hgnc:26820 is a gen
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NIPAL4 (hgnc:28018). hgnc:28018 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NIPAL4
 
 
-    <a href="https://bioregistry.io/hgnc:28018" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28018</a>
+    <a href="https://bioregistry.io/hgnc:28018" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:28018</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NIPAL4 (hgnc:28018). hgnc:28018 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5237,17 +5494,21 @@ This pathophysiological event involves NIPAL4 (hgnc:28018). hgnc:28018 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CERS3 (hgnc:23752). hgnc:23752 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CERS3
 
 
-    <a href="https://bioregistry.io/hgnc:23752" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23752</a>
+    <a href="https://bioregistry.io/hgnc:23752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:23752</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CERS3 (hgnc:23752). hgnc:23752 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5272,17 +5533,21 @@ This pathophysiological event involves CERS3 (hgnc:23752). hgnc:23752 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PNPLA1 (hgnc:21246). hgnc:21246 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PNPLA1
 
 
-    <a href="https://bioregistry.io/hgnc:21246" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21246</a>
+    <a href="https://bioregistry.io/hgnc:21246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:21246</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PNPLA1 (hgnc:21246). hgnc:21246 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5307,17 +5572,21 @@ This pathophysiological event involves PNPLA1 (hgnc:21246). hgnc:21246 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SDR9C7 (hgnc:29958). hgnc:29958 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SDR9C7
 
 
-    <a href="https://bioregistry.io/hgnc:29958" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29958</a>
+    <a href="https://bioregistry.io/hgnc:29958" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:29958</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SDR9C7 (hgnc:29958). hgnc:29958 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5342,17 +5611,21 @@ This pathophysiological event involves SDR9C7 (hgnc:29958). hgnc:29958 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SULT2B1 (hgnc:11459). hgnc:11459 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SULT2B1
 
 
-    <a href="https://bioregistry.io/hgnc:11459" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11459</a>
+    <a href="https://bioregistry.io/hgnc:11459" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11459</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SULT2B1 (hgnc:11459). hgnc:11459 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5381,18 +5654,20 @@ This pathophysiological event involves SULT2B1 (hgnc:11459). hgnc:11459 is a gen
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal lipid transport (GO:0006869). GO:0006869 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lipid transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006869" target="_blank" class="curie-chip curie-chip-go">GO:0006869</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006869" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0006869</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal lipid transport (GO:0006869). GO:0006869 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5413,18 +5688,20 @@ This pathophysiological event involves abnormal lipid transport (GO:0006869). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal ceramide biosynthetic process (GO:0046513). GO:0046513 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ceramide biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046513" target="_blank" class="curie-chip curie-chip-go">GO:0046513</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046513" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0046513</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal ceramide biosynthetic process (GO:0046513). GO:0046513 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5445,18 +5722,20 @@ This pathophysiological event involves abnormal ceramide biosynthetic process (G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal establishment of skin barrier (GO:0061436). GO:0061436 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         establishment of skin barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go">GO:0061436</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0061436</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal establishment of skin barrier (GO:0061436). GO:0061436 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5484,18 +5763,20 @@ This pathophysiological event involves abnormal establishment of skin barrier (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5531,6 +5812,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5552,6 +5834,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5586,18 +5869,20 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5625,18 +5910,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         keratinization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go">GO:0031424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0031424</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5657,18 +5944,20 @@ This pathophysiological event involves abnormal keratinization (GO:0031424). GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal epidermis development (GO:0008544). GO:0008544 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epidermis development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="curie-chip curie-chip-go">GO:0008544</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0008544</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal epidermis development (GO:0008544). GO:0008544 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5696,18 +5985,20 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-36">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5792,6 +6083,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38027029" target="_blank">PMID:38027029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5883,16 +6175,20 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.">
-                        Erythroderma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp">HP:0001019</a>
-
-
+This clinical feature is erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5912,6 +6208,7 @@ This clinical feature is erythroderma (HP:0001019). HP:0001019 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38027029" target="_blank">PMID:38027029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5956,16 +6253,22 @@ This clinical feature is erythroderma (HP:0001019). HP:0001019 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ichthyosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0008064</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
-                        Ichthyosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
-
-
+This clinical feature is ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5985,6 +6288,7 @@ This clinical feature is ichthyosis (HP:0008064). HP:0008064 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6018,16 +6322,20 @@ This clinical feature is ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000962</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hyperkeratosis (HP:0000962). HP:0000962 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperkeratosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" class="curie-chip curie-chip-hp">HP:0000962</a>
-
-
+This clinical feature is hyperkeratosis (HP:0000962). HP:0000962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6047,6 +6355,7 @@ This clinical feature is hyperkeratosis (HP:0000962). HP:0000962 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6080,16 +6389,20 @@ This clinical feature is hyperkeratosis (HP:0000962). HP:0000962 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001596</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.">
-                        Alopecia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp">HP:0001596</a>
-
-
+This clinical feature is alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6109,6 +6422,7 @@ This clinical feature is alopecia (HP:0001596). HP:0001596 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6142,16 +6456,20 @@ This clinical feature is alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
-                        Pruritus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
-
-
+This clinical feature is pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6171,6 +6489,7 @@ This clinical feature is pruritus (HP:0000989). HP:0000989 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38027029" target="_blank">PMID:38027029</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6213,16 +6532,20 @@ This clinical feature is pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000656" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000656</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is ectropion (HP:0000656). HP:0000656 is a phenotype from the Human Phenotype Ontology.">
-                        Ectropion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000656" target="_blank" class="curie-chip curie-chip-hp">HP:0000656</a>
-
-
+This clinical feature is ectropion (HP:0000656). HP:0000656 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6242,6 +6565,7 @@ This clinical feature is ectropion (HP:0000656). HP:0000656 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6275,16 +6599,22 @@ This clinical feature is ectropion (HP:0000656). HP:0000656 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Eclabion</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012472" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012472</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Eclabium, annotated with Eclabion (HP:0012472). HP:0012472 is a phenotype from the Human Phenotype Ontology.">
-                        Eclabion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012472" target="_blank" class="curie-chip curie-chip-hp">HP:0012472</a>
-
-
+This clinical feature is Eclabium, annotated with Eclabion (HP:0012472). HP:0012472 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6304,6 +6634,7 @@ This clinical feature is Eclabium, annotated with Eclabion (HP:0012472). HP:0012
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6383,15 +6714,17 @@ This clinical feature is Eclabium, annotated with Eclabion (HP:0012472). HP:0012
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TGM1 (hgnc:11777). hgnc:11777 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TGM1
 
 
-    <a href="https://bioregistry.io/hgnc:11777" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11777</a>
+    <a href="https://bioregistry.io/hgnc:11777" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:11777</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TGM1 (hgnc:11777). hgnc:11777 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6418,6 +6751,7 @@ This disease-associated gene is TGM1 (hgnc:11777). hgnc:11777 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6456,15 +6790,17 @@ This disease-associated gene is TGM1 (hgnc:11777). hgnc:11777 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALOX12B (hgnc:430). hgnc:430 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALOX12B
 
 
-    <a href="https://bioregistry.io/hgnc:430" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:430</a>
+    <a href="https://bioregistry.io/hgnc:430" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:430</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALOX12B (hgnc:430). hgnc:430 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6491,6 +6827,7 @@ This disease-associated gene is ALOX12B (hgnc:430). hgnc:430 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6529,15 +6866,17 @@ This disease-associated gene is ALOX12B (hgnc:430). hgnc:430 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CYP4F22 (hgnc:26820). hgnc:26820 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYP4F22
 
 
-    <a href="https://bioregistry.io/hgnc:26820" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26820</a>
+    <a href="https://bioregistry.io/hgnc:26820" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:26820</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYP4F22 (hgnc:26820). hgnc:26820 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6564,6 +6903,7 @@ This disease-associated gene is CYP4F22 (hgnc:26820). hgnc:26820 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6602,15 +6942,17 @@ This disease-associated gene is CYP4F22 (hgnc:26820). hgnc:26820 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ABCA12 (hgnc:14637). hgnc:14637 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCA12
 
 
-    <a href="https://bioregistry.io/hgnc:14637" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14637</a>
+    <a href="https://bioregistry.io/hgnc:14637" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:14637</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCA12 (hgnc:14637). hgnc:14637 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6638,6 +6980,7 @@ This disease-associated gene is ABCA12 (hgnc:14637). hgnc:14637 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6659,6 +7002,7 @@ This disease-associated gene is ABCA12 (hgnc:14637). hgnc:14637 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6704,6 +7048,8 @@ This disease-associated gene is ABCA12 (hgnc:14637). hgnc:14637 is a gene from t
 
 
 
+
+
     </div>
 
 
@@ -6717,6 +7063,8 @@ This disease-associated gene is ABCA12 (hgnc:14637). hgnc:14637 is a gene from t
 
 
     <div class="item-desc">Biallelic missense variants mainly cause congenital ichthyosiform erythroderma or lamellar ichthyosis.</div>
+
+
 
 
 
@@ -6746,15 +7094,17 @@ This disease-associated gene is ABCA12 (hgnc:14637). hgnc:14637 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALOXE3 (hgnc:13743). hgnc:13743 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALOXE3
 
 
-    <a href="https://bioregistry.io/hgnc:13743" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13743</a>
+    <a href="https://bioregistry.io/hgnc:13743" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:13743</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALOXE3 (hgnc:13743). hgnc:13743 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6781,6 +7131,7 @@ This disease-associated gene is ALOXE3 (hgnc:13743). hgnc:13743 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6819,15 +7170,17 @@ This disease-associated gene is ALOXE3 (hgnc:13743). hgnc:13743 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NIPAL4 (hgnc:28018). hgnc:28018 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NIPAL4
 
 
-    <a href="https://bioregistry.io/hgnc:28018" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28018</a>
+    <a href="https://bioregistry.io/hgnc:28018" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:28018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NIPAL4 (hgnc:28018). hgnc:28018 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6854,6 +7207,7 @@ This disease-associated gene is NIPAL4 (hgnc:28018). hgnc:28018 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38588653" target="_blank">PMID:38588653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6908,6 +7262,7 @@ This disease-associated gene is NIPAL4 (hgnc:28018). hgnc:28018 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980989" target="_blank">PMID:36980989</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6938,6 +7293,9 @@ This disease-associated gene is NIPAL4 (hgnc:28018). hgnc:28018 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6954,18 +7312,18 @@ This disease-associated gene is NIPAL4 (hgnc:28018). hgnc:28018 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6996,18 +7354,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ichthyosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0008064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7026,6 +7386,7 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38027029" target="_blank">PMID:38027029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7057,17 +7418,17 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7092,18 +7453,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses isotretinoin (CHEBI:6067). CHEBI:6067 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         isotretinoin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6067" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6067</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6067" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:6067</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses isotretinoin (CHEBI:6067). CHEBI:6067 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7118,18 +7481,20 @@ This treatment uses isotretinoin (CHEBI:6067). CHEBI:6067 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ichthyosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0008064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7148,6 +7513,7 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38027029" target="_blank">PMID:38027029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7170,6 +7536,7 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04154293" target="_blank">clinicaltrials:NCT04154293</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7201,18 +7568,18 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -7272,6 +7639,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="https://clinicaltrials.gov/study/NCT04047732" target="_blank">clinicaltrials:NCT04047732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7293,6 +7661,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05735158" target="_blank">clinicaltrials:NCT05735158</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7324,17 +7693,17 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7365,18 +7734,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ichthyosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0008064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7395,6 +7766,7 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03041038" target="_blank">clinicaltrials:NCT03041038</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7440,7 +7812,7 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000082828">
                 <div class="item-name">
                     Proteomic Manifestations of Genetic Defects in Autosomal Recessive Congenital Ichthyosis
 
@@ -7485,7 +7857,7 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04154293">
                 <div class="item-name">
                     NCT04154293
 
@@ -7499,18 +7871,20 @@ This treatment targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from t
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ichthyosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0008064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7528,6 +7902,7 @@ This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04154293" target="_blank">clinicaltrials:NCT04154293</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7552,7 +7927,7 @@ This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype f
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04047732">
                 <div class="item-name">
                     NCT04047732
 
@@ -7575,6 +7950,7 @@ This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04047732" target="_blank">clinicaltrials:NCT04047732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7599,7 +7975,7 @@ This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype f
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05735158">
                 <div class="item-name">
                     NCT05735158
 
@@ -7622,6 +7998,7 @@ This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05735158" target="_blank">clinicaltrials:NCT05735158</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7671,7 +8048,6 @@ This clinical trial targets ichthyosis (HP:0008064). HP:0008064 is a phenotype f
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Autosomal Recessive Congenital Ichthyosis
 creation_date: &#34;2026-05-07T12:56:33Z&#34;
-updated_date: &#34;2026-05-07T13:25:00Z&#34;
 category: Mendelian
 description: &gt;-
   Autosomal recessive congenital ichthyosis (ARCI) is a nonsyndromic,
@@ -7798,7 +8174,21 @@ has_subtypes:
       label: autosomal recessive congenital ichthyosis 4B
   description: &gt;-
     Severe ARCI phenotype, most often linked to ABCA12 loss-of-function, with
-    profound neonatal hyperkeratosis and barrier compromise.
+    profound neonatal hyperkeratosis and barrier compromise. The neonate is
+    encased in thick plate-like armour separated by deep fissures, with
+    ectropion, eclabium and flattened ears. It is no longer invariably fatal:
+    with modern neonatal care, reported survival is around half, and deaths
+    concentrate in the first three months from sepsis and respiratory failure -
+    the direct consequences of a stratum corneum that cannot function as a
+    barrier. Survivors carry a chronic severe scaling erythroderma. Genotype
+    tracks outcome, with homozygous loss-of-function alleles reported in all
+    deaths in the largest series and compound heterozygosity over-represented
+    among survivors. The reported association between early oral retinoid
+    treatment and survival in that series is deliberately not curated here as a
+    treatment effect: it is a retrospective, questionnaire-based comparison with
+    no randomisation and obvious scope for confounding by indication and by era
+    of neonatal care, and the source itself claims only that early retinoids may
+    improve survival.
   subtype_frequency: 2.7% in a 74-patient Italian ARCI cohort
   evidence:
   - reference: PMID:36980989
@@ -7807,6 +8197,35 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most severe form of ARCI, harlequin ichthyosis, is caused by mutations in ABCA12.&#34;
     explanation: Supports harlequin ichthyosis as the severe ABCA12-associated ARCI phenotype.
+  - reference: PMID:21339420
+    reference_title: &#34;Harlequin ichthyosis: a review of clinical and molecular findings in 45 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Of the 45 cases, the ages of the survivors ranged from 10 months to 25 years, with an overall survival rate of 56%. Death usually occurred in the first 3 months and was attributed to sepsis and/or respiratory failure in 75% of cases.
+    explanation: &gt;-
+      Quantifies survival and the timing and cause of death in the largest
+      reported harlequin ichthyosis series, establishing that the disorder is
+      severe but not invariably fatal.
+  - reference: PMID:21339420
+    reference_title: &#34;Harlequin ichthyosis: a review of clinical and molecular findings in 45 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Mutation analysis revealed that 52% of survivors had compound heterozygous mutations, whereas all deaths were associated with homozygous mutations.
+    explanation: &gt;-
+      Documents the genotype-outcome relationship. Note this is an observed
+      association in a retrospective questionnaire-based series, not a
+      demonstrated dose-response, and is curated as such.
+  - reference: PMID:21413658
+    reference_title: &#34;Harlequin ichthyosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      He had firm plaques covering his body, with fissures especially in flexural areas. Other remarkable findings included edematous hands and feet, ectropion, eclabium, and contractures (Figure).
+    explanation: &gt;-
+      Documents the characteristic neonatal presentation - armour-plate scale
+      with fissuring, ectropion and eclabium.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -7978,6 +8397,7 @@ phenotypes:
     explanation: Supports clinically important symptom burden but does not quantify pruritus specifically.
 pathophysiology:
 - name: Biallelic ARCI Gene Defects
+  conforms_to: &#34;epidermal_cornification_failure#Cornification Program Component Deficiency&#34;
   description: &gt;-
     ARCI begins with biallelic pathogenic variants in a heterogeneous set of
     genes involved in epidermal cornification, lipid transport, and lipid
@@ -8055,6 +8475,7 @@ pathophysiology:
     snippet: &#34;ARCI is caused by biallelic mutations in ABCA12, ALOX12B, ALOXE3, CERS3, CYP4F22, NIPAL4, PNPLA1, SDR9C7, SULT2B1, and TGM1.&#34;
     explanation: Directly supports the core biallelic ARCI gene spectrum.
 - name: Cornified Envelope Cross-Linking Defect
+  conforms_to: &#34;epidermal_cornification_failure#Defective Cornified Envelope Assembly and Lamellar Lipid Delivery&#34;
   description: &gt;-
     TGM1-associated ARCI disrupts transglutaminase-dependent cornified-envelope
     formation in differentiating keratinocytes; this mechanism is associated
@@ -8096,6 +8517,7 @@ pathophysiology:
     snippet: &#34;Ultrastructural data available for 56 patients showed a 100% specificity of cholesterol clefts for TGM1-mutated cases and revealed abnormal lamellar bodies in SDR9C7 and CERS3 patients.&#34;
     explanation: Supports a genotype-informative ultrastructural abnormality in TGM1-associated ARCI.
 - name: Epidermal Lipid Processing and Transport Defect
+  conforms_to: &#34;epidermal_cornification_failure#Defective Cornified Envelope Assembly and Lamellar Lipid Delivery&#34;
   description: &gt;-
     Multiple ARCI genes affect epidermal lipid metabolism, lipid transport, or
     acylceramide-related barrier biology. ABCA12-associated ARCI is especially
@@ -8179,6 +8601,7 @@ pathophysiology:
     snippet: &#34;Ultrastructural data available for 56 patients showed a 100% specificity of cholesterol clefts for TGM1-mutated cases and revealed abnormal lamellar bodies in SDR9C7 and CERS3 patients.&#34;
     explanation: Supports lamellar-body abnormalities in lipid-barrier ARCI genotypes.
 - name: Abnormal Stratum Corneum and Barrier Phenotype
+  conforms_to: &#34;epidermal_cornification_failure#Stratum Corneum Permeability Barrier Failure&#34;
   description: &gt;-
     Defective cornification and lipid-barrier biology converge on abnormal
     stratum corneum structure, generalized scaling, variable erythema, and
@@ -8478,6 +8901,7 @@ treatments:
     snippet: &#34;Topical treatments are a first-choice strategy due to their ease of application and cost; however, enteral administration of retinoids offers greater efficacy, although with certain limitations.&#34;
     explanation: Supports retinoid pharmacotherapy as a more efficacious treatment class with limitations.
   - reference: clinicaltrials:NCT04154293
+    reference_title: &#34;A Randomized, Parallel, Double-Blind, Vehicle Controlled Study to Evaluate the Safety and Efficacy of Two Concentrations of Topical TMB-001 for the Treatment of Congenital Ichthyosis&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The purpose of this study is to investigate the efficacy and safety of two concentrations of topically applied ointment formulation of isotretinoin called TMB-001 (0.05% and 0.1% isotretinoin) in subjects 9 years of age and older for the treatment of congenital ichthyosis (CI), including recessive X-linked ichthyosis (RXLI) and autosomal recessive congenital ichthyosis-lamellar ichthyosis (ARCI-LI) subtypes.&#34;
@@ -8498,11 +8922,13 @@ treatments:
     description: Topical TGM1 replacement is intended to restore deficient transglutaminase 1 expression in affected skin.
   evidence:
   - reference: clinicaltrials:NCT04047732
+    reference_title: &#34;A Phase I/II Clinical Trial of Topical KB105, a Replication-incompetent, Non-integrating HSV-1 Vector Expressing Human Transglutaminase 1 (TGM1) for the Treatment of TGM1-deficient Autosomal Recessive Congenital Ichthyosis (ARCI)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This study is an intra-patient comparison of KB105 and placebo-administered Target Areas. The primary objectives of this study are to evaluate safety and Investigator Global Assessment (IGA) scale improvement of topically administered KB105.&#34;
     explanation: Supports clinical testing of topical KB105 for TGM1-deficient ARCI.
   - reference: clinicaltrials:NCT05735158
+    reference_title: &#34;A Phase 2, Randomized, Placebo-controlled Study of Topical KB105, a Replication-defective, Non-integrating HSV-1 Vector Expressing Human Transglutaminase 1 (TGM1) for the Treatment of TGM1-deficient Autosomal Recessive Congenital Ichthyosis (ARCI)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;KB105-02 is an intrasubject randomized, placebo-controlled, double-blind study to evaluate the safety and efficacy of KB105 in children and adults with autosomal recessive congenital ichthyosis (ARCI).&#34;
@@ -8524,6 +8950,7 @@ treatments:
       label: Ichthyosis
   evidence:
   - reference: clinicaltrials:NCT03041038
+    reference_title: &#34;A Multicenter Study With a Randomized, Double-Blind, Placebo-Controlled Period, Followed by an Open-Label Maintenance Dosing Period to Evaluate the Efficacy and Safety of Secukinumab in Patients With Ichthyoses&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The ichthyoses are a group of lifelong genetic disorders which share characteristics of generalized skin thickening, scaling and underlying cutaneous inflammation.&#34;
@@ -8540,6 +8967,7 @@ clinical_trials:
       label: Ichthyosis
   evidence:
   - reference: clinicaltrials:NCT04154293
+    reference_title: &#34;A Randomized, Parallel, Double-Blind, Vehicle Controlled Study to Evaluate the Safety and Efficacy of Two Concentrations of Topical TMB-001 for the Treatment of Congenital Ichthyosis&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The purpose of this study is to investigate the efficacy and safety of two concentrations of topically applied ointment formulation of isotretinoin called TMB-001 (0.05% and 0.1% isotretinoin) in subjects 9 years of age and older for the treatment of congenital ichthyosis (CI), including recessive X-linked ichthyosis (RXLI) and autosomal recessive congenital ichthyosis-lamellar ichthyosis (ARCI-LI) subtypes.&#34;
@@ -8550,6 +8978,7 @@ clinical_trials:
     ARCI.
   evidence:
   - reference: clinicaltrials:NCT04047732
+    reference_title: &#34;A Phase I/II Clinical Trial of Topical KB105, a Replication-incompetent, Non-integrating HSV-1 Vector Expressing Human Transglutaminase 1 (TGM1) for the Treatment of TGM1-deficient Autosomal Recessive Congenital Ichthyosis (ARCI)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This study is an intra-patient comparison of KB105 and placebo-administered Target Areas. The primary objectives of this study are to evaluate safety and Investigator Global Assessment (IGA) scale improvement of topically administered KB105.&#34;
@@ -8560,6 +8989,7 @@ clinical_trials:
     with ARCI.
   evidence:
   - reference: clinicaltrials:NCT05735158
+    reference_title: &#34;A Phase 2, Randomized, Placebo-controlled Study of Topical KB105, a Replication-defective, Non-integrating HSV-1 Vector Expressing Human Transglutaminase 1 (TGM1) for the Treatment of TGM1-deficient Autosomal Recessive Congenital Ichthyosis (ARCI)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;KB105-02 is an intrasubject randomized, placebo-controlled, double-blind study to evaluate the safety and efficacy of KB105 in children and adults with autosomal recessive congenital ichthyosis (ARCI).&#34;
@@ -9231,7 +9661,7 @@ URL: https://clinicaltrials.gov/study/NCT03041038 (registry-derived). (NCT030410
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Recessive Congenital Ichthyosis", "mondoId": "MONDO:0017265", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Recessive_Congenital_Ichthyosis", "yamlRevision": "21c95d60fb23"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Recessive Congenital Ichthyosis", "mondoId": "MONDO:0017265", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Recessive_Congenital_Ichthyosis", "yamlRevision": "8a29e955566c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9650,5 +10080,73 @@ URL: https://clinicaltrials.gov/study/NCT03041038 (registry-derived). (NCT030410
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

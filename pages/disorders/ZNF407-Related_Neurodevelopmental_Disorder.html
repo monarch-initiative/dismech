@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>ZNF407-Related Neurodevelopmental Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>ZNF407-Related Neurodevelopmental Disorder</h1>
             <div class="header-meta">
 
@@ -3908,7 +4030,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3954,6 +4076,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3976,6 +4099,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4261,6 +4385,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4282,6 +4407,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38781157" target="_blank">PMID:38781157</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4432,6 +4558,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4455,6 +4587,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4476,6 +4609,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38781157" target="_blank">PMID:38781157</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4521,21 +4655,21 @@
 
 
 
-    <span class="entity-ref-chip">phenotypes#Intellectual disability</span>
+    <a class="entity-ref-chip" href="#phenotype-intellectual-disability">phenotypes#Intellectual disability</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Short stature</span>
+    <a class="entity-ref-chip" href="#phenotype-short-stature">phenotypes#Short stature</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Microcephaly</span>
+    <a class="entity-ref-chip" href="#phenotype-microcephaly">phenotypes#Microcephaly</a>
 
 
 
@@ -4578,7 +4712,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">phenotypes#Intellectual disability</span>
+    <a class="entity-ref-chip" href="#phenotype-intellectual-disability">phenotypes#Intellectual disability</a>
 
     </div>
 
@@ -4600,6 +4734,12 @@
 
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -4637,6 +4777,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4659,6 +4800,7 @@ individuals are males"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4725,18 +4867,20 @@ individuals are males"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4757,18 +4901,20 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves zinc ion binding (GO:0008270). GO:0008270 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         zinc ion binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008270" target="_blank" class="curie-chip curie-chip-go">GO:0008270</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008270" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008270</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves zinc ion binding (GO:0008270). GO:0008270 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4847,6 +4993,7 @@ This pathophysiological event involves zinc ion binding (GO:0008270). GO:0008270
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23195952" target="_blank">PMID:23195952</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4869,6 +5016,7 @@ This pathophysiological event involves zinc ion binding (GO:0008270). GO:0008270
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4890,6 +5038,7 @@ This pathophysiological event involves zinc ion binding (GO:0008270). GO:0008270
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38781157" target="_blank">PMID:38781157</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4943,18 +5092,20 @@ This pathophysiological event involves zinc ion binding (GO:0008270). GO:0008270
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007399</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5105,6 +5256,7 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5268,6 +5420,7 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5372,16 +5525,20 @@ This pathophysiological event involves abnormal nervous system development (GO:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Deafness, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
-                        Hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
-
-
+This clinical feature is Deafness, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5401,6 +5558,7 @@ This clinical feature is Deafness, annotated with Hearing impairment (HP:0000365
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5444,16 +5602,20 @@ This clinical feature is Deafness, annotated with Hearing impairment (HP:0000365
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000823</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delayed pubertal onset, annotated with Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed puberty
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp">HP:0000823</a>
-
-
+This clinical feature is Delayed pubertal onset, annotated with Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5473,6 +5635,7 @@ This clinical feature is Delayed pubertal onset, annotated with Delayed puberty 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5516,16 +5679,20 @@ This clinical feature is Delayed pubertal onset, annotated with Delayed puberty 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.">
-                        Ptosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp">HP:0000508</a>
-
-
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5545,6 +5712,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5579,16 +5747,20 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.">
-                        Strabismus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp">HP:0000486</a>
-
-
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5608,6 +5780,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5651,16 +5824,20 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.">
-                        Microcephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
-
-
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5680,6 +5857,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5714,16 +5892,20 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000286</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from the Human Phenotype Ontology.">
-                        Epicanthus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp">HP:0000286</a>
-
-
+This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5743,6 +5925,7 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5777,16 +5960,22 @@ This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Midface retrusion</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011800</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Midface hypoplasia, annotated with Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.">
-                        Midface retrusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp">HP:0011800</a>
-
-
+This clinical feature is Midface hypoplasia, annotated with Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5806,6 +5995,7 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5829,6 +6019,7 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -5865,16 +6056,22 @@ knee mobility observed in the reported family"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
+This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5894,6 +6091,7 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5937,16 +6135,20 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001212</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Persistent fetal fingertip pads, annotated with Prominent fingertip pads (HP:0001212). HP:0001212 is a phenotype from the Human Phenotype Ontology.">
-                        Prominent fingertip pads
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001212" target="_blank" class="curie-chip curie-chip-hp">HP:0001212</a>
-
-
+This clinical feature is Persistent fetal fingertip pads, annotated with Prominent fingertip pads (HP:0001212). HP:0001212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5966,6 +6168,7 @@ This clinical feature is Persistent fetal fingertip pads, annotated with Promine
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6009,16 +6212,20 @@ This clinical feature is Persistent fetal fingertip pads, annotated with Promine
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030043</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral femoral joint subluxation, annotated with Hip subluxation (HP:0030043). HP:0030043 is a phenotype from the Human Phenotype Ontology.">
-                        Hip subluxation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030043" target="_blank" class="curie-chip curie-chip-hp">HP:0030043</a>
-
-
+This clinical feature is Bilateral femoral joint subluxation, annotated with Hip subluxation (HP:0030043). HP:0030043 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6038,6 +6245,7 @@ This clinical feature is Bilateral femoral joint subluxation, annotated with Hip
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6082,16 +6290,20 @@ acetabulum, and mild kyphosis without scoliosis."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6111,6 +6323,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6145,16 +6358,20 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002808</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.">
-                        Kyphosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp">HP:0002808</a>
-
-
+This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6174,6 +6391,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6197,6 +6415,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -6244,16 +6463,20 @@ knee mobility observed in the reported family"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Impaired intellectual development, annotated with Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Impaired intellectual development, annotated with Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6273,6 +6496,7 @@ This clinical feature is Impaired intellectual development, annotated with Intel
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6307,16 +6531,20 @@ This clinical feature is Impaired intellectual development, annotated with Intel
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Developmental delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Developmental delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6336,6 +6564,7 @@ This clinical feature is Developmental delay, annotated with Global developmenta
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6370,16 +6599,20 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
-                        Motor delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
-
-
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6399,6 +6632,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6434,16 +6668,20 @@ attempts to pull himself to a stand."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001288</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Awkward gait, annotated with Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.">
-                        Gait disturbance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp">HP:0001288</a>
-
-
+This clinical feature is Awkward gait, annotated with Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6463,6 +6701,7 @@ This clinical feature is Awkward gait, annotated with Gait disturbance (HP:00012
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6498,16 +6737,20 @@ tween the age of 4 and 5 years"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Severe speech delay, annotated with Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed speech and language development
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp">HP:0000750</a>
-
-
+This clinical feature is Severe speech delay, annotated with Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6527,6 +6770,7 @@ This clinical feature is Severe speech delay, annotated with Delayed speech and 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6560,16 +6804,20 @@ This clinical feature is Severe speech delay, annotated with Delayed speech and 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Exaggerated deep tendon reflexes, annotated with Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperreflexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp">HP:0001347</a>
-
-
+This clinical feature is Exaggerated deep tendon reflexes, annotated with Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6589,6 +6837,7 @@ This clinical feature is Exaggerated deep tendon reflexes, annotated with Hyperr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6623,16 +6872,20 @@ flexes"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6652,6 +6905,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6686,16 +6940,20 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Behavioural anomalies, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
+This clinical feature is Behavioural anomalies, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6715,6 +6973,7 @@ This clinical feature is Behavioural anomalies, annotated with Atypical behavior
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6757,16 +7016,20 @@ This clinical feature is Behavioural anomalies, annotated with Atypical behavior
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6786,6 +7049,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6820,16 +7084,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6849,6 +7117,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6892,16 +7161,20 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysplastic left acetabulum, annotated with Acetabular dysplasia (HP:0008807). HP:0008807 is a phenotype from the Human Phenotype Ontology.">
-                        Acetabular dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008807" target="_blank" class="curie-chip curie-chip-hp">HP:0008807</a>
-
-
+This clinical feature is Dysplastic left acetabulum, annotated with Acetabular dysplasia (HP:0008807). HP:0008807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6921,6 +7194,7 @@ This clinical feature is Dysplastic left acetabulum, annotated with Acetabular d
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6956,16 +7230,22 @@ acetabulum, and mild kyphosis without scoliosis."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the eye</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000478</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ocular anomalies / visual problems, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the eye
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp">HP:0000478</a>
-
-
+This clinical feature is Ocular anomalies / visual problems, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6985,6 +7265,7 @@ This clinical feature is Ocular anomalies / visual problems, annotated with Abno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7019,16 +7300,20 @@ This clinical feature is Ocular anomalies / visual problems, annotated with Abno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000805" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000805</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from the Human Phenotype Ontology.">
-                        Enuresis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000805" target="_blank" class="curie-chip curie-chip-hp">HP:0000805</a>
-
-
+This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7048,6 +7333,7 @@ This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7082,16 +7368,20 @@ This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040183" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0040183</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Encopresis (HP:0040183). HP:0040183 is a phenotype from the Human Phenotype Ontology.">
-                        Encopresis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040183" target="_blank" class="curie-chip curie-chip-hp">HP:0040183</a>
-
-
+This clinical feature is Encopresis (HP:0040183). HP:0040183 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7111,6 +7401,7 @@ This clinical feature is Encopresis (HP:0040183). HP:0040183 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7145,16 +7436,20 @@ This clinical feature is Encopresis (HP:0040183). HP:0040183 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000664</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from the Human Phenotype Ontology.">
-                        Synophrys
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp">HP:0000664</a>
-
-
+This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7174,6 +7469,7 @@ This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7197,6 +7493,7 @@ This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7233,16 +7530,22 @@ knee mobility observed in the reported family"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Downturned corners of mouth</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002714" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002714</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Downturned corners of the mouth, annotated with Downturned corners of mouth (HP:0002714). HP:0002714 is a phenotype from the Human Phenotype Ontology.">
-                        Downturned corners of mouth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002714" target="_blank" class="curie-chip curie-chip-hp">HP:0002714</a>
-
-
+This clinical feature is Downturned corners of the mouth, annotated with Downturned corners of mouth (HP:0002714). HP:0002714 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7262,6 +7565,7 @@ This clinical feature is Downturned corners of the mouth, annotated with Downtur
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7296,16 +7600,20 @@ This clinical feature is Downturned corners of the mouth, annotated with Downtur
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000219</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.">
-                        Thin upper lip vermilion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp">HP:0000219</a>
-
-
+This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7325,6 +7633,7 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7359,16 +7668,20 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000411" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000411</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Prominent ears, annotated with Protruding ear (HP:0000411). HP:0000411 is a phenotype from the Human Phenotype Ontology.">
-                        Protruding ear
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000411" target="_blank" class="curie-chip curie-chip-hp">HP:0000411</a>
-
-
+This clinical feature is Prominent ears, annotated with Protruding ear (HP:0000411). HP:0000411 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7388,6 +7701,7 @@ This clinical feature is Prominent ears, annotated with Protruding ear (HP:00004
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7422,16 +7736,22 @@ This clinical feature is Prominent ears, annotated with Protruding ear (HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Camptodactyly of finger</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100490</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Camptodactyly of the fifth finger, annotated with Camptodactyly of finger (HP:0100490). HP:0100490 is a phenotype from the Human Phenotype Ontology.">
-                        Camptodactyly of finger
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100490" target="_blank" class="curie-chip curie-chip-hp">HP:0100490</a>
-
-
+This clinical feature is Camptodactyly of the fifth finger, annotated with Camptodactyly of finger (HP:0100490). HP:0100490 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7451,6 +7771,7 @@ This clinical feature is Camptodactyly of the fifth finger, annotated with Campt
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7474,6 +7795,7 @@ This clinical feature is Camptodactyly of the fifth finger, annotated with Campt
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7510,16 +7832,22 @@ knee mobility observed in the reported family"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Short metatarsal</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010743" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0010743</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short 4th metatarsal, annotated with Short metatarsal (HP:0010743). HP:0010743 is a phenotype from the Human Phenotype Ontology.">
-                        Short metatarsal
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010743" target="_blank" class="curie-chip curie-chip-hp">HP:0010743</a>
-
-
+This clinical feature is Short 4th metatarsal, annotated with Short metatarsal (HP:0010743). HP:0010743 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7539,6 +7867,7 @@ This clinical feature is Short 4th metatarsal, annotated with Short metatarsal (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7562,6 +7891,7 @@ This clinical feature is Short 4th metatarsal, annotated with Short metatarsal (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7598,16 +7928,20 @@ knee mobility observed in the reported family"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001845</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Overriding toes, annotated with Overlapping toe (HP:0001845). HP:0001845 is a phenotype from the Human Phenotype Ontology.">
-                        Overlapping toe
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001845" target="_blank" class="curie-chip curie-chip-hp">HP:0001845</a>
-
-
+This clinical feature is Overriding toes, annotated with Overlapping toe (HP:0001845). HP:0001845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7627,6 +7961,7 @@ This clinical feature is Overriding toes, annotated with Overlapping toe (HP:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7661,16 +7996,22 @@ This clinical feature is Overriding toes, annotated with Overlapping toe (HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Limited knee flexion/extension</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005085</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limited knee mobility, annotated with Limited knee flexion/extension (HP:0005085). HP:0005085 is a phenotype from the Human Phenotype Ontology.">
-                        Limited knee flexion/extension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005085" target="_blank" class="curie-chip curie-chip-hp">HP:0005085</a>
-
-
+This clinical feature is Limited knee mobility, annotated with Limited knee flexion/extension (HP:0005085). HP:0005085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7690,6 +8031,7 @@ This clinical feature is Limited knee mobility, annotated with Limited knee flex
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7713,6 +8055,7 @@ This clinical feature is Limited knee mobility, annotated with Limited knee flex
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7793,15 +8136,17 @@ knee mobility observed in the reported family"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ZNF407 (hgnc:19904). hgnc:19904 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZNF407
 
 
-    <a href="https://bioregistry.io/hgnc:19904" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19904</a>
+    <a href="https://bioregistry.io/hgnc:19904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:19904</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZNF407 (hgnc:19904). hgnc:19904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7825,6 +8170,7 @@ This disease-associated gene is ZNF407 (hgnc:19904). hgnc:19904 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7847,6 +8193,7 @@ This disease-associated gene is ZNF407 (hgnc:19904). hgnc:19904 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7877,6 +8224,9 @@ This disease-associated gene is ZNF407 (hgnc:19904). hgnc:19904 is a gene from t
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7968,6 +8318,7 @@ prevalence:
     count is not a population rate.
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Homozygous c.5054C&gt;G (p.Ser1685Trp) has been reported in two brothers with an ID syndrome&#34;
@@ -7975,6 +8326,7 @@ prevalence:
       The later cohort report directly summarizes the two affected brothers
       with the homozygous p.S1685W variant in the founding family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;five members of a consanguineous Pakistani family (Family I) plus two affected children from families of different ethnic origins&#34;
@@ -7995,6 +8347,7 @@ inheritance:
     families.
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;by exome sequencing identified homozygous ZNF407 c.2814_2816dup (p.Val939dup) in four affected members&#34;
@@ -8002,6 +8355,7 @@ inheritance:
       Homozygous ZNF407 variant identified in multiple affected members of a
       consanguineous family, consistent with autosomal recessive inheritance.
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A consanguineous Arab family is affected by an apparently novel autosomal recessive disorder characterized by cognitive impairment, failure-to-thrive, hypotonia and dysmorphic features&#34;
@@ -8026,6 +8380,7 @@ genetic:
     included as evidence for it.
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we detected homozygous c.2405G&gt;T (p.Gly802Val) in the affected member of Family II and compound heterozygous variants c.2884C&gt;G (p.Arg962Gly) and c.3642G&gt;C (p.Lys1214Asn) in the affected member of Family III&#34;
@@ -8034,6 +8389,7 @@ genetic:
       in independent families, establishing biallelic ZNF407 variation as the
       molecular cause.
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A damaging c.C5054G mutation affecting an evolutionary highly conserved amino acid p.S1685W was identified in the ZNF407 gene at 18q23&#34;
@@ -8055,6 +8411,7 @@ mechanistic_hypotheses:
     not test human neurodevelopment or any disease allele.
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: PARTIAL
     evidence_source: COMPUTATIONAL
     snippet: &#34;Structural analyses of this mutation shows disruption of an H-bond&#34;
@@ -8062,6 +8419,7 @@ mechanistic_hypotheses:
       Structural modeling supports impaired zinc-finger geometry but does not
       directly demonstrate altered transcription in patient neural cells.
   - reference: PMID:38781157
+    reference_title: &#34;Molecular regulation of PPARγ/RXRα signaling by the novel cofactor ZFP407.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes&#34;
@@ -8096,6 +8454,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:24907849
+      reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
       supports: PARTIAL
       evidence_source: COMPUTATIONAL
       snippet: &#34;interfering with the expression of various genes under ZNF407 control during fetal brain development&#34;
@@ -8108,6 +8467,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: PARTIAL
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism&#34;
@@ -8116,6 +8476,7 @@ pathophysiology:
         not test the proposed transcriptional route to those findings.
   evidence:
   - reference: PMID:23195952
+    reference_title: &#34;Balanced translocation t(3;18)(p13;q22.3) and points mutation in the ZNF407 gene detected in patients with both moderate non-syndromic intellectual disability and autism.&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: &#34;mutations in genes encoding zinc finger proteins. These proteins modulate gene expression via binding to DNA&#34;
@@ -8124,6 +8485,7 @@ pathophysiology:
       experimental demonstration of ZNF407 activity or a biallelic
       disease-allele effect.
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: PARTIAL
     evidence_source: COMPUTATIONAL
     snippet: &#34;decreased probability of binding to the target DNA sequence essentially eliminating the functionality of downstream domains and interfering with the expression of various genes under ZNF407 control during fetal brain development&#34;
@@ -8131,6 +8493,7 @@ pathophysiology:
       Homology-based structural modeling predicts reduced target-DNA binding;
       it does not measure binding, downstream expression, or neural effects.
   - reference: PMID:38781157
+    reference_title: &#34;Molecular regulation of PPARγ/RXRα signaling by the novel cofactor ZFP407.&#34;
     supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &#34;ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes&#34;
@@ -8157,6 +8520,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;All affected individuals from families have intellectual disability (ID), ranging from mild to profound&#34;
@@ -8169,6 +8533,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8181,6 +8546,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;reduced motor and cognitive skills plus variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8193,6 +8559,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:24907849
+      reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;very limited speech at the age of 8 years&#34;
@@ -8204,6 +8571,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8216,6 +8584,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8224,6 +8593,7 @@ pathophysiology:
         neurodevelopmental branch.
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All affected individuals from families have intellectual disability (ID), ranging from mild to profound, and reduced motor and cognitive skills&#34;
@@ -8245,6 +8615,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8257,6 +8628,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;delayed pubertal onset and facial dysmorphism&#34;
@@ -8269,6 +8641,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:32737394
+      reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
@@ -8281,6 +8654,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:24907849
+      reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
@@ -8293,6 +8667,7 @@ pathophysiology:
     - znf407_transcriptional_dysregulation
     evidence:
     - reference: PMID:24907849
+      reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
@@ -8301,6 +8676,7 @@ pathophysiology:
         founding family.
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism&#34;
@@ -8317,6 +8693,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All affected individuals from families have intellectual disability (ID), ranging from mild to profound&#34;
@@ -8331,6 +8708,7 @@ phenotypes:
       label: Short stature
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8344,6 +8722,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8357,6 +8736,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8370,6 +8750,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
@@ -8384,6 +8765,7 @@ phenotypes:
       label: Motor delay
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;His development\nhas been delayed; he currently sits without support and\nattempts to pull himself to a stand.&#34;
@@ -8398,6 +8780,7 @@ phenotypes:
       label: Gait disturbance
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;walked in-\ndependently, with an awkward gait and bent knees, be-\ntween the age of 4 and 5 years&#34;
@@ -8412,6 +8795,7 @@ phenotypes:
       label: Delayed speech and language development
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;very limited speech at the age of 8 years&#34;
@@ -8426,6 +8810,7 @@ phenotypes:
       label: Hyperreflexia
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;exaggerated deep tendon re-\nflexes&#34;
@@ -8440,6 +8825,7 @@ phenotypes:
       label: Hip subluxation
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
@@ -8454,6 +8840,7 @@ phenotypes:
       label: Acetabular dysplasia
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
@@ -8468,6 +8855,7 @@ phenotypes:
       label: Abnormality of the eye
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
@@ -8482,6 +8870,7 @@ phenotypes:
       label: Hearing impairment
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
@@ -8496,6 +8885,7 @@ phenotypes:
       label: Dysarthria
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
@@ -8509,6 +8899,7 @@ phenotypes:
       label: Atypical behavior
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;visual problems, enuresis, encopresis, behavioural anomalies, delayed pubertal onset and facial dysmorphism&#34;
@@ -8523,6 +8914,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cognitive impairment, failure-to-thrive, hypotonia and dysmorphic features&#34;
@@ -8536,6 +8928,7 @@ phenotypes:
       label: Enuresis
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
@@ -8549,6 +8942,7 @@ phenotypes:
       label: Encopresis
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
@@ -8562,6 +8956,7 @@ phenotypes:
       label: Ptosis
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;dysmorphic features including bilateral ptosis&#34;
@@ -8575,6 +8970,7 @@ phenotypes:
       label: Epicanthus
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;epicanthic folds, synophrys, midface hypoplasia&#34;
@@ -8588,12 +8984,14 @@ phenotypes:
       label: Synophrys
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;epicanthic folds, synophrys, midface hypoplasia&#34;
     explanation: &gt;
       Synophrys is a facial dysmorphic feature in the founding family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals we present did not exhibit synophrys, midface \nhypoplasia, kyphosis, 5th finger camptodactyly, short 4th metatarsals or limited \nknee mobility observed in the reported family&#34;
@@ -8608,6 +9006,7 @@ phenotypes:
       label: Strabismus
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;synophrys, strabismus, midface hypoplasia&#34;
@@ -8621,12 +9020,14 @@ phenotypes:
       label: Midface retrusion
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;epicanthic folds, synophrys, midface hypoplasia&#34;
     explanation: &gt;
       Midface hypoplasia is a facial dysmorphic feature in the founding family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals we present did not exhibit synophrys, midface \nhypoplasia, kyphosis, 5th finger camptodactyly, short 4th metatarsals or limited \nknee mobility observed in the reported family&#34;
@@ -8641,6 +9042,7 @@ phenotypes:
       label: Downturned corners of mouth
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;midface hypoplasia, downturned mouth corners, thin upper vermillion border&#34;  # codespell:ignore-line
@@ -8655,6 +9057,7 @@ phenotypes:
       label: Thin upper lip vermilion
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;downturned mouth corners, thin upper vermillion border and&#34;  # codespell:ignore-line
@@ -8669,6 +9072,7 @@ phenotypes:
       label: Protruding ear
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;prominent ears, bilateral 5th finger camptodactyly&#34;
@@ -8682,6 +9086,7 @@ phenotypes:
       label: Camptodactyly of finger
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;prominent ears, bilateral 5th finger camptodactyly&#34;
@@ -8689,6 +9094,7 @@ phenotypes:
       Bilateral 5th-finger camptodactyly is a limb feature in the founding
       family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals we present did not exhibit synophrys, midface \nhypoplasia, kyphosis, 5th finger camptodactyly, short 4th metatarsals or limited \nknee mobility observed in the reported family&#34;
@@ -8703,6 +9109,7 @@ phenotypes:
       label: Short metatarsal
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;bilateral short 4th metatarsal bones, and limited knee mobility&#34;
@@ -8710,6 +9117,7 @@ phenotypes:
       Bilateral short 4th metatarsal bones are a limb feature in the founding
       family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals we present did not exhibit synophrys, midface \nhypoplasia, kyphosis, 5th finger camptodactyly, short 4th metatarsals or limited \nknee mobility observed in the reported family&#34;
@@ -8724,6 +9132,7 @@ phenotypes:
       label: Overlapping toe
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;bones with overriding toes&#34;
@@ -8737,6 +9146,7 @@ phenotypes:
       label: Prominent fingertip pads
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;persistent fetal pads on fingers and&#34;
@@ -8751,12 +9161,14 @@ phenotypes:
       label: Kyphosis
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;kyphosis without scoliosis&#34;
     explanation: &gt;
       Mild kyphosis was documented on skeletal survey in the founding family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals we present did not exhibit synophrys, midface \nhypoplasia, kyphosis, 5th finger camptodactyly, short 4th metatarsals or limited \nknee mobility observed in the reported family&#34;
@@ -8771,12 +9183,14 @@ phenotypes:
       label: Limited knee flexion/extension
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;bilateral short 4th metatarsal bones, and limited knee mobility&#34;
     explanation: &gt;
       Limited knee mobility was documented bilaterally in the founding family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals we present did not exhibit synophrys, midface \nhypoplasia, kyphosis, 5th finger camptodactyly, short 4th metatarsals or limited \nknee mobility observed in the reported family&#34;
@@ -8798,6 +9212,7 @@ phenotypes:
       label: Abnormal facial shape
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;delayed pubertal onset and facial dysmorphism&#34;
@@ -8812,6 +9227,7 @@ phenotypes:
       label: Delayed puberty
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;delayed pubertal onset and facial dysmorphism&#34;
@@ -8829,6 +9245,7 @@ diagnosis:
     disease-specific functional assay.
   evidence:
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;by exome sequencing identified homozygous ZNF407 c.2814_2816dup (p.Val939dup) in four affected members&#34;
@@ -8836,6 +9253,7 @@ diagnosis:
       Exome sequencing identified the homozygous variant in the largest
       published family.
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The family was studied by homozygosity mapping, candidate gene mutation screening and whole Exome Next Generation Sequencing&#34;
@@ -8865,6 +9283,7 @@ discussions:
     be treated as established.
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;The mutated gene product was studied by structural bioinformatics methods.&#34;
@@ -8872,6 +9291,7 @@ discussions:
       The founding disease-specific functional analysis was computational
       rather than an assay in patient-derived neural cells.
   - reference: PMID:38781157
+    reference_title: &#34;Molecular regulation of PPARγ/RXRα signaling by the novel cofactor ZFP407.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes&#34;
@@ -8910,6 +9330,7 @@ discussions:
     correlations.
   evidence:
   - reference: PMID:24907849
+    reference_title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;both affected\nindividuals are males&#34;
@@ -8917,6 +9338,7 @@ discussions:
       The founding report contributes detailed observations from only two
       affected individuals in one family.
   - reference: PMID:32737394
+    reference_title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;five members of a consanguineous Pakistani family (Family I) plus two affected children from families of different ethnic origins&#34;
@@ -9438,7 +9860,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ZNF407-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0859198", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZNF407-Related_Neurodevelopmental_Disorder", "yamlRevision": "ec2dc9292f9d"};
+        const OS_CONFIG = {"diseaseName": "ZNF407-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0859198", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZNF407-Related_Neurodevelopmental_Disorder", "yamlRevision": "220ba0edc3ef"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9857,5 +10279,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

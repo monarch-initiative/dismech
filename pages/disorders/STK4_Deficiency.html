@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>STK4 Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>STK4 Deficiency</h1>
             <div class="header-meta">
 
@@ -3875,34 +3997,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification" title="STK4 deficiency is an inborn error of immunity (primary immunodeficiency), best classified under disorders of the immune system.">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
-
-
-
-
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">IUIS Category</div>
+
+
+
                 <div class="tag-list">
-                    <span class="tag tag-classification">combined immunodeficiency</span>
+
+
+
+
+
+                    <span class="tag tag-classification" title="STK4 (MST1) deficiency is classified by IUIS as a combined immunodeficiency affecting cellular and humoral immunity (Table 1).">combined immunodeficiency</span>
+
                 </div>
+
             </div>
 
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3920,7 +4129,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3965,6 +4174,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3986,6 +4196,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39110273" target="_blank">PMID:39110273</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4044,18 +4255,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves naive T cell (CL:0000898). CL:0000898 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         naive T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000898" target="_blank" class="curie-chip curie-chip-cl">CL:0000898</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000898" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves naive T cell (CL:0000898). CL:0000898 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4083,18 +4296,20 @@ This pathophysiological event involves naive T cell (CL:0000898). CL:0000898 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased lymphocyte apoptotic process (GO:0070227). GO:0070227 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lymphocyte apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070227" target="_blank" class="curie-chip curie-chip-go">GO:0070227</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070227" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0070227</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lymphocyte apoptotic process (GO:0070227). GO:0070227 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4115,18 +4330,20 @@ This pathophysiological event involves increased lymphocyte apoptotic process (G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased T cell homeostasis (GO:0043029). GO:0043029 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043029" target="_blank" class="curie-chip curie-chip-go">GO:0043029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0043029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased T cell homeostasis (GO:0043029). GO:0043029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4192,6 +4409,7 @@ This pathophysiological event involves decreased T cell homeostasis (GO:0043029)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22174160" target="_blank">PMID:22174160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4214,6 +4432,7 @@ This pathophysiological event involves decreased T cell homeostasis (GO:0043029)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22174160" target="_blank">PMID:22174160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4235,6 +4454,7 @@ This pathophysiological event involves decreased T cell homeostasis (GO:0043029)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34427831" target="_blank">PMID:34427831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4269,18 +4489,20 @@ This pathophysiological event involves decreased T cell homeostasis (GO:0043029)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4297,18 +4519,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4336,18 +4560,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4405,6 +4631,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4438,18 +4665,20 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4477,18 +4706,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased leukocyte chemotaxis (GO:0030595). GO:0030595 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         leukocyte chemotaxis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030595" target="_blank" class="curie-chip curie-chip-go">GO:0030595</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030595" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030595</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased leukocyte chemotaxis (GO:0030595). GO:0030595 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4509,18 +4740,20 @@ This pathophysiological event involves decreased leukocyte chemotaxis (GO:003059
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4586,6 +4819,7 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26801501" target="_blank">PMID:26801501</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4608,6 +4842,7 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26801501" target="_blank">PMID:26801501</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4629,6 +4864,7 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34427831" target="_blank">PMID:34427831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4663,18 +4899,20 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves plasmacytoid dendritic cell (CL:0000784). CL:0000784 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         plasmacytoid dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000784" target="_blank" class="curie-chip curie-chip-cl">CL:0000784</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000784" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000784</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasmacytoid dendritic cell (CL:0000784). CL:0000784 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4691,18 +4929,20 @@ This pathophysiological event involves plasmacytoid dendritic cell (CL:0000784).
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4730,18 +4970,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         type I interferon-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go">GO:0060337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0060337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4762,18 +5004,20 @@ This pathophysiological event involves decreased type I interferon-mediated sign
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased defense response to virus (GO:0051607). GO:0051607 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         defense response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go">GO:0051607</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0051607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased defense response to virus (GO:0051607). GO:0051607 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4847,6 +5091,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33078349" target="_blank">PMID:33078349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4869,6 +5114,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33078349" target="_blank">PMID:33078349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4890,6 +5136,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34427831" target="_blank">PMID:34427831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4983,16 +5230,22 @@ This pathophysiological event involves decreased defense response to virus (GO:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total neutrophil count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001875</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neutropenia, annotated with Decreased total neutrophil count (HP:0001875), qualified as temporality transient. HP:0001875 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased total neutrophil count
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp">HP:0001875</a>
-
-
+This clinical feature is Neutropenia, annotated with Decreased total neutrophil count (HP:0001875), qualified as temporality transient. HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5031,6 +5284,7 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5063,16 +5317,22 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating IgE concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003212</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating IgE concentration, annotated with Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating IgE concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp">HP:0003212</a>
-
-
+This clinical feature is Elevated circulating IgE concentration, annotated with Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5092,6 +5352,7 @@ This clinical feature is Elevated circulating IgE concentration, annotated with 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5125,16 +5386,20 @@ This clinical feature is Elevated circulating IgE concentration, annotated with 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001890</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is a phenotype from the Human Phenotype Ontology.">
-                        Autoimmune hemolytic anemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp">HP:0001890</a>
-
-
+This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5154,6 +5419,7 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30386345" target="_blank">PMID:30386345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5187,16 +5453,20 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005523" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005523</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphoproliferative disorder (HP:0005523). HP:0005523 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphoproliferative disorder
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005523" target="_blank" class="curie-chip curie-chip-hp">HP:0005523</a>
-
-
+This clinical feature is Lymphoproliferative disorder (HP:0005523). HP:0005523 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5216,6 +5486,7 @@ This clinical feature is Lymphoproliferative disorder (HP:0005523). HP:0005523 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30386345" target="_blank">PMID:30386345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5249,16 +5520,20 @@ This clinical feature is Lymphoproliferative disorder (HP:0005523). HP:0005523 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002665</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp">HP:0002665</a>
-
-
+This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5278,6 +5553,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30386345" target="_blank">PMID:30386345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5320,16 +5596,20 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatosplenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
-
-
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5349,6 +5629,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30386345" target="_blank">PMID:30386345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5382,16 +5663,20 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001631</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.">
-                        Atrial septal defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp">HP:0001631</a>
-
-
+This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5411,6 +5696,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5455,16 +5741,20 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006532</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006532" target="_blank" class="curie-chip curie-chip-hp">HP:0006532</a>
-
-
+This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5484,6 +5774,7 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5517,16 +5808,20 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002960</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.">
-                        Autoimmunity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp">HP:0002960</a>
-
-
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5546,6 +5841,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5588,16 +5884,20 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent bacterial infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp">HP:0002718</a>
-
-
+This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5617,6 +5917,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5650,16 +5951,20 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent viral infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp">HP:0004429</a>
-
-
+This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5679,6 +5984,7 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5712,16 +6018,20 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0020072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Persistent EBV viremia (HP:0020072), qualified as temporality chronic. HP:0020072 is a phenotype from the Human Phenotype Ontology.">
-                        Persistent EBV viremia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020072" target="_blank" class="curie-chip curie-chip-hp">HP:0020072</a>
-
-
+This clinical feature is Persistent EBV viremia (HP:0020072), qualified as temporality chronic. HP:0020072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5760,6 +6070,7 @@ This clinical feature is Persistent EBV viremia (HP:0020072), qualified as tempo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34427831" target="_blank">PMID:34427831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5792,16 +6103,20 @@ This clinical feature is Persistent EBV viremia (HP:0020072), qualified as tempo
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005353</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent herpes (HP:0005353). HP:0005353 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent herpes
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005353" target="_blank" class="curie-chip curie-chip-hp">HP:0005353</a>
-
-
+This clinical feature is Recurrent herpes (HP:0005353). HP:0005353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5821,6 +6136,7 @@ This clinical feature is Recurrent herpes (HP:0005353). HP:0005353 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33078349" target="_blank">PMID:33078349</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5854,16 +6170,22 @@ This clinical feature is Recurrent herpes (HP:0005353). HP:0005353 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Disseminated cutaneous warts</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032215" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0032215</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cutaneous warts, annotated with Disseminated cutaneous warts (HP:0032215). HP:0032215 is a phenotype from the Human Phenotype Ontology.">
-                        Disseminated cutaneous warts
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032215" target="_blank" class="curie-chip curie-chip-hp">HP:0032215</a>
-
-
+This clinical feature is Cutaneous warts, annotated with Disseminated cutaneous warts (HP:0032215). HP:0032215 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5883,6 +6205,7 @@ This clinical feature is Cutaneous warts, annotated with Disseminated cutaneous 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5905,6 +6228,7 @@ This clinical feature is Cutaneous warts, annotated with Disseminated cutaneous 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5938,16 +6262,22 @@ This clinical feature is Cutaneous warts, annotated with Disseminated cutaneous 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Chronic mucocutaneous candidiasis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002728</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mucocutaneous candidiasis, annotated with Chronic mucocutaneous candidiasis (HP:0002728). HP:0002728 is a phenotype from the Human Phenotype Ontology.">
-                        Chronic mucocutaneous candidiasis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002728" target="_blank" class="curie-chip curie-chip-hp">HP:0002728</a>
-
-
+This clinical feature is Mucocutaneous candidiasis, annotated with Chronic mucocutaneous candidiasis (HP:0002728). HP:0002728 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5967,6 +6297,7 @@ This clinical feature is Mucocutaneous candidiasis, annotated with Chronic mucoc
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6000,16 +6331,22 @@ This clinical feature is Mucocutaneous candidiasis, annotated with Chronic mucoc
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total T cell count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005403</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased total T cell count
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp">HP:0005403</a>
-
-
+This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6029,6 +6366,7 @@ This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6051,6 +6389,7 @@ This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6084,16 +6423,22 @@ This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total B cell count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0010976</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased total B cell count
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp">HP:0010976</a>
-
-
+This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6113,6 +6458,7 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6146,16 +6492,22 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating immunoglobulin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0010702</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypergammaglobulinemia, annotated with Increased circulating immunoglobulin concentration (HP:0010702). HP:0010702 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating immunoglobulin concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp">HP:0010702</a>
-
-
+This clinical feature is Hypergammaglobulinemia, annotated with Increased circulating immunoglobulin concentration (HP:0010702). HP:0010702 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6175,6 +6527,7 @@ This clinical feature is Hypergammaglobulinemia, annotated with Increased circul
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30386345" target="_blank">PMID:30386345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6254,15 +6607,17 @@ This clinical feature is Hypergammaglobulinemia, annotated with Increased circul
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is STK4 (hgnc:11408). hgnc:11408 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STK4
 
 
-    <a href="https://bioregistry.io/hgnc:11408" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11408</a>
+    <a href="https://bioregistry.io/hgnc:11408" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:11408</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STK4 (hgnc:11408). hgnc:11408 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6283,6 +6638,7 @@ This disease-associated gene is STK4 (hgnc:11408). hgnc:11408 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22294732" target="_blank">PMID:22294732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6306,6 +6662,7 @@ This disease-associated gene is STK4 (hgnc:11408). hgnc:11408 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22174160" target="_blank">PMID:22174160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6327,6 +6684,7 @@ This disease-associated gene is STK4 (hgnc:11408). hgnc:11408 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34427831" target="_blank">PMID:34427831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6358,6 +6716,9 @@ This disease-associated gene is STK4 (hgnc:11408). hgnc:11408 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6374,18 +6735,18 @@ This disease-associated gene is STK4 (hgnc:11408). hgnc:11408 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">immunoglobulin infusion therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">immunoglobulin infusion therapy</span>
+This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">NCIT:C62710</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C62710">NCIT:C62710</a>
 
 
 
@@ -6436,6 +6797,7 @@ This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6477,6 +6839,7 @@ This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6507,18 +6870,18 @@ This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">antimicrobial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">antimicrobial agent therapy</span>
+This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6560,6 +6923,7 @@ This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (N
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6590,18 +6954,18 @@ This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (N
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">hematopoietic stem cell transplantation</span>
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">NCIT:C15431</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
 
 
 
@@ -6652,6 +7016,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30386345" target="_blank">PMID:30386345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6693,6 +7058,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30386345" target="_blank">PMID:30386345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6714,6 +7080,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34146746" target="_blank">PMID:34146746</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9109,5 +9476,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

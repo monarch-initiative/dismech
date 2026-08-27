@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Pericarditis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Pericarditis</h1>
             <div class="header-meta">
 
@@ -3900,27 +4022,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">CARDIOVASCULAR</span>
+
+
+
+
+                    <span class="tag tag-classification" title="Curated as cardiovascular because the affected structure and the haemodynamic consequences are cardiac. Its mechanism belongs to innate immunology, and the recurrent form is treated with drugs developed for hereditary periodic fever syndromes, so an immunological classification captures the biology better than the anatomy does.">CARDIOVASCULAR</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3971,7 +4170,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-acute-pericarditis">
 
                     <div class="item-name">
                         Acute pericarditis
@@ -4000,7 +4199,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-recurrent-pericarditis">
 
                     <div class="item-name">
                         Recurrent pericarditis
@@ -4035,6 +4234,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21873705" target="_blank">PMID:21873705</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4061,7 +4261,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-recurrent-pericarditis-idiopathic">
 
                     <div class="item-name">
                         Idiopathic recurrent pericarditis
@@ -4092,7 +4292,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-constrictive-pericarditis">
 
                     <div class="item-name">
                         Constrictive pericarditis
@@ -4123,7 +4323,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-tuberculous-pericarditis">
 
                     <div class="item-name">
                         Tuberculous pericarditis
@@ -4221,6 +4421,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16186437" target="_blank">PMID:16186437</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4242,6 +4443,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658515" target="_blank">PMID:35658515</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4343,6 +4545,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4365,6 +4573,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27825009" target="_blank">PMID:27825009</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4466,6 +4675,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4488,6 +4703,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15505106" target="_blank">PMID:15505106</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4535,18 +4751,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pericardial mesothelial cell, annotated with mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pericardial mesothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl">CL:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pericardial mesothelial cell, annotated with mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4577,18 +4795,20 @@ This pathophysiological event involves pericardial mesothelial cell, annotated w
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pericardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002407</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0002407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4629,18 +4849,20 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pericardial mesothelial cell, annotated with mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pericardial mesothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl">CL:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pericardial mesothelial cell, annotated with mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4657,18 +4879,20 @@ This pathophysiological event involves pericardial mesothelial cell, annotated w
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4696,18 +4920,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased NLRP3 inflammasome complex assembly (GO:0044546). GO:0044546 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         NLRP3 inflammasome complex assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go">GO:0044546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0044546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased NLRP3 inflammasome complex assembly (GO:0044546). GO:0044546 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4735,18 +4961,20 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pericardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002407</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4803,6 +5031,7 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33665514" target="_blank">PMID:33665514</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4824,6 +5053,7 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33665514" target="_blank">PMID:33665514</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4866,18 +5096,20 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of interleukin-1 beta production (GO:0032731). GO:0032731 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of interleukin-1 beta production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032731" target="_blank" class="curie-chip curie-chip-go">GO:0032731</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032731" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0032731</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of interleukin-1 beta production (GO:0032731). GO:0032731 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4898,18 +5130,20 @@ This pathophysiological event involves increased positive regulation of interleu
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of canonical NF-kappaB signal transduction (GO:0043123). GO:0043123 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of canonical NF-kappaB signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" class="curie-chip curie-chip-go">GO:0043123</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0043123</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of canonical NF-kappaB signal transduction (GO:0043123). GO:0043123 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4977,6 +5211,7 @@ This pathophysiological event involves increased positive regulation of canonica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33200890" target="_blank">PMID:33200890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5011,18 +5246,20 @@ This pathophysiological event involves increased positive regulation of canonica
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5039,18 +5276,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5081,18 +5320,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON:0002406 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pericardial sac
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002406" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002406</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002406" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002406</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON:0002406 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5183,6 +5424,7 @@ This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33200890" target="_blank">PMID:33200890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5205,6 +5447,7 @@ This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658515" target="_blank">PMID:35658515</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5226,6 +5469,7 @@ This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658515" target="_blank">PMID:35658515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5271,18 +5515,20 @@ This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON:0002406 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pericardial sac
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002406" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002406</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002406" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002406</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON:0002406 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5333,18 +5579,20 @@ This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON:0002406 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pericardial sac
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002406" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002406</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002406" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002406</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON:0002406 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5369,18 +5617,20 @@ This pathophysiological event occurs in pericardial sac (UBERON:0002406). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5411,18 +5661,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pericardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002407</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5491,18 +5743,20 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pericardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002407</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:0002407 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5542,6 +5796,7 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15505106" target="_blank">PMID:15505106</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5591,7 +5846,7 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute pericardial inflammatory exudate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils arrive first and are followed by lymphocytes and macrophages, microvascular permeability rises, and fibrin is deposited on the serosal surfaces. Every feature of the acute clinical syndrome comes from this node. The friction rub is the sound of fibrin-roughened layers moving on each other, the pain is irritation of the pain-sensitive parietal layer, the effusion is the permeability change, and the diffuse rather than territorial electrocardiographic change follows from the fact that the inflamed surface wraps the whole heart instead of following a coronary territory.\\n\", \"meta\": {\"cell_types\": [\"neutrophil\", \"macrophage\"], \"locations\": [\"pericardial sac\"]}}, {\"id\": \"Anakinra\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A recombinant interleukin-1 receptor antagonist, tested in the narrowest and most refractory population in this disease, namely patients with at least three previous recurrences who were both colchicine-resistant and corticosteroid-dependent. That these patients responded is the strongest argument that the refractory phenotype is interleukin-1 driven rather than simply severe.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Antitubercular therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard multidrug antitubercular treatment, the aetiology-directed therapy for the tuberculous subtype and the only situation in this disease where killing an organism is the treatment. It is assumed as background standard of care in every arm of the trials conducted in this population, which is why the evidence here establishes it as the platform rather than testing it. The same trial\u0027s findings on adjunctive prednisolone are curated on the corticosteroid treatment entry, where they belong, since it was the corticosteroid and not the antitubercular therapy that was randomised.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autoinflammatory recurrence loop\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a substantial minority the inflammation does not settle after the trigger has gone, and the disease relapses after symptom-free intervals. The loop is innate rather than adaptive, and three independent lines of evidence say so. Interleukin-1 blockade suppresses it and withdrawal releases it. A minority of patients carry variants in the genes that cause hereditary periodic fever syndromes, and pericarditis is itself a recognised feature of those syndromes. And corticosteroids, which act mainly on the adaptive arm, make recurrence more likely rather than less. This node is why recurrent pericarditis is curated as its own subtype rather than as repetition of the acute one.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Cardiac injury and surgery\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Myocardial infarction, cardiac surgery, catheter procedures, device implantation, and chest trauma all produce a delayed pericarditis grouped as post-cardiac injury syndrome. The latency between the injury and the syndrome is the clue to its immune-mediated character, and it includes the entity long known as Dressler syndrome.\\n\"}, {\"id\": \"Cardiac tamponade\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Haemodynamic compromise from pericardial fluid under pressure, with raised venous pressure, hypotension, and pulsus paradoxus. It is uncommon in idiopathic and viral disease and much more frequent in malignant, tuberculous, and purulent pericarditis, so its presence shifts the aetiological probabilities as well as demanding drainage.\\n\", \"meta\": {\"term_id\": \"HP:0033415\"}}, {\"id\": \"Colchicine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Added to anti-inflammatory therapy from the first episode, and the single best-evidenced intervention in the disease. Its effect is on recurrence rather than on the acute episode alone, which fits a drug acting on the inflammasome-driven loop rather than on the injury that started it. That it improves pericardial inflammation only partially in experimental models, while interleukin-1 blockade improves it substantially, is consistent with its clinical position as an agent that reduces recurrence without abolishing it.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"colchicine\"]}}, {\"id\": \"Constrictive physiology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A rigid pericardium caps total cardiac volume, so diastolic pressures equalise across chambers, filling stops abruptly in early diastole, and the ventricles compete for a fixed space. The result is a right-heart-failure syndrome with raised venous pressure, ascites, and oedema in a patient whose ventricular contraction is normal, which is the reason it is routinely mistaken for liver or renal disease. It is not necessarily irreversible. A transient form associated with ongoing inflammation resolves with anti-inflammatory therapy, so the choice between drugs and pericardiectomy turns on distinguishing active inflammation from established fibrosis.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"pericardium\"], \"experimental_models\": [{\"name\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"model_type\": \"OTHER\", \"description\": \"The model reproduces the constrictive haemodynamic phenotype and attributes it to the pericardial rather than the myocardial disease.\\n\"}]}}, {\"id\": \"Corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reserved as second-line, for patients who cannot take or do not respond to non-steroidal agents and colchicine, or whose pericarditis is part of a systemic autoimmune disease. The reason for the reservation is not toxicity alone. Corticosteroid use was an independent risk factor for recurrence in multivariable analysis of a randomised trial, so the intuitive treatment for an inflamed serosa makes the natural history worse. A plausible reading is that suppressing the adaptive arm does not touch the innate loop that drives relapse, and a separate cohort observation that steroid dependence tracks chronic pain suggests some of what appears to be steroid-dependent disease is not inflammatory at all.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"End-stage renal disease and uraemia\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Accumulated uraemic solutes inflame the pericardium in advanced renal failure, and an analogous syndrome occurs in patients already on dialysis when dialysis is inadequate. It is the one aetiology whose first-line treatment is neither anti-inflammatory nor antimicrobial but removal of the causative solutes.\\n\"}, {\"id\": \"Fibrotic organization of the pericardium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rather than resolving, the inflamed pericardium may organise, with fibroblast activation and excessive matrix deposition, sometimes proceeding to calcification. The likelihood is set by the aetiology and not by the noise of the acute episode, being low after idiopathic and viral disease and high after tuberculous and purulent disease. Radiation-associated fibrosis is the least tractable, since it can appear years after exposure and involves the myocardium and valves alongside the pericardium.\\n\", \"meta\": {\"cell_types\": [\"fibroblast\"], \"locations\": [\"pericardium\"], \"experimental_models\": [{\"name\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"model_type\": \"OTHER\", \"description\": \"Pericardial inflammation and fibrosis are the lesion that produces the phenotype in this model.\\n\"}]}}, {\"id\": \"Inflammasome activation in pericardial tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate immune sensing assembles the NLRP3 inflammasome in pericardial mesothelial cells and macrophages. This is the convergence point of the module, and it is established in human pericardial tissue rather than inferred from the drug response alone, with inflammasome components more strongly stained in patients with chronic pericarditis than in controls and the same activation reproduced in a mouse model of the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pericardial mesothelial cell\", \"macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"locations\": [\"pericardium\"], \"experimental_models\": [{\"name\": \"Zymosan A intrapericardial injection mouse model\", \"model_type\": \"OTHER\", \"description\": \"The model reproduces inflammasome activation in the pericardium and allows blockers to be compared against each other.\\n\"}]}}, {\"id\": \"Intensified haemodialysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Increasing dialysis dose or initiating dialysis, the aetiology-directed treatment for uraemic and dialysis-associated pericarditis. It is the mechanistic counterpart of antitubercular therapy in a non-infectious setting, since both remove the persistent stimulus rather than suppressing the response to it, and it is the reason this aetiology is the one where an anti-inflammatory drug is not the first move.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cardiac myosin-induced experimental autoimmune myocarditis in interferon-gamma-deficient mice, which develop grossly visible pericarditis with pericardial inflammation and fibrosis and a haemodynamic phenotype reproducing human constriction, including the square-root sign on pressure tracing. Its value is that it solves an attribution problem. Because the model also produces myocarditis, the authors matched animals for myocardial disease severity and showed the constrictive haemodynamics tracked the pericardial disease and not the myocardial disease, which is the confound that makes restrictive and constrictive physiology hard to separate in patients. Its limitation is that constriction arises here from an autoimmune myocarditis protocol in a cytokine-deficient animal, which is not how human constriction arises.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:15505106\"}}, {\"id\": \"Interleukin-1 release and cytokine amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active interleukin-1 alpha and beta drive a nuclear-factor-kappa-B-dependent cascade of interleukin-6, tumour necrosis factor, and chemokines. Interleukin-1 also induces its own production, which is the property that turns an injury response into a self-sustaining loop and gives the disease its tendency to recur. This node is the drug target for the two agents that work in refractory disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of interleukin-1 beta production\", \"positive regulation of canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Mediastinal irradiation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Radiotherapy to the mediastinum, historically for Hodgkin lymphoma and for breast cancer, causes both acute pericarditis and a delayed fibrosing constrictive disease that may appear years to decades later. It is curated separately from the other triggers because its outcome is the worst of any aetiology, with poor long-term survival after pericardiectomy, and because it is iatrogenic and therefore preventable by treatment planning.\\n\"}, {\"id\": \"Non-steroidal anti-inflammatory therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aspirin or ibuprofen at anti-inflammatory doses, the first-line treatment for symptom control and for suppressing the acute inflammatory response. Aspirin is preferred after myocardial infarction, where other non-steroidal agents may interfere with infarct healing.\\n\"}, {\"id\": \"Pericardial effusion accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fluid collects in a space that normally holds a few tens of millilitres. Whether it matters depends on the rate rather than the volume, because the parietal pericardium stretches slowly and a slowly accumulating effusion of a litre may be tolerated while a rapidly accumulating one of two hundred millilitres is not.\\n\", \"meta\": {\"locations\": [\"pericardial sac\"]}}, {\"id\": \"Pericardial injury from a heterogeneous trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infection, mycobacterial or pyogenic infection, uraemic toxin accumulation, myocardial or surgical injury, irradiation, malignant infiltration, or systemic autoimmune disease injures the pericardial mesothelium. The list is long and the downstream response is not, which is the central structural feature of this disease. Trigger identity determines the probability of progression to constriction and determines what treats the cause, but it barely determines the acute syndrome. Curating one trigger node rather than a separate chain per aetiology reflects that convergence.\\n\", \"meta\": {\"cell_types\": [\"pericardial mesothelial cell\"], \"locations\": [\"pericardium\"]}}, {\"id\": \"Pericardiectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the constricting pericardium, the definitive treatment for fixed constriction. Outcome depends heavily on aetiology, and radiation-associated constriction does worst, with around one in ten dying perioperatively and roughly a third alive at ten years. Those numbers are the argument for distinguishing reversible from fixed constriction before operating rather than after.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pericardiocentesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Drainage of pericardial fluid, required urgently for tamponade and used diagnostically for undiagnosed large effusions. It relieves the haemodynamic consequence without touching the inflammation that produced it.\\n\"}, {\"id\": \"Rilonacept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A soluble interleukin-1 receptor fusion protein that traps both interleukin-1 alpha and interleukin-1 beta, given weekly by subcutaneous injection, and the first agent approved specifically for recurrent pericarditis. Its trial design is what makes it mechanistically informative. Patients were brought into remission on drug and then randomised to continue or withdraw, so the recurrence rate on placebo measures how much of the ongoing disease depends on interleukin-1 rather than how much a drug relieves symptoms.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rilonacept\"]}}, {\"id\": \"Zymosan A intrapericardial injection mouse model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Intrapericardial injection of zymosan A, producing pericardial inflammation with inflammasome activation matching that seen in human pericardial tissue. It was used to test inflammasome blockers against colchicine, and it is the source of the observation that colchicine improves pericardial inflammation only partially where interleukin-1 directed agents improve it substantially.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:33665514\"}}], \"edges\": [{\"source\": \"Pericardial injury from a heterogeneous trigger\", \"target\": \"Inflammasome activation in pericardial tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured and stressed mesothelial cells and resident macrophages engage innate immune sensing, which is the first shared step of the response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome activation in pericardial tissue\", \"target\": \"Interleukin-1 release and cytokine amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Assembled inflammasome cleaves pro-interleukin-1-beta to its active form and releases it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interleukin-1 release and cytokine amplification\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine signalling raises microvascular permeability and recruits leukocytes into the pericardium.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interleukin-1 release and cytokine amplification\", \"target\": \"Autoinflammatory recurrence loop\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interleukin-1-driven induction of further interleukin-1 sustains the response beyond the original trigger in susceptible patients.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute pericardial inflammatory exudate\", \"target\": \"Pericardial effusion accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased permeability and reduced lymphatic clearance let fluid collect in the pericardial space.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute pericardial inflammatory exudate\", \"target\": \"Fibrotic organization of the pericardium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent or severe inflammation may organise rather than resolve, with the probability depending strongly on the aetiology rather than on the acute severity.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoinflammatory recurrence loop\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Each relapse reproduces the acute inflammatory response without a new external trigger.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pericardial effusion accumulation\", \"target\": \"Cardiac tamponade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tamponade follows only when the intrapericardial pressure rises to the level of cardiac filling pressures, which depends on the rate of accumulation and the compliance of the sac.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Fibrotic organization of the pericardium\", \"target\": \"Constrictive physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A non-compliant pericardial shell sets a fixed limit on total cardiac volume.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mediastinal irradiation\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Ionising radiation injures the pericardial mesothelium and microvasculature, entering the shared chain at the trigger node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mediastinal irradiation\", \"target\": \"Fibrotic organization of the pericardium\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Radiation injury biases the pericardium towards fibrotic organisation rather than resolution, which is why constriction is the characteristic late outcome.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"End-stage renal disease and uraemia\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Uraemic solute accumulation injures the pericardium directly, entering the shared chain at the trigger node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac injury and surgery\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Mechanical or ischaemic injury to the heart exposes the pericardium to injured tissue and initiates the shared response after a latent period.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-steroidal anti-inflammatory therapy\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Colchicine\", \"target\": \"Autoinflammatory recurrence loop\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroid therapy\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rilonacept\", \"target\": \"Interleukin-1 release and cytokine amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anakinra\", \"target\": \"Interleukin-1 release and cytokine amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antitubercular therapy\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensified haemodialysis\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pericardiocentesis\", \"target\": \"Cardiac tamponade\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pericardiectomy\", \"target\": \"Constrictive physiology\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"target\": \"Constrictive physiology\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces the constrictive haemodynamic phenotype and attributes it to the pericardial rather than the myocardial disease.\\n\"}, {\"source\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"target\": \"Fibrotic organization of the pericardium\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Pericardial inflammation and fibrosis are the lesion that produces the phenotype in this model.\\n\"}, {\"source\": \"Zymosan A intrapericardial injection mouse model\", \"target\": \"Inflammasome activation in pericardial tissue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces inflammasome activation in the pericardium and allows blockers to be compared against each other.\\n\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute pericardial inflammatory exudate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils arrive first and are followed by lymphocytes and macrophages, microvascular permeability rises, and fibrin is deposited on the serosal surfaces. Every feature of the acute clinical syndrome comes from this node. The friction rub is the sound of fibrin-roughened layers moving on each other, the pain is irritation of the pain-sensitive parietal layer, the effusion is the permeability change, and the diffuse rather than territorial electrocardiographic change follows from the fact that the inflamed surface wraps the whole heart instead of following a coronary territory.\\n\", \"meta\": {\"cell_types\": [\"neutrophil\", \"macrophage\"], \"locations\": [\"pericardial sac\"]}}, {\"id\": \"Anakinra\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A recombinant interleukin-1 receptor antagonist, tested in the narrowest and most refractory population in this disease, namely patients with at least three previous recurrences who were both colchicine-resistant and corticosteroid-dependent. That these patients responded is the strongest argument that the refractory phenotype is interleukin-1 driven rather than simply severe.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Antitubercular therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard multidrug antitubercular treatment, the aetiology-directed therapy for the tuberculous subtype and the only situation in this disease where killing an organism is the treatment. It is assumed as background standard of care in every arm of the trials conducted in this population, which is why the evidence here establishes it as the platform rather than testing it. The same trial\u0027s findings on adjunctive prednisolone are curated on the corticosteroid treatment entry, where they belong, since it was the corticosteroid and not the antitubercular therapy that was randomised.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autoinflammatory recurrence loop\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a substantial minority the inflammation does not settle after the trigger has gone, and the disease relapses after symptom-free intervals. The loop is innate rather than adaptive, and three independent lines of evidence say so. Interleukin-1 blockade suppresses it and withdrawal releases it. A minority of patients carry variants in the genes that cause hereditary periodic fever syndromes, and pericarditis is itself a recognised feature of those syndromes. And corticosteroids, which act mainly on the adaptive arm, make recurrence more likely rather than less. This node is why recurrent pericarditis is curated as its own subtype rather than as repetition of the acute one.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Cardiac injury and surgery\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Myocardial infarction, cardiac surgery, catheter procedures, device implantation, and chest trauma all produce a delayed pericarditis grouped as post-cardiac injury syndrome. The latency between the injury and the syndrome is the clue to its immune-mediated character, and it includes the entity long known as Dressler syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiac tamponade\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Haemodynamic compromise from pericardial fluid under pressure, with raised venous pressure, hypotension, and pulsus paradoxus. It is uncommon in idiopathic and viral disease and much more frequent in malignant, tuberculous, and purulent pericarditis, so its presence shifts the aetiological probabilities as well as demanding drainage.\\n\", \"meta\": {\"term_id\": \"HP:0033415\"}}, {\"id\": \"Colchicine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Added to anti-inflammatory therapy from the first episode, and the single best-evidenced intervention in the disease. Its effect is on recurrence rather than on the acute episode alone, which fits a drug acting on the inflammasome-driven loop rather than on the injury that started it. That it improves pericardial inflammation only partially in experimental models, while interleukin-1 blockade improves it substantially, is consistent with its clinical position as an agent that reduces recurrence without abolishing it.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"colchicine\"]}}, {\"id\": \"Constrictive physiology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A rigid pericardium caps total cardiac volume, so diastolic pressures equalise across chambers, filling stops abruptly in early diastole, and the ventricles compete for a fixed space. The result is a right-heart-failure syndrome with raised venous pressure, ascites, and oedema in a patient whose ventricular contraction is normal, which is the reason it is routinely mistaken for liver or renal disease. It is not necessarily irreversible. A transient form associated with ongoing inflammation resolves with anti-inflammatory therapy, so the choice between drugs and pericardiectomy turns on distinguishing active inflammation from established fibrosis.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"pericardium\"], \"experimental_models\": [{\"name\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"model_type\": \"OTHER\", \"description\": \"The model reproduces the constrictive haemodynamic phenotype and attributes it to the pericardial rather than the myocardial disease.\\n\"}]}}, {\"id\": \"Corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reserved as second-line, for patients who cannot take or do not respond to non-steroidal agents and colchicine, or whose pericarditis is part of a systemic autoimmune disease. The reason for the reservation is not toxicity alone. Corticosteroid use was an independent risk factor for recurrence in multivariable analysis of a randomised trial, so the intuitive treatment for an inflamed serosa makes the natural history worse. A plausible reading is that suppressing the adaptive arm does not touch the innate loop that drives relapse, and a separate cohort observation that steroid dependence tracks chronic pain suggests some of what appears to be steroid-dependent disease is not inflammatory at all.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"End-stage renal disease and uraemia\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Accumulated uraemic solutes inflame the pericardium in advanced renal failure, and an analogous syndrome occurs in patients already on dialysis when dialysis is inadequate. It is the one aetiology whose first-line treatment is neither anti-inflammatory nor antimicrobial but removal of the causative solutes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fibrotic organization of the pericardium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rather than resolving, the inflamed pericardium may organise, with fibroblast activation and excessive matrix deposition, sometimes proceeding to calcification. The likelihood is set by the aetiology and not by the noise of the acute episode, being low after idiopathic and viral disease and high after tuberculous and purulent disease. Radiation-associated fibrosis is the least tractable, since it can appear years after exposure and involves the myocardium and valves alongside the pericardium.\\n\", \"meta\": {\"cell_types\": [\"fibroblast\"], \"locations\": [\"pericardium\"], \"experimental_models\": [{\"name\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"model_type\": \"OTHER\", \"description\": \"Pericardial inflammation and fibrosis are the lesion that produces the phenotype in this model.\\n\"}]}}, {\"id\": \"Inflammasome activation in pericardial tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate immune sensing assembles the NLRP3 inflammasome in pericardial mesothelial cells and macrophages. This is the convergence point of the module, and it is established in human pericardial tissue rather than inferred from the drug response alone, with inflammasome components more strongly stained in patients with chronic pericarditis than in controls and the same activation reproduced in a mouse model of the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pericardial mesothelial cell\", \"macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"locations\": [\"pericardium\"], \"experimental_models\": [{\"name\": \"Zymosan A intrapericardial injection mouse model\", \"model_type\": \"OTHER\", \"description\": \"The model reproduces inflammasome activation in the pericardium and allows blockers to be compared against each other.\\n\"}]}}, {\"id\": \"Intensified haemodialysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Increasing dialysis dose or initiating dialysis, the aetiology-directed treatment for uraemic and dialysis-associated pericarditis. It is the mechanistic counterpart of antitubercular therapy in a non-infectious setting, since both remove the persistent stimulus rather than suppressing the response to it, and it is the reason this aetiology is the one where an anti-inflammatory drug is not the first move.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cardiac myosin-induced experimental autoimmune myocarditis in interferon-gamma-deficient mice, which develop grossly visible pericarditis with pericardial inflammation and fibrosis and a haemodynamic phenotype reproducing human constriction, including the square-root sign on pressure tracing. Its value is that it solves an attribution problem. Because the model also produces myocarditis, the authors matched animals for myocardial disease severity and showed the constrictive haemodynamics tracked the pericardial disease and not the myocardial disease, which is the confound that makes restrictive and constrictive physiology hard to separate in patients. Its limitation is that constriction arises here from an autoimmune myocarditis protocol in a cytokine-deficient animal, which is not how human constriction arises.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:15505106\"}}, {\"id\": \"Interleukin-1 release and cytokine amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active interleukin-1 alpha and beta drive a nuclear-factor-kappa-B-dependent cascade of interleukin-6, tumour necrosis factor, and chemokines. Interleukin-1 also induces its own production, which is the property that turns an injury response into a self-sustaining loop and gives the disease its tendency to recur. This node is the drug target for the two agents that work in refractory disease.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of interleukin-1 beta production\", \"positive regulation of canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Mediastinal irradiation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Radiotherapy to the mediastinum, historically for Hodgkin lymphoma and for breast cancer, causes both acute pericarditis and a delayed fibrosing constrictive disease that may appear years to decades later. It is curated separately from the other triggers because its outcome is the worst of any aetiology, with poor long-term survival after pericardiectomy, and because it is iatrogenic and therefore preventable by treatment planning.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-steroidal anti-inflammatory therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aspirin or ibuprofen at anti-inflammatory doses, the first-line treatment for symptom control and for suppressing the acute inflammatory response. Aspirin is preferred after myocardial infarction, where other non-steroidal agents may interfere with infarct healing.\\n\"}, {\"id\": \"Pericardial effusion accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fluid collects in a space that normally holds a few tens of millilitres. Whether it matters depends on the rate rather than the volume, because the parietal pericardium stretches slowly and a slowly accumulating effusion of a litre may be tolerated while a rapidly accumulating one of two hundred millilitres is not.\\n\", \"meta\": {\"locations\": [\"pericardial sac\"]}}, {\"id\": \"Pericardial injury from a heterogeneous trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infection, mycobacterial or pyogenic infection, uraemic toxin accumulation, myocardial or surgical injury, irradiation, malignant infiltration, or systemic autoimmune disease injures the pericardial mesothelium. The list is long and the downstream response is not, which is the central structural feature of this disease. Trigger identity determines the probability of progression to constriction and determines what treats the cause, but it barely determines the acute syndrome. Curating one trigger node rather than a separate chain per aetiology reflects that convergence.\\n\", \"meta\": {\"cell_types\": [\"pericardial mesothelial cell\"], \"locations\": [\"pericardium\"]}}, {\"id\": \"Pericardiectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the constricting pericardium, the definitive treatment for fixed constriction. Outcome depends heavily on aetiology, and radiation-associated constriction does worst, with around one in ten dying perioperatively and roughly a third alive at ten years. Those numbers are the argument for distinguishing reversible from fixed constriction before operating rather than after.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pericardiocentesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Drainage of pericardial fluid, required urgently for tamponade and used diagnostically for undiagnosed large effusions. It relieves the haemodynamic consequence without touching the inflammation that produced it.\\n\"}, {\"id\": \"Rilonacept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A soluble interleukin-1 receptor fusion protein that traps both interleukin-1 alpha and interleukin-1 beta, given weekly by subcutaneous injection, and the first agent approved specifically for recurrent pericarditis. Its trial design is what makes it mechanistically informative. Patients were brought into remission on drug and then randomised to continue or withdraw, so the recurrence rate on placebo measures how much of the ongoing disease depends on interleukin-1 rather than how much a drug relieves symptoms.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rilonacept\"]}}, {\"id\": \"Zymosan A intrapericardial injection mouse model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Intrapericardial injection of zymosan A, producing pericardial inflammation with inflammasome activation matching that seen in human pericardial tissue. It was used to test inflammasome blockers against colchicine, and it is the source of the observation that colchicine improves pericardial inflammation only partially where interleukin-1 directed agents improve it substantially.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:33665514\"}}], \"edges\": [{\"source\": \"Pericardial injury from a heterogeneous trigger\", \"target\": \"Inflammasome activation in pericardial tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured and stressed mesothelial cells and resident macrophages engage innate immune sensing, which is the first shared step of the response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome activation in pericardial tissue\", \"target\": \"Interleukin-1 release and cytokine amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Assembled inflammasome cleaves pro-interleukin-1-beta to its active form and releases it.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interleukin-1 release and cytokine amplification\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine signalling raises microvascular permeability and recruits leukocytes into the pericardium.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interleukin-1 release and cytokine amplification\", \"target\": \"Autoinflammatory recurrence loop\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interleukin-1-driven induction of further interleukin-1 sustains the response beyond the original trigger in susceptible patients.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute pericardial inflammatory exudate\", \"target\": \"Pericardial effusion accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased permeability and reduced lymphatic clearance let fluid collect in the pericardial space.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute pericardial inflammatory exudate\", \"target\": \"Fibrotic organization of the pericardium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent or severe inflammation may organise rather than resolve, with the probability depending strongly on the aetiology rather than on the acute severity.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Autoinflammatory recurrence loop\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Each relapse reproduces the acute inflammatory response without a new external trigger.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pericardial effusion accumulation\", \"target\": \"Cardiac tamponade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tamponade follows only when the intrapericardial pressure rises to the level of cardiac filling pressures, which depends on the rate of accumulation and the compliance of the sac.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Fibrotic organization of the pericardium\", \"target\": \"Constrictive physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A non-compliant pericardial shell sets a fixed limit on total cardiac volume.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mediastinal irradiation\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Ionising radiation injures the pericardial mesothelium and microvasculature, entering the shared chain at the trigger node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mediastinal irradiation\", \"target\": \"Fibrotic organization of the pericardium\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Radiation injury biases the pericardium towards fibrotic organisation rather than resolution, which is why constriction is the characteristic late outcome.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"End-stage renal disease and uraemia\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Uraemic solute accumulation injures the pericardium directly, entering the shared chain at the trigger node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac injury and surgery\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Mechanical or ischaemic injury to the heart exposes the pericardium to injured tissue and initiates the shared response after a latent period.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-steroidal anti-inflammatory therapy\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Colchicine\", \"target\": \"Autoinflammatory recurrence loop\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroid therapy\", \"target\": \"Acute pericardial inflammatory exudate\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rilonacept\", \"target\": \"Interleukin-1 release and cytokine amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anakinra\", \"target\": \"Interleukin-1 release and cytokine amplification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antitubercular therapy\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensified haemodialysis\", \"target\": \"Pericardial injury from a heterogeneous trigger\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pericardiocentesis\", \"target\": \"Cardiac tamponade\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pericardiectomy\", \"target\": \"Constrictive physiology\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"target\": \"Constrictive physiology\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces the constrictive haemodynamic phenotype and attributes it to the pericardial rather than the myocardial disease.\\n\"}, {\"source\": \"Interferon-gamma knockout mouse constrictive pericarditis model\", \"target\": \"Fibrotic organization of the pericardium\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Pericardial inflammation and fibrosis are the lesion that produces the phenotype in this model.\\n\"}, {\"source\": \"Zymosan A intrapericardial injection mouse model\", \"target\": \"Inflammasome activation in pericardial tissue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model reproduces inflammasome activation in the pericardium and allows blockers to be compared against each other.\\n\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5635,16 +5890,20 @@ This pathophysiological event occurs in pericardium (UBERON:0002407). UBERON:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5674,16 +5933,22 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Dyspnea</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5713,16 +5978,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100749</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chest pain (HP:0100749), qualified as temporality acute. HP:0100749 is a phenotype from the Human Phenotype Ontology.">
-                        Chest pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp">HP:0100749</a>
-
-
+This clinical feature is Chest pain (HP:0100749), qualified as temporality acute. HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5770,16 +6039,20 @@ This clinical feature is Chest pain (HP:0100749), qualified as temporality acute
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034788" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0034788</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pericardial friction rub (HP:0034788). HP:0034788 is a phenotype from the Human Phenotype Ontology.">
-                        Pericardial friction rub
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034788" target="_blank" class="curie-chip curie-chip-hp">HP:0034788</a>
-
-
+This clinical feature is Pericardial friction rub (HP:0034788). HP:0034788 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5800,16 +6073,20 @@ This clinical feature is Pericardial friction rub (HP:0034788). HP:0034788 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001698</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phenotype from the Human Phenotype Ontology.">
-                        Pericardial effusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" class="curie-chip curie-chip-hp">HP:0001698</a>
-
-
+This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5830,16 +6107,20 @@ This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is ST segment elevation (HP:0012251). HP:0012251 is a phenotype from the Human Phenotype Ontology.">
-                        ST segment elevation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012251" target="_blank" class="curie-chip curie-chip-hp">HP:0012251</a>
-
-
+This clinical feature is ST segment elevation (HP:0012251). HP:0012251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5860,16 +6141,20 @@ This clinical feature is ST segment elevation (HP:0012251). HP:0012251 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031594" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031594</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is PR segment depression (HP:0031594). HP:0031594 is a phenotype from the Human Phenotype Ontology.">
-                        PR segment depression
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031594" target="_blank" class="curie-chip curie-chip-hp">HP:0031594</a>
-
-
+This clinical feature is PR segment depression (HP:0031594). HP:0031594 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5890,16 +6175,20 @@ This clinical feature is PR segment depression (HP:0031594). HP:0031594 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033415" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0033415</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiac tamponade (HP:0033415), qualified as severity severe. HP:0033415 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiac tamponade
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033415" target="_blank" class="curie-chip curie-chip-hp">HP:0033415</a>
-
-
+This clinical feature is Cardiac tamponade (HP:0033415), qualified as severity severe. HP:0033415 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5938,16 +6227,20 @@ This clinical feature is Cardiac tamponade (HP:0033415), qualified as severity s
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:6000046</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulsus paradoxus (HP:6000046). HP:6000046 is a phenotype from the Human Phenotype Ontology.">
-                        Pulsus paradoxus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000046" target="_blank" class="curie-chip curie-chip-hp">HP:6000046</a>
-
-
+This clinical feature is Pulsus paradoxus (HP:6000046). HP:6000046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5968,16 +6261,20 @@ This clinical feature is Pulsus paradoxus (HP:6000046). HP:6000046 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002563" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002563</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Constrictive pericarditis (HP:0002563), qualified as course progressive. HP:0002563 is a phenotype from the Human Phenotype Ontology.">
-                        Constrictive pericarditis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002563" target="_blank" class="curie-chip curie-chip-hp">HP:0002563</a>
-
-
+This clinical feature is Constrictive pericarditis (HP:0002563), qualified as course progressive. HP:0002563 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6016,16 +6313,22 @@ This clinical feature is Constrictive pericarditis (HP:0002563), qualified as co
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating C-reactive protein concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0011227</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating C-reactive protein concentration (HP:0011227). HP:0011227 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating C-reactive protein concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp">HP:0011227</a>
-
-
+This clinical feature is Elevated circulating C-reactive protein concentration (HP:0011227). HP:0011227 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6045,6 +6348,7 @@ This clinical feature is Elevated circulating C-reactive protein concentration (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658515" target="_blank">PMID:35658515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6122,15 +6426,17 @@ This clinical feature is Elevated circulating C-reactive protein concentration (
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MEFV (hgnc:6998). hgnc:6998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MEFV
 
 
-    <a href="https://bioregistry.io/hgnc:6998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6998</a>
+    <a href="https://bioregistry.io/hgnc:6998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:6998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MEFV (hgnc:6998). hgnc:6998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6155,6 +6461,7 @@ This disease-associated gene is MEFV (hgnc:6998). hgnc:6998 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658515" target="_blank">PMID:35658515</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6191,15 +6498,17 @@ This disease-associated gene is MEFV (hgnc:6998). hgnc:6998 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNFRSF1A
 
 
-    <a href="https://bioregistry.io/hgnc:11916" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11916</a>
+    <a href="https://bioregistry.io/hgnc:11916" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:11916</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6224,6 +6533,7 @@ This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23745996" target="_blank">PMID:23745996</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6255,6 +6565,9 @@ This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6271,17 +6584,17 @@ This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6341,17 +6654,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6376,18 +6689,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         colchicine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_23359" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:23359</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_23359" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:23359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6433,6 +6748,7 @@ This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23992557" target="_blank">PMID:23992557</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6455,6 +6771,7 @@ This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21873705" target="_blank">PMID:21873705</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6476,6 +6793,7 @@ This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33665514" target="_blank">PMID:33665514</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6507,17 +6825,17 @@ This treatment uses colchicine (CHEBI:23359). CHEBI:23359 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6579,6 +6897,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16186437" target="_blank">PMID:16186437</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
@@ -6601,6 +6920,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658515" target="_blank">PMID:35658515</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6622,6 +6942,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25178809" target="_blank">PMID:25178809</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6655,17 +6976,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6690,18 +7011,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rilonacept
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84137" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C84137</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84137" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C84137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6747,6 +7070,7 @@ This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33200890" target="_blank">PMID:33200890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6768,6 +7092,7 @@ This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33200890" target="_blank">PMID:33200890</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6799,17 +7124,17 @@ This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6834,18 +7159,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         anakinra
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38717" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C38717</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38717" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C38717</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6891,6 +7218,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27825009" target="_blank">PMID:27825009</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6912,6 +7240,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27825009" target="_blank">PMID:27825009</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6943,17 +7272,17 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Antibiotic Therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">Antibiotic Therapy</span>
+This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -7015,6 +7344,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25178809" target="_blank">PMID:25178809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7045,17 +7375,17 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Hemodialysis<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical intervention from the NCI Thesaurus.">Hemodialysis</span>
+This treatment is Hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15248" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical intervention from the NCI Thesaurus.">NCIT:C15248</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15248" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15248">NCIT:C15248</a>
 
 
 
@@ -7117,6 +7447,7 @@ This treatment is Hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28873222" target="_blank">PMID:28873222</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7147,17 +7478,17 @@ This treatment is Hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pericardiocentesis<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pericardiocentesis (NCIT:C52010). NCIT:C52010 is a clinical intervention from the NCI Thesaurus.">Pericardiocentesis</span>
+This treatment is Pericardiocentesis (NCIT:C52010). NCIT:C52010 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C52010" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pericardiocentesis (NCIT:C52010). NCIT:C52010 is a clinical intervention from the NCI Thesaurus.">NCIT:C52010</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C52010" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C52010">NCIT:C52010</a>
 
 
 
@@ -7217,17 +7548,17 @@ This treatment is Pericardiocentesis (NCIT:C52010). NCIT:C52010 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pericardiectomy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical intervention from the NCI Thesaurus.">Pericardiectomy</span>
+This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C51643" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical intervention from the NCI Thesaurus.">NCIT:C51643</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51643" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C51643">NCIT:C51643</a>
 
 
 
@@ -7289,6 +7620,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34547827" target="_blank">PMID:34547827</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7310,6 +7642,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34547827" target="_blank">PMID:34547827</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7349,12 +7682,72 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-mediastinal-irradiation" data-dismech-node="Mediastinal irradiation" data-dismech-type="environmental">
                 <div class="item-name">Mediastinal irradiation</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ionizing radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000047" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-42">ECTO:7000047</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO:7000047 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Radiotherapy to the mediastinum, historically for Hodgkin lymphoma and for breast cancer, causes both acute pericarditis and a delayed fibrosing constrictive disease that may appear years to decades later. It is curated separately from the other triggers because its outcome is the worst of any aetiology, with poor long-term survival after pericardiectomy, and because it is iatrogenic and therefore preventable by treatment planning.
 </div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34547827" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34547827" target="_blank">PMID:34547827</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pericardiectomy for postradiation constrictive pericarditis has been reported to generally have unfavorable outcomes."</div>
+
+
+                <div class="evidence-explanation">A 100-patient cohort of pericardiectomy performed specifically for constrictive pericarditis following mediastinal irradiation establishes mediastinal irradiation as a recognized cause of pericardial disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7402,6 +7795,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34547827" target="_blank">PMID:34547827</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7434,10 +7828,47 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Accumulated uraemic solutes inflame the pericardium in advanced renal failure, and an analogous syndrome occurs in patients already on dialysis when dialysis is inadequate. It is the one aetiology whose first-line treatment is neither anti-inflammatory nor antimicrobial but removal of the causative solutes.
 </div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28873222" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28873222" target="_blank">PMID:28873222</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A rising prevalence of end-stage renal disease (ESRD) has led to a rise in ESRD-related pericardial syndromes, calling for a better understanding of its pathophysiology, diagnoses, and management."</div>
+
+
+                <div class="evidence-explanation">Establishes end-stage renal disease and its associated uraemia as a recognized cause of pericardial syndromes, including pericarditis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7468,6 +7899,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28873222" target="_blank">PMID:28873222</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7501,10 +7933,47 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Myocardial infarction, cardiac surgery, catheter procedures, device implantation, and chest trauma all produce a delayed pericarditis grouped as post-cardiac injury syndrome. The latency between the injury and the syndrome is the clue to its immune-mediated character, and it includes the entity long known as Dressler syndrome.
 </div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38559602" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38559602" target="_blank">PMID:38559602</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All these conditions give rise to PCIS due to an inciting cardiac injury to pericardial or pleural mesothelial cells, leading to subsequent inflammation syndromes ranging from uncomplicated pericarditis to massive pleural effusion."</div>
+
+
+                <div class="evidence-explanation">Establishes that myocardial infarction, cardiac surgery, catheter procedures, device implantation, and chest trauma converge on a shared cardiac-injury trigger that causes pericarditis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7535,6 +8004,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38559602" target="_blank">PMID:38559602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7618,7 +8088,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-st-elevation-myocardial-infarction">
                 <div class="item-name">
 
                     ST-elevation myocardial infarction
@@ -7640,7 +8110,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-restrictive-cardiomyopathy">
                 <div class="item-name">
 
                     Restrictive cardiomyopathy
@@ -7662,7 +8132,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pulmonary-embolism">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Pulmonary_Embolism.html">Pulmonary embolism</a>
@@ -7684,7 +8154,7 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-myocarditis">
                 <div class="item-name">
 
                     Myocarditis
@@ -7743,17 +8213,19 @@ This treatment is Pericardiectomy (NCIT:C51643). NCIT:C51643 is a clinical inter
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-43">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-43">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7833,6 +8305,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15505106" target="_blank">PMID:15505106</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7854,6 +8327,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15505106" target="_blank">PMID:15505106</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7898,17 +8372,19 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-44">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-44">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7973,6 +8449,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33665514" target="_blank">PMID:33665514</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7994,6 +8471,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33665514" target="_blank">PMID:33665514</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8647,12 +9125,27 @@ biochemical:
 
 environmental:
 - name: Mediastinal irradiation
+  exposure_term:
+    preferred_term: exposure to ionizing radiation
+    term:
+      id: ECTO:7000047
+      label: exposure to ionizing radiation
   description: &gt;
     Radiotherapy to the mediastinum, historically for Hodgkin lymphoma and for breast cancer,
     causes both acute pericarditis and a delayed fibrosing constrictive disease that may appear
     years to decades later. It is curated separately from the other triggers because its outcome
     is the worst of any aetiology, with poor long-term survival after pericardiectomy, and
     because it is iatrogenic and therefore preventable by treatment planning.
+  evidence:
+  - reference: PMID:34547827
+    reference_title: &#34;Outcomes of pericardiectomy for constrictive pericarditis following mediastinal irradiation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Pericardiectomy for postradiation constrictive pericarditis has been reported to generally have unfavorable outcomes.&#34;
+    explanation: &gt;-
+      A 100-patient cohort of pericardiectomy performed specifically for constrictive
+      pericarditis following mediastinal irradiation establishes mediastinal irradiation as a
+      recognized cause of pericardial disease.
   influences_mechanisms:
   - target: Pericardial injury from a heterogeneous trigger
     environmental_effect: TRIGGERS
@@ -8683,6 +9176,15 @@ environmental:
     analogous syndrome occurs in patients already on dialysis when dialysis is inadequate. It is
     the one aetiology whose first-line treatment is neither anti-inflammatory nor antimicrobial
     but removal of the causative solutes.
+  evidence:
+  - reference: PMID:28873222
+    reference_title: &#34;Uremic pericarditis, pericardial effusion, and constrictive pericarditis in end-stage renal disease: Insights and pathophysiology.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A rising prevalence of end-stage renal disease (ESRD) has led to a rise in ESRD-related pericardial syndromes, calling for a better understanding of its pathophysiology, diagnoses, and management.&#34;
+    explanation: &gt;-
+      Establishes end-stage renal disease and its associated uraemia as a recognized cause of
+      pericardial syndromes, including pericarditis.
   influences_mechanisms:
   - target: Pericardial injury from a heterogeneous trigger
     environmental_effect: TRIGGERS
@@ -8707,6 +9209,16 @@ environmental:
     trauma all produce a delayed pericarditis grouped as post-cardiac injury syndrome. The
     latency between the injury and the syndrome is the clue to its immune-mediated character,
     and it includes the entity long known as Dressler syndrome.
+  evidence:
+  - reference: PMID:38559602
+    reference_title: &#34;Post-cardiac injury syndrome: An evidence-based approach to diagnosis and treatment.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All these conditions give rise to PCIS due to an inciting cardiac injury to pericardial or pleural mesothelial cells, leading to subsequent inflammation syndromes ranging from uncomplicated pericarditis to massive pleural effusion.&#34;
+    explanation: &gt;-
+      Establishes that myocardial infarction, cardiac surgery, catheter procedures, device
+      implantation, and chest trauma converge on a shared cardiac-injury trigger that causes
+      pericarditis.
   influences_mechanisms:
   - target: Pericardial injury from a heterogeneous trigger
     environmental_effect: TRIGGERS
@@ -9878,7 +10390,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pericarditis", "mondoId": "MONDO:0005904", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pericarditis", "yamlRevision": "a468f43429e0"};
+        const OS_CONFIG = {"diseaseName": "Pericarditis", "mondoId": "MONDO:0005904", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pericarditis", "yamlRevision": "15138e13eda9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10297,5 +10809,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

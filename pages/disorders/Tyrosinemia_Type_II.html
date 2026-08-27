@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Tyrosinemia Type II</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Tyrosinemia Type II</h1>
             <div class="header-meta">
 
@@ -3660,7 +3782,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Tyrosinemia%20Type%20II"
@@ -3693,7 +3815,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Tyrosinemia type II (Richner-Hanhart syndrome) is a rare autosomal recessive inborn error of tyrosine metabolism caused by deficiency of hepatic cytosolic tyrosine aminotransferase (TAT), the first enzyme of the tyrosine degradation pathway. Loss of TAT activity blocks transamination of tyrosine to 4-hydroxyphenylpyruvate, producing marked hypertyrosinemia and systemic accumulation of tyrosine. Intracellular tyrosine deposition in the cornea and in the epidermis of the palms and soles drives the disorder&#39;s characteristic oculocutaneous phenotype: a pseudodendritic, herpetiform keratitis with corneal dystrophy, and painful palmoplantar hyperkeratosis. Variable intellectual disability may occur, particularly with delayed diagnosis or untreated disease. Because the biochemical block is upstream and toxic metabolites are limited to tyrosine itself, dietary restriction of tyrosine and phenylalanine lowers plasma tyrosine and produces rapid resolution of the ocular and cutaneous lesions, distinguishing it clinically and mechanistically from the hepatorenal disease of tyrosinemia type I (FAH deficiency).
+                Tyrosinemia type II (Richner-Hanhart syndrome) is a rare autosomal recessive inborn error of tyrosine metabolism caused by deficiency of hepatic cytosolic tyrosine aminotransferase (TAT), the first enzyme of the tyrosine degradation pathway. Loss of TAT activity blocks transamination of tyrosine to 4-hydroxyphenylpyruvate, producing marked hypertyrosinemia and systemic accumulation of tyrosine in plasma, cerebrospinal fluid, and tissues. Tyrosine crystal deposition in eye and skin tissues drives the disorder&#39;s characteristic oculocutaneous phenotype: a pseudodendritic, herpetiform keratitis with corneal dystrophy, and painful palmoplantar hyperkeratosis. Variable intellectual disability may occur, particularly with delayed diagnosis or untreated disease. Dietary restriction of tyrosine and phenylalanine lowers plasma tyrosine and can rapidly improve ocular and cutaneous lesions.
 
             </p>
 
@@ -3832,7 +3954,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3843,7 +3965,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3870,7 +3992,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3885,7 +4007,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3968,7 +4090,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4014,6 +4136,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4035,6 +4158,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4101,17 +4225,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TAT (hgnc:11573). hgnc:11573 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TAT
 
 
-    <a href="https://bioregistry.io/hgnc:11573" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11573</a>
+    <a href="https://bioregistry.io/hgnc:11573" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11573</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TAT (hgnc:11573). hgnc:11573 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4140,18 +4268,20 @@ This pathophysiological event involves TAT (hgnc:11573). hgnc:11573 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased L-tyrosine catabolic process (GO:0006572). GO:0006572 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         L-tyrosine catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006572" target="_blank" class="curie-chip curie-chip-go">GO:0006572</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006572" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006572</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-tyrosine catabolic process (GO:0006572). GO:0006572 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4177,18 +4307,20 @@ This pathophysiological event involves decreased L-tyrosine catabolic process (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased tyrosine aminotransferase activity, annotated with L-tyrosine:2-oxoglutarate transaminase activity (GO:0004838). GO:0004838 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         tyrosine aminotransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004838" target="_blank" class="curie-chip curie-chip-go">GO:0004838</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004838" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004838</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased tyrosine aminotransferase activity, annotated with L-tyrosine:2-oxoglutarate transaminase activity (GO:0004838). GO:0004838 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4215,18 +4347,20 @@ This pathophysiological event involves decreased tyrosine aminotransferase activ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4255,7 +4389,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4264,6 +4398,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4287,6 +4422,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4303,6 +4439,29 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:31603991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tyrosine aminotransferase (TAT) transaminates tyrosine, forming p‐hydroxyphenylpyruvate and glutamate."</div>
+
+
+                <div class="evidence-explanation">Defines the biochemical reaction catalyzed by TAT.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4313,7 +4472,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypertyrosinemia-and-systemic-tyrosine-accumulation" data-dismech-node="Hypertyrosinemia and systemic tyrosine accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypertyrosinemia and systemic tyrosine accumulation</div>
 
-                <div class="item-desc">The upstream enzymatic block produces marked hypertyrosinemia. Unlike tyrosinemia type I, no downstream hepatotoxic metabolites (fumarylacetoacetate, succinylacetone) are generated; tyrosine itself is the accumulating and pathogenic metabolite, deposited intracellularly in the cornea and in the epidermis of the palms and soles.
+                <div class="item-desc">The upstream enzymatic block produces increased tyrosine in plasma and cerebrospinal fluid and increased tyrosine catabolic metabolites in plasma and urine. Tyrosine crystal deposition is implicated in the characteristic eye and skin lesions.
 </div>
 
 
@@ -4348,8 +4507,24 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Intellectual disability</span>
 
-	                            <span class="crosslink-desc">Sustained hypertyrosinemia, particularly when diagnosis is delayed or treatment is lacking, is associated with variable neurodevelopmental impairment.
+	                            <span class="crosslink-desc">Sustained untreated hypertyrosinemia is associated with variable cognitive manifestations through unresolved neurologic intermediates.
 </span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+
+	                            <span class="crosslink-desc">Hypertyrosinemia is associated with reported seizures through unresolved neurologic intermediates.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Self-injurious behavior</span>
+
+	                            <span class="crosslink-desc">Hypertyrosinemia is associated with reported self-injurious behavior through unresolved neurologic intermediates.</span>
 
 
 	                        </div>
@@ -4361,7 +4536,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4370,6 +4545,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4387,6 +4563,29 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:31603991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TAT deficiency leads to increased levels of tyrosine in plasma and CSF together with increased levels of its catabolic metabolites in plasma and urine."</div>
+
+
+                <div class="evidence-explanation">Review supports the compartments and metabolite classes affected by TAT deficiency.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4397,7 +4596,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oculocutaneous-tyrosine-deposition" data-dismech-node="Oculocutaneous tyrosine deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Oculocutaneous tyrosine deposition</div>
 
-                <div class="item-desc">Intracellular tyrosine crystal deposition in the corneal epithelium provokes a pseudodendritic, herpetiform keratitis with corneal dystrophy that is characteristically unresponsive to antiviral therapy, while deposition in palmoplantar epidermis produces painful focal hyperkeratosis.
+                <div class="item-desc">Tyrosine crystal deposition in eye and skin tissues produces infancy-onset ophthalmologic and dermatologic lesions. Clinically, these include pseudodendritic corneal lesions and painful palmoplantar hyperkeratosis.
 </div>
 
 
@@ -4415,18 +4614,37 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-location">
+                        skin of palmar/plantar part of autopod
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0013776" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0013776</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of palmar/plantar part of autopod (UBERON:0013776). UBERON:0013776 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4448,6 +4666,14 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 	                        </div>
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Corneal dystrophy</span>
+
+	                            <span class="crosslink-desc">Corneal crystal deposition produces the characteristic corneal dystrophy and opacity.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Palmoplantar hyperkeratosis</span>
 
 	                            <span class="crosslink-desc">Epidermal tyrosine deposition in the palms and soles produces painful focal hyperkeratosis.</span>
@@ -4462,15 +4688,39 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31603991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Deposition of tyrosine crystals leads to eye and skin lesions in patients with TAT deficiency, resulting in infancy‐onset ophthalmological and dermatological symptoms."</div>
+
+
+                <div class="evidence-explanation">Review directly supports the tissue-deposition mechanism and its eye and skin consequences.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:22389994" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4493,6 +4743,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4542,7 +4793,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The upstream enzymatic block produces marked hypertyrosinemia. Unlike tyrosinemia type I, no downstream hepatotoxic metabolites (fumarylacetoacetate, succinylacetone) are generated; tyrosine itself is the accumulating and pathogenic metabolite, deposited intracellularly in the cornea and in the epidermis of the palms and soles.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable intellectual disability, more likely with delayed diagnosis or untreated disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Keratitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful, bilateral, often pseudodendritic (herpetiform) keratitis presenting with photophobia and tearing, characteristically unresponsive to antiviral therapy and improving with tyrosine-lowering diet.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000491\"}}, {\"id\": \"Oculocutaneous tyrosine deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular tyrosine crystal deposition in the corneal epithelium provokes a pseudodendritic, herpetiform keratitis with corneal dystrophy that is characteristically unresponsive to antiviral therapy, while deposition in palmoplantar epidermis produces painful focal hyperkeratosis.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cornea\"]}}, {\"id\": \"Palmoplantar hyperkeratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful focal hyperkeratosis of the palms and soles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000972\"}}, {\"id\": \"TAT deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TAT\"], \"gene_terms\": [{\"label\": \"TAT\", \"id\": \"hgnc:11573\"}], \"variant_count\": 1}}, {\"id\": \"TAT point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, missense, and splice-site point mutations in TAT abolish tyrosine aminotransferase activity; nonsense mutations at codons 57, 223, and 417 and splice-donor/acceptor mutations were among the first characterized.\\n\"}, {\"id\": \"Tyrosine aminotransferase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function TAT variants reduce hepatic cytosolic tyrosine aminotransferase activity, blocking the first (transamination) step of tyrosine catabolism that converts L-tyrosine to 4-hydroxyphenylpyruvate.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-tyrosine catabolic process\"], \"molecular_functions\": [\"tyrosine aminotransferase activity\"], \"genes\": [\"TAT\"], \"gene_terms\": [{\"label\": \"TAT\", \"id\": \"hgnc:11573\"}], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"Tyrosine aminotransferase deficiency\", \"target\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tyrosine aminotransferase activity prevents normal tyrosine degradation, causing tyrosine to accumulate in blood and tissues.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"target\": \"Oculocutaneous tyrosine deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated intracellular tyrosine deposits in the cornea and in palmoplantar epidermis, triggering the inflammatory and hyperkeratotic tissue response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hypertyrosinemia, particularly when diagnosis is delayed or treatment is lacking, is associated with variable neurodevelopmental impairment.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"central-nervous-system effects of chronic tyrosine elevation\"]}, {\"source\": \"Oculocutaneous tyrosine deposition\", \"target\": \"Keratitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corneal tyrosine deposition drives an inflammatory pseudodendritic keratitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oculocutaneous tyrosine deposition\", \"target\": \"Palmoplantar hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal tyrosine deposition in the palms and soles produces painful focal hyperkeratosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TAT deficiency\", \"target\": \"Tyrosine aminotransferase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TAT point mutations\", \"target\": \"TAT deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Corneal dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal involvement manifests as bilateral corneal opacities/dystrophy with pseudodendritic lesions.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001131\"}}, {\"id\": \"Dietary tyrosine and phenylalanine restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong low-protein diet restricting dietary tyrosine and phenylalanine, combined with phenylalanine-free/tyrosine-free amino acid, vitamin, and mineral supplements. Lowering plasma tyrosine produces rapid resolution of the corneal and cutaneous lesions. Early-treated individuals may be asymptomatic or have only mild ocular and skin manifestations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The upstream enzymatic block produces increased tyrosine in plasma and cerebrospinal fluid and increased tyrosine catabolic metabolites in plasma and urine. Tyrosine crystal deposition is implicated in the characteristic eye and skin lesions.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"CENTRAL_EFFECTOR\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable intellectual disability, more likely with delayed diagnosis or untreated disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Keratitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful, bilateral, often pseudodendritic (herpetiform) keratitis presenting with photophobia and tearing, characteristically unresponsive to antiviral therapy and improving with tyrosine-lowering diet.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000491\"}}, {\"id\": \"Oculocutaneous tyrosine deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tyrosine crystal deposition in eye and skin tissues produces infancy-onset ophthalmologic and dermatologic lesions. Clinically, these include pseudodendritic corneal lesions and painful palmoplantar hyperkeratosis.\\n\", \"meta\": {\"evidence_count\": 3, \"role\": \"DOWNSTREAM\", \"locations\": [\"cornea\", \"skin of palmar/plantar part of autopod\"]}}, {\"id\": \"Palmoplantar hyperkeratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful focal hyperkeratosis of the palms and soles.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000972\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures have been reported as part of the neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injurious and difficult behavior has been reported.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100716\"}}, {\"id\": \"TAT deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TAT\"], \"gene_terms\": [{\"label\": \"TAT\", \"id\": \"hgnc:11573\"}], \"variant_count\": 1}}, {\"id\": \"TAT point mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, missense, and splice-site point mutations in TAT abolish tyrosine aminotransferase activity; nonsense mutations at codons 57, 223, and 417 and splice-donor/acceptor mutations were among the first characterized.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tyrosine aminotransferase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function TAT variants reduce hepatic cytosolic tyrosine aminotransferase activity, blocking the first (transamination) step of tyrosine catabolism that converts L-tyrosine to 4-hydroxyphenylpyruvate.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-tyrosine catabolic process\"], \"molecular_functions\": [\"tyrosine aminotransferase activity\"], \"genes\": [\"TAT\"], \"gene_terms\": [{\"label\": \"TAT\", \"id\": \"hgnc:11573\"}], \"role\": \"TRIGGER\", \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"Tyrosine aminotransferase deficiency\", \"target\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tyrosine aminotransferase activity prevents normal tyrosine degradation, causing tyrosine to accumulate in blood and tissues.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"target\": \"Oculocutaneous tyrosine deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated intracellular tyrosine deposits in the cornea and in palmoplantar epidermis, triggering the inflammatory and hyperkeratotic tissue response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained untreated hypertyrosinemia is associated with variable cognitive manifestations through unresolved neurologic intermediates.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertyrosinemia is associated with reported seizures through unresolved neurologic intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"target\": \"Self-injurious behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertyrosinemia is associated with reported self-injurious behavior through unresolved neurologic intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oculocutaneous tyrosine deposition\", \"target\": \"Keratitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corneal tyrosine deposition drives an inflammatory pseudodendritic keratitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oculocutaneous tyrosine deposition\", \"target\": \"Corneal dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corneal crystal deposition produces the characteristic corneal dystrophy and opacity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oculocutaneous tyrosine deposition\", \"target\": \"Palmoplantar hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal tyrosine deposition in the palms and soles produces painful focal hyperkeratosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dietary tyrosine and phenylalanine restriction\", \"target\": \"Hypertyrosinemia and systemic tyrosine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TAT deficiency\", \"target\": \"Tyrosine aminotransferase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TAT point mutations\", \"target\": \"TAT deficiency\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4555,7 +4806,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
 
@@ -4563,7 +4814,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
 
@@ -4584,16 +4835,20 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000491</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Keratitis (HP:0000491). HP:0000491 is a phenotype from the Human Phenotype Ontology.">
-                        Keratitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp">HP:0000491</a>
-
-
+This clinical feature is Keratitis (HP:0000491). HP:0000491 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4613,6 +4868,7 @@ This clinical feature is Keratitis (HP:0000491). HP:0000491 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4646,16 +4902,20 @@ This clinical feature is Keratitis (HP:0000491). HP:0000491 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001131" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001131</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Corneal dystrophy (HP:0001131). HP:0001131 is a phenotype from the Human Phenotype Ontology.">
-                        Corneal dystrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001131" target="_blank" class="curie-chip curie-chip-hp">HP:0001131</a>
-
-
+This clinical feature is Corneal dystrophy (HP:0001131). HP:0001131 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4675,6 +4935,7 @@ This clinical feature is Corneal dystrophy (HP:0001131). HP:0001131 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4708,16 +4969,20 @@ This clinical feature is Corneal dystrophy (HP:0001131). HP:0001131 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000613</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.">
-                        Photophobia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp">HP:0000613</a>
-
-
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4737,6 +5002,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4770,7 +5036,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
@@ -4779,16 +5045,20 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4809,6 +5079,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4820,6 +5091,140 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                 <div class="evidence-explanation">GeneReviews lists variable intellectual disability as a feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31603991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotype is further characterised by seizures and self‐injuring and difficult behaviour."</div>
+
+
+                <div class="evidence-explanation">Review identifies seizures among reported TAT-deficiency manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-self-injurious-behavior" data-dismech-node="Self-injurious behavior" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Self-injurious behavior
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0100716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31603991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotype is further characterised by seizures and self‐injuring and difficult behaviour."</div>
+
+
+                <div class="evidence-explanation">Review identifies self-injurious behavior among reported TAT-deficiency manifestations.</div>
 
 
 
@@ -4850,16 +5255,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000972</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Palmoplantar hyperkeratosis (HP:0000972). HP:0000972 is a phenotype from the Human Phenotype Ontology.">
-                        Palmoplantar hyperkeratosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000972" target="_blank" class="curie-chip curie-chip-hp">HP:0000972</a>
-
-
+This clinical feature is Palmoplantar hyperkeratosis (HP:0000972). HP:0000972 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4879,6 +5288,7 @@ This clinical feature is Palmoplantar hyperkeratosis (HP:0000972). HP:0000972 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4912,16 +5322,20 @@ This clinical feature is Palmoplantar hyperkeratosis (HP:0000972). HP:0000972 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003231" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003231</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertyrosinemia (HP:0003231). HP:0003231 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertyrosinemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003231" target="_blank" class="curie-chip curie-chip-hp">HP:0003231</a>
-
-
+This clinical feature is Hypertyrosinemia (HP:0003231). HP:0003231 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4941,6 +5355,7 @@ This clinical feature is Hypertyrosinemia (HP:0003231). HP:0003231 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5018,15 +5433,17 @@ This clinical feature is Hypertyrosinemia (HP:0003231). HP:0003231 is a phenotyp
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TAT (hgnc:11573). hgnc:11573 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TAT
 
 
-    <a href="https://bioregistry.io/hgnc:11573" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11573</a>
+    <a href="https://bioregistry.io/hgnc:11573" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:11573</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TAT (hgnc:11573). hgnc:11573 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5054,6 +5471,7 @@ This disease-associated gene is TAT (hgnc:11573). hgnc:11573 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5075,6 +5493,7 @@ This disease-associated gene is TAT (hgnc:11573). hgnc:11573 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5121,6 +5540,64 @@ This disease-associated gene is TAT (hgnc:11573). hgnc:11573 is a gene from the 
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1357662" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three RHS alleles have nonsense mutations at codons 57, 223, and 417, respectively."</div>
+
+
+                <div class="evidence-explanation">Patient-allele sequencing directly documents three early nonsense variants.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1357662" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One &#34;complex&#34; RHS allele carries a GT----GG splice donor mutation in intron 8 together with a Gly----Val substitution at amino acid 362."</div>
+
+
+                <div class="evidence-explanation">Patient-allele sequencing documents a splice-donor variant with a missense substitution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
     </div>
 
 
@@ -5134,13 +5611,16 @@ This disease-associated gene is TAT (hgnc:11573). hgnc:11573 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-dietary-tyrosine-and-phenylalanine-restriction" data-dismech-node="Dietary tyrosine and phenylalanine restriction" data-dismech-type="treatment">
@@ -5150,18 +5630,18 @@ This disease-associated gene is TAT (hgnc:11573). hgnc:11573 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -5184,9 +5664,60 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
-                <div class="item-desc">Lifelong low-protein diet restricting dietary tyrosine and phenylalanine, combined with phenylalanine-free/tyrosine-free amino acid, vitamin, and mineral supplements. Lowering plasma tyrosine produces rapid resolution of the corneal and cutaneous lesions and can prevent intellectual disability when started early.
+                <div class="item-desc">Lifelong low-protein diet restricting dietary tyrosine and phenylalanine, combined with phenylalanine-free/tyrosine-free amino acid, vitamin, and mineral supplements. Lowering plasma tyrosine produces rapid resolution of the corneal and cutaneous lesions. Early-treated individuals may be asymptomatic or have only mild ocular and skin manifestations.
 </div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Hypertyrosinemia and systemic tyrosine accumulation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Dietary restriction reduces the systemic tyrosine burden.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22389994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One and a half months after the tyrosine- and phenylalanine-restricted diet, her tyrosine level dropped to 395 micromol/L level, her corneal lesions subsided, and a symptomatic relief was achieved."</div>
+
+
+                <div class="evidence-explanation">Human treatment response directly supports diet lowering tyrosine and improving corneal disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -5204,6 +5735,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5211,7 +5743,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
                 </div>
 
-                <div class="evidence-snippet">"Lifelong restriction of dietary tyrosine and phenylalanine with low-protein diet"</div>
+                <div class="evidence-snippet">"Lifelong restriction of dietary tyrosine and phenylalanine with low-protein diet combined with age-appropriate amino acid (phenylalanine-free and tyrosine-free), vitamin, and mineral supplements."</div>
 
 
                 <div class="evidence-explanation">GeneReviews specifies dietary tyrosine/phenylalanine restriction as targeted therapy.</div>
@@ -5225,6 +5757,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5256,18 +5789,18 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5290,7 +5823,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-                <div class="item-desc">Lubricating eye drops and ointment, with ocular surgery as needed for bilateral corneal ulceration; topical retinoid or pyridoxine may help skin manifestations.
+                <div class="item-desc">Lubricating eye drops and ointment, with ocular surgery as needed for bilateral corneal ulceration.
 </div>
 
 
@@ -5310,6 +5843,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5317,10 +5851,95 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
                 </div>
 
-                <div class="evidence-snippet">"Lubricating eye drops and ointment; ocular surgery as needed to"</div>
+                <div class="evidence-snippet">"Lubricating eye drops and ointment; ocular surgery as needed to treat bilateral corneal ulcers"</div>
 
 
                 <div class="evidence-explanation">GeneReviews lists supportive ocular care in management.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-skin-and-developmental-care" data-dismech-node="Supportive skin and developmental care" data-dismech-type="treatment">
+                <div class="item-name">
+                    Supportive skin and developmental care
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Pyridoxine phosphate or a systemic retinoid may benefit skin manifestations; developmental and educational support is provided according to need.
+</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39446998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39446998" target="_blank">PMID:39446998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pyridoxine phosphate or a systemic retinoid may be beneficial for skin manifestations; developmental and educational support."</div>
+
+
+                <div class="evidence-explanation">GeneReviews separately supports dermatologic and developmental supportive management.</div>
 
 
 
@@ -5356,7 +5975,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
                 </div>
 
-                <div class="item-desc">Context: Plasma tyrosine is markedly elevated (frequently &gt;500 micromol/L against a typical reference interval of ~30-150 micromol/L) and is both the diagnostic biomarker and the pathogenic metabolite; it falls on tyrosine- and phenylalanine-restricted diet.
+                <div class="item-desc">Context: Plasma tyrosine is markedly elevated and serves as a biochemical marker for recognition and monitoring. One delayed-diagnosis case reported 508 micromol/L against a 30-150 micromol/L reference interval, with a fall after tyrosine- and phenylalanine-restricted diet.
 </div>
 
 
@@ -5374,6 +5993,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5446,16 +6066,13 @@ description: &gt;
   tyrosine aminotransferase (TAT), the first enzyme of the tyrosine degradation
   pathway. Loss of TAT activity blocks transamination of tyrosine to
   4-hydroxyphenylpyruvate, producing marked hypertyrosinemia and systemic
-  accumulation of tyrosine. Intracellular tyrosine deposition in the cornea and
-  in the epidermis of the palms and soles drives the disorder&#39;s characteristic
+  accumulation of tyrosine in plasma, cerebrospinal fluid, and tissues. Tyrosine
+  crystal deposition in eye and skin tissues drives the disorder&#39;s characteristic
   oculocutaneous phenotype: a pseudodendritic, herpetiform keratitis with
   corneal dystrophy, and painful palmoplantar hyperkeratosis. Variable
   intellectual disability may occur, particularly with delayed diagnosis or
-  untreated disease. Because the biochemical block is upstream and toxic
-  metabolites are limited to tyrosine itself, dietary restriction of tyrosine
-  and phenylalanine lowers plasma tyrosine and produces rapid resolution of the
-  ocular and cutaneous lesions, distinguishing it clinically and mechanistically
-  from the hepatorenal disease of tyrosinemia type I (FAH deficiency).
+  untreated disease. Dietary restriction of tyrosine and phenylalanine lowers
+  plasma tyrosine and can rapidly improve ocular and cutaneous lesions.
 disease_term:
   preferred_term: tyrosinemia type II
   term:
@@ -5499,8 +6116,51 @@ inheritance:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Tyrosinemia type II (Richner-Hanhart syndrome, RHS) is a disease of autosomal recessive inheritance characterized by keratitis, palmoplantar hyperkeratosis, mental retardation, and elevated blood tyrosine levels.&#34;
     explanation: Confirms autosomal recessive inheritance and the defining clinical tetrad.
+progression:
+- phase: Early-treated course
+  age_range: Infancy onward
+  notes: &gt;
+    Individuals diagnosed and treated from early infancy may remain asymptomatic
+    or have only mild eye and skin manifestations.
+  evidence:
+  - reference: PMID:39446998
+    reference_title: &#34;Tyrosinemia Type II.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Individuals diagnosed and treated from early infancy may be asymptomatic or have only mild ocular and skin manifestations.&#34;
+    explanation: GeneReviews describes the attenuated course associated with early diagnosis and treatment.
+- phase: Delayed or untreated presentation
+  age_range: Infancy through later childhood or adulthood
+  notes: &gt;
+    Delayed diagnosis or absence of treatment is associated with ocular and
+    skin disease and variable cognitive manifestations; painful eye disease may
+    be mistaken for herpetic keratitis.
+  evidence:
+  - reference: PMID:39446998
+    reference_title: &#34;Tyrosinemia Type II.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Individuals with delayed diagnosis or lack of treatment present with ocular, skin, and variable cognitive manifestations.&#34;
+    explanation: GeneReviews states the manifestations associated with delayed diagnosis or no treatment.
+clinical_burden:
+  burden_level: MODERATE
+  rationale: &gt;
+    Untreated disease can cause painful keratitis, corneal injury, painful
+    palmoplantar hyperkeratosis, and variable cognitive disability. The burden
+    is substantially modifiable because early diagnosis and lifelong dietary
+    therapy can produce an asymptomatic or mild course, although sustained diet,
+    biochemical monitoring, and multidisciplinary surveillance are required.
+  evidence:
+  - reference: PMID:39446998
+    reference_title: &#34;Tyrosinemia Type II.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Tyrosinemia type II is characterized by corneal dystrophy, painful palmoplantar hyperkeratosis, and variable intellectual disability.&#34;
+    explanation: The characteristic painful, ocular, cutaneous, and cognitive manifestations support a moderate untreated burden.
 pathophysiology:
 - name: Tyrosine aminotransferase deficiency
+  role: TRIGGER
+  biological_scale: MOLECULAR
   description: &gt;
     Biallelic loss-of-function TAT variants reduce hepatic cytosolic tyrosine
     aminotransferase activity, blocking the first (transamination) step of
@@ -5540,6 +6200,12 @@ pathophysiology:
     evidence_source: OTHER
     snippet: &#34;The diagnosis of tyrosinemia type II is established in a proband by identification of biallelic pathogenic variants in TAT on molecular genetic testing&#34;
     explanation: Confirms biallelic TAT pathogenic variants as the molecular basis of the disease.
+  - reference: PMID:31603991
+    reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Tyrosine aminotransferase (TAT) transaminates tyrosine, forming p‐hydroxyphenylpyruvate and glutamate.&#34;
+    explanation: Defines the biochemical reaction catalyzed by TAT.
   downstream:
   - target: Hypertyrosinemia and systemic tyrosine accumulation
     description: &gt;
@@ -5554,12 +6220,13 @@ pathophysiology:
       snippet: &#34;Richner-Hanhart syndrome (tyrosinemia type II) is a rare autosomal recessive disease associated with high serum tyrosine levels caused by the deficiency of tyrosine aminotransferase enzyme.&#34;
       explanation: Directly links tyrosine aminotransferase deficiency to elevated serum tyrosine.
 - name: Hypertyrosinemia and systemic tyrosine accumulation
+  role: CENTRAL_EFFECTOR
+  biological_scale: ORGANISM
   description: &gt;
-    The upstream enzymatic block produces marked hypertyrosinemia. Unlike
-    tyrosinemia type I, no downstream hepatotoxic metabolites (fumarylacetoacetate,
-    succinylacetone) are generated; tyrosine itself is the accumulating and
-    pathogenic metabolite, deposited intracellularly in the cornea and in the
-    epidermis of the palms and soles.
+    The upstream enzymatic block produces increased tyrosine in plasma and
+    cerebrospinal fluid and increased tyrosine catabolic metabolites in plasma
+    and urine. Tyrosine crystal deposition is implicated in the characteristic
+    eye and skin lesions.
   chemical_entities:
   - preferred_term: L-tyrosine
     term:
@@ -5573,6 +6240,12 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Blood tests showed a tyrosine level of 508 micromol/L (normal range: 30-150).&#34;
     explanation: Documents the marked hypertyrosinemia (508 vs normal 30-150 micromol/L) that defines the biochemical phenotype.
+  - reference: PMID:31603991
+    reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TAT deficiency leads to increased levels of tyrosine in plasma and CSF together with increased levels of its catabolic metabolites in plasma and urine.&#34;
+    explanation: Review supports the compartments and metabolite classes affected by TAT deficiency.
   downstream:
   - target: Oculocutaneous tyrosine deposition
     description: &gt;
@@ -5580,39 +6253,67 @@ pathophysiology:
       epidermis, triggering the inflammatory and hyperkeratotic tissue response.
     causal_link_type: DIRECT
     evidence:
-    - reference: PMID:1357662
-      reference_title: &#34;Point mutations in the tyrosine aminotransferase gene in tyrosinemia type II.&#34;
+    - reference: PMID:31603991
+      reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Tyrosinemia type II (Richner-Hanhart syndrome, RHS) is a disease of autosomal recessive inheritance characterized by keratitis, palmoplantar hyperkeratosis, mental retardation, and elevated blood tyrosine levels.&#34;
-      explanation: Links elevated tyrosine to the keratitis and palmoplantar hyperkeratosis phenotype.
+      evidence_source: OTHER
+      snippet: &#34;Deposition of tyrosine crystals leads to eye and skin lesions in patients with TAT deficiency, resulting in infancy‐onset ophthalmological and dermatological symptoms.&#34;
+      explanation: Review directly attributes eye and skin lesions to tyrosine crystal deposition.
   - target: Intellectual disability
     description: &gt;
-      Sustained hypertyrosinemia, particularly when diagnosis is delayed or
-      treatment is lacking, is associated with variable neurodevelopmental
-      impairment.
-    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
-    intermediate_mechanisms:
-    - central-nervous-system effects of chronic tyrosine elevation
+      Sustained untreated hypertyrosinemia is associated with variable cognitive
+      manifestations through unresolved neurologic intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: PMID:39446998
       reference_title: &#34;Tyrosinemia Type II.&#34;
-      supports: SUPPORT
+      supports: PARTIAL
       evidence_source: OTHER
-      snippet: &#34;Tyrosinemia type II is characterized by corneal dystrophy, painful palmoplantar hyperkeratosis, and variable intellectual disability.&#34;
-      explanation: Establishes variable intellectual disability as a disease feature downstream of hypertyrosinemia.
+      snippet: &#34;Individuals with delayed diagnosis or lack of treatment present with ocular, skin, and variable cognitive manifestations.&#34;
+      explanation: The treatment-timing association supports a link while leaving the neurologic intermediates unresolved.
+  - target: Seizures
+    description: Hypertyrosinemia is associated with reported seizures through unresolved neurologic intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31603991
+      reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;The phenotype is further characterised by seizures and self‐injuring and difficult behaviour.&#34;
+      explanation: Establishes the TAT-deficiency neurologic endpoint but not the route from tyrosine elevation.
+  - target: Self-injurious behavior
+    description: Hypertyrosinemia is associated with reported self-injurious behavior through unresolved neurologic intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31603991
+      reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;The phenotype is further characterised by seizures and self‐injuring and difficult behaviour.&#34;
+      explanation: Establishes the TAT-deficiency neurologic endpoint but not the route from tyrosine elevation.
 - name: Oculocutaneous tyrosine deposition
+  role: DOWNSTREAM
+  biological_scale: TISSUE
   description: &gt;
-    Intracellular tyrosine crystal deposition in the corneal epithelium provokes
-    a pseudodendritic, herpetiform keratitis with corneal dystrophy that is
-    characteristically unresponsive to antiviral therapy, while deposition in
-    palmoplantar epidermis produces painful focal hyperkeratosis.
+    Tyrosine crystal deposition in eye and skin tissues produces infancy-onset
+    ophthalmologic and dermatologic lesions. Clinically, these include
+    pseudodendritic corneal lesions and painful palmoplantar hyperkeratosis.
   locations:
   - preferred_term: cornea
     term:
       id: UBERON:0000964
       label: cornea
+  - preferred_term: skin of palmar/plantar part of autopod
+    term:
+      id: UBERON:0013776
+      label: skin of palmar/plantar part of autopod
   evidence:
+  - reference: PMID:31603991
+    reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Deposition of tyrosine crystals leads to eye and skin lesions in patients with TAT deficiency, resulting in infancy‐onset ophthalmological and dermatological symptoms.&#34;
+    explanation: Review directly supports the tissue-deposition mechanism and its eye and skin consequences.
   - reference: PMID:22389994
     reference_title: &#34;Richner-Hanhart syndrome (tyrosinemia type II): a case report of delayed diagnosis with pseudodendritic corneal lesion.&#34;
     supports: SUPPORT
@@ -5630,22 +6331,44 @@ pathophysiology:
     description: Corneal tyrosine deposition drives an inflammatory pseudodendritic keratitis.
     causal_link_type: DIRECT
     evidence:
-    - reference: PMID:1357662
-      reference_title: &#34;Point mutations in the tyrosine aminotransferase gene in tyrosinemia type II.&#34;
+    - reference: PMID:31603991
+      reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: &#34;characterized by keratitis, palmoplantar hyperkeratosis, mental retardation, and elevated blood tyrosine levels.&#34;
-      explanation: Lists keratitis as a defining feature.
+      evidence_source: OTHER
+      snippet: &#34;herpetiform corneal ulcerations in patients with TAT deficiency&#34;
+      explanation: Directly names the characteristic inflammatory corneal lesion in TAT deficiency.
+  - target: Corneal dystrophy
+    description: Corneal crystal deposition produces the characteristic corneal dystrophy and opacity.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:31603991
+      reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Deposition of tyrosine crystals leads to eye and skin lesions in patients with TAT deficiency, resulting in infancy‐onset ophthalmological and dermatological symptoms.&#34;
+      explanation: Supports eye tissue lesions as a consequence of tyrosine crystal deposition; GeneReviews identifies corneal dystrophy as the characteristic lesion.
+    - reference: PMID:39446998
+      reference_title: &#34;Tyrosinemia Type II.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Tyrosinemia type II is characterized by corneal dystrophy, painful palmoplantar hyperkeratosis, and variable intellectual disability.&#34;
+      explanation: Identifies corneal dystrophy as the characteristic ocular outcome paired with the deposition mechanism.
   - target: Palmoplantar hyperkeratosis
     description: Epidermal tyrosine deposition in the palms and soles produces painful focal hyperkeratosis.
     causal_link_type: DIRECT
     evidence:
-    - reference: PMID:22389994
-      reference_title: &#34;Richner-Hanhart syndrome (tyrosinemia type II): a case report of delayed diagnosis with pseudodendritic corneal lesion.&#34;
+    - reference: PMID:31603991
+      reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: &#34;On her dermatologic examination, plantar hyperkeratosis and seborrheic dermatitis were noted, and mild mental retardation was detected.&#34;
-      explanation: Documents plantar hyperkeratosis in an affected patient.
+      evidence_source: OTHER
+      snippet: &#34;Deposition of tyrosine crystals leads to eye and skin lesions in patients with TAT deficiency, resulting in infancy‐onset ophthalmological and dermatological symptoms.&#34;
+      explanation: Directly supports the deposition-to-skin-lesion route; GeneReviews identifies painful palmoplantar hyperkeratosis as the characteristic skin lesion.
+    - reference: PMID:39446998
+      reference_title: &#34;Tyrosinemia Type II.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Tyrosinemia type II is characterized by corneal dystrophy, painful palmoplantar hyperkeratosis, and variable intellectual disability.&#34;
+      explanation: Identifies painful palmoplantar hyperkeratosis as the characteristic skin outcome paired with the deposition mechanism.
 phenotypes:
 - name: Keratitis
   category: Ocular
@@ -5729,9 +6452,39 @@ phenotypes:
     evidence_source: OTHER
     snippet: &#34;Tyrosinemia type II is characterized by corneal dystrophy, painful palmoplantar hyperkeratosis, and variable intellectual disability.&#34;
     explanation: GeneReviews lists variable intellectual disability as a feature.
+- name: Seizures
+  category: Neurologic
+  description: Seizures have been reported as part of the neurologic phenotype.
+  phenotype_term:
+    preferred_term: Seizure
+    term:
+      id: HP:0001250
+      label: Seizure
+  evidence:
+  - reference: PMID:31603991
+    reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The phenotype is further characterised by seizures and self‐injuring and difficult behaviour.&#34;
+    explanation: Review identifies seizures among reported TAT-deficiency manifestations.
+- name: Self-injurious behavior
+  category: Neurologic
+  description: Self-injurious and difficult behavior has been reported.
+  phenotype_term:
+    preferred_term: Self-injurious behavior
+    term:
+      id: HP:0100716
+      label: Self-injurious behavior
+  evidence:
+  - reference: PMID:31603991
+    reference_title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The phenotype is further characterised by seizures and self‐injuring and difficult behaviour.&#34;
+    explanation: Review identifies self-injurious behavior among reported TAT-deficiency manifestations.
 - name: Hypertyrosinemia
   category: Biochemical
-  description: Marked elevation of plasma and urinary tyrosine.
+  description: Marked elevation of plasma tyrosine, with increased tyrosine also reported in cerebrospinal fluid.
   phenotype_term:
     preferred_term: Hypertyrosinemia
     term:
@@ -5748,10 +6501,10 @@ biochemical:
 - name: Plasma tyrosine
   presence: INCREASED
   context: &gt;
-    Plasma tyrosine is markedly elevated (frequently &gt;500 micromol/L against a
-    typical reference interval of ~30-150 micromol/L) and is both the diagnostic
-    biomarker and the pathogenic metabolite; it falls on tyrosine- and
-    phenylalanine-restricted diet.
+    Plasma tyrosine is markedly elevated and serves as a biochemical marker for
+    recognition and monitoring. One delayed-diagnosis case reported 508
+    micromol/L against a 30-150 micromol/L reference interval, with a fall after
+    tyrosine- and phenylalanine-restricted diet.
   biomarker_term:
     preferred_term: L-tyrosine
     term:
@@ -5787,6 +6540,19 @@ genetic:
       Nonsense, missense, and splice-site point mutations in TAT abolish tyrosine
       aminotransferase activity; nonsense mutations at codons 57, 223, and 417
       and splice-donor/acceptor mutations were among the first characterized.
+    evidence:
+    - reference: PMID:1357662
+      reference_title: &#34;Point mutations in the tyrosine aminotransferase gene in tyrosinemia type II.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Three RHS alleles have nonsense mutations at codons 57, 223, and 417, respectively.&#34;
+      explanation: Patient-allele sequencing directly documents three early nonsense variants.
+    - reference: PMID:1357662
+      reference_title: &#34;Point mutations in the tyrosine aminotransferase gene in tyrosinemia type II.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;One \&#34;complex\&#34; RHS allele carries a GT----GG splice donor mutation in intron 8 together with a Gly----Val substitution at amino acid 362.&#34;
+      explanation: Patient-allele sequencing documents a splice-donor variant with a missense substitution.
   features: &gt;
     TAT encodes hepatic cytosolic tyrosine aminotransferase, a 454-amino acid
     protein encoded by a gene with 12 exons. Biallelic loss-of-function variants
@@ -5804,26 +6570,87 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;DNA sequence analysis of the regions identified as nonfunctional revealed six different point mutations.&#34;
     explanation: Documents causative point mutations in patient TAT alleles.
+diagnosis:
+- name: TAT molecular genetic testing
+  description: &gt;
+    Identification of biallelic pathogenic TAT variants establishes the
+    diagnosis and enables family-based carrier and reproductive testing.
+  diagnosis_term:
+    preferred_term: genetic testing
+    term:
+      id: NCIT:C15709
+      label: Genetic Testing
+  evidence:
+  - reference: PMID:39446998
+    reference_title: &#34;Tyrosinemia Type II.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The diagnosis of tyrosinemia type II is established in a proband by identification of biallelic pathogenic variants in TAT on molecular genetic testing&#34;
+    explanation: GeneReviews defines biallelic TAT variant detection as the principal diagnostic route.
+- name: Hepatic tyrosine aminotransferase activity assay
+  description: &gt;
+    In limited instances, substantially reduced TAT enzyme activity measured in
+    liver can establish the diagnosis.
+  diagnosis_term:
+    preferred_term: laboratory procedure
+    term:
+      id: NCIT:C25294
+      label: Laboratory Procedure
+  evidence:
+  - reference: PMID:39446998
+    reference_title: &#34;Tyrosinemia Type II.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;or – in limited instances – significantly reduced activity of the enzyme tyrosine aminotransferase in liver.&#34;
+    explanation: GeneReviews describes reduced hepatic enzyme activity as a limited alternative route to diagnosis.
+- name: Plasma amino-acid analysis
+  description: &gt;
+    Quantitative plasma amino-acid analysis identifies marked hypertyrosinemia
+    and supports biochemical recognition and monitoring, with molecular testing
+    used for definitive diagnosis.
+  diagnosis_term:
+    preferred_term: laboratory procedure
+    term:
+      id: NCIT:C25294
+      label: Laboratory Procedure
+  evidence:
+  - reference: PMID:22389994
+    reference_title: &#34;Richner-Hanhart syndrome (tyrosinemia type II): a case report of delayed diagnosis with pseudodendritic corneal lesion.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Blood tests showed a tyrosine level of 508 micromol/L (normal range: 30-150).&#34;
+    explanation: A delayed-diagnosis case demonstrates the diagnostic biochemical abnormality.
 treatments:
 - name: Dietary tyrosine and phenylalanine restriction
   description: &gt;
     Lifelong low-protein diet restricting dietary tyrosine and phenylalanine,
     combined with phenylalanine-free/tyrosine-free amino acid, vitamin, and
     mineral supplements. Lowering plasma tyrosine produces rapid resolution of
-    the corneal and cutaneous lesions and can prevent intellectual disability
-    when started early.
+    the corneal and cutaneous lesions. Early-treated individuals may be
+    asymptomatic or have only mild ocular and skin manifestations.
   therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: dietary intervention
     term:
       id: NCIT:C15447
       label: Dietary Intervention
+  target_mechanisms:
+  - target: Hypertyrosinemia and systemic tyrosine accumulation
+    treatment_effect: INHIBITS
+    description: Dietary restriction reduces the systemic tyrosine burden.
+    evidence:
+    - reference: PMID:22389994
+      reference_title: &#34;Richner-Hanhart syndrome (tyrosinemia type II): a case report of delayed diagnosis with pseudodendritic corneal lesion.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;One and a half months after the tyrosine- and phenylalanine-restricted diet, her tyrosine level dropped to 395 micromol/L level, her corneal lesions subsided, and a symptomatic relief was achieved.&#34;
+      explanation: Human treatment response directly supports diet lowering tyrosine and improving corneal disease.
   evidence:
   - reference: PMID:39446998
     reference_title: &#34;Tyrosinemia Type II.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;Lifelong restriction of dietary tyrosine and phenylalanine with low-protein diet&#34;
+    snippet: &#34;Lifelong restriction of dietary tyrosine and phenylalanine with low-protein diet combined with age-appropriate amino acid (phenylalanine-free and tyrosine-free), vitamin, and mineral supplements.&#34;
     explanation: GeneReviews specifies dietary tyrosine/phenylalanine restriction as targeted therapy.
   - reference: PMID:22389994
     reference_title: &#34;Richner-Hanhart syndrome (tyrosinemia type II): a case report of delayed diagnosis with pseudodendritic corneal lesion.&#34;
@@ -5834,8 +6661,7 @@ treatments:
 - name: Supportive ocular care
   description: &gt;
     Lubricating eye drops and ointment, with ocular surgery as needed for
-    bilateral corneal ulceration; topical retinoid or pyridoxine may help skin
-    manifestations.
+    bilateral corneal ulceration.
   treatment_term:
     preferred_term: supportive care
     term:
@@ -5846,24 +6672,61 @@ treatments:
     reference_title: &#34;Tyrosinemia Type II.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;Lubricating eye drops and ointment; ocular surgery as needed to&#34;
+    snippet: &#34;Lubricating eye drops and ointment; ocular surgery as needed to treat bilateral corneal ulcers&#34;
     explanation: GeneReviews lists supportive ocular care in management.
+- name: Supportive skin and developmental care
+  description: &gt;
+    Pyridoxine phosphate or a systemic retinoid may benefit skin manifestations;
+    developmental and educational support is provided according to need.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: NCIT:C15747
+      label: Supportive Care
+  evidence:
+  - reference: PMID:39446998
+    reference_title: &#34;Tyrosinemia Type II.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;pyridoxine phosphate or a systemic retinoid may be beneficial for skin manifestations; developmental and educational support.&#34;
+    explanation: GeneReviews separately supports dermatologic and developmental supportive management.
 notes: &gt;
-  Tyrosinemia type II is mechanistically distinct from tyrosinemia type I
-  (FAH deficiency): the enzymatic block is at the first step of tyrosine
-  degradation, so the pathogenic species is tyrosine itself rather than the
-  hepatotoxic fumarylacetoacetate/succinylacetone metabolites of the type I
-  distal block. This explains the oculocutaneous (rather than hepatorenal)
-  phenotype and the strong, rapid response to dietary tyrosine restriction.
-  Individuals diagnosed and treated from early infancy may be asymptomatic or
-  have only mild ocular and skin manifestations. Nitisinone (NTBC), used in
-  type I, is not the mainstay for type II because it acts downstream of TAT and
-  would further raise tyrosine.
+  Unlike tyrosinemia type I, the metabolic block is at the first step of
+  tyrosine degradation, so tyrosine itself accumulates rather than
+  fumarylacetoacetate or succinylacetone. Nitisinone, the principal therapy for
+  type I, acts downstream of TAT and is not used in type II because it would
+  further increase tyrosine.
+  Surveillance described by GeneReviews includes quantitative plasma tyrosine
+  and phenylalanine at each visit, annual or clinically indicated ophthalmology
+  and skin assessments, annual developmental and neuropsychological review, and
+  nutritional monitoring including calcium, phosphorus, and 25-hydroxyvitamin D.
+  Increased dietary protein should be avoided. The causal route from systemic
+  tyrosine elevation to variable cognitive manifestations remains unresolved;
+  neurologic outcomes are therefore linked only through unknown intermediates.
+experimental_models: []
+animal_models: []
+datasets: []
+review_notes: &gt;
+  Review used four cached sources anchored to MONDO:0010160 and TAT. No
+  disease-specific public molecular dataset or model with an evidence-supported
+  mechanism link was identified in the repository, so those sections are
+  explicitly empty. Phenotype frequencies were omitted because the cited
+  sources do not provide defensible denominators or qualitative bands. Direct
+  evidence supports TAT deficiency causing hypertyrosinemia and tyrosine crystal
+  deposition causing eye and skin lesions. Neurologic phenotypes are linked with
+  INDIRECT_UNKNOWN_INTERMEDIATES edges because association and treatment timing
+  support a relationship while the causal route remains unresolved.
 references:
 - reference: PMID:39446998
   title: &#34;Tyrosinemia Type II.&#34;
   tags:
   - GeneReviews
+- reference: PMID:1357662
+  title: &#34;Point mutations in the tyrosine aminotransferase gene in tyrosinemia type II.&#34;
+- reference: PMID:22389994
+  title: &#34;Richner-Hanhart syndrome (tyrosinemia type II): a case report of delayed diagnosis with pseudodendritic corneal lesion.&#34;
+- reference: PMID:31603991
+  title: &#34;Inborn errors of enzymes in glutamate metabolism.&#34;
 </pre>
             </div>
         </div>
@@ -5879,7 +6742,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">4</span>
                 </div>
 
                 <div class="reference-entry">
@@ -5890,6 +6753,57 @@ references:
                             </div>
 
                             <div class="reference-title">Tyrosinemia Type II.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357662" target="_blank">PMID:1357662</a>
+                            </div>
+
+                            <div class="reference-title">Point mutations in the tyrosine aminotransferase gene in tyrosinemia type II.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/22389994" target="_blank">PMID:22389994</a>
+                            </div>
+
+                            <div class="reference-title">Richner-Hanhart syndrome (tyrosinemia type II): a case report of delayed diagnosis with pseudodendritic corneal lesion.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
+                            </div>
+
+                            <div class="reference-title">Inborn errors of enzymes in glutamate metabolism.</div>
 
                         </div>
 
@@ -5958,7 +6872,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tyrosinemia Type II", "mondoId": "MONDO:0010160", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tyrosinemia_Type_II", "yamlRevision": "53cfc444847b"};
+        const OS_CONFIG = {"diseaseName": "Tyrosinemia Type II", "mondoId": "MONDO:0010160", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tyrosinemia_Type_II", "yamlRevision": "9efbe1dfc67d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6377,5 +7291,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

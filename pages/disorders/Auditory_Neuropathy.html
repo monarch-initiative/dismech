@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Auditory Neuropathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Auditory Neuropathy</h1>
             <div class="header-meta">
 
@@ -3939,7 +4061,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3984,6 +4106,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20624953" target="_blank">PMID:20624953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4007,7 +4130,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4052,6 +4175,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10192385" target="_blank">PMID:10192385</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4073,6 +4197,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1434/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1434/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4097,7 +4222,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive-inheritance">
                 <div class="item-name">
                     X-linked recessive inheritance
 
@@ -4141,6 +4266,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25986071" target="_blank">PMID:25986071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4207,7 +4333,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-auna1">
 
                     <div class="item-name">
                         Autosomal Dominant Auditory Neuropathy 1
@@ -4243,6 +4369,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20624953" target="_blank">PMID:20624953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4269,7 +4396,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-auna2">
 
                     <div class="item-name">
                         Auditory Neuropathy, Autosomal Dominant 2
@@ -4305,6 +4432,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36300302" target="_blank">PMID:36300302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4331,7 +4459,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-auna3">
 
                     <div class="item-name">
                         Auditory Neuropathy, Autosomal Dominant 3
@@ -4367,6 +4495,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39834515" target="_blank">PMID:39834515</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4393,7 +4522,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dfnb9">
 
                     <div class="item-name">
                         OTOF-Related Autosomal Recessive Hearing Loss (DFNB9)
@@ -4429,6 +4558,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10192385" target="_blank">PMID:10192385</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4450,6 +4580,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1434/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1434/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4477,7 +4608,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aunx1">
 
                     <div class="item-name">
                         AIFM1-Related X-Linked Recessive Auditory Neuropathy (AUNX1)
@@ -4512,6 +4643,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25986071" target="_blank">PMID:25986071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4604,6 +4736,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4676,6 +4809,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42020731" target="_blank">PMID:42020731</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4697,6 +4831,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42037272" target="_blank">PMID:42037272</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4743,18 +4878,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4771,18 +4908,20 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0011113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4799,18 +4938,20 @@ This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4879,6 +5020,7 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36769387" target="_blank">PMID:36769387</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4912,18 +5054,20 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4940,18 +5084,20 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0011113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4979,17 +5125,21 @@ This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves OTOF (hgnc:8515). hgnc:8515 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         OTOF
 
 
-    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8515</a>
+    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:8515</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OTOF (hgnc:8515). hgnc:8515 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5018,18 +5168,20 @@ This pathophysiological event involves OTOF (hgnc:8515). hgnc:8515 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5104,6 +5256,7 @@ This pathophysiological event involves decreased chemical synaptic transmission 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34335185" target="_blank">PMID:34335185</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5125,6 +5278,7 @@ This pathophysiological event involves decreased chemical synaptic transmission 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23562982" target="_blank">PMID:23562982</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5159,18 +5313,20 @@ This pathophysiological event involves decreased chemical synaptic transmission 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0011113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5187,18 +5343,20 @@ This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5226,17 +5384,21 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DIAPH3 (hgnc:15480). hgnc:15480 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DIAPH3
 
 
-    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15480</a>
+    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:15480</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DIAPH3 (hgnc:15480). hgnc:15480 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5261,17 +5423,21 @@ This pathophysiological event involves DIAPH3 (hgnc:15480). hgnc:15480 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATP11A
 
 
-    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13552</a>
+    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:13552</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5296,17 +5462,21 @@ This pathophysiological event involves ATP11A (hgnc:13552). hgnc:13552 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         OPA1
 
 
-    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8140</a>
+    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:8140</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5331,17 +5501,21 @@ This pathophysiological event involves OPA1 (hgnc:8140). hgnc:8140 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATP1A3 (hgnc:801). hgnc:801 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATP1A3
 
 
-    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:801</a>
+    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:801</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP1A3 (hgnc:801). hgnc:801 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5370,18 +5544,20 @@ This pathophysiological event involves ATP1A3 (hgnc:801). hgnc:801 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased axon ensheathment (GO:0008366). GO:0008366 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         axon ensheathment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go">GO:0008366</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased axon ensheathment (GO:0008366). GO:0008366 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5439,6 +5615,7 @@ This pathophysiological event involves decreased axon ensheathment (GO:0008366).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5460,6 +5637,7 @@ This pathophysiological event involves decreased axon ensheathment (GO:0008366).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5494,18 +5672,20 @@ This pathophysiological event involves decreased axon ensheathment (GO:0008366).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0011113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5533,17 +5713,21 @@ This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         AIFM1
 
 
-    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8768</a>
+    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:8768</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5622,6 +5806,7 @@ This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37365177" target="_blank">PMID:37365177</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5643,6 +5828,7 @@ This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37365177" target="_blank">PMID:37365177</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5677,18 +5863,20 @@ This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear glia-like support cell, annotated with supporting cell (CL:0000630). CL:0000630 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear glia-like support cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000630" target="_blank" class="curie-chip curie-chip-cl">CL:0000630</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000630" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000630</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear glia-like support cell, annotated with supporting cell (CL:0000630). CL:0000630 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5716,17 +5904,21 @@ This pathophysiological event involves cochlear glia-like support cell, annotate
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TMEM43
 
 
-    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28472</a>
+    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:28472</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5756,18 +5948,20 @@ This pathophysiological event involves TMEM43 (hgnc:28472). hgnc:28472 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased gap junction channel activity (GO:0005243). GO:0005243 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         gap junction channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005243" target="_blank" class="curie-chip curie-chip-go">GO:0005243</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005243" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0005243</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased gap junction channel activity (GO:0005243). GO:0005243 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5793,18 +5987,20 @@ This pathophysiological event involves decreased gap junction channel activity (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves gap junction (GO:0005921). GO:0005921 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         gap junction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005921" target="_blank" class="curie-chip curie-chip-go">GO:0005921</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005921" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0005921</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves gap junction (GO:0005921). GO:0005921 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5842,6 +6038,7 @@ This pathophysiological event involves gap junction (GO:0005921). GO:0005921 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39834515" target="_blank">PMID:39834515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5933,16 +6130,22 @@ This pathophysiological event involves gap junction (GO:0005921). GO:0005921 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5962,6 +6165,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456936" target="_blank">PMID:38456936</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5984,6 +6188,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36769387" target="_blank">PMID:36769387</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6026,16 +6231,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001284</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.">
-                        Areflexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp">HP:0001284</a>
-
-
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6055,6 +6264,7 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25986071" target="_blank">PMID:25986071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6097,16 +6307,22 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal speech discrimination</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001963</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is poor speech perception, annotated with Abnormal speech discrimination (HP:0001963). HP:0001963 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal speech discrimination
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp">HP:0001963</a>
-
-
+This clinical feature is poor speech perception, annotated with Abnormal speech discrimination (HP:0001963). HP:0001963 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6126,6 +6342,7 @@ This clinical feature is poor speech perception, annotated with Abnormal speech 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6148,6 +6365,7 @@ This clinical feature is poor speech perception, annotated with Abnormal speech 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6181,16 +6399,22 @@ This clinical feature is poor speech perception, annotated with Abnormal speech 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Absent brainstem auditory responses</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004463</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is absent brainstem auditory responses (HP:0004463). HP:0004463 is a phenotype from the Human Phenotype Ontology.">
-                        Absent brainstem auditory responses
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004463" target="_blank" class="curie-chip curie-chip-hp">HP:0004463</a>
-
-
+This clinical feature is absent brainstem auditory responses (HP:0004463). HP:0004463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6210,6 +6434,7 @@ This clinical feature is absent brainstem auditory responses (HP:0004463). HP:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20624953" target="_blank">PMID:20624953</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6232,6 +6457,7 @@ This clinical feature is absent brainstem auditory responses (HP:0004463). HP:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38016438" target="_blank">PMID:38016438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6265,16 +6491,20 @@ This clinical feature is absent brainstem auditory responses (HP:0004463). HP:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034585" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0034585</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a phenotype from the Human Phenotype Ontology.">
-                        Cochlear nerve hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034585" target="_blank" class="curie-chip curie-chip-hp">HP:0034585</a>
-
-
+This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6294,6 +6524,7 @@ This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25986071" target="_blank">PMID:25986071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6327,16 +6558,20 @@ This clinical feature is Cochlear nerve hypoplasia (HP:0034585). HP:0034585 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a phenotype from the Human Phenotype Ontology.">
-                        Distal sensory impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp">HP:0002936</a>
-
-
+This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6356,6 +6591,7 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25986071" target="_blank">PMID:25986071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6389,16 +6625,20 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002317" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002317</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Unsteady gait (HP:0002317). HP:0002317 is a phenotype from the Human Phenotype Ontology.">
-                        Unsteady gait
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002317" target="_blank" class="curie-chip curie-chip-hp">HP:0002317</a>
-
-
+This clinical feature is Unsteady gait (HP:0002317). HP:0002317 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6418,6 +6658,7 @@ This clinical feature is Unsteady gait (HP:0002317). HP:0002317 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25986071" target="_blank">PMID:25986071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6469,6 +6710,7 @@ This clinical feature is Unsteady gait (HP:0002317). HP:0002317 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6548,15 +6790,17 @@ This clinical feature is Unsteady gait (HP:0002317). HP:0002317 is a phenotype f
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DIAPH3 (hgnc:15480). hgnc:15480 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DIAPH3
 
 
-    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15480</a>
+    <a href="https://bioregistry.io/hgnc:15480" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:15480</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DIAPH3 (hgnc:15480). hgnc:15480 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6584,6 +6828,7 @@ This disease-associated gene is DIAPH3 (hgnc:15480). hgnc:15480 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20624953" target="_blank">PMID:20624953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6606,6 +6851,7 @@ This disease-associated gene is DIAPH3 (hgnc:15480). hgnc:15480 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20624953" target="_blank">PMID:20624953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6627,6 +6873,7 @@ This disease-associated gene is DIAPH3 (hgnc:15480). hgnc:15480 is a gene from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_fc54aaf6-8e1b-4c98-bcbe-e1f337f6eadc-2020-02-06T170000.000Z" target="_blank">CGGV:assertion_fc54aaf6-8e1b-4c98-bcbe-e1f337f6eadc-2020-02-06T170000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6665,15 +6912,17 @@ This disease-associated gene is DIAPH3 (hgnc:15480). hgnc:15480 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP11A
 
 
-    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13552</a>
+    <a href="https://bioregistry.io/hgnc:13552" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:13552</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6700,6 +6949,7 @@ This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36300302" target="_blank">PMID:36300302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6738,15 +6988,17 @@ This disease-associated gene is ATP11A (hgnc:13552). hgnc:13552 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is OTOF (hgnc:8515). hgnc:8515 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OTOF
 
 
-    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8515</a>
+    <a href="https://bioregistry.io/hgnc:8515" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:8515</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTOF (hgnc:8515). hgnc:8515 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6773,6 +7025,7 @@ This disease-associated gene is OTOF (hgnc:8515). hgnc:8515 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456936" target="_blank">PMID:38456936</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6811,15 +7064,17 @@ This disease-associated gene is OTOF (hgnc:8515). hgnc:8515 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: AIFM1
 
 
-    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8768</a>
+    <a href="https://bioregistry.io/hgnc:8768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:8768</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6847,6 +7102,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456936" target="_blank">PMID:38456936</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6868,6 +7124,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37365177" target="_blank">PMID:37365177</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6906,15 +7163,17 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OPA1
 
 
-    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8140</a>
+    <a href="https://bioregistry.io/hgnc:8140" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:8140</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OPA1 (hgnc:8140). hgnc:8140 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6941,6 +7200,7 @@ This disease-associated gene is OPA1 (hgnc:8140). hgnc:8140 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456936" target="_blank">PMID:38456936</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6979,15 +7239,17 @@ This disease-associated gene is OPA1 (hgnc:8140). hgnc:8140 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATP1A3 (hgnc:801). hgnc:801 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP1A3
 
 
-    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:801</a>
+    <a href="https://bioregistry.io/hgnc:801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:801</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP1A3 (hgnc:801). hgnc:801 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7014,6 +7276,7 @@ This disease-associated gene is ATP1A3 (hgnc:801). hgnc:801 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456936" target="_blank">PMID:38456936</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7052,15 +7315,17 @@ This disease-associated gene is ATP1A3 (hgnc:801). hgnc:801 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM43
 
 
-    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28472</a>
+    <a href="https://bioregistry.io/hgnc:28472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:28472</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7087,6 +7352,7 @@ This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39834515" target="_blank">PMID:39834515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7118,6 +7384,9 @@ This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7144,18 +7413,20 @@ This disease-associated gene is TMEM43 (hgnc:28472). hgnc:28472 is a gene from t
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7174,6 +7445,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36769387" target="_blank">PMID:36769387</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7205,18 +7477,18 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7247,18 +7519,20 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7277,6 +7551,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38027523" target="_blank">PMID:38027523</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7300,6 +7575,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38809896" target="_blank">PMID:38809896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7321,6 +7597,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38016438" target="_blank">PMID:38016438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7354,18 +7631,18 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -7390,10 +7667,12 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Relation: this treatment uses this therapeutic agent
-This treatment uses lunsotogene parvec-cwha.">
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">
                         lunsotogene parvec-cwha
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Relation: this treatment uses this therapeutic agent
+This treatment uses lunsotogene parvec-cwha.</span>
                     </span>
 
                 </div>
@@ -7408,18 +7687,20 @@ This treatment uses lunsotogene parvec-cwha.">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7438,6 +7719,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42156605" target="_blank">PMID:42156605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7460,6 +7742,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41085057" target="_blank">PMID:41085057</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7491,18 +7774,18 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -7527,10 +7810,12 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Relation: this treatment uses this therapeutic agent
-This treatment uses AAV1-hOTOF.">
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">
                         AAV1-hOTOF
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Relation: this treatment uses this therapeutic agent
+This treatment uses AAV1-hOTOF.</span>
                     </span>
 
                 </div>
@@ -7545,18 +7830,20 @@ This treatment uses AAV1-hOTOF.">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7575,6 +7862,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42020731" target="_blank">PMID:42020731</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7597,6 +7885,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42362868" target="_blank">PMID:42362868</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7628,18 +7917,18 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">speech therapy</span>
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">NCIT:C159273</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
 
 
 
@@ -7670,18 +7959,20 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets poor speech perception, annotated with Abnormal speech discrimination (HP:0001963). HP:0001963 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         poor speech perception
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp">HP:0001963</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001963</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets poor speech perception, annotated with Abnormal speech discrimination (HP:0001963). HP:0001963 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7700,6 +7991,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41657439" target="_blank">PMID:41657439</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7722,6 +8014,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1434/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1434/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7763,6 +8056,10 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
 
 
+
+
+
+
                 <div class="item-desc">Infections, toxic-metabolite injury, and immune-mediated injury can cause acquired ANSD. These etiologies must be assessed clinically and should not be inferred from the genetic content of this umbrella record.</div>
 
 
@@ -7778,6 +8075,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7823,7 +8121,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cochlear-sensorineural-hearing-loss">
                 <div class="item-name">
 
                     Cochlear sensorineural hearing loss
@@ -7862,6 +8160,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21176122" target="_blank">PMID:21176122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7887,7 +8186,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cochlear-nerve-deficiency">
                 <div class="item-name">
 
                     Cochlear nerve deficiency
@@ -7928,6 +8227,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38027523" target="_blank">PMID:38027523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7953,7 +8253,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-central-auditory-processing-disorder">
                 <div class="item-name">
 
                     Central auditory processing disorder
@@ -7992,6 +8292,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38016438" target="_blank">PMID:38016438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8017,7 +8318,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-syndromic-peripheral-neuropathies">
                 <div class="item-name">
 
                     Syndromic peripheral neuropathies
@@ -8058,6 +8359,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25986071" target="_blank">PMID:25986071</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8096,7 +8398,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05788536">
                 <div class="item-name">
                     NCT05788536
 
@@ -8124,6 +8426,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                         <a href="https://clinicaltrials.gov/study/NCT05788536" target="_blank">clinicaltrials:NCT05788536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8147,7 +8450,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05821959">
                 <div class="item-name">
                     NCT05821959
 
@@ -8175,6 +8478,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                         <a href="https://clinicaltrials.gov/study/NCT05821959" target="_blank">clinicaltrials:NCT05821959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8198,7 +8502,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06696456">
                 <div class="item-name">
                     NCT06696456
 
@@ -8226,6 +8530,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                         <a href="https://clinicaltrials.gov/study/NCT06696456" target="_blank">clinicaltrials:NCT06696456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8249,7 +8554,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05572073">
                 <div class="item-name">
                     NCT05572073
 
@@ -8276,6 +8581,7 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05572073" target="_blank">clinicaltrials:NCT05572073</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8332,17 +8638,19 @@ This treatment targets poor speech perception, annotated with Abnormal speech di
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-46">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-46">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8392,6 +8700,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34335185" target="_blank">PMID:34335185</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8448,17 +8757,19 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-47">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-47">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8508,6 +8819,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37365177" target="_blank">PMID:37365177</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8567,7 +8879,6 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Auditory Neuropathy
 creation_date: &#34;2026-05-08T16:19:19Z&#34;
-updated_date: &#34;2026-05-08T17:39:11Z&#34;
 category: Genetic
 description: &gt;-
   Auditory neuropathy spectrum disorder (ANSD) is a heterogeneous hearing
@@ -10853,7 +11164,7 @@ This framework is explicitly stated in recent reviews and is operationalized in 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Auditory Neuropathy", "mondoId": "MONDO:0021944", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Auditory_Neuropathy", "yamlRevision": "257989c8623d"};
+        const OS_CONFIG = {"diseaseName": "Auditory Neuropathy", "mondoId": "MONDO:0021944", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Auditory_Neuropathy", "yamlRevision": "1617a11229f4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11272,5 +11583,73 @@ This framework is explicitly stated in recent reviews and is operationalized in 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

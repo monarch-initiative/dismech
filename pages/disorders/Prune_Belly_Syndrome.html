@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Prune Belly Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Prune Belly Syndrome</h1>
             <div class="header-meta">
 
@@ -3968,7 +4090,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-predominantly-sporadic-occurrence">
                 <div class="item-name">
                     Predominantly sporadic occurrence
 
@@ -3996,6 +4118,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4017,6 +4140,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38879764" target="_blank">PMID:38879764</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4161,6 +4285,7 @@ heterogeneous disease"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4284,6 +4409,7 @@ heterogeneous disease"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4434,6 +4560,7 @@ heterogeneous disease"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4468,18 +4595,20 @@ heterogeneous disease"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4507,17 +4636,21 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MYOCD (hgnc:16067). hgnc:16067 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MYOCD
 
 
-    <a href="https://bioregistry.io/hgnc:16067" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16067</a>
+    <a href="https://bioregistry.io/hgnc:16067" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:16067</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYOCD (hgnc:16067). hgnc:16067 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4546,18 +4679,20 @@ This pathophysiological event involves MYOCD (hgnc:16067). hgnc:16067 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased smooth muscle tissue development (GO:0048745). GO:0048745 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         smooth muscle tissue development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048745" target="_blank" class="curie-chip curie-chip-go">GO:0048745</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048745" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0048745</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased smooth muscle tissue development (GO:0048745). GO:0048745 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4615,6 +4750,7 @@ This pathophysiological event involves decreased smooth muscle tissue developmen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4636,6 +4772,7 @@ This pathophysiological event involves decreased smooth muscle tissue developmen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4678,17 +4815,21 @@ This pathophysiological event involves decreased smooth muscle tissue developmen
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PIEZO1 (hgnc:28993). hgnc:28993 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PIEZO1
 
 
-    <a href="https://bioregistry.io/hgnc:28993" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28993</a>
+    <a href="https://bioregistry.io/hgnc:28993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:28993</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIEZO1 (hgnc:28993). hgnc:28993 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4720,18 +4861,20 @@ This pathophysiological event involves PIEZO1 (hgnc:28993). hgnc:28993 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lower urinary tract (UBERON:0001556). UBERON:0001556 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lower urinary tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001556" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001556</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001556" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0001556</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lower urinary tract (UBERON:0001556). UBERON:0001556 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4768,6 +4911,7 @@ This pathophysiological event occurs in lower urinary tract (UBERON:0001556). UB
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4810,17 +4954,21 @@ This pathophysiological event occurs in lower urinary tract (UBERON:0001556). UB
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CHRM3 (hgnc:1952). hgnc:1952 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CHRM3
 
 
-    <a href="https://bioregistry.io/hgnc:1952" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1952</a>
+    <a href="https://bioregistry.io/hgnc:1952" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:1952</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRM3 (hgnc:1952). hgnc:1952 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4852,18 +5000,20 @@ This pathophysiological event involves CHRM3 (hgnc:1952). hgnc:1952 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         urinary bladder
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001255</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4901,6 +5051,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22077972" target="_blank">PMID:22077972</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4935,18 +5086,20 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4974,18 +5127,20 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal smooth muscle tissue development (GO:0048745). GO:0048745 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         smooth muscle tissue development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048745" target="_blank" class="curie-chip curie-chip-go">GO:0048745</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048745" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0048745</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal smooth muscle tissue development (GO:0048745). GO:0048745 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5013,33 +5168,37 @@ This pathophysiological event involves abnormal smooth muscle tissue development
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         ureter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000056</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000056</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         urinary bladder
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001255</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5076,6 +5235,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5132,18 +5292,20 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         urinary bladder
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001255</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5230,6 +5392,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5274,18 +5437,20 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         urinary bladder
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001255</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5322,6 +5487,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5367,18 +5533,20 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         ureter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000056</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000056</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5448,6 +5616,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5493,18 +5662,20 @@ poorly contractile smooth muscle"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5550,6 +5721,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5594,18 +5766,20 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5642,6 +5816,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37968538" target="_blank">PMID:37968538</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5724,6 +5899,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5825,16 +6001,22 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001627</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal heart morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp">HP:0001627</a>
-
-
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5854,6 +6036,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5896,16 +6079,20 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.">
-                        Constipation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp">HP:0002019</a>
-
-
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5925,6 +6112,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5960,16 +6148,20 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011024</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the gastrointestinal tract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp">HP:0011024</a>
-
-
+This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5989,6 +6181,7 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2602227" target="_blank">PMID:2602227</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6033,16 +6226,20 @@ This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.">
-                        Chronic kidney disease
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp">HP:0012622</a>
-
-
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6062,6 +6259,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37968538" target="_blank">PMID:37968538</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6085,6 +6283,7 @@ developing kidney dysfunction and requiring kidney replacement therapy"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30018947" target="_blank">PMID:30018947</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6129,16 +6328,20 @@ developing kidney dysfunction and requiring kidney replacement therapy"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001762</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.">
-                        Talipes equinovarus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp">HP:0001762</a>
-
-
+This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6158,6 +6361,7 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6200,16 +6404,20 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001562</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.">
-                        Oligohydramnios
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp">HP:0001562</a>
-
-
+This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6229,6 +6437,7 @@ This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6264,16 +6473,20 @@ This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.">
-                        Premature birth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp">HP:0001622</a>
-
-
+This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6293,6 +6506,7 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6337,16 +6551,20 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp">HP:0002089</a>
-
-
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6366,6 +6584,7 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2602227" target="_blank">PMID:2602227</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6388,6 +6607,7 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK544248/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK544248/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6432,16 +6652,22 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the abdominal wall musculature</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010318</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia/Hypoplasia of the abdominal wall musculature (HP:0010318). HP:0010318 is a phenotype from the Human Phenotype Ontology.">
-                        Aplasia/Hypoplasia of the abdominal wall musculature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010318" target="_blank" class="curie-chip curie-chip-hp">HP:0010318</a>
-
-
+This clinical feature is Aplasia/Hypoplasia of the abdominal wall musculature (HP:0010318). HP:0010318 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6461,6 +6687,7 @@ This clinical feature is Aplasia/Hypoplasia of the abdominal wall musculature (H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38879764" target="_blank">PMID:38879764</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6484,6 +6711,7 @@ This clinical feature is Aplasia/Hypoplasia of the abdominal wall musculature (H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6520,16 +6748,20 @@ skeletal muscle deficiency"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008689</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral cryptorchidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008689" target="_blank" class="curie-chip curie-chip-hp">HP:0008689</a>
-
-
+This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6549,6 +6781,7 @@ This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38879764" target="_blank">PMID:38879764</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6571,6 +6804,7 @@ This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6606,16 +6840,20 @@ This clinical feature is Bilateral cryptorchidism (HP:0008689). HP:0008689 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000021</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from the Human Phenotype Ontology.">
-                        Megacystis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000021" target="_blank" class="curie-chip curie-chip-hp">HP:0000021</a>
-
-
+This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6635,6 +6873,7 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6670,16 +6909,20 @@ This clinical feature is Megacystis (HP:0000021). HP:0000021 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype from the Human Phenotype Ontology.">
-                        Hydroureter
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000072" target="_blank" class="curie-chip curie-chip-hp">HP:0000072</a>
-
-
+This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6699,6 +6942,7 @@ This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6734,16 +6978,20 @@ This clinical feature is Hydroureter (HP:0000072). HP:0000072 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000126</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.">
-                        Hydronephrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp">HP:0000126</a>
-
-
+This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6763,6 +7011,7 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6798,16 +7047,20 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000076</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.">
-                        Vesicoureteral reflux
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp">HP:0000076</a>
-
-
+This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6827,6 +7080,7 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6862,16 +7116,20 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype from the Human Phenotype Ontology.">
-                        Renal dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp">HP:0000110</a>
-
-
+This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6891,6 +7149,7 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6926,16 +7185,20 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000010</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent urinary tract infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp">HP:0000010</a>
-
-
+This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6955,6 +7218,7 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6990,16 +7254,20 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0033127</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the musculoskeletal system (HP:0033127). HP:0033127 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the musculoskeletal system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp">HP:0033127</a>
-
-
+This clinical feature is Abnormality of the musculoskeletal system (HP:0033127). HP:0033127 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7019,6 +7287,7 @@ This clinical feature is Abnormality of the musculoskeletal system (HP:0033127).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2602227" target="_blank">PMID:2602227</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7098,15 +7367,17 @@ This clinical feature is Abnormality of the musculoskeletal system (HP:0033127).
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYOCD
 
 
-    <a href="https://bioregistry.io/hgnc:16067" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16067</a>
+    <a href="https://bioregistry.io/hgnc:16067" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:16067</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7130,6 +7401,7 @@ This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7151,6 +7423,7 @@ This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7189,15 +7462,17 @@ This disease-associated gene is MYOCD (hgnc:16067). hgnc:16067 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CHRM3 (hgnc:1952). hgnc:1952 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CHRM3
 
 
-    <a href="https://bioregistry.io/hgnc:1952" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1952</a>
+    <a href="https://bioregistry.io/hgnc:1952" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:1952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRM3 (hgnc:1952). hgnc:1952 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7221,6 +7496,7 @@ This disease-associated gene is CHRM3 (hgnc:1952). hgnc:1952 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22077972" target="_blank">PMID:22077972</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7242,6 +7518,7 @@ This disease-associated gene is CHRM3 (hgnc:1952). hgnc:1952 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22077972" target="_blank">PMID:22077972</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7281,15 +7558,17 @@ mutant mice"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLNA
 
 
-    <a href="https://bioregistry.io/hgnc:3754" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3754</a>
+    <a href="https://bioregistry.io/hgnc:3754" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:3754</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7312,6 +7591,7 @@ This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32085749" target="_blank">PMID:32085749</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7351,15 +7631,17 @@ mutations in the X-linked Filamin A gene"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PIEZO1
 
 
-    <a href="https://bioregistry.io/hgnc:28993" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28993</a>
+    <a href="https://bioregistry.io/hgnc:28993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:28993</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7382,6 +7664,7 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38184690" target="_blank">PMID:38184690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7420,15 +7703,17 @@ This disease-associated gene is PIEZO1 (hgnc:28993). hgnc:28993 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HNF1B (hgnc:11630). hgnc:11630 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HNF1B
 
 
-    <a href="https://bioregistry.io/hgnc:11630" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11630</a>
+    <a href="https://bioregistry.io/hgnc:11630" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:11630</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HNF1B (hgnc:11630). hgnc:11630 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7452,6 +7737,7 @@ This disease-associated gene is HNF1B (hgnc:11630). hgnc:11630 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7473,6 +7759,7 @@ This disease-associated gene is HNF1B (hgnc:11630). hgnc:11630 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22114815" target="_blank">PMID:22114815</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7505,6 +7792,9 @@ significant HNF1β mutations are uncommon in prune belly syndrome"</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7521,18 +7811,18 @@ significant HNF1β mutations are uncommon in prune belly syndrome"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">orchiopexy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical intervention from the NCI Thesaurus.">orchiopexy</span>
+This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orchiopexy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C111066" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical intervention from the NCI Thesaurus.">NCIT:C111066</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C111066" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C111066">NCIT:C111066</a>
 
 
 
@@ -7564,18 +7854,20 @@ This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Bilateral cryptorchidism (HP:0008689). HP:0008689 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Bilateral cryptorchidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008689" target="_blank" class="curie-chip curie-chip-hp">HP:0008689</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0008689</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Bilateral cryptorchidism (HP:0008689). HP:0008689 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7594,6 +7886,7 @@ This treatment targets Bilateral cryptorchidism (HP:0008689). HP:0008689 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7625,17 +7918,17 @@ This treatment targets Bilateral cryptorchidism (HP:0008689). HP:0008689 is a ph
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Reconstructive Surgery<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Reconstructive Surgery (NCIT:C25351). NCIT:C25351 is a clinical intervention from the NCI Thesaurus.">Reconstructive Surgery</span>
+This treatment is Reconstructive Surgery (NCIT:C25351). NCIT:C25351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C25351" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Reconstructive Surgery (NCIT:C25351). NCIT:C25351 is a clinical intervention from the NCI Thesaurus.">NCIT:C25351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C25351">NCIT:C25351</a>
 
 
 
@@ -7667,48 +7960,54 @@ This treatment is Reconstructive Surgery (NCIT:C25351). NCIT:C25351 is a clinica
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Deficiency of the abdominal wall musculature, annotated with Aplasia/Hypoplasia of the abdominal wall musculature (HP:0010318). HP:0010318 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Deficiency of the abdominal wall musculature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010318" target="_blank" class="curie-chip curie-chip-hp">HP:0010318</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0010318</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Deficiency of the abdominal wall musculature, annotated with Aplasia/Hypoplasia of the abdominal wall musculature (HP:0010318). HP:0010318 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hydroureter (HP:0000072). HP:0000072 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hydroureter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000072" target="_blank" class="curie-chip curie-chip-hp">HP:0000072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000072</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hydroureter (HP:0000072). HP:0000072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Vesicoureteral reflux
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp">HP:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7727,6 +8026,7 @@ This treatment targets Vesicoureteral reflux (HP:0000076). HP:0000076 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34016542" target="_blank">PMID:34016542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7759,18 +8059,18 @@ patients require abdominal and urinary tract reconstruction"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">antibiotic therapy</span>
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -7802,18 +8102,20 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent urinary tract infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp">HP:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7832,6 +8134,7 @@ This treatment targets Recurrent urinary tract infections (HP:0000010). HP:00000
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK544248/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK544248/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7863,18 +8166,18 @@ This treatment targets Recurrent urinary tract infections (HP:0000010). HP:00000
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">organ transplantation</span>
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">NCIT:C15289</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15289">NCIT:C15289</a>
 
 
 
@@ -7906,18 +8209,20 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Chronic kidney disease
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0012622</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7936,6 +8241,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37968538" target="_blank">PMID:37968538</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7978,18 +8284,20 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Oligohydramnios
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp">HP:0001562</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001562</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8008,6 +8316,7 @@ This treatment targets Oligohydramnios (HP:0001562). HP:0001562 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30018947" target="_blank">PMID:30018947</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8039,17 +8348,17 @@ This treatment targets Oligohydramnios (HP:0001562). HP:0001562 is a phenotype f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Urinary Diversion<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Urinary Diversion (NCIT:C91841). NCIT:C91841 is a clinical intervention from the NCI Thesaurus.">Urinary Diversion</span>
+This treatment is Urinary Diversion (NCIT:C91841). NCIT:C91841 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C91841" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Urinary Diversion (NCIT:C91841). NCIT:C91841 is a clinical intervention from the NCI Thesaurus.">NCIT:C91841</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C91841" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C91841">NCIT:C91841</a>
 
 
 
@@ -8081,18 +8390,20 @@ This treatment is Urinary Diversion (NCIT:C91841). NCIT:C91841 is a clinical int
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Megacystis (HP:0000021). HP:0000021 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Megacystis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000021" target="_blank" class="curie-chip curie-chip-hp">HP:0000021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Megacystis (HP:0000021). HP:0000021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8111,6 +8422,7 @@ This treatment targets Megacystis (HP:0000021). HP:0000021 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK544248/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK544248/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10387,5 +10699,73 @@ treatments:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

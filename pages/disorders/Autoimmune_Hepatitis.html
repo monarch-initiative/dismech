@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Autoimmune Hepatitis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autoimmune Hepatitis</h1>
             <div class="header-meta">
 
@@ -3923,29 +4045,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">GASTROINTESTINAL</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4195,6 +4395,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4284,6 +4485,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817450" target="_blank">PMID:39817450</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4305,6 +4507,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31226726" target="_blank">PMID:31226726</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4397,6 +4600,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817450" target="_blank">PMID:39817450</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4419,6 +4623,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT06381453" target="_blank">clinicaltrials:NCT06381453</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4440,6 +4645,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07598825" target="_blank">clinicaltrials:NCT07598825</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4520,6 +4726,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38340154" target="_blank">PMID:38340154</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4564,7 +4771,7 @@
 
 
 
-    <span class="entity-ref-chip">treatment#Prednisone or prednisolone-based corticosteroid induction</span>
+    <a class="entity-ref-chip" href="#treatment-prednisone-or-prednisolone-based-corticosteroid-induction">treatments#Prednisone or prednisolone-based corticosteroid induction</a>
 
 
 
@@ -4602,6 +4809,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20600032" target="_blank">PMID:20600032</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4623,6 +4831,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://easl.eu/news/easl-cpgs-autoimmune-hepatitis-2025/" target="_blank">url:https://easl.eu/news/easl-cpgs-autoimmune-hepatitis-2025/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4687,17 +4896,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4948</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4722,17 +4935,21 @@ This pathophysiological event involves HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HLA-B
 
 
-    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4932</a>
+    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4932</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4757,17 +4974,21 @@ This pathophysiological event involves HLA-B (hgnc:4932). hgnc:4932 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SH2B3 (hgnc:29605). hgnc:29605 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SH2B3
 
 
-    <a href="https://bioregistry.io/hgnc:29605" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29605</a>
+    <a href="https://bioregistry.io/hgnc:29605" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:29605</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SH2B3 (hgnc:29605). hgnc:29605 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4840,6 +5061,7 @@ This pathophysiological event involves SH2B3 (hgnc:29605). hgnc:29605 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24768677" target="_blank">PMID:24768677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4861,6 +5083,7 @@ This pathophysiological event involves SH2B3 (hgnc:29605). hgnc:29605 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38089552" target="_blank">PMID:38089552</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4913,18 +5136,20 @@ This pathophysiological event involves SH2B3 (hgnc:29605). hgnc:29605 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4941,18 +5166,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4980,18 +5207,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         adaptive immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5008,18 +5237,20 @@ This pathophysiological event involves adaptive immune response (GO:0002250). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5036,18 +5267,20 @@ This pathophysiological event involves T cell activation (GO:0042110). GO:004211
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves B cell activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         B cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go">GO:0042113</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B cell activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5157,6 +5390,7 @@ This pathophysiological event involves B cell activation (GO:0042113). GO:004211
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817450" target="_blank">PMID:39817450</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5190,18 +5424,20 @@ This pathophysiological event involves B cell activation (GO:0042113). GO:004211
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5218,18 +5454,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5257,18 +5495,20 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5306,6 +5546,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817450" target="_blank">PMID:39817450</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5351,18 +5592,20 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5379,18 +5622,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5418,18 +5663,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0001913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5446,18 +5693,20 @@ This pathophysiological event involves T cell mediated cytotoxicity (GO:0001913)
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5474,18 +5723,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5509,18 +5760,20 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5568,6 +5821,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817450" target="_blank">PMID:39817450</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5620,18 +5874,20 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5655,18 +5911,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5772,6 +6030,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36746473" target="_blank">PMID:36746473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5823,18 +6082,20 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5858,18 +6119,20 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5918,6 +6181,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36746473" target="_blank">PMID:36746473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5953,7 +6217,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-interface-hepatitis-with-periportal-necrosis">
                 <div class="item-name">
                     Interface hepatitis with periportal necrosis
 
@@ -5974,6 +6238,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36746473" target="_blank">PMID:36746473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6060,16 +6325,20 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000952</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.">
-                        Jaundice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp">HP:0000952</a>
-
-
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6089,6 +6358,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.niddk.nih.gov/health-information/liver-disease/autoimmune-hepatitis/symptoms-causes" target="_blank">url:https://www.niddk.nih.gov/health-information/liver-disease/autoimmune-hepatitis/symptoms-causes</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6122,16 +6392,20 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0006554</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.">
-                        Acute hepatic failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp">HP:0006554</a>
-
-
+This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6151,6 +6425,7 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40348684" target="_blank">PMID:40348684</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6184,16 +6459,20 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001394</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.">
-                        Cirrhosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp">HP:0001394</a>
-
-
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6213,6 +6492,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36746473" target="_blank">PMID:36746473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6255,16 +6535,20 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6284,6 +6568,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.niddk.nih.gov/health-information/liver-disease/autoimmune-hepatitis/symptoms-causes" target="_blank">url:https://www.niddk.nih.gov/health-information/liver-disease/autoimmune-hepatitis/symptoms-causes</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6317,16 +6602,20 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.">
-                        Arthralgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp">HP:0002829</a>
-
-
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6346,6 +6635,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.niddk.nih.gov/health-information/liver-disease/autoimmune-hepatitis/symptoms-causes" target="_blank">url:https://www.niddk.nih.gov/health-information/liver-disease/autoimmune-hepatitis/symptoms-causes</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6425,15 +6715,17 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:4948</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6458,6 +6750,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24768677" target="_blank">PMID:24768677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6496,15 +6789,17 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-B
 
 
-    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4932</a>
+    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:4932</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6529,6 +6824,7 @@ This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38089552" target="_blank">PMID:38089552</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6567,15 +6863,17 @@ This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SH2B3 (hgnc:29605). hgnc:29605 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SH2B3
 
 
-    <a href="https://bioregistry.io/hgnc:29605" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29605</a>
+    <a href="https://bioregistry.io/hgnc:29605" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:29605</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SH2B3 (hgnc:29605). hgnc:29605 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6600,6 +6898,7 @@ This disease-associated gene is SH2B3 (hgnc:29605). hgnc:29605 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24768677" target="_blank">PMID:24768677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6631,6 +6930,9 @@ This disease-associated gene is SH2B3 (hgnc:29605). hgnc:29605 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6649,18 +6951,18 @@ This disease-associated gene is SH2B3 (hgnc:29605). hgnc:29605 is a gene from th
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">corticosteroid agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">corticosteroid agent therapy</span>
+This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
 
 
 
@@ -6711,6 +7013,7 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6756,6 +7059,7 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36746473" target="_blank">PMID:36746473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6797,6 +7101,7 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6829,17 +7134,17 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6864,18 +7169,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         azathioprine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:2948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6909,6 +7216,7 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6951,6 +7259,7 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6983,17 +7292,17 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7018,18 +7327,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:8764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7063,6 +7374,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38101756" target="_blank">PMID:38101756</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7105,6 +7417,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38101756" target="_blank">PMID:38101756</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7126,6 +7439,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://easl.eu/news/easl-cpgs-autoimmune-hepatitis-2025/" target="_blank">url:https://easl.eu/news/easl-cpgs-autoimmune-hepatitis-2025/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7159,18 +7473,18 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">liver transplantation<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">liver transplantation</span>
+This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Liver Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">NCIT:C15271</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15271">NCIT:C15271</a>
 
 
 
@@ -7201,33 +7515,37 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Acute hepatic failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp">HP:0006554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0006554</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cirrhosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001394</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7246,6 +7564,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7333,6 +7652,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862497" target="_blank">PMID:20862497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7372,6 +7692,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862497" target="_blank">PMID:20862497</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7444,6 +7765,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862497" target="_blank">PMID:20862497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7483,6 +7805,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862497" target="_blank">PMID:20862497</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7555,6 +7878,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862497" target="_blank">PMID:20862497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7594,6 +7918,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862497" target="_blank">PMID:20862497</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7666,6 +7991,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817450" target="_blank">PMID:39817450</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7705,6 +8031,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39817450" target="_blank">PMID:39817450</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7777,6 +8104,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7816,6 +8144,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7888,6 +8217,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7927,6 +8257,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29644994" target="_blank">PMID:29644994</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7968,7 +8299,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-viral-hepatitis">
                 <div class="item-name">
 
                     Viral hepatitis
@@ -8011,6 +8342,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18537184" target="_blank">PMID:18537184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8036,7 +8368,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-drug-induced-autoimmune-like-hepatitis">
                 <div class="item-name">
 
                     Drug-induced autoimmune-like hepatitis
@@ -8079,6 +8411,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25574080" target="_blank">PMID:25574080</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8104,7 +8437,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-wilson-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Wilson_Disease.html">Wilson disease</a>
@@ -8153,6 +8486,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25574080" target="_blank">PMID:25574080</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8178,7 +8512,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-primary-biliary-cholangitis-primary-sclerosing-cholangitis-and-aih-variant-syndromes">
                 <div class="item-name">
 
                     Primary biliary cholangitis, primary sclerosing cholangitis, and AIH variant syndromes
@@ -8221,6 +8555,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862497" target="_blank">PMID:20862497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8246,7 +8581,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-immune-checkpoint-inhibitor-associated-hepatitis">
                 <div class="item-name">
 
                     Immune checkpoint inhibitor-associated hepatitis
@@ -8289,6 +8624,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2022.1077468" target="_blank">DOI:10.3389/fphar.2022.1077468</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8324,7 +8660,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse216064">
                 <div class="item-name">
                     scRNA-seq for analyzing the characteristics of PBMC in patients with autoimmune hepatitis
 
@@ -8356,18 +8692,20 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this dataset samples this sample type
-This dataset samples peripheral blood mononuclear cells, annotated with mononuclear leukocyte (CL:0000842). CL:0000842 is a sample type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         peripheral blood mononuclear cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" class="curie-chip curie-chip-cl">CL:0000842</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000842</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples peripheral blood mononuclear cells, annotated with mononuclear leukocyte (CL:0000842). CL:0000842 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8408,6 +8746,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
                         <a href="https://bioregistry.io/GEO:GSE216064" target="_blank">GEO:GSE216064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8429,6 +8768,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38340154" target="_blank">PMID:38340154</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8465,7 +8805,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02997878">
                 <div class="item-name">
                     NCT02997878
 
@@ -8493,6 +8833,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
                         <a href="https://clinicaltrials.gov/study/NCT02997878" target="_blank">clinicaltrials:NCT02997878</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8516,7 +8857,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06381453">
                 <div class="item-name">
                     NCT06381453
 
@@ -8544,6 +8885,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
                         <a href="https://clinicaltrials.gov/study/NCT06381453" target="_blank">clinicaltrials:NCT06381453</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8567,7 +8909,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07598825">
                 <div class="item-name">
                     NCT07598825
 
@@ -8595,6 +8937,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
                         <a href="https://clinicaltrials.gov/study/NCT07598825" target="_blank">clinicaltrials:NCT07598825</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8618,7 +8961,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06250309">
                 <div class="item-name">
                     NCT06250309
 
@@ -8636,18 +8979,20 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fatigue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012378</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8665,6 +9010,7 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06250309" target="_blank">clinicaltrials:NCT06250309</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8689,7 +9035,7 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07118657">
                 <div class="item-name">
                     NCT07118657
 
@@ -8717,6 +9063,7 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
                         <a href="https://clinicaltrials.gov/study/NCT07118657" target="_blank">clinicaltrials:NCT07118657</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8740,7 +9087,7 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06855667">
                 <div class="item-name">
                     NCT06855667
 
@@ -8758,18 +9105,20 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Acute hepatic failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp">HP:0006554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0006554</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8787,6 +9136,7 @@ This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06855667" target="_blank">clinicaltrials:NCT06855667</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8811,7 +9161,7 @@ This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05473403">
                 <div class="item-name">
                     NCT05473403
 
@@ -8829,18 +9179,20 @@ This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Acute hepatic failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp">HP:0006554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0006554</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8858,6 +9210,7 @@ This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05473403" target="_blank">clinicaltrials:NCT05473403</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8882,7 +9235,7 @@ This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06650124">
                 <div class="item-name">
                     NCT06650124
 
@@ -8909,6 +9262,7 @@ This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06650124" target="_blank">clinicaltrials:NCT06650124</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8958,7 +9312,6 @@ This clinical trial targets Acute hepatic failure (HP:0006554). HP:0006554 is a 
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Autoimmune Hepatitis
 creation_date: &#39;2025-12-19T01:12:52Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Autoimmune
 parents:
 - Autoimmune Disease
@@ -10725,7 +11078,7 @@ discussions:
   kind: INTERPRETATION
   status: RESOLVED
   attaches_to:
-  - treatment#Prednisone or prednisolone-based corticosteroid induction
+  - treatments#Prednisone or prednisolone-based corticosteroid induction
   rationale: &gt;-
     A 2010 randomized trial favored budesonide plus azathioprine in patients
     explicitly selected to have no cirrhosis, but the official 2025 EASL update
@@ -11448,7 +11801,7 @@ Autoimmune hepatitis is a chronic, immune-mediated inflammatory liver disease ch
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autoimmune Hepatitis", "mondoId": "MONDO:0016264", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Hepatitis", "yamlRevision": "1cbac2e7cd65"};
+        const OS_CONFIG = {"diseaseName": "Autoimmune Hepatitis", "mondoId": "MONDO:0016264", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Hepatitis", "yamlRevision": "00c8e5c0cef3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11867,5 +12220,73 @@ Autoimmune hepatitis is a chronic, immune-mediated inflammatory liver disease ch
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

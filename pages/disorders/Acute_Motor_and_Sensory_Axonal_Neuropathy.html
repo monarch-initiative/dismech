@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Acute Motor and Sensory Axonal Neuropathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acute Motor and Sensory Axonal Neuropathy</h1>
             <div class="header-meta">
 
@@ -4286,6 +4408,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22507308" target="_blank">PMID:22507308</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4307,6 +4430,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4443,6 +4567,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4466,6 +4596,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41656826" target="_blank">PMID:41656826</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4487,6 +4618,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4597,6 +4729,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4619,6 +4757,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4743,6 +4882,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4766,6 +4911,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4787,6 +4933,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4832,7 +4979,7 @@
 
 
 
-    <span class="entity-ref-chip">disease#Acute Motor and Sensory Axonal Neuropathy</span>
+    <a class="entity-ref-chip" href="#disease-entry">disease#Acute Motor and Sensory Axonal Neuropathy</a>
 
 
 
@@ -4872,6 +5019,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4894,6 +5042,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33743237" target="_blank">PMID:33743237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4915,6 +5064,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9014908" target="_blank">PMID:9014908</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4979,18 +5129,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5055,6 +5207,7 @@ This pathophysiological event involves Antigen processing and presentation (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15277677" target="_blank">PMID:15277677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5076,6 +5229,7 @@ This pathophysiological event involves Antigen processing and presentation (GO:0
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5121,18 +5275,20 @@ This pathophysiological event involves Antigen processing and presentation (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5160,18 +5316,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5240,6 +5398,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10526194" target="_blank">PMID:10526194</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5261,6 +5420,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s43161-024-00258-8" target="_blank">DOI:10.1186/s43161-024-00258-8</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5306,18 +5466,20 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5334,18 +5496,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5375,33 +5539,37 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Node of Ranvier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Axolemma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go">GO:0030673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5468,6 +5636,7 @@ This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5512,18 +5681,20 @@ This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5540,18 +5711,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5579,18 +5752,20 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Classical complement activation, annotated with complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Classical complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go">GO:0006958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Classical complement activation, annotated with complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5617,33 +5792,37 @@ This pathophysiological event involves increased Classical complement activation
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Node of Ranvier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Axolemma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go">GO:0030673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5731,6 +5910,7 @@ This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5752,6 +5932,7 @@ This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a ce
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5797,18 +5978,20 @@ This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5836,18 +6019,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Transmission of nerve impulse (GO:0019226). GO:0019226 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Transmission of nerve impulse
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019226" target="_blank" class="curie-chip curie-chip-go">GO:0019226</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019226" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0019226</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Transmission of nerve impulse (GO:0019226). GO:0019226 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5874,18 +6059,20 @@ This pathophysiological event involves decreased Transmission of nerve impulse (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Node of Ranvier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5952,6 +6139,7 @@ This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22480600" target="_blank">PMID:22480600</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5985,18 +6173,20 @@ This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6024,18 +6214,20 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Macrophage chemotaxis (GO:0048246). GO:0048246 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Macrophage chemotaxis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048246" target="_blank" class="curie-chip curie-chip-go">GO:0048246</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048246" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0048246</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Macrophage chemotaxis (GO:0048246). GO:0048246 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6077,6 +6269,7 @@ This pathophysiological event involves increased Macrophage chemotaxis (GO:00482
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6122,18 +6315,20 @@ This pathophysiological event involves increased Macrophage chemotaxis (GO:00482
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6150,18 +6345,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6404,6 +6601,7 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6425,6 +6623,7 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6522,16 +6721,20 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6551,6 +6754,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1227505" target="_blank">DOI:10.3389/fneur.2023.1227505</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6593,16 +6797,22 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Limb muscle weakness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003690</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limb muscle weakness (HP:0003690), qualified as course progressive. HP:0003690 is a phenotype from the Human Phenotype Ontology.">
-                        Limb muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp">HP:0003690</a>
-
-
+This clinical feature is Limb muscle weakness (HP:0003690), qualified as course progressive. HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6640,6 +6850,7 @@ This clinical feature is Limb muscle weakness (HP:0003690), qualified as course 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6682,16 +6893,22 @@ This clinical feature is Limb muscle weakness (HP:0003690), qualified as course 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Respiratory insufficiency due to muscle weakness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002747</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory insufficiency due to muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp">HP:0002747</a>
-
-
+This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6711,6 +6928,7 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6753,16 +6971,20 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001284</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.">
-                        Areflexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp">HP:0001284</a>
-
-
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6782,6 +7004,7 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6815,16 +7038,20 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000763</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.">
-                        Sensory neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp">HP:0000763</a>
-
-
+This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6844,6 +7071,7 @@ This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenot
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6877,16 +7105,20 @@ This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003401</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.">
-                        Paresthesia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp">HP:0003401</a>
-
-
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6906,6 +7138,7 @@ This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1227505" target="_blank">DOI:10.3389/fneur.2023.1227505</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6939,16 +7172,22 @@ This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the autonomic nervous system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the autonomic nervous system (HP:0002270). HP:0002270 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the autonomic nervous system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002270" target="_blank" class="curie-chip curie-chip-hp">HP:0002270</a>
-
-
+This clinical feature is Abnormality of the autonomic nervous system (HP:0002270). HP:0002270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6968,6 +7207,7 @@ This clinical feature is Abnormality of the autonomic nervous system (HP:0002270
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7010,16 +7250,20 @@ This clinical feature is Abnormality of the autonomic nervous system (HP:0002270
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012531</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.">
-                        Pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp">HP:0012531</a>
-
-
+This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7039,6 +7283,7 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39687605" target="_blank">PMID:39687605</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7081,16 +7326,20 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0033383</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased compound muscle action potential amplitude (HP:0033383). HP:0033383 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased compound muscle action potential amplitude
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033383" target="_blank" class="curie-chip curie-chip-hp">HP:0033383</a>
-
-
+This clinical feature is Decreased compound muscle action potential amplitude (HP:0033383). HP:0033383 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7110,6 +7359,7 @@ This clinical feature is Decreased compound muscle action potential amplitude (H
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jns.12625" target="_blank">DOI:10.1111/jns.12625</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7143,16 +7393,22 @@ This clinical feature is Decreased compound muscle action potential amplitude (H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased amplitude of sensory action potentials</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007078" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007078</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased amplitude of sensory action potentials (HP:0007078). HP:0007078 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased amplitude of sensory action potentials
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007078" target="_blank" class="curie-chip curie-chip-hp">HP:0007078</a>
-
-
+This clinical feature is Decreased amplitude of sensory action potentials (HP:0007078). HP:0007078 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7172,6 +7428,7 @@ This clinical feature is Decreased amplitude of sensory action potentials (HP:00
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jns.12625" target="_blank">DOI:10.1111/jns.12625</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7235,6 +7492,9 @@ This clinical feature is Decreased amplitude of sensory action potentials (HP:00
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7253,17 +7513,17 @@ This clinical feature is Decreased amplitude of sensory action potentials (HP:00
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Intravenous Immunoglobulin Therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.">Intravenous Immunoglobulin Therapy</span>
+This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121331" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.">NCIT:C121331</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121331" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121331">NCIT:C121331</a>
 
 
 
@@ -7288,18 +7548,20 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Human immunoglobulin G
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80829" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C80829</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80829" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C80829</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7314,18 +7576,20 @@ This treatment uses Human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7344,6 +7608,7 @@ This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7377,17 +7642,17 @@ This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenot
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">Plasmapheresis</span>
+This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">NCIT:C15304</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
 
 
 
@@ -7418,18 +7683,20 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7448,6 +7715,7 @@ This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7481,18 +7749,18 @@ This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenot
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pulmonary function testing<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pulmonary function testing, annotated with Pulmonary Function Test (NCIT:C38081). NCIT:C38081 is a clinical intervention from the NCI Thesaurus.">Pulmonary function testing</span>
+This treatment is Pulmonary function testing, annotated with Pulmonary Function Test (NCIT:C38081). NCIT:C38081 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pulmonary Function Test</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38081" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pulmonary function testing, annotated with Pulmonary Function Test (NCIT:C38081). NCIT:C38081 is a clinical intervention from the NCI Thesaurus.">NCIT:C38081</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38081" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C38081">NCIT:C38081</a>
 
 
 
@@ -7534,6 +7802,7 @@ This treatment is Pulmonary function testing, annotated with Pulmonary Function 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31541214" target="_blank">PMID:31541214</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7555,6 +7824,7 @@ This treatment is Pulmonary function testing, annotated with Pulmonary Function 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31541214" target="_blank">PMID:31541214</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7588,18 +7858,18 @@ This treatment is Pulmonary function testing, annotated with Pulmonary Function 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Artificial respiration<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.">Artificial respiration</span>
+This treatment is Artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mechanical Ventilation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C70909" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.">NCIT:C70909</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C70909" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C70909">NCIT:C70909</a>
 
 
 
@@ -7630,18 +7900,20 @@ This treatment is Artificial respiration, annotated with Mechanical Ventilation 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory insufficiency due to muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002747</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7660,6 +7932,7 @@ This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s12028-023-01707-3" target="_blank">DOI:10.1007/s12028-023-01707-3</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7693,17 +7966,17 @@ This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">Rehabilitation</span>
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
 
 
 
@@ -7734,48 +8007,54 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensory neuropathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp">HP:0000763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000763</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dysphagia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7794,6 +8073,7 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31541214" target="_blank">PMID:31541214</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7827,18 +8107,18 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pain management<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pain management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Pain management</span>
+This treatment is Pain management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pain management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7869,18 +8149,20 @@ This treatment is Pain management, annotated with Supportive Care (NCIT:C15747).
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp">HP:0012531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012531</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7899,6 +8181,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7940,6 +8223,10 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
+
+
+
+
                 <div class="item-desc">Antecedent C. jejuni enteritis is the best-defined trigger for the ganglioside-mimicry mechanism and is associated with motor and axonal GBS patterns. GBS-wide risk estimates must not be read as AMSAN-specific risk.</div>
 
 
@@ -7955,6 +8242,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7977,6 +8265,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8027,6 +8316,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8048,6 +8338,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8081,6 +8372,10 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
+
+
+
+
                 <div class="item-desc">AMSAN has been reported after SARS-CoV-2 infection. Current evidence here is a case-level temporal association and does not establish a causal trigger or population risk.</div>
 
 
@@ -8096,6 +8391,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1227505" target="_blank">DOI:10.3389/fneur.2023.1227505</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8159,6 +8455,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8180,6 +8477,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8230,6 +8528,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10526194" target="_blank">PMID:10526194</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8279,6 +8578,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8319,7 +8619,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-motor-axonal-neuropathy">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Acute Motor Axonal Neuropathy</span>
@@ -8367,6 +8667,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8392,7 +8693,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-inflammatory-demyelinating-polyradiculoneuropathy">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Acute Inflammatory Demyelinating Polyradiculoneuropathy</span>
@@ -8440,6 +8741,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22480600" target="_blank">PMID:22480600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8465,7 +8767,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-onset-chronic-inflammatory-demyelinating-polyradiculoneuropathy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Chronic_Inflammatory_Demyelinating_Polyneuropathy.html">Acute-Onset Chronic Inflammatory Demyelinating Polyradiculoneuropathy</a>
@@ -8512,6 +8814,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8537,7 +8840,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-critical-illness-polyneuropathy-or-myopathy">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Critical Illness Polyneuropathy or Myopathy</span>
@@ -8585,6 +8888,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8610,7 +8914,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-porphyria">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Acute_Intermittent_Porphyria.html">Acute Porphyria</a>
@@ -8657,6 +8961,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8682,7 +8987,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-transverse-myelitis-or-other-spinal-cord-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Transverse_Myelitis.html">Transverse Myelitis or Other Spinal Cord Disease</a>
@@ -8729,6 +9034,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8754,7 +9060,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-botulism">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Botulism.html">Botulism</a>
@@ -8801,6 +9107,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8826,7 +9133,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-thiamine-deficiency-neuropathy">
                 <div class="item-name">
 
                     Thiamine Deficiency Neuropathy
@@ -8867,6 +9174,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8905,7 +9213,7 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04752566">
                 <div class="item-name">
                     NCT04752566
 
@@ -8923,18 +9231,20 @@ This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Hum
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8952,6 +9262,7 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04752566" target="_blank">clinicaltrials:NCT04752566</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8974,6 +9285,7 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jns.12646" target="_blank">DOI:10.1111/jns.12646</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8998,7 +9310,7 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04701164">
                 <div class="item-name">
                     NCT04701164
 
@@ -9016,18 +9328,20 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9045,6 +9359,7 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04701164" target="_blank">clinicaltrials:NCT04701164</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9069,7 +9384,7 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07020819">
                 <div class="item-name">
                     NCT07020819
 
@@ -9087,18 +9402,20 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9116,6 +9433,7 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07020819" target="_blank">clinicaltrials:NCT07020819</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9177,31 +9495,35 @@ This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a p
                 <div class="tag-list" style="margin-top: 10px;">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         Motor neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         Schwann cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -9212,17 +9534,19 @@ This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell typ
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in House mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             House mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-49">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-49">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in House mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -9278,6 +9602,7 @@ This experimental model is built in House mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15716397" target="_blank">PMID:15716397</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9323,6 +9648,7 @@ This experimental model is built in House mouse, annotated with Mus musculus (NC
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15716397" target="_blank">PMID:15716397</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9385,6 +9711,7 @@ This experimental model is built in House mouse, annotated with Mus musculus (NC
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15716397" target="_blank">PMID:15716397</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9475,6 +9802,7 @@ This experimental model is built in House mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11409422" target="_blank">PMID:11409422</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9550,6 +9878,7 @@ This experimental model is built in House mouse, annotated with Mus musculus (NC
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15277677" target="_blank">PMID:15277677</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9632,6 +9961,7 @@ This experimental model is built in House mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9674,7 +10004,6 @@ This experimental model is built in House mouse, annotated with Mus musculus (NC
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Motor and Sensory Axonal Neuropathy
 creation_date: &#34;2026-05-07T23:29:25Z&#34;
-updated_date: &#34;2026-07-18T00:35:23Z&#34;
 categories:
 - Autoimmune Disease
 - Peripheral Neuropathy
@@ -13255,7 +13584,7 @@ Anti-ganglioside antibodies support axonal subtype classification (anti-GM1/anti
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Motor and Sensory Axonal Neuropathy", "mondoId": "MONDO:0020348", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Motor_and_Sensory_Axonal_Neuropathy", "yamlRevision": "cafe0dd1b9c0"};
+        const OS_CONFIG = {"diseaseName": "Acute Motor and Sensory Axonal Neuropathy", "mondoId": "MONDO:0020348", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Motor_and_Sensory_Axonal_Neuropathy", "yamlRevision": "44f7002d5a26"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13674,5 +14003,73 @@ Anti-ganglioside antibodies support axonal subtype classification (anti-GM1/anti
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>46,XY complete gonadal dysgenesis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>46,XY complete gonadal dysgenesis</h1>
             <div class="header-meta">
 
@@ -4003,7 +4125,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-classic-nonsyndromic-46-xy-complete-gonadal-dysgenesis-case-definition">
                 <div class="item-name">Classic nonsyndromic 46,XY complete gonadal dysgenesis case definition</div>
 
                 <div class="item-desc">The modeled disease requires a 46,XY karyotype, typical female external genitalia and Müllerian internal structures, absent functional testicular differentiation, and bilateral streak or severely dysgenetic gonads.</div>
@@ -4049,6 +4171,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21982289" target="_blank">PMID:21982289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4085,7 +4208,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4130,6 +4253,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35290982" target="_blank">PMID:35290982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4151,6 +4275,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40026690" target="_blank">PMID:40026690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4175,7 +4300,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4220,6 +4345,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30298535" target="_blank">PMID:30298535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4243,7 +4369,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance">
                 <div class="item-name">
                     X-linked inheritance
 
@@ -4288,6 +4414,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504899" target="_blank">PMID:17504899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4311,7 +4438,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-y-linked-inheritance">
                 <div class="item-name">
                     Y-linked inheritance
 
@@ -4355,6 +4482,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570214" target="_blank">PMID:33570214</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4445,7 +4573,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sry-related-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         SRY-related 46,XY complete gonadal dysgenesis
@@ -4458,18 +4586,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SRY (hgnc:11311). hgnc:11311 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SRY
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11311" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11311</a>
+    <a href="https://bioregistry.io/hgnc:11311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11311</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SRY (hgnc:11311). hgnc:11311 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4500,6 +4630,7 @@ This subtype is caused by variation in SRY (hgnc:11311). hgnc:11311 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570214" target="_blank">PMID:33570214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4526,7 +4657,7 @@ This subtype is caused by variation in SRY (hgnc:11311). hgnc:11311 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-nr0b1-duplication-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         NR0B1/DAX1-duplication 46,XY complete gonadal dysgenesis
@@ -4539,18 +4670,20 @@ This subtype is caused by variation in SRY (hgnc:11311). hgnc:11311 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in NR0B1 (hgnc:7960). hgnc:7960 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 NR0B1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7960" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7960</a>
+    <a href="https://bioregistry.io/hgnc:7960" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7960</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NR0B1 (hgnc:7960). hgnc:7960 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4581,6 +4714,7 @@ This subtype is caused by variation in NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504899" target="_blank">PMID:17504899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4607,7 +4741,7 @@ This subtype is caused by variation in NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-nr5a1-related-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         NR5A1-related complete 46,XY gonadal dysgenesis
@@ -4620,18 +4754,20 @@ This subtype is caused by variation in NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 NR5A1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7983</a>
+    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:7983</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4662,6 +4798,7 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4688,7 +4825,7 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dmrt1-related-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         DMRT1-related isolated 46,XY complete gonadal dysgenesis
@@ -4701,18 +4838,20 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DMRT1 (hgnc:2934). hgnc:2934 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DMRT1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2934" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2934</a>
+    <a href="https://bioregistry.io/hgnc:2934" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2934</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DMRT1 (hgnc:2934). hgnc:2934 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4743,6 +4882,7 @@ This subtype is caused by variation in DMRT1 (hgnc:2934). hgnc:2934 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34515237" target="_blank">PMID:34515237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4769,7 +4909,7 @@ This subtype is caused by variation in DMRT1 (hgnc:2934). hgnc:2934 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-map3k1-related-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         MAP3K1-related complete 46,XY gonadal dysgenesis
@@ -4782,18 +4922,20 @@ This subtype is caused by variation in DMRT1 (hgnc:2934). hgnc:2934 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 MAP3K1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6848" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6848</a>
+    <a href="https://bioregistry.io/hgnc:6848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:6848</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4824,6 +4966,7 @@ This subtype is caused by variation in MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35290982" target="_blank">PMID:35290982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4850,7 +4993,7 @@ This subtype is caused by variation in MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhh-related-nonsyndromic-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         DHH-related nonsyndromic 46,XY complete gonadal dysgenesis
@@ -4863,18 +5006,20 @@ This subtype is caused by variation in MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DHH (hgnc:2865). hgnc:2865 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DHH
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2865" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2865</a>
+    <a href="https://bioregistry.io/hgnc:2865" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:2865</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DHH (hgnc:2865). hgnc:2865 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4905,6 +5050,7 @@ This subtype is caused by variation in DHH (hgnc:2865). hgnc:2865 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30298535" target="_blank">PMID:30298535</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4931,7 +5077,7 @@ This subtype is caused by variation in DHH (hgnc:2865). hgnc:2865 is a gene from
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sox8-related-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         SOX8-related 46,XY complete gonadal dysgenesis
@@ -4944,18 +5090,20 @@ This subtype is caused by variation in DHH (hgnc:2865). hgnc:2865 is a gene from
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SOX8 (hgnc:11203). hgnc:11203 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SOX8
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11203" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11203</a>
+    <a href="https://bioregistry.io/hgnc:11203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:11203</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SOX8 (hgnc:11203). hgnc:11203 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4986,6 +5134,7 @@ This subtype is caused by variation in SOX8 (hgnc:11203). hgnc:11203 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29373757" target="_blank">PMID:29373757</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5012,7 +5161,7 @@ This subtype is caused by variation in SOX8 (hgnc:11203). hgnc:11203 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sox9-regulatory-deletion-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         SOX9-enhancer-deletion 46,XY complete gonadal dysgenesis
@@ -5025,18 +5174,20 @@ This subtype is caused by variation in SOX8 (hgnc:11203). hgnc:11203 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SOX9
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11204</a>
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:11204</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -5067,6 +5218,7 @@ This subtype is caused by variation in SOX9 (hgnc:11204). hgnc:11204 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30552336" target="_blank">PMID:30552336</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5093,7 +5245,7 @@ This subtype is caused by variation in SOX9 (hgnc:11204). hgnc:11204 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhx37-related-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         DHX37-related complete 46,XY gonadal dysgenesis
@@ -5106,18 +5258,20 @@ This subtype is caused by variation in SOX9 (hgnc:11204). hgnc:11204 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DHX37
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17210" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17210</a>
+    <a href="https://bioregistry.io/hgnc:17210" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:17210</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -5147,6 +5301,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40026690" target="_blank">PMID:40026690</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5179,7 +5334,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-molecularly-unresolved-complete-gonadal-dysgenesis">
 
                     <div class="item-name">
                         Molecularly unresolved 46,XY complete gonadal dysgenesis
@@ -5212,6 +5367,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34781289" target="_blank">PMID:34781289</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5304,6 +5460,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32905884" target="_blank">PMID:32905884</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5326,6 +5483,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34070473" target="_blank">PMID:34070473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5347,6 +5505,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38337479" target="_blank">PMID:38337479</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5400,17 +5559,21 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SRY (hgnc:11311). hgnc:11311 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SRY
 
 
-    <a href="https://bioregistry.io/hgnc:11311" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11311</a>
+    <a href="https://bioregistry.io/hgnc:11311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11311</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SRY (hgnc:11311). hgnc:11311 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5435,17 +5598,21 @@ This pathophysiological event involves SRY (hgnc:11311). hgnc:11311 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SOX9
 
 
-    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11204</a>
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11204</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5470,17 +5637,21 @@ This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SOX8 (hgnc:11203). hgnc:11203 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SOX8
 
 
-    <a href="https://bioregistry.io/hgnc:11203" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11203</a>
+    <a href="https://bioregistry.io/hgnc:11203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:11203</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOX8 (hgnc:11203). hgnc:11203 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5505,17 +5676,21 @@ This pathophysiological event involves SOX8 (hgnc:11203). hgnc:11203 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DMRT1 (hgnc:2934). hgnc:2934 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DMRT1
 
 
-    <a href="https://bioregistry.io/hgnc:2934" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2934</a>
+    <a href="https://bioregistry.io/hgnc:2934" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:2934</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DMRT1 (hgnc:2934). hgnc:2934 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5544,18 +5719,20 @@ This pathophysiological event involves DMRT1 (hgnc:2934). hgnc:2934 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sex determination (GO:0007530). GO:0007530 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sex determination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007530" target="_blank" class="curie-chip curie-chip-go">GO:0007530</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007530" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007530</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sex determination (GO:0007530). GO:0007530 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5576,18 +5753,20 @@ This pathophysiological event involves decreased sex determination (GO:0007530).
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased male gonad development (GO:0008584). GO:0008584 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         male gonad development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008584" target="_blank" class="curie-chip curie-chip-go">GO:0008584</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008584" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0008584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased male gonad development (GO:0008584). GO:0008584 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5645,6 +5824,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570214" target="_blank">PMID:33570214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5667,6 +5847,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30552336" target="_blank">PMID:30552336</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5688,6 +5869,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34515237" target="_blank">PMID:34515237</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5729,17 +5911,21 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MAP3K1
 
 
-    <a href="https://bioregistry.io/hgnc:6848" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6848</a>
+    <a href="https://bioregistry.io/hgnc:6848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6848</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5768,18 +5954,20 @@ This pathophysiological event involves MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal sex determination (GO:0007530). GO:0007530 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sex determination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007530" target="_blank" class="curie-chip curie-chip-go">GO:0007530</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007530" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007530</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal sex determination (GO:0007530). GO:0007530 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5837,6 +6025,7 @@ This pathophysiological event involves abnormal sex determination (GO:0007530). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35290982" target="_blank">PMID:35290982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5877,17 +6066,21 @@ This pathophysiological event involves abnormal sex determination (GO:0007530). 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NR5A1 (hgnc:7983). hgnc:7983 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NR5A1
 
 
-    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7983</a>
+    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7983</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NR5A1 (hgnc:7983). hgnc:7983 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5916,18 +6109,20 @@ This pathophysiological event involves NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased male gonad development (GO:0008584). GO:0008584 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         male gonad development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008584" target="_blank" class="curie-chip curie-chip-go">GO:0008584</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008584" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0008584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased male gonad development (GO:0008584). GO:0008584 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5985,6 +6180,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6018,18 +6214,20 @@ This pathophysiological event involves decreased male gonad development (GO:0008
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sertoli cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl">CL:0000216</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6046,18 +6244,20 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Leydig cell (CL:0000178). CL:0000178 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Leydig cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl">CL:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Leydig cell (CL:0000178). CL:0000178 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6085,17 +6285,21 @@ This pathophysiological event involves Leydig cell (CL:0000178). CL:0000178 is a
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DHH
 
 
-    <a href="https://bioregistry.io/hgnc:2865" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2865</a>
+    <a href="https://bioregistry.io/hgnc:2865" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:2865</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6157,6 +6361,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30298535" target="_blank">PMID:30298535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6178,6 +6383,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30298535" target="_blank">PMID:30298535</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6219,17 +6425,21 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DHX37
 
 
-    <a href="https://bioregistry.io/hgnc:17210" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17210</a>
+    <a href="https://bioregistry.io/hgnc:17210" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:17210</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6291,6 +6501,7 @@ This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40026690" target="_blank">PMID:40026690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6331,17 +6542,21 @@ This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NR0B1 (hgnc:7960). hgnc:7960 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NR0B1
 
 
-    <a href="https://bioregistry.io/hgnc:7960" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7960</a>
+    <a href="https://bioregistry.io/hgnc:7960" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:7960</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NR0B1 (hgnc:7960). hgnc:7960 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6403,6 +6618,7 @@ This pathophysiological event involves NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504899" target="_blank">PMID:17504899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6436,18 +6652,20 @@ This pathophysiological event involves NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sertoli cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl">CL:0000216</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6475,18 +6693,20 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased male gonad development (GO:0008584). GO:0008584 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         male gonad development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008584" target="_blank" class="curie-chip curie-chip-go">GO:0008584</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008584" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0008584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased male gonad development (GO:0008584). GO:0008584 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6560,6 +6780,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35720238" target="_blank">PMID:35720238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6600,18 +6821,20 @@ This pathophysiological event involves decreased male gonad development (GO:0008
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased steroid hormone biosynthetic process, annotated with steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         steroid hormone biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid hormone biosynthetic process, annotated with steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6701,6 +6924,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6734,18 +6958,20 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sertoli cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl">CL:0000216</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6805,6 +7031,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6879,6 +7106,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6912,18 +7140,20 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Leydig cell (CL:0000178). CL:0000178 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Leydig cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl">CL:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Leydig cell (CL:0000178). CL:0000178 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6951,18 +7181,20 @@ This pathophysiological event involves Leydig cell (CL:0000178). CL:0000178 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased steroid hormone biosynthetic process, annotated with steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         steroid hormone biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid hormone biosynthetic process, annotated with steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7019,6 +7251,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37994022" target="_blank">PMID:37994022</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7093,6 +7326,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570214" target="_blank">PMID:33570214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7133,18 +7367,20 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased steroid hormone biosynthetic process, annotated with steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         steroid hormone biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid hormone biosynthetic process, annotated with steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7234,6 +7470,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40097859" target="_blank">PMID:40097859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7306,6 +7543,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7380,6 +7618,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34070473" target="_blank">PMID:34070473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7453,6 +7692,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32905884" target="_blank">PMID:32905884</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7474,6 +7714,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35720238" target="_blank">PMID:35720238</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7510,7 +7751,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-fibrous-streak-or-severely-dysgenetic-gonadal-tissue">
                 <div class="item-name">
                     Fibrous streak or severely dysgenetic gonadal tissue
 
@@ -7531,6 +7772,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7555,7 +7797,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-gonadoblastoma-and-dysgerminoma-in-dysgenetic-gonads">
                 <div class="item-name">
                     Gonadoblastoma and dysgerminoma in dysgenetic gonads
 
@@ -7576,6 +7818,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36767504" target="_blank">PMID:36767504</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7598,6 +7841,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34070473" target="_blank">PMID:34070473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7690,16 +7934,20 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003187" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003187</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenotype from the Human Phenotype Ontology.">
-                        Breast hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003187" target="_blank" class="curie-chip curie-chip-hp">HP:0003187</a>
-
-
+This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7719,6 +7967,7 @@ This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37994022" target="_blank">PMID:37994022</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7761,16 +8010,20 @@ This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000823</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed puberty
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp">HP:0000823</a>
-
-
+This clinical feature is delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7790,6 +8043,7 @@ This clinical feature is delayed puberty (HP:0000823). HP:0000823 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35720238" target="_blank">PMID:35720238</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7823,16 +8077,20 @@ This clinical feature is delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000815</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hypergonadotropic hypogonadism (HP:0000815). HP:0000815 is a phenotype from the Human Phenotype Ontology.">
-                        Hypergonadotropic hypogonadism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp">HP:0000815</a>
-
-
+This clinical feature is hypergonadotropic hypogonadism (HP:0000815). HP:0000815 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7852,6 +8110,7 @@ This clinical feature is hypergonadotropic hypogonadism (HP:0000815). HP:0000815
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21982289" target="_blank">PMID:21982289</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7894,16 +8153,20 @@ This clinical feature is hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is gonadal dysgenesis (HP:0000133). HP:0000133 is a phenotype from the Human Phenotype Ontology.">
-                        Gonadal dysgenesis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank" class="curie-chip curie-chip-hp">HP:0000133</a>
-
-
+This clinical feature is gonadal dysgenesis (HP:0000133). HP:0000133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7923,6 +8186,7 @@ This clinical feature is gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35720238" target="_blank">PMID:35720238</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7956,16 +8220,20 @@ This clinical feature is gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0008730</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Female external genitalia in individual with 46,XY karyotype (HP:0008730). HP:0008730 is a phenotype from the Human Phenotype Ontology.">
-                        Female external genitalia in individual with 46,XY karyotype
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" class="curie-chip curie-chip-hp">HP:0008730</a>
-
-
+This clinical feature is Female external genitalia in individual with 46,XY karyotype (HP:0008730). HP:0008730 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7985,6 +8253,7 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21982289" target="_blank">PMID:21982289</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8018,16 +8287,20 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000786</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.">
-                        Primary amenorrhea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp">HP:0000786</a>
-
-
+This clinical feature is primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8047,6 +8320,7 @@ This clinical feature is primary amenorrhea (HP:0000786). HP:0000786 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35720238" target="_blank">PMID:35720238</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8080,16 +8354,20 @@ This clinical feature is primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0008222</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.">
-                        Female infertility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp">HP:0008222</a>
-
-
+This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8109,6 +8387,7 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40097859" target="_blank">PMID:40097859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8151,16 +8430,20 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0004349</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced bone mineral density
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp">HP:0004349</a>
-
-
+This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8180,6 +8463,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8222,16 +8506,20 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0025733</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Streak gonad (HP:0025733). HP:0025733 is a phenotype from the Human Phenotype Ontology.">
-                        Streak gonad
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025733" target="_blank" class="curie-chip curie-chip-hp">HP:0025733</a>
-
-
+This clinical feature is Streak gonad (HP:0025733). HP:0025733 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8251,6 +8539,7 @@ This clinical feature is Streak gonad (HP:0025733). HP:0025733 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570214" target="_blank">PMID:33570214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8284,16 +8573,20 @@ This clinical feature is Streak gonad (HP:0025733). HP:0025733 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000013</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hypoplastic uterus, annotated with Hypoplasia of the uterus (HP:0000013). HP:0000013 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of the uterus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000013" target="_blank" class="curie-chip curie-chip-hp">HP:0000013</a>
-
-
+This clinical feature is hypoplastic uterus, annotated with Hypoplasia of the uterus (HP:0000013). HP:0000013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8313,6 +8606,7 @@ This clinical feature is hypoplastic uterus, annotated with Hypoplasia of the ut
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8346,16 +8640,20 @@ This clinical feature is hypoplastic uterus, annotated with Hypoplasia of the ut
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000150</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype from the Human Phenotype Ontology.">
-                        Gonadoblastoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000150" target="_blank" class="curie-chip curie-chip-hp">HP:0000150</a>
-
-
+This clinical feature is Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8375,6 +8673,7 @@ This clinical feature is Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38337479" target="_blank">PMID:38337479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8454,15 +8753,17 @@ This clinical feature is Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SRY
 
 
-    <a href="https://bioregistry.io/hgnc:11311" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11311</a>
+    <a href="https://bioregistry.io/hgnc:11311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:11311</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8488,6 +8789,7 @@ This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570214" target="_blank">PMID:33570214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8509,6 +8811,7 @@ This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33570214" target="_blank">PMID:33570214</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8547,15 +8850,17 @@ This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NR0B1 (hgnc:7960). hgnc:7960 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NR0B1
 
 
-    <a href="https://bioregistry.io/hgnc:7960" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7960</a>
+    <a href="https://bioregistry.io/hgnc:7960" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:7960</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NR0B1 (hgnc:7960). hgnc:7960 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8580,6 +8885,7 @@ This disease-associated gene is NR0B1 (hgnc:7960). hgnc:7960 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504899" target="_blank">PMID:17504899</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8618,15 +8924,17 @@ This disease-associated gene is NR0B1 (hgnc:7960). hgnc:7960 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NR5A1
 
 
-    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7983</a>
+    <a href="https://bioregistry.io/hgnc:7983" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:7983</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8651,6 +8959,7 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8689,15 +8998,17 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DMRT1 (hgnc:2934). hgnc:2934 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DMRT1
 
 
-    <a href="https://bioregistry.io/hgnc:2934" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2934</a>
+    <a href="https://bioregistry.io/hgnc:2934" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:2934</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DMRT1 (hgnc:2934). hgnc:2934 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8722,6 +9033,7 @@ This disease-associated gene is DMRT1 (hgnc:2934). hgnc:2934 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34515237" target="_blank">PMID:34515237</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8760,15 +9072,17 @@ This disease-associated gene is DMRT1 (hgnc:2934). hgnc:2934 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MAP3K1
 
 
-    <a href="https://bioregistry.io/hgnc:6848" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6848</a>
+    <a href="https://bioregistry.io/hgnc:6848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:6848</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8793,6 +9107,7 @@ This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35290982" target="_blank">PMID:35290982</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8831,15 +9146,17 @@ This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DHH
 
 
-    <a href="https://bioregistry.io/hgnc:2865" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2865</a>
+    <a href="https://bioregistry.io/hgnc:2865" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:2865</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8865,6 +9182,7 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30298535" target="_blank">PMID:30298535</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8886,6 +9204,7 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30298535" target="_blank">PMID:30298535</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8924,15 +9243,17 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOX8
 
 
-    <a href="https://bioregistry.io/hgnc:11203" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11203</a>
+    <a href="https://bioregistry.io/hgnc:11203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:11203</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8958,6 +9279,7 @@ This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29373757" target="_blank">PMID:29373757</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8979,6 +9301,7 @@ This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29373757" target="_blank">PMID:29373757</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9017,15 +9340,17 @@ This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOX9
 
 
-    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11204</a>
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:11204</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9051,6 +9376,7 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30552336" target="_blank">PMID:30552336</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9072,6 +9398,7 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30552336" target="_blank">PMID:30552336</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9110,15 +9437,17 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DHX37
 
 
-    <a href="https://bioregistry.io/hgnc:17210" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17210</a>
+    <a href="https://bioregistry.io/hgnc:17210" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:17210</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9144,6 +9473,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40026690" target="_blank">PMID:40026690</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9165,6 +9495,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40026690" target="_blank">PMID:40026690</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9196,6 +9527,9 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9214,18 +9548,18 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">gonadectomy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">gonadectomy</span>
+This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -9276,6 +9610,7 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38337479" target="_blank">PMID:38337479</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9306,18 +9641,20 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gonadoblastoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000150" target="_blank" class="curie-chip curie-chip-hp">HP:0000150</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000150</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9336,6 +9673,7 @@ This treatment targets Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38337479" target="_blank">PMID:38337479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9358,6 +9696,7 @@ This treatment targets Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36767504" target="_blank">PMID:36767504</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9391,17 +9730,17 @@ This treatment targets Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype fr
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Hormone Replacement Therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">Hormone Replacement Therapy</span>
+This treatment is Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">NCIT:C15599</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15599">NCIT:C15599</a>
 
 
 
@@ -9426,33 +9765,37 @@ This treatment is Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a cl
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         estradiol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:23965</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:23965</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses progesterone (CHEBI:17026). CHEBI:17026 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         progesterone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17026" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17026</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17026" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:17026</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses progesterone (CHEBI:17026). CHEBI:17026 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9487,6 +9830,7 @@ This treatment uses progesterone (CHEBI:17026). CHEBI:17026 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9517,48 +9861,54 @@ This treatment uses progesterone (CHEBI:17026). CHEBI:17026 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed puberty
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp">HP:0000823</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000823</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Breast hypoplasia (HP:0003187). HP:0003187 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Breast hypoplasia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003187" target="_blank" class="curie-chip curie-chip-hp">HP:0003187</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003187" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0003187</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Breast hypoplasia (HP:0003187). HP:0003187 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Reduced bone mineral density
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp">HP:0004349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0004349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9577,6 +9927,7 @@ This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9599,6 +9950,7 @@ This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38337479" target="_blank">PMID:38337479</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9632,18 +9984,18 @@ This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is 
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9685,6 +10037,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9706,6 +10059,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9739,17 +10093,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">In Vitro Fertilization<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is In Vitro Fertilization (NCIT:C16580). NCIT:C16580 is a clinical intervention from the NCI Thesaurus.">In Vitro Fertilization</span>
+This treatment is In Vitro Fertilization (NCIT:C16580). NCIT:C16580 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16580" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is In Vitro Fertilization (NCIT:C16580). NCIT:C16580 is a clinical intervention from the NCI Thesaurus.">NCIT:C16580</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16580" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16580">NCIT:C16580</a>
 
 
 
@@ -9780,18 +10134,20 @@ This treatment is In Vitro Fertilization (NCIT:C16580). NCIT:C16580 is a clinica
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Female infertility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp">HP:0008222</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0008222</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9810,6 +10166,7 @@ This treatment targets Female infertility (HP:0008222). HP:0008222 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40097859" target="_blank">PMID:40097859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9843,17 +10200,17 @@ This treatment targets Female infertility (HP:0008222). HP:0008222 is a phenotyp
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -9895,6 +10252,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31365064" target="_blank">PMID:31365064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9927,18 +10285,18 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9980,6 +10338,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10001,6 +10360,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31365064" target="_blank">PMID:31365064</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10088,6 +10448,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10127,6 +10488,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10199,6 +10561,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10238,6 +10601,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10310,6 +10674,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10349,6 +10714,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10398,6 +10764,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10470,6 +10837,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10509,6 +10877,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10550,14 +10919,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-complete-androgen-insensitivity-syndrome">
                 <div class="item-name">
 
-                    <a class="item-name-link" href="Complete_androgen_insensitivity_syndrome.html">Complete androgen insensitivity syndrome</a>
+                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Complete androgen insensitivity syndrome</span>
+                    <span class="curation-gap-badge">Not Yet Curated</span>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0021023" target="_blank">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0021023" target="_blank" class="missing-ontology-link">
                             MONDO:0021023
                         </a>
                     </span>
@@ -10584,6 +10954,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38905377" target="_blank">PMID:38905377</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10609,7 +10980,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-46-xx-gonadal-dysgenesis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="46,XX_Gonadal_Dysgenesis.html">46,XX gonadal dysgenesis</a>
@@ -10643,6 +11014,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21982289" target="_blank">PMID:21982289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10668,10 +11040,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-turner-syndrome">
                 <div class="item-name">
 
-                    Turner syndrome
+                    <a class="item-name-link" href="Turner_Syndrome.html">Turner syndrome</a>
 
 
                 </div>
@@ -10695,6 +11067,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10721,7 +11094,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-45-x-46-xy-mixed-gonadal-dysgenesis">
                 <div class="item-name">
 
                     45,X/46,XY mixed gonadal dysgenesis
@@ -10749,6 +11122,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34070473" target="_blank">PMID:34070473</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10774,7 +11148,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-partial-or-mixed-46-xy-gonadal-dysgenesis">
                 <div class="item-name">
 
                     Partial or mixed 46,XY gonadal dysgenesis
@@ -10802,6 +11176,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34070473" target="_blank">PMID:34070473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10827,7 +11202,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-testicular-regression-syndrome">
                 <div class="item-name">
 
                     Testicular regression syndrome
@@ -10855,6 +11230,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40026690" target="_blank">PMID:40026690</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10880,7 +11256,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mayer-rokitansky-k-ster-hauser-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Mayer-Rokitansky-Küster-Hauser syndrome</span>
@@ -10915,6 +11291,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10940,7 +11317,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-central-hypogonadism">
                 <div class="item-name">
 
                     Central hypogonadism
@@ -10968,6 +11345,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39149602" target="_blank">PMID:39149602</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10993,7 +11371,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-46-xy-androgen-synthesis-or-action-disorders">
                 <div class="item-name">
 
                     46,XY androgen synthesis or action disorders
@@ -11021,6 +11399,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34070473" target="_blank">PMID:34070473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11046,7 +11425,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-syndromic-gonadal-dysgenesis">
                 <div class="item-name">
 
                     Syndromic gonadal dysgenesis
@@ -11073,6 +11452,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30298535" target="_blank">PMID:30298535</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11128,7 +11508,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: 46,XY complete gonadal dysgenesis
 creation_date: &#34;2026-04-14T12:00:00Z&#34;
-updated_date: &#34;2026-07-15T15:55:01Z&#34;
 category: Mendelian
 description: &gt;-
   46,XY complete gonadal dysgenesis (Swyer syndrome) is a genetically
@@ -15103,7 +15482,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "46,XY complete gonadal dysgenesis", "mondoId": "MONDO:0010765", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "46,XY_complete_gonadal_dysgenesis", "yamlRevision": "ec4c772aebca"};
+        const OS_CONFIG = {"diseaseName": "46,XY complete gonadal dysgenesis", "mondoId": "MONDO:0010765", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "46,XY_complete_gonadal_dysgenesis", "yamlRevision": "751b0f9c3067"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15522,5 +15901,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

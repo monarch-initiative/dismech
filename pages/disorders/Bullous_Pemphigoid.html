@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Bullous Pemphigoid</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Bullous Pemphigoid</h1>
             <div class="header-meta">
 
@@ -3883,29 +4005,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">DERMATOLOGY</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4010,35 +4210,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Neurological disease precedes BP onset at a rate exceeding the reverse ordering.</li>
 
-
-
-    <span class="entity-ref-chip">Neurological disease precedes BP onset at a rate exceeding the reverse ordering.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>No consistent temporal ordering, or BP predominantly precedes neurological diagnosis.</li>
 
-
-
-    <span class="entity-ref-chip">No consistent temporal ordering, or BP predominantly precedes neurological diagnosis.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4077,35 +4273,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Significantly higher anti-BP180/BP230 reactivity in neurodegenerative cohorts than controls.</li>
 
-
-
-    <span class="entity-ref-chip">Significantly higher anti-BP180/BP230 reactivity in neurodegenerative cohorts than controls.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Equivalent reactivity across neurodegenerative and control groups.</li>
 
-
-
-    <span class="entity-ref-chip">Equivalent reactivity across neurodegenerative and control groups.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4137,6 +4329,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30663128" target="_blank">PMID:30663128</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4158,6 +4351,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30663128" target="_blank">PMID:30663128</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4205,18 +4399,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4244,17 +4440,21 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         COL17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2194</a>
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2194</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4279,17 +4479,21 @@ This pathophysiological event involves COL17A1 (hgnc:2194). hgnc:2194 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DST (hgnc:1090). hgnc:1090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DST
 
 
-    <a href="https://bioregistry.io/hgnc:1090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1090</a>
+    <a href="https://bioregistry.io/hgnc:1090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:1090</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DST (hgnc:1090). hgnc:1090 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4351,6 +4555,7 @@ This pathophysiological event involves DST (hgnc:1090). hgnc:1090 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39979318" target="_blank">PMID:39979318</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4372,6 +4577,7 @@ This pathophysiological event involves DST (hgnc:1090). hgnc:1090 is a gene from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41127641" target="_blank">PMID:41127641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4407,18 +4613,20 @@ This pathophysiological event involves DST (hgnc:1090). hgnc:1090 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4435,18 +4643,20 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4463,18 +4673,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4502,18 +4714,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4534,18 +4748,20 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased mast cell mediated immunity (GO:0002448). GO:0002448 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mast cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002448" target="_blank" class="curie-chip curie-chip-go">GO:0002448</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002448" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0002448</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased mast cell mediated immunity (GO:0002448). GO:0002448 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4603,6 +4819,7 @@ This pathophysiological event involves increased mast cell mediated immunity (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29545809" target="_blank">PMID:29545809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4624,6 +4841,7 @@ This pathophysiological event involves increased mast cell mediated immunity (GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40488683" target="_blank">PMID:40488683</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4659,18 +4877,20 @@ This pathophysiological event involves increased mast cell mediated immunity (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4698,18 +4918,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neutrophil degranulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go">GO:0043312</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0043312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4766,6 +4988,7 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40488683" target="_blank">PMID:40488683</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4841,6 +5064,7 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40488683" target="_blank">PMID:40488683</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4876,7 +5100,7 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-subepidermal-blister-with-eosinophil-rich-infiltrate">
                 <div class="item-name">
                     Subepidermal Blister with Eosinophil-Rich Infiltrate
 
@@ -4897,6 +5121,7 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39979318" target="_blank">PMID:39979318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4919,6 +5144,7 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40488683" target="_blank">PMID:40488683</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5011,16 +5237,22 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased total eosinophil count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001880</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.">
-                        Increased total eosinophil count
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
-
-
+This clinical feature is Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5042,6 +5274,7 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40488683" target="_blank">PMID:40488683</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5086,16 +5319,22 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Erosion of oral mucosa</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0031446</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Erosion of oral mucosa (HP:0031446). HP:0031446 is a phenotype from the Human Phenotype Ontology.">
-                        Erosion of oral mucosa
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031446" target="_blank" class="curie-chip curie-chip-hp">HP:0031446</a>
-
-
+This clinical feature is Erosion of oral mucosa (HP:0031446). HP:0031446 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5117,6 +5356,7 @@ This clinical feature is Erosion of oral mucosa (HP:0031446). HP:0031446 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29545809" target="_blank">PMID:29545809</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5161,16 +5401,22 @@ This clinical feature is Erosion of oral mucosa (HP:0031446). HP:0031446 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Eczematoid dermatitis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000964</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.">
-                        Eczematoid dermatitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp">HP:0000964</a>
-
-
+This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5192,6 +5438,7 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42206441" target="_blank">PMID:42206441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5234,16 +5481,22 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal blistering of the skin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0008066</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal blistering of the skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp">HP:0008066</a>
-
-
+This clinical feature is Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5265,6 +5518,7 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066). HP:000806
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39979318" target="_blank">PMID:39979318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5300,16 +5554,20 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066). HP:000806
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pruritus (HP:0000989), qualified as severity severe. HP:0000989 is a phenotype from the Human Phenotype Ontology.">
-                        Pruritus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
-
-
+This clinical feature is Pruritus (HP:0000989), qualified as severity severe. HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5349,6 +5607,7 @@ This clinical feature is Pruritus (HP:0000989), qualified as severity severe. HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29545809" target="_blank">PMID:29545809</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5393,16 +5652,22 @@ This clinical feature is Pruritus (HP:0000989), qualified as severity severe. HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Urticarial plaque</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030351" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0030351</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenotype from the Human Phenotype Ontology.">
-                        Urticarial plaque
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030351" target="_blank" class="curie-chip curie-chip-hp">HP:0030351</a>
-
-
+This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5424,6 +5689,7 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42206441" target="_blank">PMID:42206441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5503,15 +5769,17 @@ This clinical feature is Urticarial plaque (HP:0030351). HP:0030351 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DQB1
 
 
-    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4944</a>
+    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:4944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5534,6 +5802,7 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39091267" target="_blank">PMID:39091267</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5565,6 +5834,9 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5581,17 +5853,17 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5616,18 +5888,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5652,6 +5926,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39979318" target="_blank">PMID:39979318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5683,17 +5958,17 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5718,18 +5993,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5755,6 +6032,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28279484" target="_blank">PMID:28279484</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5776,6 +6054,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28279484" target="_blank">PMID:28279484</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5807,17 +6086,17 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5842,18 +6121,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5887,6 +6168,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39979318" target="_blank">PMID:39979318</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5929,6 +6211,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39979318" target="_blank">PMID:39979318</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5959,17 +6242,17 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5994,18 +6277,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         omalizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29299" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C29299</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29299" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C29299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6040,6 +6325,7 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29545809" target="_blank">PMID:29545809</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6061,6 +6347,7 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29545809" target="_blank">PMID:29545809</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6103,6 +6390,7 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39979318" target="_blank">PMID:39979318</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6143,6 +6431,10 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
 
 
 
+
+
+
+
                 <div class="item-desc">No proven cause is established for bullous pemphigoid, but several trigger factors are recognized: medications (notably gliptins/DPP-4 inhibitors used in type 2 diabetes, and immune checkpoint inhibitors), ultraviolet radiation, and other skin disorders such as psoriasis and lichen planus.</div>
 
 
@@ -6158,6 +6450,7 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42206441" target="_blank">PMID:42206441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6180,6 +6473,7 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39091267" target="_blank">PMID:39091267</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6412,6 +6706,7 @@ pathophysiology:
     snippet: &#34;STAT6-deficient mice exhibited reduced subepidermal blister formation and eosinophil infiltration in 2 BP mouse models.&#34;
     explanation: Reduced eosinophil infiltration accompanies reduced blistering in two BP mouse models, supporting eosinophil recruitment as a required step.
 - name: Proteolytic Degradation of the Dermal-Epidermal Junction
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Loss of Adhesive Integrity at a Defined Cleavage Plane&#34;
   description: &gt;
     Neutrophil proteinases together with the eosinophil granule proteins
     eosinophil-derived neurotoxin (EDN) and eosinophil cationic protein (ECP)
@@ -6448,6 +6743,7 @@ pathophysiology:
     snippet: &#34;Eosinophil-derived neurotoxin and eosinophil cationic protein were substantially elevated and localized within bullous areas of skin samples from patients with BP.&#34;
     explanation: Localizes the effector granule proteins to blistering skin in human BP biopsies.
 - name: Subepidermal Blister Formation
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Mechanically Induced Dermal-Epidermal Separation and Blistering&#34;
   description: &gt;
     Separation occurs within the lamina lucida, superficial to the lamina densa,
     producing tense bullae with an intact epidermal roof. Because the cleavage
@@ -6789,9 +7085,9 @@ discussions:
       Consistent precedence of neurological diagnosis over BP onset would favour
       neurodegeneration-driven epitope exposure over a shared-susceptibility or
       reverse-causation model.
-    would_support:
+    supporting_outcome:
     - Neurological disease precedes BP onset at a rate exceeding the reverse ordering.
-    would_refute:
+    refuting_outcome:
     - No consistent temporal ordering, or BP predominantly precedes neurological diagnosis.
   - experiment_id: bp_neuro_crossreactive_serology
     name: Anti-BP180/BP230 serology in neurodegenerative disease without skin disease
@@ -6802,9 +7098,9 @@ discussions:
     decision_criterion: &gt;-
       Elevated subclinical autoantibody reactivity in neurodegenerative cohorts
       would support CNS epitope exposure as the tolerance-breaking event.
-    would_support:
+    supporting_outcome:
     - Significantly higher anti-BP180/BP230 reactivity in neurodegenerative cohorts than controls.
-    would_refute:
+    refuting_outcome:
     - Equivalent reactivity across neurodegenerative and control groups.
   evidence:
   - reference: PMID:30663128
@@ -7382,7 +7678,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bullous Pemphigoid", "mondoId": "MONDO:0019082", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bullous_Pemphigoid", "yamlRevision": "2644be036ce3"};
+        const OS_CONFIG = {"diseaseName": "Bullous Pemphigoid", "mondoId": "MONDO:0019082", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bullous_Pemphigoid", "yamlRevision": "5f90089280ba"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7801,5 +8097,73 @@ classifications:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

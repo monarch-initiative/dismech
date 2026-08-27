@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Superior Mesenteric Artery Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Superior Mesenteric Artery Syndrome</h1>
             <div class="header-meta">
 
@@ -3898,27 +4020,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">GASTROINTESTINAL</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4086,6 +4285,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4198,6 +4398,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4239,6 +4445,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4268,6 +4480,12 @@
             <div class="experiment-decision">Enrichment of connective-tissue laxity in cases would implicate mesenteric connective-tissue properties as a susceptibility determinant.
 </div>
         </div>
+
+
+
+
+
+
 
 
 
@@ -4370,6 +4588,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4411,6 +4635,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4434,6 +4664,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4455,6 +4686,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38694377" target="_blank">PMID:38694377</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4478,6 +4710,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03937193" target="_blank">clinicaltrials:NCT03937193</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4575,6 +4808,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4597,6 +4831,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29204239" target="_blank">PMID:29204239</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4644,18 +4879,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Visceral (mesenteric) white adipocyte, annotated with white adipocyte (CL:0000448). CL:0000448 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Visceral (mesenteric) white adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000448" target="_blank" class="curie-chip curie-chip-cl">CL:0000448</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000448" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000448</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Visceral (mesenteric) white adipocyte, annotated with white adipocyte (CL:0000448). CL:0000448 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4683,18 +4920,20 @@ This pathophysiological event involves Visceral (mesenteric) white adipocyte, an
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Triglyceride mobilization from the mesenteric fat depot, annotated with triglyceride mobilization (GO:0006642). GO:0006642 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Triglyceride mobilization from the mesenteric fat depot
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006642" target="_blank" class="curie-chip curie-chip-go">GO:0006642</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006642" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006642</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Triglyceride mobilization from the mesenteric fat depot, annotated with triglyceride mobilization (GO:0006642). GO:0006642 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4722,33 +4961,37 @@ This pathophysiological event involves increased Triglyceride mobilization from 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Aortomesenteric (retroperitoneal) fat pad, annotated with mesenteric fat pad (UBERON:0015143). UBERON:0015143 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Aortomesenteric (retroperitoneal) fat pad
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0015143" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0015143</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0015143" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0015143</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Aortomesenteric (retroperitoneal) fat pad, annotated with mesenteric fat pad (UBERON:0015143). UBERON:0015143 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Visceral abdominal adipose tissue (UBERON:0014454). UBERON:0014454 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Visceral abdominal adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0014454" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0014454</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0014454" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0014454</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Visceral abdominal adipose tissue (UBERON:0014454). UBERON:0014454 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4794,6 +5037,7 @@ This pathophysiological event occurs in Visceral abdominal adipose tissue (UBERO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4851,33 +5095,37 @@ This pathophysiological event occurs in Visceral abdominal adipose tissue (UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Superior mesenteric artery (UBERON:0001182). UBERON:0001182 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Superior mesenteric artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001182" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001182</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001182" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0001182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Superior mesenteric artery (UBERON:0001182). UBERON:0001182 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON:0001516 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Abdominal aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001516" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001516</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001516" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON:0001516 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4924,6 +5172,7 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4946,6 +5195,7 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38694377" target="_blank">PMID:38694377</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5003,18 +5253,20 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Third (horizontal) part of the duodenum, annotated with duodenum (UBERON:0002114). UBERON:0002114 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Third (horizontal) part of the duodenum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002114</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002114</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Third (horizontal) part of the duodenum, annotated with duodenum (UBERON:0002114). UBERON:0002114 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5061,6 +5313,7 @@ This pathophysiological event occurs in Third (horizontal) part of the duodenum,
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5083,6 +5336,7 @@ This pathophysiological event occurs in Third (horizontal) part of the duodenum,
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5137,18 +5391,20 @@ This pathophysiological event occurs in Third (horizontal) part of the duodenum,
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Gastroduodenal emptying, annotated with gastric emptying (GO:0035483). GO:0035483 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Gastroduodenal emptying
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035483" target="_blank" class="curie-chip curie-chip-go">GO:0035483</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035483" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0035483</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Gastroduodenal emptying, annotated with gastric emptying (GO:0035483). GO:0035483 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5176,33 +5432,37 @@ This pathophysiological event involves decreased Gastroduodenal emptying, annota
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Duodenum (UBERON:0002114). UBERON:0002114 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Duodenum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002114</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002114</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Duodenum (UBERON:0002114). UBERON:0002114 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Stomach
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000945</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000945</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5248,6 +5508,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5350,6 +5611,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5448,6 +5710,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5507,6 +5770,7 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5601,16 +5865,20 @@ This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.">
-                        Nausea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp">HP:0002018</a>
-
-
+This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5630,6 +5898,7 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5663,16 +5932,20 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002013</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Postprandial bilious vomiting, annotated with Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.">
-                        Vomiting
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp">HP:0002013</a>
-
-
+This clinical feature is Postprandial bilious vomiting, annotated with Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5692,6 +5965,7 @@ This clinical feature is Postprandial bilious vomiting, annotated with Vomiting 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23959808" target="_blank">PMID:23959808</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5726,16 +6000,20 @@ This clinical feature is Postprandial bilious vomiting, annotated with Vomiting 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0033842</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype from the Human Phenotype Ontology.">
-                        Early satiety
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033842" target="_blank" class="curie-chip curie-chip-hp">HP:0033842</a>
-
-
+This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5755,6 +6033,7 @@ This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5788,16 +6067,20 @@ This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002039</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039). HP:0002039 is a phenotype from the Human Phenotype Ontology.">
-                        Anorexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp">HP:0002039</a>
-
-
+This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039). HP:0002039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5817,6 +6100,7 @@ This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5850,16 +6134,20 @@ This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004395</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype from the Human Phenotype Ontology.">
-                        Malnutrition
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004395" target="_blank" class="curie-chip curie-chip-hp">HP:0004395</a>
-
-
+This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5879,6 +6167,7 @@ This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5922,16 +6211,20 @@ This clinical feature is Malnutrition (HP:0004395). HP:0004395 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011951</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phenotype from the Human Phenotype Ontology.">
-                        Aspiration pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp">HP:0011951</a>
-
-
+This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5951,6 +6244,7 @@ This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5994,16 +6288,20 @@ This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824), qualified as course progressive. HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824), qualified as course progressive. HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6041,6 +6339,7 @@ This clinical feature is Weight loss (HP:0001824), qualified as course progressi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6083,16 +6382,20 @@ This clinical feature is Weight loss (HP:0001824), qualified as course progressi
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0410019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Postprandial epigastric pain, annotated with Epigastric pain (HP:0410019). HP:0410019 is a phenotype from the Human Phenotype Ontology.">
-                        Epigastric pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410019" target="_blank" class="curie-chip curie-chip-hp">HP:0410019</a>
-
-
+This clinical feature is Postprandial epigastric pain, annotated with Epigastric pain (HP:0410019). HP:0410019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6112,6 +6415,7 @@ This clinical feature is Postprandial epigastric pain, annotated with Epigastric
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6146,16 +6450,20 @@ This clinical feature is Postprandial epigastric pain, annotated with Epigastric
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0005250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Duodenal (high intestinal) obstruction, annotated with High intestinal obstruction (HP:0005250). HP:0005250 is a phenotype from the Human Phenotype Ontology.">
-                        High intestinal obstruction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp">HP:0005250</a>
-
-
+This clinical feature is Duodenal (high intestinal) obstruction, annotated with High intestinal obstruction (HP:0005250). HP:0005250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6175,6 +6483,7 @@ This clinical feature is Duodenal (high intestinal) obstruction, annotated with 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6209,16 +6518,22 @@ This clinical feature is Duodenal (high intestinal) obstruction, annotated with 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased body mass index</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045082" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0045082</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased body mass index (HP:0045082). HP:0045082 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased body mass index
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0045082" target="_blank" class="curie-chip curie-chip-hp">HP:0045082</a>
-
-
+This clinical feature is Decreased body mass index (HP:0045082). HP:0045082 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6238,6 +6553,7 @@ This clinical feature is Decreased body mass index (HP:0045082). HP:0045082 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6272,16 +6588,20 @@ This clinical feature is Decreased body mass index (HP:0045082). HP:0045082 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005977" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005977</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005977 is a phenotype from the Human Phenotype Ontology.">
-                        Hypochloremic metabolic alkalosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005977" target="_blank" class="curie-chip curie-chip-hp">HP:0005977</a>
-
-
+This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005977 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6301,6 +6621,7 @@ This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6335,16 +6656,20 @@ This clinical feature is Hypochloremic metabolic alkalosis (HP:0005977). HP:0005
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:6000383</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastric perforation (HP:6000383). HP:6000383 is a phenotype from the Human Phenotype Ontology.">
-                        Gastric perforation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000383" target="_blank" class="curie-chip curie-chip-hp">HP:6000383</a>
-
-
+This clinical feature is Gastric perforation (HP:6000383). HP:6000383 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6364,6 +6689,7 @@ This clinical feature is Gastric perforation (HP:6000383). HP:6000383 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6398,16 +6724,20 @@ This clinical feature is Gastric perforation (HP:6000383). HP:6000383 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001735</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acute pancreatitis (HP:0001735). HP:0001735 is a phenotype from the Human Phenotype Ontology.">
-                        Acute pancreatitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001735" target="_blank" class="curie-chip curie-chip-hp">HP:0001735</a>
-
-
+This clinical feature is Acute pancreatitis (HP:0001735). HP:0001735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6461,6 +6791,9 @@ This clinical feature is Acute pancreatitis (HP:0001735). HP:0001735 is a phenot
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6477,18 +6810,18 @@ This clinical feature is Acute pancreatitis (HP:0001735). HP:0001735 is a phenot
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">nutritional support<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">nutritional support</span>
+This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -6541,6 +6874,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6563,6 +6897,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29204239" target="_blank">PMID:29204239</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6606,6 +6941,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6637,18 +6973,18 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">enteral tube feeding<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is enteral tube feeding (NCIT:C93322). NCIT:C93322 is a clinical intervention from the NCI Thesaurus.">enteral tube feeding</span>
+This treatment is enteral tube feeding (NCIT:C93322). NCIT:C93322 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Enteral Tube Feeding</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93322" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is enteral tube feeding (NCIT:C93322). NCIT:C93322 is a clinical intervention from the NCI Thesaurus.">NCIT:C93322</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93322" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93322">NCIT:C93322</a>
 
 
 
@@ -6710,6 +7046,7 @@ This treatment is enteral tube feeding (NCIT:C93322). NCIT:C93322 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6741,18 +7078,18 @@ This treatment is enteral tube feeding (NCIT:C93322). NCIT:C93322 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">total parenteral nutrition<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a clinical intervention from the NCI Thesaurus.">total parenteral nutrition</span>
+This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Total Parenteral Nutrition</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29484" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a clinical intervention from the NCI Thesaurus.">NCIT:C29484</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29484" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29484">NCIT:C29484</a>
 
 
 
@@ -6795,6 +7132,7 @@ This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6826,18 +7164,18 @@ This treatment is total parenteral nutrition (NCIT:C29484). NCIT:C29484 is a cli
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">nasogastric decompression<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is nasogastric decompression (NCIT:C70910). NCIT:C70910 is a clinical intervention from the NCI Thesaurus.">nasogastric decompression</span>
+This treatment is nasogastric decompression (NCIT:C70910). NCIT:C70910 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nasogastric Decompression</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C70910" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is nasogastric decompression (NCIT:C70910). NCIT:C70910 is a clinical intervention from the NCI Thesaurus.">NCIT:C70910</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C70910" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C70910">NCIT:C70910</a>
 
 
 
@@ -6880,6 +7218,7 @@ This treatment is nasogastric decompression (NCIT:C70910). NCIT:C70910 is a clin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356803" target="_blank">PMID:28356803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6911,18 +7250,18 @@ This treatment is nasogastric decompression (NCIT:C70910). NCIT:C70910 is a clin
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">laparoscopic duodenojejunostomy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic Surgery (NCIT:C15725). NCIT:C15725 is a clinical intervention from the NCI Thesaurus.">laparoscopic duodenojejunostomy</span>
+This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic Surgery (NCIT:C15725). NCIT:C15725 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laparoscopic Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15725" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic Surgery (NCIT:C15725). NCIT:C15725 is a clinical intervention from the NCI Thesaurus.">NCIT:C15725</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15725" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15725">NCIT:C15725</a>
 
 
 
@@ -6984,6 +7323,7 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30291587" target="_blank">PMID:30291587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7007,6 +7347,7 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39191411" target="_blank">PMID:39191411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7029,6 +7370,7 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7061,18 +7403,18 @@ This treatment is laparoscopic duodenojejunostomy, annotated with Laparoscopic S
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7134,6 +7476,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7175,6 +7518,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">Any catabolic or undernutrition state producing rapid loss of visceral fat - anorexia nervosa and other restrictive eating disorders, malignancy and cachexia, burns, trauma, malabsorption, chronic infection, and prolonged severe illness. This is the commonest precipitant.
 </div>
 
@@ -7191,6 +7538,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7242,6 +7590,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7272,6 +7621,33 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
             <div class="item-box environmental-box anchor-target" id="environmental-corrective-spinal-surgery-for-scoliosis" data-dismech-node="Corrective Spinal Surgery for Scoliosis" data-dismech-type="environmental">
                 <div class="item-name">Corrective Spinal Surgery for Scoliosis</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        surgical procedure exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_2000054" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-30">ECTO:2000054</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is surgical procedure exposure, annotated with exposure to surgery (ECTO:2000054). ECTO:2000054 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Surgical correction of a spinal deformity is a well-recognised precipitant, particularly in adolescents with adolescent idiopathic scoliosis and a low preoperative BMI. Reported latency to symptom onset diverges markedly between the two pooled systematic reviews - a mean of 9.6 +/- 9.5 days in one and a mean of 69 days (range 3 days to 4 years) in the other - so onset can be anywhere from the first postoperative days to years later, and a late presentation does not exclude the diagnosis.
@@ -7290,6 +7666,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39118170" target="_blank">PMID:39118170</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7314,6 +7691,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39118170" target="_blank">PMID:39118170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7336,6 +7714,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33905850" target="_blank">PMID:33905850</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7387,6 +7766,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7419,6 +7799,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">Application of a body cast or spinal traction for scoliosis - the origin of the historical name &#34;cast syndrome&#34; - can precipitate the same duodenal compression without primary fat loss.
 </div>
 
@@ -7435,6 +7819,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7486,6 +7871,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17476104" target="_blank">PMID:17476104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7533,7 +7919,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-nutcracker-syndrome-left-renal-vein-entrapment">
                 <div class="item-name">
 
                     Nutcracker Syndrome (Left Renal Vein Entrapment)
@@ -7575,6 +7961,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29204239" target="_blank">PMID:29204239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7601,7 +7988,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-anorexia-nervosa">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Anorexia_Nervosa.html">Anorexia Nervosa</a>
@@ -7643,6 +8030,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7669,7 +8057,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-functional-dyspepsia-and-gastroparesis">
                 <div class="item-name">
 
                     Functional Dyspepsia and Gastroparesis
@@ -7711,6 +8099,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31998513" target="_blank">PMID:31998513</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7733,6 +8122,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37383896" target="_blank">PMID:37383896</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7773,7 +8163,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03416647">
                 <div class="item-name">
                     NCT03416647
 
@@ -7790,18 +8180,20 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Duodenal (high intestinal) obstruction, annotated with High intestinal obstruction (HP:0005250). HP:0005250 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Duodenal (high intestinal) obstruction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp">HP:0005250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0005250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Duodenal (high intestinal) obstruction, annotated with High intestinal obstruction (HP:0005250). HP:0005250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7819,6 +8211,7 @@ This clinical trial targets Duodenal (high intestinal) obstruction, annotated wi
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03416647" target="_blank">clinicaltrials:NCT03416647</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7842,7 +8235,7 @@ This clinical trial targets Duodenal (high intestinal) obstruction, annotated wi
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06970093">
                 <div class="item-name">
                     NCT06970093
 
@@ -7859,33 +8252,37 @@ This clinical trial targets Duodenal (high intestinal) obstruction, annotated wi
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Postprandial bilious vomiting, annotated with Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Postprandial bilious vomiting
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Postprandial bilious vomiting, annotated with Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Weight loss
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001824</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7903,6 +8300,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06970093" target="_blank">clinicaltrials:NCT06970093</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7926,7 +8324,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03937193">
                 <div class="item-name">
                     NCT03937193
 
@@ -7953,6 +8351,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                         <a href="https://clinicaltrials.gov/study/NCT03937193" target="_blank">clinicaltrials:NCT03937193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7975,7 +8374,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04515251">
                 <div class="item-name">
                     NCT04515251
 
@@ -8002,6 +8401,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                         <a href="https://clinicaltrials.gov/study/NCT04515251" target="_blank">clinicaltrials:NCT04515251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8024,7 +8424,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07115472">
                 <div class="item-name">
                     NCT07115472
 
@@ -8050,6 +8450,7 @@ This clinical trial targets Weight loss (HP:0001824). HP:0001824 is a phenotype 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07115472" target="_blank">clinicaltrials:NCT07115472</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8879,6 +9280,11 @@ environmental:
       Enumerates the weight-loss states that precipitate SMA syndrome.
 
 - name: Corrective Spinal Surgery for Scoliosis
+  exposure_term:
+    preferred_term: surgical procedure exposure
+    term:
+      id: ECTO:2000054
+      label: exposure to surgery
   description: &gt;
     Surgical correction of a spinal deformity is a well-recognised precipitant,
     particularly in adolescents with adolescent idiopathic scoliosis and a low
@@ -9306,6 +9712,7 @@ clinical_trials:
       label: High intestinal obstruction
   evidence:
   - reference: clinicaltrials:NCT03416647
+    reference_title: &#34;Superior Mesenteric Artery Syndrome: a Prospective Study in a Single Institution&#34;
     supports: SUPPORT
     snippet: &#34;Between 2008 and 2016, 39 consecutive patients with chronic gastrointestinal symptoms and a diagnosis of SMAS were prospectively included in the study, in order to describe their demographic, clinical and outcome features. All patients underwent duodenojejunostomy.&#34;
     explanation: &gt;
@@ -9330,6 +9737,7 @@ clinical_trials:
       label: Weight loss
   evidence:
   - reference: clinicaltrials:NCT06970093
+    reference_title: &#34;One Anastomosis Gastric Bypass (OAGB) vs Duodeno-jejunostomy For Treatment of Superior Mesenteric Artery Syndrome: A Prospective Randomized Control Trial&#34;
     supports: SUPPORT
     snippet: &#34;This condition causes the duodenum to be squeezed between two arteries, leading to severe nausea, vomiting, and weight loss.&#34;
     explanation: &gt;
@@ -9346,6 +9754,7 @@ clinical_trials:
     of the fat-pad mechanism.
   evidence:
   - reference: clinicaltrials:NCT03937193
+    reference_title: &#34;Normal Range of Superior Mesenteric Artery on Computerized Tomography in Young Chinese Population and Its Correlation With Retroperitoneal Adipose Tissue&#34;
     supports: SUPPORT
     snippet: &#34;In literature, superior mesenteric artery (SMA) angle, also named as aortomesenteric angle (AMA), varies greatly in both adult and children; while the aortomesenteric distance also ranges widely. Both AMA and AMD are influenced by retroperitoneal fat.&#34;
     explanation: &gt;
@@ -9361,6 +9770,7 @@ clinical_trials:
     standards remain under development.
   evidence:
   - reference: clinicaltrials:NCT04515251
+    reference_title: &#34;A Prospective, Observational, Multicenter Study on Ultrasound Evaluation of Superior Mesenteric Artery Measurements in a Healthy Pediatric Population&#34;
     supports: SUPPORT
     snippet: &#34;Multicenter, prospective, observational research project on children aged from 10 to 15 years old undergoing abdominal ultrasound examinations during routine clinical practice.&#34;
     explanation: &gt;
@@ -9380,6 +9790,7 @@ clinical_trials:
     cycle.
   evidence:
   - reference: clinicaltrials:NCT07115472
+    reference_title: &#34;Fluoxetine as a Non-Surgical Intervention for Refractory Superior Mesenteric Artery Syndrome With Comorbid Somatic Symptom Disorder: A Prospective Case Series Study&#34;
     supports: SUPPORT
     snippet: &#34;Can psychiatric intervention targeting SSD reduce the likelihood of requiring duodenojejunostomy in refractory SMAS?&#34;
     explanation: &gt;
@@ -9471,6 +9882,7 @@ discussions:
       Argues explicitly that population-specific normative aortomesenteric values are
       needed rather than a single universal threshold.
   - reference: clinicaltrials:NCT03937193
+    reference_title: &#34;Normal Range of Superior Mesenteric Artery on Computerized Tomography in Young Chinese Population and Its Correlation With Retroperitoneal Adipose Tissue&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In literature, superior mesenteric artery (SMA) angle, also named as aortomesenteric angle (AMA), varies greatly in both adult and children; while the aortomesenteric distance also ranges widely. Both AMA and AMD are influenced by retroperitoneal fat.&#34;
@@ -9479,6 +9891,7 @@ discussions:
       aortomesenteric geometry and its confounding by retroperitoneal fat - the two
       halves of this knowledge gap.
   - reference: clinicaltrials:NCT04515251
+    reference_title: &#34;A Prospective, Observational, Multicenter Study on Ultrasound Evaluation of Superior Mesenteric Artery Measurements in a Healthy Pediatric Population&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Multicenter, prospective, observational research project on children aged from 10 to 15 years old undergoing abdominal ultrasound examinations during routine clinical practice.&#34;
@@ -10229,7 +10642,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Superior Mesenteric Artery Syndrome", "mondoId": "MONDO:0002687", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Superior_Mesenteric_Artery_Syndrome", "yamlRevision": "65ab61aec972"};
+        const OS_CONFIG = {"diseaseName": "Superior Mesenteric Artery Syndrome", "mondoId": "MONDO:0002687", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Superior_Mesenteric_Artery_Syndrome", "yamlRevision": "cfe77edef75c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10648,5 +11061,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

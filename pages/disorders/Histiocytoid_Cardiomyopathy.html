@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Histiocytoid Cardiomyopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Histiocytoid Cardiomyopathy</h1>
             <div class="header-meta">
 
@@ -3923,38 +4045,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">CARDIOVASCULAR</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-mechanistic">mitochondrial disease</span>
+
+
+
+
+                    <span class="tag tag-mechanistic" title="Both established molecular arms are mitochondrial respiratory-chain defects: a mitochondrial-DNA MT-CYB (complex III) arm and a nuclear X-linked NDUFB11 (complex I) arm.">mitochondrial disease</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3972,7 +4180,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-mitochondrial-inheritance">
                 <div class="item-name">
                     Mitochondrial inheritance
 
@@ -4017,6 +4225,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10960495" target="_blank">PMID:10960495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4038,6 +4247,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4062,7 +4272,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-dominant-inheritance">
                 <div class="item-name">
                     X-linked dominant inheritance
 
@@ -4107,6 +4317,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10463272" target="_blank">PMID:10463272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4129,6 +4340,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21585276" target="_blank">PMID:21585276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4150,6 +4362,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4232,6 +4445,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18473377" target="_blank">PMID:18473377</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4295,6 +4509,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7942464" target="_blank">PMID:7942464</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4316,6 +4531,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7942464" target="_blank">PMID:7942464</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4379,6 +4595,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21585276" target="_blank">PMID:21585276</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4463,11 +4680,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type observational molecular profiling study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         observational molecular profiling study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type observational molecular profiling study.</span>
     </span>
 
 
@@ -4511,6 +4732,12 @@ This experiment is of type observational molecular profiling study.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4533,6 +4760,7 @@ This experiment is of type observational molecular profiling study.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4605,11 +4833,15 @@ This experiment is of type observational molecular profiling study.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type comparative single-cell molecular pathology study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-2">
 
         comparative single-cell molecular pathology study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment is of type this experiment type
+This experiment is of type comparative single-cell molecular pathology study.</span>
     </span>
 
 
@@ -4653,6 +4885,12 @@ This experiment is of type comparative single-cell molecular pathology study.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4675,6 +4913,7 @@ This experiment is of type comparative single-cell molecular pathology study.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4747,11 +4986,15 @@ This experiment is of type comparative single-cell molecular pathology study.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type cross-species model validation study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-3">
 
         cross-species model validation study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment is of type this experiment type
+This experiment is of type cross-species model validation study.</span>
     </span>
 
 
@@ -4795,6 +5038,12 @@ This experiment is of type cross-species model validation study.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4817,6 +5066,7 @@ This experiment is of type cross-species model validation study.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4870,17 +5120,21 @@ This experiment is of type cross-species model validation study.">
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MT-CYB (hgnc:7427). hgnc:7427 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MT-CYB
 
 
-    <a href="https://bioregistry.io/hgnc:7427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7427</a>
+    <a href="https://bioregistry.io/hgnc:7427" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7427</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MT-CYB (hgnc:7427). hgnc:7427 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4905,17 +5159,21 @@ This pathophysiological event involves MT-CYB (hgnc:7427). hgnc:7427 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NDUFB11 (hgnc:20372). hgnc:20372 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NDUFB11
 
 
-    <a href="https://bioregistry.io/hgnc:20372" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20372</a>
+    <a href="https://bioregistry.io/hgnc:20372" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:20372</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NDUFB11 (hgnc:20372). hgnc:20372 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4943,33 +5201,37 @@ This pathophysiological event involves NDUFB11 (hgnc:20372). hgnc:20372 is a gen
                 <div class="item-meta">
 
 
-                    <span class="tag tag-complex" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this protein complex
-This pathophysiological event involves decreased mitochondrial respiratory chain complex I, annotated with respiratory chain complex I (GO:0045271). GO:0045271 is a protein complex from the Gene Ontology.">
+
+                    <span class="tag tag-complex">
                         mitochondrial respiratory chain complex I
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045271" target="_blank" class="curie-chip curie-chip-go">GO:0045271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves decreased mitochondrial respiratory chain complex I, annotated with respiratory chain complex I (GO:0045271). GO:0045271 is a protein complex from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-complex" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this protein complex
-This pathophysiological event involves decreased mitochondrial respiratory chain complex III, annotated with respiratory chain complex III (GO:0045275). GO:0045275 is a protein complex from the Gene Ontology.">
+
+                    <span class="tag tag-complex">
                         mitochondrial respiratory chain complex III
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045275" target="_blank" class="curie-chip curie-chip-go">GO:0045275</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045275" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045275</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves decreased mitochondrial respiratory chain complex III, annotated with respiratory chain complex III (GO:0045275). GO:0045275 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4980,18 +5242,20 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5030,6 +5294,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10960495" target="_blank">PMID:10960495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5052,6 +5317,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28050600" target="_blank">PMID:28050600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5073,6 +5339,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5109,18 +5376,20 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5148,18 +5417,20 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mitochondrial electron transport, ubiquinol to cytochrome c (GO:0006122). GO:0006122 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrial electron transport, ubiquinol to cytochrome c
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006122" target="_blank" class="curie-chip curie-chip-go">GO:0006122</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006122" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006122</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial electron transport, ubiquinol to cytochrome c (GO:0006122). GO:0006122 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5180,18 +5451,20 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mitochondrial electron transport, NADH to ubiquinone (GO:0006120). GO:0006120 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrial electron transport, NADH to ubiquinone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006120" target="_blank" class="curie-chip curie-chip-go">GO:0006120</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006120" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006120</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial electron transport, NADH to ubiquinone (GO:0006120). GO:0006120 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5212,18 +5485,20 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrial ATP synthesis coupled electron transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go">GO:0042775</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5251,18 +5526,20 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5300,6 +5577,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6093033" target="_blank">PMID:6093033</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5322,6 +5600,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6093033" target="_blank">PMID:6093033</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5343,6 +5622,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18473377" target="_blank">PMID:18473377</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5379,18 +5659,20 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves abnormal Purkinje myocyte (CL:0002068). CL:0002068 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Purkinje myocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002068" target="_blank" class="curie-chip curie-chip-cl">CL:0002068</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002068" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002068</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves abnormal Purkinje myocyte (CL:0002068). CL:0002068 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5424,18 +5706,20 @@ This pathophysiological event involves abnormal Purkinje myocyte (CL:0002068). C
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves increased mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves increased mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5444,18 +5728,20 @@ This pathophysiological event involves increased mitochondrion (GO:0005739). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cardiac Purkinje fiber (UBERON:0002354). UBERON:0002354 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cardiac Purkinje fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002354" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002354</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002354" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002354</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cardiac Purkinje fiber (UBERON:0002354). UBERON:0002354 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5493,6 +5779,7 @@ This pathophysiological event occurs in cardiac Purkinje fiber (UBERON:0002354).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10463272" target="_blank">PMID:10463272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5515,6 +5802,7 @@ This pathophysiological event occurs in cardiac Purkinje fiber (UBERON:0002354).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7942464" target="_blank">PMID:7942464</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5536,6 +5824,7 @@ This pathophysiological event occurs in cardiac Purkinje fiber (UBERON:0002354).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22758650" target="_blank">PMID:22758650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5582,33 +5871,37 @@ This pathophysiological event occurs in cardiac Purkinje fiber (UBERON:0002354).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         endocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002165</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5646,6 +5939,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18473377" target="_blank">PMID:18473377</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5668,6 +5962,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5689,6 +5984,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5723,18 +6019,20 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Purkinje myocyte (CL:0002068). CL:0002068 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Purkinje myocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002068" target="_blank" class="curie-chip curie-chip-cl">CL:0002068</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002068" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002068</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Purkinje myocyte (CL:0002068). CL:0002068 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5762,18 +6060,20 @@ This pathophysiological event involves Purkinje myocyte (CL:0002068). CL:0002068
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Purkinje myocyte action potential (GO:0086017). GO:0086017 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Purkinje myocyte action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086017" target="_blank" class="curie-chip curie-chip-go">GO:0086017</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086017" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0086017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Purkinje myocyte action potential (GO:0086017). GO:0086017 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5794,18 +6094,20 @@ This pathophysiological event involves abnormal Purkinje myocyte action potentia
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0086001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5863,6 +6165,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10463272" target="_blank">PMID:10463272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5885,6 +6188,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5906,6 +6210,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38089118" target="_blank">PMID:38089118</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5950,18 +6255,20 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5984,6 +6291,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37831311" target="_blank">PMID:37831311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6005,6 +6313,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6041,7 +6350,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-clusters-of-histiocytoid-oncocytic-myocytes">
                 <div class="item-name">
                     Clusters of Histiocytoid (Oncocytic) Myocytes
 
@@ -6062,6 +6371,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37831311" target="_blank">PMID:37831311</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6085,6 +6395,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37831311" target="_blank">PMID:37831311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6106,6 +6417,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39225698" target="_blank">PMID:39225698</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6130,7 +6442,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-yellow-tan-endocardial-epicardial-and-valvular-nodules">
                 <div class="item-name">
                     Yellow-Tan Endocardial, Epicardial and Valvular Nodules
 
@@ -6151,6 +6463,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7942464" target="_blank">PMID:7942464</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6173,6 +6486,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28045696" target="_blank">PMID:28045696</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6197,7 +6511,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-mitochondrial-hyperplasia-with-myofibrillar-depletion-on-electron-microscopy">
                 <div class="item-name">
                     Mitochondrial Hyperplasia with Myofibrillar Depletion on Electron Microscopy
 
@@ -6218,6 +6532,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10463272" target="_blank">PMID:10463272</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6240,6 +6555,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8563940" target="_blank">PMID:8563940</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6336,16 +6652,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004756</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventricular tachycardia (HP:0004756), qualified as temporality recurrent. HP:0004756 is a phenotype from the Human Phenotype Ontology.">
-                        Ventricular tachycardia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp">HP:0004756</a>
-
-
+This clinical feature is Ventricular tachycardia (HP:0004756), qualified as temporality recurrent. HP:0004756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6384,6 +6704,7 @@ This clinical feature is Ventricular tachycardia (HP:0004756), qualified as temp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21585276" target="_blank">PMID:21585276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6405,6 +6726,7 @@ This clinical feature is Ventricular tachycardia (HP:0004756), qualified as temp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28045696" target="_blank">PMID:28045696</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6438,16 +6760,20 @@ This clinical feature is Ventricular tachycardia (HP:0004756), qualified as temp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001640" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001640</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001640" target="_blank" class="curie-chip curie-chip-hp">HP:0001640</a>
-
-
+This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6467,6 +6793,7 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21585276" target="_blank">PMID:21585276</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6490,6 +6817,7 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6093033" target="_blank">PMID:6093033</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6511,6 +6839,7 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39225698" target="_blank">PMID:39225698</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -6544,16 +6873,20 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001645</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
-                        Sudden cardiac death
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
-
-
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6573,6 +6906,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37831311" target="_blank">PMID:37831311</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6595,6 +6929,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10463272" target="_blank">PMID:10463272</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6628,16 +6963,20 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001695</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiac arrest
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp">HP:0001695</a>
-
-
+This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6657,6 +6996,7 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8563940" target="_blank">PMID:8563940</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6679,6 +7019,7 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38089118" target="_blank">PMID:38089118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6712,16 +7053,20 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001644</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.">
-                        Dilated cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp">HP:0001644</a>
-
-
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6741,6 +7086,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18473377" target="_blank">PMID:18473377</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6763,6 +7109,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28045696" target="_blank">PMID:28045696</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6796,16 +7143,20 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635), qualified as course progressive. HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635), qualified as course progressive. HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6844,6 +7195,7 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as cou
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28045696" target="_blank">PMID:28045696</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6865,6 +7217,7 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as cou
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6898,16 +7251,22 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as cou
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Wolff-Parkinson-White syndrome</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716 is a phenotype from the Human Phenotype Ontology.">
-                        Wolff-Parkinson-White syndrome
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001716" target="_blank" class="curie-chip curie-chip-hp">HP:0001716</a>
-
-
+This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6927,6 +7286,7 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6960,16 +7320,20 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001639</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertrophic cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp">HP:0001639</a>
-
-
+This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6989,6 +7353,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39132302" target="_blank">PMID:39132302</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7031,16 +7396,20 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003128</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.">
-                        Lactic acidosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp">HP:0003128</a>
-
-
+This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7060,6 +7429,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39132302" target="_blank">PMID:39132302</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7082,6 +7452,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36675256" target="_blank">PMID:36675256</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7124,16 +7495,20 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001290</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp">HP:0001290</a>
-
-
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7153,6 +7528,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8563940" target="_blank">PMID:8563940</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7195,16 +7571,22 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the nervous system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000707" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000707</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the nervous system (HP:0000707). HP:0000707 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the nervous system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000707" target="_blank" class="curie-chip curie-chip-hp">HP:0000707</a>
-
-
+This clinical feature is Abnormality of the nervous system (HP:0000707). HP:0000707 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7224,6 +7606,7 @@ This clinical feature is Abnormality of the nervous system (HP:0000707). HP:0000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7942464" target="_blank">PMID:7942464</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7266,16 +7649,20 @@ This clinical feature is Abnormality of the nervous system (HP:0000707). HP:0000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7295,6 +7682,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6093033" target="_blank">PMID:6093033</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7337,16 +7725,20 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001664</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Torsade de pointes (HP:0001664), qualified as temporality recurrent. HP:0001664 is a phenotype from the Human Phenotype Ontology.">
-                        Torsade de pointes
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001664" target="_blank" class="curie-chip curie-chip-hp">HP:0001664</a>
-
-
+This clinical feature is Torsade de pointes (HP:0001664), qualified as temporality recurrent. HP:0001664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7384,6 +7776,7 @@ This clinical feature is Torsade de pointes (HP:0001664), qualified as temporali
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7417,16 +7810,22 @@ This clinical feature is Torsade de pointes (HP:0001664), qualified as temporali
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Left ventricular noncompaction cardiomyopathy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0011664</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Left ventricular noncompaction, annotated with Left ventricular noncompaction cardiomyopathy (HP:0011664). HP:0011664 is a phenotype from the Human Phenotype Ontology.">
-                        Left ventricular noncompaction cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011664" target="_blank" class="curie-chip curie-chip-hp">HP:0011664</a>
-
-
+This clinical feature is Left ventricular noncompaction, annotated with Left ventricular noncompaction cardiomyopathy (HP:0011664). HP:0011664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7446,6 +7845,7 @@ This clinical feature is Left ventricular noncompaction, annotated with Left ven
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22758650" target="_blank">PMID:22758650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7468,6 +7868,7 @@ This clinical feature is Left ventricular noncompaction, annotated with Left ven
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35439193" target="_blank">PMID:35439193</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7501,16 +7902,20 @@ This clinical feature is Left ventricular noncompaction, annotated with Left ven
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004755" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0004755</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Supraventricular tachycardia (HP:0004755), qualified as temporality recurrent. HP:0004755 is a phenotype from the Human Phenotype Ontology.">
-                        Supraventricular tachycardia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004755" target="_blank" class="curie-chip curie-chip-hp">HP:0004755</a>
-
-
+This clinical feature is Supraventricular tachycardia (HP:0004755), qualified as temporality recurrent. HP:0004755 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7548,6 +7953,7 @@ This clinical feature is Supraventricular tachycardia (HP:0004755), qualified as
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7625,15 +8031,17 @@ This clinical feature is Supraventricular tachycardia (HP:0004755), qualified as
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MT-CYB (hgnc:7427). hgnc:7427 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MT-CYB
 
 
-    <a href="https://bioregistry.io/hgnc:7427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7427</a>
+    <a href="https://bioregistry.io/hgnc:7427" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:7427</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MT-CYB (hgnc:7427). hgnc:7427 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7659,6 +8067,7 @@ This disease-associated gene is MT-CYB (hgnc:7427). hgnc:7427 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10960495" target="_blank">PMID:10960495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7681,6 +8090,7 @@ This disease-associated gene is MT-CYB (hgnc:7427). hgnc:7427 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10960495" target="_blank">PMID:10960495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7702,6 +8112,7 @@ This disease-associated gene is MT-CYB (hgnc:7427). hgnc:7427 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7738,15 +8149,17 @@ This disease-associated gene is MT-CYB (hgnc:7427). hgnc:7427 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NDUFB11 (hgnc:20372). hgnc:20372 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NDUFB11
 
 
-    <a href="https://bioregistry.io/hgnc:20372" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20372</a>
+    <a href="https://bioregistry.io/hgnc:20372" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:20372</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NDUFB11 (hgnc:20372). hgnc:20372 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7772,6 +8185,7 @@ This disease-associated gene is NDUFB11 (hgnc:20372). hgnc:20372 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7794,6 +8208,7 @@ This disease-associated gene is NDUFB11 (hgnc:20372). hgnc:20372 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28050600" target="_blank">PMID:28050600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7815,6 +8230,7 @@ This disease-associated gene is NDUFB11 (hgnc:20372). hgnc:20372 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28050600" target="_blank">PMID:28050600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7853,15 +8269,17 @@ This disease-associated gene is NDUFB11 (hgnc:20372). hgnc:20372 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NDUFAF2 (hgnc:28086). hgnc:28086 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NDUFAF2
 
 
-    <a href="https://bioregistry.io/hgnc:28086" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28086</a>
+    <a href="https://bioregistry.io/hgnc:28086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:28086</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NDUFAF2 (hgnc:28086). hgnc:28086 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7886,6 +8304,7 @@ This disease-associated gene is NDUFAF2 (hgnc:28086). hgnc:28086 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7922,15 +8341,17 @@ This disease-associated gene is NDUFAF2 (hgnc:28086). hgnc:28086 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NDUFB9 (hgnc:7704). hgnc:7704 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NDUFB9
 
 
-    <a href="https://bioregistry.io/hgnc:7704" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7704</a>
+    <a href="https://bioregistry.io/hgnc:7704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:7704</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NDUFB9 (hgnc:7704). hgnc:7704 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7955,6 +8376,7 @@ This disease-associated gene is NDUFB9 (hgnc:7704). hgnc:7704 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7991,15 +8413,17 @@ This disease-associated gene is NDUFB9 (hgnc:7704). hgnc:7704 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HCCS
 
 
-    <a href="https://bioregistry.io/hgnc:4837" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4837</a>
+    <a href="https://bioregistry.io/hgnc:4837" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:4837</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8022,6 +8446,7 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28050600" target="_blank">PMID:28050600</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -8058,15 +8483,17 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COX7B (hgnc:2291). hgnc:2291 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COX7B
 
 
-    <a href="https://bioregistry.io/hgnc:2291" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2291</a>
+    <a href="https://bioregistry.io/hgnc:2291" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:2291</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COX7B (hgnc:2291). hgnc:2291 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8090,6 +8517,7 @@ This disease-associated gene is COX7B (hgnc:2291). hgnc:2291 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28050600" target="_blank">PMID:28050600</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
@@ -8111,6 +8539,7 @@ This disease-associated gene is COX7B (hgnc:2291). hgnc:2291 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28050600" target="_blank">PMID:28050600</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8142,6 +8571,9 @@ This disease-associated gene is COX7B (hgnc:2291). hgnc:2291 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8160,17 +8592,17 @@ This disease-associated gene is COX7B (hgnc:2291). hgnc:2291 is a gene from the 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8195,18 +8627,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carvedilol (CHEBI:3441). CHEBI:3441 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         carvedilol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3441" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:3441</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3441" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:3441</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carvedilol (CHEBI:3441). CHEBI:3441 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8250,6 +8684,7 @@ This treatment uses carvedilol (CHEBI:3441). CHEBI:3441 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38089118" target="_blank">PMID:38089118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8272,6 +8707,7 @@ This treatment uses carvedilol (CHEBI:3441). CHEBI:3441 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38089118" target="_blank">PMID:38089118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8293,6 +8729,7 @@ This treatment uses carvedilol (CHEBI:3441). CHEBI:3441 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38089118" target="_blank">PMID:38089118</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8326,18 +8763,18 @@ This treatment uses carvedilol (CHEBI:3441). CHEBI:3441 is a therapeutic agent f
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">cardiac ablation<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical intervention from the NCI Thesaurus.">cardiac ablation</span>
+This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Ablation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C100068" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical intervention from the NCI Thesaurus.">NCIT:C100068</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C100068" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C100068">NCIT:C100068</a>
 
 
 
@@ -8397,6 +8834,7 @@ This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8418,6 +8856,7 @@ This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8451,18 +8890,18 @@ This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical in
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8522,6 +8961,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7942464" target="_blank">PMID:7942464</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8554,18 +8994,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">ventricular assist device placement<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452 is a clinical intervention from the NCI Thesaurus.">ventricular assist device placement</span>
+This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Ventricular Assist Device Placement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80452" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452 is a clinical intervention from the NCI Thesaurus.">NCIT:C80452</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80452" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80452">NCIT:C80452</a>
 
 
 
@@ -8607,6 +9047,7 @@ This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35439193" target="_blank">PMID:35439193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8629,6 +9070,7 @@ This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35439193" target="_blank">PMID:35439193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8650,6 +9092,7 @@ This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31449642" target="_blank">PMID:31449642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8683,18 +9126,18 @@ This treatment is ventricular assist device placement (NCIT:C80452). NCIT:C80452
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">heart transplantation<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">heart transplantation</span>
+This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Heart Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">NCIT:C15246</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15246">NCIT:C15246</a>
 
 
 
@@ -8736,6 +9179,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8757,6 +9201,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35439193" target="_blank">PMID:35439193</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8804,7 +9249,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-sudden-infant-death-syndrome">
                 <div class="item-name">
 
                     Sudden infant death syndrome
@@ -8832,6 +9277,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21585276" target="_blank">PMID:21585276</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8857,7 +9303,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-microphthalmia-with-linear-skin-defects-mls-syndrome">
                 <div class="item-name">
 
                     Microphthalmia with linear skin defects (MLS) syndrome
@@ -8885,6 +9331,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28050600" target="_blank">PMID:28050600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8910,7 +9357,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cardiac-rhabdomyoma">
                 <div class="item-name">
 
                     Cardiac rhabdomyoma
@@ -8937,6 +9384,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9043,6 +9491,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921236" target="_blank">PMID:25921236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9126,6 +9575,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19276060" target="_blank">PMID:19276060</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9147,6 +9597,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19276060" target="_blank">PMID:19276060</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12324,5 +12775,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

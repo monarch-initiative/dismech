@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,12 +3768,18 @@
             <span>VPS51-Related Pontocerebellar Hypoplasia-CDG</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>VPS51-Related Pontocerebellar Hypoplasia-CDG</h1>
             <div class="header-meta">
 
                 <span class="badge badge-category">Mendelian</span>
 
+
+                <span class="badge badge-mondo">
+                    <a href="http://purl.obolibrary.org/obo/MONDO_0032831" target="_blank">
+                        MONDO:0032831
+                    </a>
+                </span>
 
 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
@@ -3863,6 +3991,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3872,9 +4070,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="WP-068 classification 19.6.67.01: Complex Molecule and Organelle Metabolism, disorders of organelle biogenesis, dynamics and interactions, disorders of vesicular trafficking.">vesicular trafficking</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3892,7 +4106,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3937,6 +4151,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3958,6 +4173,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565173" target="_blank">PMID:40565173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4023,17 +4239,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VPS51 (hgnc:1172). hgnc:1172 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VPS51
 
 
-    <a href="https://bioregistry.io/hgnc:1172" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1172</a>
+    <a href="https://bioregistry.io/hgnc:1172" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1172</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VPS51 (hgnc:1172). hgnc:1172 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4062,18 +4282,20 @@ This pathophysiological event involves VPS51 (hgnc:1172). hgnc:1172 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased vesicle-mediated transport (GO:0016192). GO:0016192 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         vesicle-mediated transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" class="curie-chip curie-chip-go">GO:0016192</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased vesicle-mediated transport (GO:0016192). GO:0016192 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4094,18 +4316,20 @@ This pathophysiological event involves decreased vesicle-mediated transport (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased retrograde transport, endosome to Golgi (GO:0042147). GO:0042147 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         retrograde transport, endosome to Golgi
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042147" target="_blank" class="curie-chip curie-chip-go">GO:0042147</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042147" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042147</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retrograde transport, endosome to Golgi (GO:0042147). GO:0042147 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4133,18 +4357,20 @@ This pathophysiological event involves decreased retrograde transport, endosome 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         Golgi apparatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go">GO:0005794</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005794</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4182,6 +4408,7 @@ This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4203,6 +4430,7 @@ This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4237,18 +4465,20 @@ This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4276,18 +4506,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased retrograde transport, endosome to Golgi (GO:0042147). GO:0042147 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         retrograde transport, endosome to Golgi
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042147" target="_blank" class="curie-chip curie-chip-go">GO:0042147</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042147" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0042147</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retrograde transport, endosome to Golgi (GO:0042147). GO:0042147 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4308,18 +4540,20 @@ This pathophysiological event involves decreased retrograde transport, endosome 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal lysosome organization (GO:0007040). GO:0007040 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lysosome organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go">GO:0007040</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007040</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal lysosome organization (GO:0007040). GO:0007040 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4375,6 +4609,7 @@ This pathophysiological event involves abnormal lysosome organization (GO:000704
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4396,6 +4631,7 @@ This pathophysiological event involves abnormal lysosome organization (GO:000704
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565173" target="_blank">PMID:40565173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4437,18 +4673,20 @@ This pathophysiological event involves abnormal lysosome organization (GO:000704
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein N-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go">GO:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4469,18 +4707,20 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein O-linked glycosylation (GO:0006493). GO:0006493 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein O-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go">GO:0006493</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006493</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein O-linked glycosylation (GO:0006493). GO:0006493 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4522,6 +4762,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34161137" target="_blank">PMID:34161137</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4581,6 +4822,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4602,6 +4844,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565173" target="_blank">PMID:40565173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4701,16 +4944,20 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4730,6 +4977,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565173" target="_blank">PMID:40565173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4772,16 +5020,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
-                        Hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
-
-
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4801,6 +5053,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565173" target="_blank">PMID:40565173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4843,16 +5096,20 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.">
-                        Microcephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
-
-
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4872,6 +5129,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565173" target="_blank">PMID:40565173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4905,16 +5163,20 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4934,6 +5196,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4976,16 +5239,20 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5005,6 +5272,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5047,16 +5315,20 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5076,6 +5348,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5109,16 +5382,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5138,6 +5415,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5180,16 +5458,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5209,6 +5491,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5251,16 +5534,20 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0033725</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.">
-                        Thin corpus callosum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp">HP:0033725</a>
-
-
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5280,6 +5567,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565173" target="_blank">PMID:40565173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5313,16 +5601,20 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebral visual impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp">HP:0100704</a>
-
-
+This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5342,6 +5634,7 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5375,16 +5668,20 @@ This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the liver
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp">HP:0001392</a>
-
-
+This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5404,6 +5701,7 @@ This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5437,16 +5735,20 @@ This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010741" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010741</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype from the Human Phenotype Ontology.">
-                        Pedal edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010741" target="_blank" class="curie-chip curie-chip-hp">HP:0010741</a>
-
-
+This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5466,6 +5768,7 @@ This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5545,15 +5848,17 @@ This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype fro
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VPS51
 
 
-    <a href="https://bioregistry.io/hgnc:1172" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1172</a>
+    <a href="https://bioregistry.io/hgnc:1172" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:1172</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5583,6 +5888,7 @@ This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5604,6 +5910,7 @@ This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5633,6 +5940,55 @@ This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-vps51-related-pontocerebellar-hypoplasia-cdg-record">
+
+
+    <div class="item-name">OMIM VPS51-related pontocerebellar hypoplasia-CDG record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:618606" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:618606">OMIM:618606</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype identifier supplied by WP-068 for VPS51-related pontocerebellar hypoplasia-CDG.</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Medical actions -->
@@ -5687,6 +6043,11 @@ description: &gt;-
   severe developmental delay or intellectual disability, microcephaly, epilepsy,
   hypotonia, thin corpus callosum or pontocerebellar abnormalities, failure to
   thrive, and variable hepatic, hearing, feeding, and vision involvement.
+disease_term:
+  preferred_term: VPS51-related pontocerebellar hypoplasia-CDG
+  term:
+    id: MONDO:0032831
+    label: pontocerebellar hypoplasia, type 13
 parents:
 - Neurodevelopmental Disorder
 - Pontocerebellar Hypoplasia
@@ -5697,12 +6058,25 @@ synonyms:
 - VPS51-related GARP/EARP complex dysfunction
 - pontocerebellar hypoplasia-CDG due to VPS51 deficiency
 notes: &gt;-
-  WP-068 seed OMIM:618606 is retained as an external assertion. No exact local
-  MONDO class was found for VPS51-related pontocerebellar hypoplasia-CDG, so
-  disease_term is intentionally omitted pending ontology coverage. The local
-  PCH1A candidate was audited and not used because PCH1A is a VRK1/anterior-horn
-  cell disorder, whereas VPS51 disease is a GARP/EARP vesicular-trafficking and
-  Golgi-glycosylation disorder.
+  Ontology anchor, corrected 2026-08-20. This entry previously carried no
+  disease_term on the basis that no exact MONDO class existed. That was wrong:
+  MONDO:0032831 &#34;pontocerebellar hypoplasia, type 13&#34; xrefs OMIM:618606 - the
+  same OMIM number this entry was seeded from - and records VPS51 (HGNC:1172)
+  as its causal gene via RO:0004003. It is bound here. The earlier audit
+  correctly rejected PCH1A, which is a VRK1 anterior-horn-cell disorder, but
+  did not go on to check the numbered PCH series past it.
+
+  One caveat the binding does not resolve. MONDO:0032831 is classified under
+  MONDO:0020135 pontocerebellar hypoplasia, not under MONDO:0015286 congenital
+  disorder of glycosylation, so this entry is a member of the
+  Congenital_Disorders_of_Glycosylation grouping without being a MONDO
+  descendant of the grouping&#39;s mapped class. That is an upstream
+  classification gap rather than a curation error here: patient cells show
+  abnormal cellular and serum glycoprotein glycosylation, which is why the name
+  carries the CDG suffix and why the entry conforms to the CDG module. A MONDO
+  request to add the CDG parent to MONDO:0032831 would be the right follow-up,
+  and is a smaller ask than the new-term request previously assumed to be
+  needed.
 external_assertions:
 - name: OMIM VPS51-related pontocerebellar hypoplasia-CDG record
   source: OMIM
@@ -6312,7 +6686,7 @@ hearing, and swallowing features reported in the cached literature.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "VPS51-Related Pontocerebellar Hypoplasia-CDG", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "VPS51-Related_Pontocerebellar_Hypoplasia-CDG", "yamlRevision": "cab296b176c8"};
+        const OS_CONFIG = {"diseaseName": "VPS51-Related Pontocerebellar Hypoplasia-CDG", "mondoId": "MONDO:0032831", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "VPS51-Related_Pontocerebellar_Hypoplasia-CDG", "yamlRevision": "cb7d07aa5ae8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6731,5 +7105,73 @@ hearing, and swallowing features reported in the cached literature.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

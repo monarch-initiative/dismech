@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hereditary Spastic Paraplegia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hereditary Spastic Paraplegia</h1>
             <div class="header-meta">
 
@@ -3912,7 +4034,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3958,6 +4080,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3980,6 +4103,7 @@ age-related, nearly complete penetrance"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4004,7 +4128,7 @@ age-related, nearly complete penetrance"</div>
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -4049,6 +4173,7 @@ age-related, nearly complete penetrance"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301389" target="_blank">PMID:20301389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4119,7 +4244,7 @@ age-related, nearly complete penetrance"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pure-hsp">
 
                     <div class="item-name">
                         Pure (Uncomplicated) Hereditary Spastic Paraplegia
@@ -4154,6 +4279,7 @@ age-related, nearly complete penetrance"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4180,7 +4306,7 @@ age-related, nearly complete penetrance"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-complex-hsp">
 
                     <div class="item-name">
                         Complex (Complicated) Hereditary Spastic Paraplegia
@@ -4215,6 +4341,7 @@ age-related, nearly complete penetrance"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4236,6 +4363,7 @@ age-related, nearly complete penetrance"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4263,7 +4391,7 @@ age-related, nearly complete penetrance"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-spg4">
 
                     <div class="item-name">
                         Spastic Paraplegia 4 (SPAST-HSP)
@@ -4276,18 +4404,20 @@ age-related, nearly complete penetrance"</div>
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SPAST (hgnc:11233). hgnc:11233 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SPAST
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11233" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11233</a>
+    <a href="https://bioregistry.io/hgnc:11233" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11233</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SPAST (hgnc:11233). hgnc:11233 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4319,6 +4449,7 @@ This subtype is caused by variation in SPAST (hgnc:11233). hgnc:11233 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4347,7 +4478,7 @@ spasticity."</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-spg3a">
 
                     <div class="item-name">
                         Spastic Paraplegia 3A (ATL1-HSP)
@@ -4360,18 +4491,20 @@ spasticity."</div>
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ATL1 (hgnc:11231). hgnc:11231 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ATL1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11231" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11231</a>
+    <a href="https://bioregistry.io/hgnc:11231" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11231</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ATL1 (hgnc:11231). hgnc:11231 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4403,6 +4536,7 @@ This subtype is caused by variation in ATL1 (hgnc:11231). hgnc:11231 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862796" target="_blank">PMID:20862796</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4426,6 +4560,7 @@ weakness of the legs."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862796" target="_blank">PMID:20862796</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4455,7 +4590,7 @@ first decade of life."</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-spg7">
 
                     <div class="item-name">
                         Spastic Paraplegia 7 (SPG7/paraplegin)
@@ -4468,18 +4603,20 @@ first decade of life."</div>
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SPG7 (hgnc:11237). hgnc:11237 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SPG7
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11237" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11237</a>
+    <a href="https://bioregistry.io/hgnc:11237" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11237</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SPG7 (hgnc:11237). hgnc:11237 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4511,6 +4648,7 @@ This subtype is caused by variation in SPG7 (hgnc:11237). hgnc:11237 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9635427" target="_blank">PMID:9635427</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4534,6 +4672,7 @@ Paraplegin."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4561,7 +4700,7 @@ Paraplegin."</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-spg11">
 
                     <div class="item-name">
                         Spastic Paraplegia 11 (SPG11/spatacsin)
@@ -4574,18 +4713,20 @@ Paraplegin."</div>
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SPG11 (hgnc:11226). hgnc:11226 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SPG11
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11226" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11226</a>
+    <a href="https://bioregistry.io/hgnc:11226" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11226</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SPG11 (hgnc:11226). hgnc:11226 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4616,6 +4757,7 @@ This subtype is caused by variation in SPG11 (hgnc:11226). hgnc:11226 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301389" target="_blank">PMID:20301389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4677,18 +4819,20 @@ pseudobulbar..."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Upper motor neuron (corticospinal tract)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4705,18 +4849,20 @@ This pathophysiological event involves Upper motor neuron (corticospinal tract),
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Betz upper motor neuron (CL:4023052). CL:4023052 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Betz upper motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023052" target="_blank" class="curie-chip curie-chip-cl">CL:4023052</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023052" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:4023052</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Betz upper motor neuron (CL:4023052). CL:4023052 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4744,18 +4890,20 @@ This pathophysiological event involves Betz upper motor neuron (CL:4023052). CL:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Neuron projection (axon) maintenance failure, annotated with neuron projection maintenance (GO:1990535). GO:1990535 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Neuron projection (axon) maintenance failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990535" target="_blank" class="curie-chip curie-chip-go">GO:1990535</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990535" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:1990535</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Neuron projection (axon) maintenance failure, annotated with neuron projection maintenance (GO:1990535). GO:1990535 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4783,33 +4931,37 @@ This pathophysiological event involves decreased Neuron projection (axon) mainte
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Lateral corticospinal tract (UBERON:0002589). UBERON:0002589 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Lateral corticospinal tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002589" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002589</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002589" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Lateral corticospinal tract (UBERON:0002589). UBERON:0002589 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Corticospinal tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002707</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002707</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4845,6 +4997,7 @@ This pathophysiological event occurs in Corticospinal tract (UBERON:0002707). UB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4869,6 +5022,7 @@ gracilis fibers (maximal in the cervico-medullary region)."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4892,6 +5046,7 @@ not exclusively) the distal ends of long central nervous system (CNS) axons."</d
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439395" target="_blank">PMID:33439395</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4929,18 +5084,20 @@ the cervical and thoracic spinal cord."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Upper motor neuron (corticospinal tract)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4968,18 +5125,20 @@ This pathophysiological event involves Upper motor neuron (corticospinal tract),
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Microtubule severing (GO:0051013). GO:0051013 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Microtubule severing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051013" target="_blank" class="curie-chip curie-chip-go">GO:0051013</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051013" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0051013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Microtubule severing (GO:0051013). GO:0051013 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5000,18 +5159,20 @@ This pathophysiological event involves decreased Microtubule severing (GO:005101
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Axonal transport (GO:0098930). GO:0098930 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Axonal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098930" target="_blank" class="curie-chip curie-chip-go">GO:0098930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0098930</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Axonal transport (GO:0098930). GO:0098930 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5032,18 +5193,20 @@ This pathophysiological event involves decreased Axonal transport (GO:0098930). 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Mitochondrion organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5064,18 +5227,20 @@ This pathophysiological event involves decreased Mitochondrion organization (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Endoplasmic reticulum organization (GO:0007029). GO:0007029 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endoplasmic reticulum organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007029" target="_blank" class="curie-chip curie-chip-go">GO:0007029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Endoplasmic reticulum organization (GO:0007029). GO:0007029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5131,6 +5296,7 @@ This pathophysiological event involves decreased Endoplasmic reticulum organizat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202664" target="_blank">PMID:18202664</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5153,6 +5319,7 @@ and katanin are related microtubule-severing AAA ATPases"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202664" target="_blank">PMID:18202664</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5177,6 +5344,7 @@ destabilizes tubulin-tubulin interactions within the microtubule lattice."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42320547" target="_blank">PMID:42320547</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5214,18 +5382,20 @@ destabilizes tubulin-tubulin interactions within the microtubule lattice."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Upper motor neuron (corticospinal tract)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5253,18 +5423,20 @@ This pathophysiological event involves Upper motor neuron (corticospinal tract),
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Endoplasmic reticulum membrane fusion (GO:0016320). GO:0016320 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endoplasmic reticulum membrane fusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016320" target="_blank" class="curie-chip curie-chip-go">GO:0016320</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016320" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0016320</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Endoplasmic reticulum membrane fusion (GO:0016320). GO:0016320 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5285,18 +5457,20 @@ This pathophysiological event involves decreased Endoplasmic reticulum membrane 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Endoplasmic reticulum tubular network organization (GO:0071786). GO:0071786 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endoplasmic reticulum tubular network organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071786" target="_blank" class="curie-chip curie-chip-go">GO:0071786</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071786" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0071786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Endoplasmic reticulum tubular network organization (GO:0071786). GO:0071786 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5323,18 +5497,20 @@ This pathophysiological event involves decreased Endoplasmic reticulum tubular n
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Endoplasmic reticulum tubular network (GO:0071782). GO:0071782 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Endoplasmic reticulum tubular network
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071782" target="_blank" class="curie-chip curie-chip-go">GO:0071782</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071782" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0071782</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Endoplasmic reticulum tubular network (GO:0071782). GO:0071782 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5371,6 +5547,7 @@ This pathophysiological event involves Endoplasmic reticulum tubular network (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19665976" target="_blank">PMID:19665976</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5395,6 +5572,7 @@ formation in vivo and in vitro."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19665976" target="_blank">PMID:19665976</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5431,18 +5609,20 @@ we suggest ER-shaping defects as a neuropathogenic mechanism."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Upper motor neuron (corticospinal tract)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Upper motor neuron (corticospinal tract), annotated with upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5470,18 +5650,20 @@ This pathophysiological event involves Upper motor neuron (corticospinal tract),
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Mitochondrial protein quality control (GO:0141164). GO:0141164 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Mitochondrial protein quality control
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141164" target="_blank" class="curie-chip curie-chip-go">GO:0141164</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141164" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0141164</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Mitochondrial protein quality control (GO:0141164). GO:0141164 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5502,18 +5684,20 @@ This pathophysiological event involves decreased Mitochondrial protein quality c
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5569,6 +5753,7 @@ This pathophysiological event involves decreased Oxidative phosphorylation (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9635427" target="_blank">PMID:9635427</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5593,6 +5778,7 @@ disorders."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973427" target="_blank">PMID:32973427</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5619,6 +5805,7 @@ increased mitochondrial oxidative stress, and reduced..."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973427" target="_blank">PMID:32973427</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5663,18 +5850,20 @@ cells."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Neuron projection (axon) maintenance failure, annotated with neuron projection maintenance (GO:1990535). GO:1990535 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Neuron projection (axon) maintenance failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990535" target="_blank" class="curie-chip curie-chip-go">GO:1990535</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990535" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:1990535</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Neuron projection (axon) maintenance failure, annotated with neuron projection maintenance (GO:1990535). GO:1990535 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5716,6 +5905,7 @@ This pathophysiological event involves decreased Neuron projection (axon) mainte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5813,16 +6003,20 @@ This pathophysiological event involves decreased Neuron projection (axon) mainte
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000012" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000012</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Urinary urgency (HP:0000012). HP:0000012 is a phenotype from the Human Phenotype Ontology.">
-                        Urinary urgency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000012" target="_blank" class="curie-chip curie-chip-hp">HP:0000012</a>
-
-
+This clinical feature is Urinary urgency (HP:0000012). HP:0000012 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5842,6 +6036,7 @@ This clinical feature is Urinary urgency (HP:0000012). HP:0000012 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5887,16 +6082,20 @@ common."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001761</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.">
-                        Pes cavus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp">HP:0001761</a>
-
-
+This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5916,6 +6115,7 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5960,16 +6160,20 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001258</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spastic paraplegia (HP:0001258), qualified as course progressive. HP:0001258 is a phenotype from the Human Phenotype Ontology.">
-                        Spastic paraplegia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp">HP:0001258</a>
-
-
+This clinical feature is Spastic paraplegia (HP:0001258), qualified as course progressive. HP:0001258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6007,6 +6211,7 @@ This clinical feature is Spastic paraplegia (HP:0001258), qualified as course pr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6053,16 +6258,20 @@ spasticity."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperreflexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp">HP:0001347</a>
-
-
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6082,6 +6291,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6117,16 +6327,20 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
-                        Cognitive impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
-
-
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6146,6 +6360,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301389" target="_blank">PMID:20301389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6182,16 +6397,20 @@ childhood and/or progressive cognitive decline"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
-
-
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6211,6 +6430,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301389" target="_blank">PMID:20301389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6246,16 +6466,20 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
-                        Ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
-
-
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6275,6 +6499,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6317,16 +6542,22 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal upper motor neuron morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002127</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP:0002127 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal upper motor neuron morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002127" target="_blank" class="curie-chip curie-chip-hp">HP:0002127</a>
-
-
+This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP:0002127 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6346,6 +6577,7 @@ This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9635427" target="_blank">PMID:9635427</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6368,6 +6600,7 @@ This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6403,16 +6636,20 @@ This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002061</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.">
-                        Lower limb spasticity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp">HP:0002061</a>
-
-
+This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6432,6 +6669,7 @@ This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439395" target="_blank">PMID:33439395</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6469,16 +6707,22 @@ weakness of the lower extremities."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Lower limb muscle weakness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007340" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0007340</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lower limb muscle weakness (HP:0007340). HP:0007340 is a phenotype from the Human Phenotype Ontology.">
-                        Lower limb muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007340" target="_blank" class="curie-chip curie-chip-hp">HP:0007340</a>
-
-
+This clinical feature is Lower limb muscle weakness (HP:0007340). HP:0007340 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6498,6 +6742,7 @@ This clinical feature is Lower limb muscle weakness (HP:0007340). HP:0007340 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6534,16 +6779,22 @@ than 50% of affected individuals have some weakness in the legs"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Babinski sign</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003487</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype from the Human Phenotype Ontology.">
-                        Babinski sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003487" target="_blank" class="curie-chip curie-chip-hp">HP:0003487</a>
-
-
+This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6563,6 +6814,7 @@ This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6598,16 +6850,22 @@ This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Impaired vibration sensation at ankles</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0006938</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Impaired vibration sensation at ankles (HP:0006938). HP:0006938 is a phenotype from the Human Phenotype Ontology.">
-                        Impaired vibration sensation at ankles
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006938" target="_blank" class="curie-chip curie-chip-hp">HP:0006938</a>
-
-
+This clinical feature is Impaired vibration sensation at ankles (HP:0006938). HP:0006938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6627,6 +6885,7 @@ This clinical feature is Impaired vibration sensation at ankles (HP:0006938). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6663,16 +6922,20 @@ than 50% of affected individuals have some weakness in the legs and impaired vib
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0033725</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.">
-                        Thin corpus callosum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp">HP:0033725</a>
-
-
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6692,6 +6955,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301389" target="_blank">PMID:20301389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6727,16 +6991,20 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003693</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.">
-                        Distal amyotrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp">HP:0003693</a>
-
-
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6756,6 +7024,7 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23897027" target="_blank">PMID:23897027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6833,15 +7102,17 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SPAST (hgnc:11233). hgnc:11233 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPAST
 
 
-    <a href="https://bioregistry.io/hgnc:11233" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11233</a>
+    <a href="https://bioregistry.io/hgnc:11233" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:11233</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPAST (hgnc:11233). hgnc:11233 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6868,6 +7139,7 @@ This disease-associated gene is SPAST (hgnc:11233). hgnc:11233 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202664" target="_blank">PMID:18202664</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6904,15 +7176,17 @@ This disease-associated gene is SPAST (hgnc:11233). hgnc:11233 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATL1
 
 
-    <a href="https://bioregistry.io/hgnc:11231" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11231</a>
+    <a href="https://bioregistry.io/hgnc:11231" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:11231</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6939,6 +7213,7 @@ This disease-associated gene is ATL1 (hgnc:11231). hgnc:11231 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862796" target="_blank">PMID:20862796</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6977,15 +7252,17 @@ ATL1 identified by molecular genetic testing."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SPG7 (hgnc:11237). hgnc:11237 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPG7
 
 
-    <a href="https://bioregistry.io/hgnc:11237" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11237</a>
+    <a href="https://bioregistry.io/hgnc:11237" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:11237</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPG7 (hgnc:11237). hgnc:11237 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7012,6 +7289,7 @@ This disease-associated gene is SPG7 (hgnc:11237). hgnc:11237 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9635427" target="_blank">PMID:9635427</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7049,15 +7327,17 @@ were found in a complicated and in a pure form of HSP."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SPG11 (hgnc:11226). hgnc:11226 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPG11
 
 
-    <a href="https://bioregistry.io/hgnc:11226" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11226</a>
+    <a href="https://bioregistry.io/hgnc:11226" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:11226</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPG11 (hgnc:11226). hgnc:11226 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7084,6 +7364,7 @@ This disease-associated gene is SPG11 (hgnc:11226). hgnc:11226 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301389" target="_blank">PMID:20301389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7117,6 +7398,9 @@ SPG11 identified on molecular genetic testing."</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7133,17 +7417,17 @@ SPG11 identified on molecular genetic testing."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7168,33 +7452,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         baclofen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2972</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:2972</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tizanidine (CHEBI:63629). CHEBI:63629 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         tizanidine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63629" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:63629</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63629" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:63629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tizanidine (CHEBI:63629). CHEBI:63629 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7210,18 +7498,20 @@ This treatment uses tizanidine (CHEBI:63629). CHEBI:63629 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Lower limb spasticity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp">HP:0002061</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002061</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7240,6 +7530,7 @@ This treatment targets Lower limb spasticity (HP:0002061). HP:0002061 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7262,6 +7553,7 @@ This treatment targets Lower limb spasticity (HP:0002061). HP:0002061 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20862796" target="_blank">PMID:20862796</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7294,17 +7586,17 @@ treatment of spasticity may begin with oral baclofen or tizanidine"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7329,33 +7621,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses botulinum toxin type A (CHEBI:3160). CHEBI:3160 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         botulinum toxin type A
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3160" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:3160</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3160" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:3160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses botulinum toxin type A (CHEBI:3160). CHEBI:3160 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         baclofen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2972</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:2972</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7371,18 +7667,20 @@ This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent fro
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Lower limb spasticity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp">HP:0002061</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002061</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7401,6 +7699,7 @@ This treatment targets Lower limb spasticity (HP:0002061). HP:0002061 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7434,17 +7733,17 @@ severe and disabling."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Physical Therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Physical Therapy</span>
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -7487,6 +7786,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7518,17 +7818,17 @@ to stretch spastic muscles and prevent contractures."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7553,18 +7853,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses oxybutynin (CHEBI:7856). CHEBI:7856 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         oxybutynin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7856" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:7856</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7856" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:7856</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses oxybutynin (CHEBI:7856). CHEBI:7856 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7580,18 +7882,20 @@ This treatment uses oxybutynin (CHEBI:7856). CHEBI:7856 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Urinary urgency (HP:0000012). HP:0000012 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Urinary urgency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000012" target="_blank" class="curie-chip curie-chip-hp">HP:0000012</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000012" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Urinary urgency (HP:0000012). HP:0000012 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7610,6 +7914,7 @@ This treatment targets Urinary urgency (HP:0000012). HP:0000012 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301339" target="_blank">PMID:20301339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7655,7 +7960,7 @@ This treatment targets Urinary urgency (HP:0000012). HP:0000012 is a phenotype f
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000697">
                 <div class="item-name">
                     Neuromics / RD-Connect - hereditary spastic paraplegia
 
@@ -7690,7 +7995,7 @@ This treatment targets Urinary urgency (HP:0000012). HP:0000012 is a phenotype f
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001849">
                 <div class="item-name">
                     Whole-genome sequencing of two probands with hereditary spastic paraplegia reveals novel splice-donor region mutation and known pathogenic mutation in SPG11
 
@@ -7725,7 +8030,7 @@ This treatment targets Urinary urgency (HP:0000012). HP:0000012 is a phenotype f
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002006">
                 <div class="item-name">
                     HipSci HumanExome BeadChip analysis - Hereditary Spastic Paraplegia
 
@@ -7760,7 +8065,7 @@ This treatment targets Urinary urgency (HP:0000012). HP:0000012 is a phenotype f
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs001080">
                 <div class="item-name">
                     Genome Studies in Hereditary Spastic Paraplegia
 
@@ -8039,6 +8344,7 @@ has_subtypes:
 
 pathophysiology:
 - name: Length-Dependent Corticospinal-Tract Axonal Degeneration
+  conforms_to: &#34;corticospinal_tract_axonopathy#Distal Length-Dependent Degeneration of Long CNS Axons&#34;
   description: &gt;
     The unifying pathology of HSP is degeneration of the lateral corticospinal
     tract axons, maximal at their distal ends in the thoracic spinal cord, with
@@ -8095,6 +8401,7 @@ pathophysiology:
     snippet: &#34;The most common neuropathological sign \nis the axonal degeneration involving the lateral corticospinal tracts in both \nthe cervical and thoracic spinal cord.&#34;
     explanation: Independent review confirms lateral corticospinal-tract axonal degeneration as the dominant neuropathology.
 - name: Spastin Microtubule-Severing Defect (SPG4)
+  conforms_to: &#34;corticospinal_tract_axonopathy#Long-Axon Maintenance Machinery Defect&#34;
   description: &gt;
     Spastin, encoded by SPAST (SPG4), is a microtubule-severing AAA ATPase that
     assembles into a hexameric ring and remodels neuronal microtubule arrays by
@@ -8160,6 +8467,7 @@ pathophysiology:
     snippet: &#34;NU-9 treatment (100 mg/kg, for 100 days) significantly prevented degeneration of corticospinal axons, restored the integrity of mitochondria and endoplasmic reticulum, and reduced the presence of electron-dense accumulations in the CSMN of SPASTC448Y mice.&#34;
     explanation: Demonstrates that spastin dysfunction specifically compromises mitochondrial and ER integrity in corticospinal motor neurons, and restoration of these organellar functions prevents axonal degeneration.
 - name: Atlastin-1 ER Tubular Network Defect (SPG3A)
+  conforms_to: &#34;corticospinal_tract_axonopathy#Long-Axon Maintenance Machinery Defect&#34;
   description: &gt;
     Atlastin-1, encoded by ATL1 (SPG3A), is a dynamin-like, integral-membrane
     GTPase that mediates homotypic fusion of endoplasmic reticulum tubules and
@@ -8205,6 +8513,7 @@ pathophysiology:
     snippet: &#34;Since atlastin-1 mutations cause a common form of hereditary spastic paraplegia, \nwe suggest ER-shaping defects as a neuropathogenic mechanism.&#34;
     explanation: Directly links atlastin-1 mutations and HSP to ER-shaping defects as the proposed mechanism.
 - name: Paraplegin Mitochondrial Quality-Control and OXPHOS Failure (SPG7)
+  conforms_to: &#34;corticospinal_tract_axonopathy#Long-Axon Maintenance Machinery Defect&#34;
   description: &gt;
     Paraplegin, encoded by SPG7, is a nuclear-encoded mitochondrial
     metalloprotease (m-AAA protease) embedded in the inner mitochondrial
@@ -8254,6 +8563,7 @@ pathophysiology:
     explanation: Demonstrates genotype-specific mitochondrial pathology, distinguishing the SPG7 mechanism from SPG4/SPAST.
 
 - name: Progressive Lower-Limb Spasticity and Weakness
+  conforms_to: &#34;corticospinal_tract_axonopathy#Progressive Lower-Limb Spasticity and Weakness&#34;
   description: &gt;
     The convergent corticospinal-tract axonopathy produces the cardinal clinical
     syndrome: insidiously progressive bilateral lower-limb spasticity and
@@ -9989,7 +10299,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Spastic Paraplegia", "mondoId": "MONDO:0019064", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Spastic_Paraplegia", "yamlRevision": "a7212527ada5"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Spastic Paraplegia", "mondoId": "MONDO:0019064", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Spastic_Paraplegia", "yamlRevision": "3ddefe6fb35e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10408,5 +10718,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

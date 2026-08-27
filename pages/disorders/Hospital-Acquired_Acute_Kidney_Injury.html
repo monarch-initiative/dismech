@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hospital-Acquired Acute Kidney Injury</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hospital-Acquired Acute Kidney Injury</h1>
             <div class="header-meta">
 
@@ -3935,7 +4057,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sepsis-associated-aki">
 
                     <div class="item-name">
                         Sepsis-Associated AKI
@@ -3964,7 +4086,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-nephrotoxic-aki">
 
                     <div class="item-name">
                         Nephrotoxic AKI
@@ -3993,7 +4115,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-postoperative-aki">
 
                     <div class="item-name">
                         Postoperative AKI
@@ -4022,7 +4144,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-contrast-induced-aki">
 
                     <div class="item-name">
                         Contrast-Induced AKI
@@ -4081,18 +4203,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4109,18 +4233,20 @@ This pathophysiological event involves Proximal Tubular Epithelial Cell, annotat
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Peritubular Capillary Endothelial Cell (CL:1001033). CL:1001033 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Peritubular Capillary Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001033" target="_blank" class="curie-chip curie-chip-cl">CL:1001033</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001033" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:1001033</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Peritubular Capillary Endothelial Cell (CL:1001033). CL:1001033 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4148,18 +4274,20 @@ This pathophysiological event involves Peritubular Capillary Endothelial Cell (C
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Ischemic Response, annotated with response to ischemia (GO:0002931). GO:0002931 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Ischemic Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="curie-chip curie-chip-go">GO:0002931</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002931</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Ischemic Response, annotated with response to ischemia (GO:0002931). GO:0002931 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4176,18 +4304,20 @@ This pathophysiological event involves Ischemic Response, annotated with respons
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Programmed Necrotic Cell Death (GO:0097300). GO:0097300 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Programmed Necrotic Cell Death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097300" target="_blank" class="curie-chip curie-chip-go">GO:0097300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097300" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0097300</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Programmed Necrotic Cell Death (GO:0097300). GO:0097300 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4204,18 +4334,20 @@ This pathophysiological event involves Programmed Necrotic Cell Death (GO:009730
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Apoptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4239,33 +4371,37 @@ This pathophysiological event involves Apoptotic Process (GO:0006915). GO:000691
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Proximal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0004134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:0009773 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Renal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0009773</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009773" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0009773</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:0009773 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4288,6 +4424,7 @@ This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31005270" target="_blank">PMID:31005270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4309,6 +4446,7 @@ This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25057935" target="_blank">PMID:25057935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4344,18 +4482,20 @@ This pathophysiological event occurs in Renal Tubule (UBERON:0009773). UBERON:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4383,18 +4523,20 @@ This pathophysiological event involves Proximal Tubular Epithelial Cell, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Apoptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4411,18 +4553,20 @@ This pathophysiological event involves Apoptotic Process (GO:0006915). GO:000691
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Response to Oxidative Stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4446,18 +4590,20 @@ This pathophysiological event involves Response to Oxidative Stress (GO:0006979)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Proximal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0004134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4480,6 +4626,7 @@ This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29802583" target="_blank">PMID:29802583</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4501,6 +4648,7 @@ This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34537763" target="_blank">PMID:34537763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4536,18 +4684,20 @@ This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Glomerular Endothelial Cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Glomerular Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl">CL:0002188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Glomerular Endothelial Cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4564,18 +4714,20 @@ This pathophysiological event involves Glomerular Endothelial Cell (CL:0002188).
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Kidney Resident Macrophage (CL:1000698). CL:1000698 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Kidney Resident Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000698" target="_blank" class="curie-chip curie-chip-cl">CL:1000698</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000698" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:1000698</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Kidney Resident Macrophage (CL:1000698). CL:1000698 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4592,18 +4744,20 @@ This pathophysiological event involves Kidney Resident Macrophage (CL:1000698). 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4631,18 +4785,20 @@ This pathophysiological event involves Proximal Tubular Epithelial Cell, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4659,18 +4815,20 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cell Death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cell Death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0008219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cell Death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4694,33 +4852,37 @@ This pathophysiological event involves Cell Death (GO:0008219). GO:0008219 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Renal Glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Renal Glomerulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Renal Glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Kidney Vasculature (UBERON:0006544). UBERON:0006544 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Kidney Vasculature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006544" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0006544</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006544" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0006544</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Kidney Vasculature (UBERON:0006544). UBERON:0006544 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4742,6 +4904,7 @@ This pathophysiological event occurs in Kidney Vasculature (UBERON:0006544). UBE
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29273917" target="_blank">PMID:29273917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4765,6 +4928,7 @@ This pathophysiological event occurs in Kidney Vasculature (UBERON:0006544). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4786,6 +4950,7 @@ This pathophysiological event occurs in Kidney Vasculature (UBERON:0006544). UBE
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25845505" target="_blank">PMID:25845505</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4821,18 +4986,20 @@ This pathophysiological event occurs in Kidney Vasculature (UBERON:0006544). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4860,18 +5027,20 @@ This pathophysiological event involves Proximal Tubular Epithelial Cell, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Response to Oxidative Stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4910,6 +5079,7 @@ This pathophysiological event involves Response to Oxidative Stress (GO:0006979)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4931,6 +5101,7 @@ This pathophysiological event involves Response to Oxidative Stress (GO:0006979)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26924060" target="_blank">PMID:26924060</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5020,16 +5191,20 @@ This pathophysiological event involves Response to Oxidative Stress (GO:0006979)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100520</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from the Human Phenotype Ontology.">
-                        Oliguria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp">HP:0100520</a>
-
-
+This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5049,6 +5224,7 @@ This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35685550" target="_blank">PMID:35685550</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5082,16 +5258,20 @@ This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.">
-                        Proteinuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
-
-
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5111,6 +5291,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28927644" target="_blank">PMID:28927644</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5153,16 +5334,22 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating creatinine concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003259</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated Serum Creatinine, annotated with Elevated circulating creatinine concentration (HP:0003259). HP:0003259 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating creatinine concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003259" target="_blank" class="curie-chip curie-chip-hp">HP:0003259</a>
-
-
+This clinical feature is Elevated Serum Creatinine, annotated with Elevated circulating creatinine concentration (HP:0003259). HP:0003259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5182,6 +5369,7 @@ This clinical feature is Elevated Serum Creatinine, annotated with Elevated circ
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26231194" target="_blank">PMID:26231194</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5215,16 +5403,20 @@ This clinical feature is Elevated Serum Creatinine, annotated with Elevated circ
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001942</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Metabolic Acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.">
-                        Metabolic acidosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp">HP:0001942</a>
-
-
+This clinical feature is Metabolic Acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5244,6 +5436,7 @@ This clinical feature is Metabolic Acidosis (HP:0001942). HP:0001942 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32397637" target="_blank">PMID:32397637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5277,16 +5470,20 @@ This clinical feature is Metabolic Acidosis (HP:0001942). HP:0001942 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002153" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002153</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperkalemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002153" target="_blank" class="curie-chip curie-chip-hp">HP:0002153</a>
-
-
+This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5306,6 +5503,7 @@ This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32397637" target="_blank">PMID:32397637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5339,16 +5537,22 @@ This clinical feature is Hyperkalemia (HP:0002153). HP:0002153 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Edema</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000969</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.">
-                        Edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp">HP:0000969</a>
-
-
+This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5368,6 +5572,7 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32397637" target="_blank">PMID:32397637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5401,16 +5606,20 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002157" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002157</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from the Human Phenotype Ontology.">
-                        Azotemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002157" target="_blank" class="curie-chip curie-chip-hp">HP:0002157</a>
-
-
+This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5430,6 +5639,7 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32397637" target="_blank">PMID:32397637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5504,6 +5714,28 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FTO
+
+
+    <a href="https://bioregistry.io/hgnc:24678" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:24678</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FTO (hgnc:24678). hgnc:24678 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5518,6 +5750,7 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38797326" target="_blank">PMID:38797326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5551,6 +5784,28 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SHROOM3
+
+
+    <a href="https://bioregistry.io/hgnc:30422" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:30422</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SHROOM3 (hgnc:30422). hgnc:30422 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5565,6 +5820,7 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38797326" target="_blank">PMID:38797326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5598,6 +5854,28 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: APOE
+
+
+    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:613</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5612,6 +5890,7 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19443624" target="_blank">PMID:19443624</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5645,6 +5924,28 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NR5A2
+
+
+    <a href="https://bioregistry.io/hgnc:7984" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:7984</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NR5A2 (hgnc:7984). hgnc:7984 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5659,6 +5960,7 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39636799" target="_blank">PMID:39636799</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5692,6 +5994,28 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CHRNA7
+
+
+    <a href="https://bioregistry.io/hgnc:1960" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:1960</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNA7 (hgnc:1960). hgnc:1960 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5706,6 +6030,7 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39636799" target="_blank">PMID:39636799</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5737,6 +6062,9 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5753,18 +6081,18 @@ This clinical feature is Azotemia (HP:0002157). HP:0002157 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">fluid replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is fluid replacement therapy, annotated with Hydration Therapy (NCIT:C66896). NCIT:C66896 is a clinical intervention from the NCI Thesaurus.">fluid replacement therapy</span>
+This treatment is fluid replacement therapy, annotated with Hydration Therapy (NCIT:C66896). NCIT:C66896 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hydration Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66896" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is fluid replacement therapy, annotated with Hydration Therapy (NCIT:C66896). NCIT:C66896 is a clinical intervention from the NCI Thesaurus.">NCIT:C66896</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66896" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66896">NCIT:C66896</a>
 
 
 
@@ -5807,6 +6135,7 @@ This treatment is fluid replacement therapy, annotated with Hydration Therapy (N
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29802583" target="_blank">PMID:29802583</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5837,18 +6166,18 @@ This treatment is fluid replacement therapy, annotated with Hydration Therapy (N
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">nephrotoxin avoidance<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">nephrotoxin avoidance</span>
+This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">NCIT:C15900</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15900">NCIT:C15900</a>
 
 
 
@@ -5891,6 +6220,7 @@ This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29188454" target="_blank">PMID:29188454</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5912,6 +6242,7 @@ This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34537763" target="_blank">PMID:34537763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5943,18 +6274,18 @@ This treatment is nephrotoxin avoidance, annotated with Lifestyle Therapy (NCIT:
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">renal replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">renal replacement therapy</span>
+This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Renal Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">NCIT:C126400</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C126400">NCIT:C126400</a>
 
 
 
@@ -5997,6 +6328,7 @@ This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32397637" target="_blank">PMID:32397637</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6027,18 +6359,18 @@ This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6080,6 +6412,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29188454" target="_blank">PMID:29188454</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6123,22 +6456,45 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-                    <span class="tag tag-location" title="Environment Ontology (ENVO)
-Relation: this environmental factor occurs in this environment
-This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.">
+                    <span class="tag tag-env">
+                        nephrotoxic drug exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001112" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-37">XCO:0001112</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is nephrotoxic drug exposure, annotated with nephrotoxic chemical (XCO:0001112). XCO:0001112 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+
+                    <span class="tag tag-location">
                         healthcare facility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo">ENVO:03501134</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-38">ENVO:03501134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.</span>
                     </span>
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6158,6 +6514,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34537763" target="_blank">PMID:34537763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6180,6 +6537,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26231194" target="_blank">PMID:26231194</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6230,6 +6588,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34537763" target="_blank">PMID:34537763</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6251,6 +6610,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26231194" target="_blank">PMID:26231194</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6286,22 +6646,28 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
 
 
 
-                    <span class="tag tag-location" title="Environment Ontology (ENVO)
-Relation: this environmental factor occurs in this environment
-This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.">
+
+                    <span class="tag tag-location">
                         healthcare facility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo">ENVO:03501134</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-39">ENVO:03501134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.</span>
                     </span>
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6321,6 +6687,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29802583" target="_blank">PMID:29802583</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6371,6 +6738,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29802583" target="_blank">PMID:29802583</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6405,22 +6773,28 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
 
 
 
-                    <span class="tag tag-location" title="Environment Ontology (ENVO)
-Relation: this environmental factor occurs in this environment
-This environmental factor occurs in intensive care unit (ENVO:03600008). ENVO:03600008 is an environment from the Environment Ontology.">
+
+                    <span class="tag tag-location">
                         intensive care unit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03600008" target="_blank" class="curie-chip curie-chip-envo">ENVO:03600008</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03600008" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-40">ENVO:03600008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in intensive care unit (ENVO:03600008). ENVO:03600008 is an environment from the Environment Ontology.</span>
                     </span>
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6440,6 +6814,7 @@ This environmental factor occurs in intensive care unit (ENVO:03600008). ENVO:03
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6490,6 +6865,7 @@ This environmental factor occurs in intensive care unit (ENVO:03600008). ENVO:03
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6537,6 +6913,7 @@ This environmental factor occurs in intensive care unit (ENVO:03600008). ENVO:03
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33494815" target="_blank">PMID:33494815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6571,22 +6948,45 @@ This environmental factor occurs in intensive care unit (ENVO:03600008). ENVO:03
 
 
 
-                    <span class="tag tag-location" title="Environment Ontology (ENVO)
-Relation: this environmental factor occurs in this environment
-This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.">
+                    <span class="tag tag-env">
+                        surgical procedure exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_2000054" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:2000054</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is surgical procedure exposure, annotated with exposure to surgery (ECTO:2000054). ECTO:2000054 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+
+                    <span class="tag tag-location">
                         healthcare facility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo">ENVO:03501134</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03501134" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-42">ENVO:03501134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03501134 is an environment from the Environment Ontology.</span>
                     </span>
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6606,6 +7006,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25057935" target="_blank">PMID:25057935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6656,6 +7057,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25057935" target="_blank">PMID:25057935</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6701,7 +7103,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse297679">
                 <div class="item-name">
                     Elevated FTO alleviates sepsis-induced acute kidney injury by regulating macrophage inflammatory phenotypes [MeRIP-seq]
 
@@ -6744,7 +7146,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse307588">
                 <div class="item-name">
                     Spatial profiling of hypoxic injury in human kidney organoids
 
@@ -6795,7 +7197,7 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02568722">
                 <div class="item-name">
                     NCT02568722
 
@@ -6814,33 +7216,37 @@ This environmental factor occurs in healthcare facility (ENVO:03501134). ENVO:03
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Acute kidney injury
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp">HP:0001919</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001919</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Oliguria (HP:0100520). HP:0100520 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Oliguria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp">HP:0100520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0100520</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Oliguria (HP:0100520). HP:0100520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6858,6 +7264,7 @@ This clinical trial targets Oliguria (HP:0100520). HP:0100520 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32668114" target="_blank">PMID:32668114</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6907,7 +7314,6 @@ This clinical trial targets Oliguria (HP:0100520). HP:0100520 is a phenotype fro
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hospital-Acquired Acute Kidney Injury
 creation_date: &#34;2026-03-09T12:00:00Z&#34;
-updated_date: &#34;2026-04-14T20:40:00Z&#34;
 category: Complex
 parents:
 - Renal Disease
@@ -7249,6 +7655,11 @@ phenotypes:
     explanation: Large Veterans cohort study demonstrates that AKI causes new-onset or worsening proteinuria, with odds ratios of 1.20-1.39 across months of follow-up, and higher odds with more severe AKI stages.
 environmental:
 - name: Nephrotoxic Drug Exposure
+  exposure_term:
+    preferred_term: nephrotoxic drug exposure
+    term:
+      id: XCO:0001112
+      label: nephrotoxic chemical
   influences_mechanisms:
   - target: Nephrotoxic Injury
     environmental_effect: TRIGGERS
@@ -7398,6 +7809,11 @@ environmental:
     snippet: &#34;Up to 60% of patients with sepsis develop acute kidney injury (AKI), which is associated with a poor clinical outcome.&#34;
     explanation: Establishes sepsis as a major environmental trigger for hospital-acquired AKI in critically ill patients.
 - name: Major Surgery
+  exposure_term:
+    preferred_term: surgical procedure exposure
+    term:
+      id: ECTO:2000054
+      label: exposure to surgery
   influences_mechanisms:
   - target: Ischemic Tubular Injury
     environmental_effect: TRIGGERS
@@ -7737,6 +8153,11 @@ progression:
     explanation: Multiple clinical risk factors including AKI severity, comorbidities, and genetic predisposition determine the likelihood of AKI-to-CKD transition.
 genetic:
 - name: FTO
+  gene_term:
+    preferred_term: FTO
+    term:
+      id: hgnc:24678
+      label: FTO
   association: Associated
   notes: Locus near FTO on chromosome 16 associated with AKI risk, likely mediated through obesity-related pathways.
   evidence:
@@ -7747,6 +8168,11 @@ genetic:
     snippet: &#34;Two novel loci reached genome-wide significance in the meta-analysis: rs11642015 near the FTO locus on chromosome 16 (obesity traits) (odds ratio 1.07 (95% confidence interval, 1.05-1.09))&#34;
     explanation: GWAS of 54,488 AKI patients identified FTO locus as significantly associated with AKI susceptibility, though the effect was attenuated after adjustment for BMI and diabetes.
 - name: SHROOM3
+  gene_term:
+    preferred_term: SHROOM3
+    term:
+      id: hgnc:30422
+      label: SHROOM3
   association: Associated
   notes: Locus near SHROOM3 on chromosome 4 associated with AKI protection, related to glomerular filtration barrier integrity.
   evidence:
@@ -7757,6 +8183,11 @@ genetic:
     snippet: &#34;rs4859682 near the SHROOM3 locus on chromosome 4 (glomerular filtration barrier integrity) (odds ratio 0.95 (95% confidence interval, 0.93-0.96)).&#34;
     explanation: SHROOM3 locus reached genome-wide significance as a protective factor against AKI, with colocalization to previous kidney function studies.
 - name: APOE
+  gene_term:
+    preferred_term: APOE
+    term:
+      id: hgnc:613
+      label: APOE
   association: Associated
   notes: APO E e2/e3/e4 polymorphism was the only variant with replicated association across multiple early AKI genetic studies.
   evidence:
@@ -7767,6 +8198,11 @@ genetic:
     snippet: &#34;Only one polymorphism, APO E e2/e3/e4, had greater than one study showing a significant impact (P &lt; 0.05) on AKI incidence.&#34;
     explanation: Systematic review of 16 AKI genetic studies found APOE as the only replicated genetic association across multiple studies.
 - name: NR5A2
+  gene_term:
+    preferred_term: NR5A2
+    term:
+      id: hgnc:7984
+      label: NR5A2
   association: Associated
   notes: Variants near NR5A2 gene showed suggestive association with sepsis-associated AKI at sub-genome-wide significance.
   evidence:
@@ -7777,6 +8213,11 @@ genetic:
     snippet: &#34;rs184516290 (chr1:199814965:G:A), near the NR5A2 gene, chr1:199805801:T:TA, also near the NR5A2 gene, and rs117313146 (chr15:31999784:G:C), near the CHRNA7 gene, were associated with S-AKI at the suggestive level in all three models presented.&#34;
     explanation: NR5A2 variants showed consistent suggestive association with sepsis-AKI but did not reach genome-wide significance threshold.
 - name: CHRNA7
+  gene_term:
+    preferred_term: CHRNA7
+    term:
+      id: hgnc:1960
+      label: CHRNA7
   association: Associated
   notes: Variant near CHRNA7 gene on chromosome 15 showed suggestive association with sepsis-associated AKI across multiple models.
   evidence:
@@ -8355,7 +8796,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "fa77f37155fa"};
+        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "3502aa1c3e2b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8774,5 +9215,73 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

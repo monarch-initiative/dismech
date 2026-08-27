@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Senior-Loken Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Senior-Loken Syndrome</h1>
             <div class="header-meta">
 
@@ -3889,38 +4011,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">KIDNEY_URINARY_TRACT</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification">KIDNEY URINARY TRACT</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-mechanistic">ciliopathy</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3938,7 +4146,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -3965,6 +4173,7 @@
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3984,6 +4193,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40427560" target="_blank">PMID:40427560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4050,7 +4260,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-slsn1">
 
                     <div class="item-name">
                         Senior-Loken syndrome 1 (NPHP1)
@@ -4086,6 +4296,7 @@
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4110,7 +4321,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-slsn5">
 
                     <div class="item-name">
                         Senior-Loken syndrome 5 (IQCB1/NPHP5)
@@ -4146,6 +4357,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15723066" target="_blank">PMID:15723066</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4172,7 +4384,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-slsn6">
 
                     <div class="item-name">
                         Senior-Loken syndrome 6 (CEP290/NPHP6)
@@ -4208,6 +4420,7 @@
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4227,6 +4440,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16909394" target="_blank">PMID:16909394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4254,7 +4468,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-slsn7">
 
                     <div class="item-name">
                         Senior-Loken syndrome 7 (SDCCAG8)
@@ -4290,6 +4504,7 @@
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4314,7 +4529,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-slsn8">
 
                     <div class="item-name">
                         Senior-Loken syndrome 8 (WDR19)
@@ -4349,6 +4564,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4403,18 +4619,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         ciliated cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl">CL:0000064</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4442,18 +4660,20 @@ This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4474,18 +4694,20 @@ This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein localization to cilium (GO:0061512). GO:0061512 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein localization to cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go">GO:0061512</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0061512</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein localization to cilium (GO:0061512). GO:0061512 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4506,18 +4728,20 @@ This pathophysiological event involves abnormal protein localization to cilium (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal intraflagellar transport, annotated with intraciliary transport (GO:0042073). GO:0042073 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         intraflagellar transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="curie-chip curie-chip-go">GO:0042073</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0042073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intraflagellar transport, annotated with intraciliary transport (GO:0042073). GO:0042073 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4544,33 +4768,37 @@ This pathophysiological event involves abnormal intraflagellar transport, annota
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves ciliary transition zone (GO:0035869). GO:0035869 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         ciliary transition zone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035869" target="_blank" class="curie-chip curie-chip-go">GO:0035869</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035869" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0035869</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary transition zone (GO:0035869). GO:0035869 is a cellular component from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4641,6 +4869,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16885411" target="_blank">PMID:16885411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4662,6 +4891,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15723066" target="_blank">PMID:15723066</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4696,18 +4926,20 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves kidney tubule epithelial cell, annotated with kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         kidney tubule epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002518</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney tubule epithelial cell, annotated with kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4735,18 +4967,20 @@ This pathophysiological event involves kidney tubule epithelial cell, annotated 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4774,18 +5008,20 @@ This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4855,6 +5091,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21071979" target="_blank">PMID:21071979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4876,6 +5113,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16885411" target="_blank">PMID:16885411</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4910,18 +5148,20 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         photoreceptor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4949,18 +5189,20 @@ This pathophysiological event involves photoreceptor cell (CL:0000210). CL:00002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         photoreceptor cell maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0045494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4988,18 +5230,20 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5060,6 +5304,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15723066" target="_blank">PMID:15723066</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5159,16 +5404,20 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
-
-
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5188,6 +5437,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5230,16 +5480,20 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000556</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype from the Human Phenotype Ontology.">
-                        Retinal dystrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp">HP:0000556</a>
-
-
+This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5259,6 +5513,7 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5292,16 +5547,20 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.">
-                        Visual impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp">HP:0000505</a>
-
-
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5321,6 +5580,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5354,16 +5614,20 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000529</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.">
-                        Progressive visual loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" class="curie-chip curie-chip-hp">HP:0000529</a>
-
-
+This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5383,6 +5647,7 @@ This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a p
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5416,16 +5681,20 @@ This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007703" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007703</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal retinal pigmentation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007703" target="_blank" class="curie-chip curie-chip-hp">HP:0007703</a>
-
-
+This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5445,6 +5714,7 @@ This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5487,16 +5757,20 @@ This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000090</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nephronophthisis (HP:0000090). HP:0000090 is a phenotype from the Human Phenotype Ontology.">
-                        Nephronophthisis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000090" target="_blank" class="curie-chip curie-chip-hp">HP:0000090</a>
-
-
+This clinical feature is Nephronophthisis (HP:0000090). HP:0000090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5516,6 +5790,7 @@ This clinical feature is Nephronophthisis (HP:0000090). HP:0000090 is a phenotyp
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5549,16 +5824,20 @@ This clinical feature is Nephronophthisis (HP:0000090). HP:0000090 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003774</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.">
-                        Stage 5 chronic kidney disease
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp">HP:0003774</a>
-
-
+This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5578,6 +5857,7 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5611,16 +5891,20 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0008209</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:0008209 is a phenotype from the Human Phenotype Ontology.">
-                        Premature ovarian insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp">HP:0008209</a>
-
-
+This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:0008209 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5640,6 +5924,7 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5682,16 +5967,20 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5711,6 +6000,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5744,16 +6034,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
-                        Ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
-
-
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5773,6 +6067,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5815,16 +6110,20 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5844,6 +6143,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5884,16 +6184,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005576" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005576</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tubulointerstitial fibrosis (HP:0005576). HP:0005576 is a phenotype from the Human Phenotype Ontology.">
-                        Tubulointerstitial fibrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005576" target="_blank" class="curie-chip curie-chip-hp">HP:0005576</a>
-
-
+This clinical feature is Tubulointerstitial fibrosis (HP:0005576). HP:0005576 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5913,6 +6217,7 @@ This clinical feature is Tubulointerstitial fibrosis (HP:0005576). HP:0005576 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23559409" target="_blank">PMID:23559409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5992,15 +6297,17 @@ This clinical feature is Tubulointerstitial fibrosis (HP:0005576). HP:0005576 is
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPHP1
 
 
-    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7905</a>
+    <a href="https://bioregistry.io/hgnc:7905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:7905</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6021,6 +6328,7 @@ This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6057,15 +6365,17 @@ This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is IQCB1 (hgnc:28949). hgnc:28949 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IQCB1
 
 
-    <a href="https://bioregistry.io/hgnc:28949" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28949</a>
+    <a href="https://bioregistry.io/hgnc:28949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:28949</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IQCB1 (hgnc:28949). hgnc:28949 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6086,6 +6396,7 @@ This disease-associated gene is IQCB1 (hgnc:28949). hgnc:28949 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15723066" target="_blank">PMID:15723066</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6124,15 +6435,17 @@ This disease-associated gene is IQCB1 (hgnc:28949). hgnc:28949 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CEP290
 
 
-    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29021</a>
+    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:29021</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6153,6 +6466,7 @@ This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6189,15 +6503,17 @@ This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SDCCAG8
 
 
-    <a href="https://bioregistry.io/hgnc:10671" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10671</a>
+    <a href="https://bioregistry.io/hgnc:10671" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:10671</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6218,6 +6534,7 @@ This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6254,15 +6571,17 @@ This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is WDR19 (hgnc:18340). hgnc:18340 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: WDR19
 
 
-    <a href="https://bioregistry.io/hgnc:18340" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18340</a>
+    <a href="https://bioregistry.io/hgnc:18340" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:18340</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WDR19 (hgnc:18340). hgnc:18340 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6283,6 +6602,7 @@ This disease-associated gene is WDR19 (hgnc:18340). hgnc:18340 is a gene from th
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6319,15 +6639,17 @@ This disease-associated gene is WDR19 (hgnc:18340). hgnc:18340 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPHP3
 
 
-    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7907</a>
+    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:7907</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6348,6 +6670,7 @@ This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6384,15 +6707,17 @@ This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NPHP4 (hgnc:19104). hgnc:19104 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPHP4
 
 
-    <a href="https://bioregistry.io/hgnc:19104" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19104</a>
+    <a href="https://bioregistry.io/hgnc:19104" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:19104</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHP4 (hgnc:19104). hgnc:19104 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6413,6 +6738,7 @@ This disease-associated gene is NPHP4 (hgnc:19104). hgnc:19104 is a gene from th
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6449,15 +6775,17 @@ This disease-associated gene is NPHP4 (hgnc:19104). hgnc:19104 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is INVS (hgnc:17870). hgnc:17870 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: INVS
 
 
-    <a href="https://bioregistry.io/hgnc:17870" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17870</a>
+    <a href="https://bioregistry.io/hgnc:17870" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:17870</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is INVS (hgnc:17870). hgnc:17870 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6478,6 +6806,7 @@ This disease-associated gene is INVS (hgnc:17870). hgnc:17870 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6514,15 +6843,17 @@ This disease-associated gene is INVS (hgnc:17870). hgnc:17870 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CEP164 (hgnc:29182). hgnc:29182 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CEP164
 
 
-    <a href="https://bioregistry.io/hgnc:29182" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29182</a>
+    <a href="https://bioregistry.io/hgnc:29182" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:29182</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CEP164 (hgnc:29182). hgnc:29182 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6543,6 +6874,7 @@ This disease-associated gene is CEP164 (hgnc:29182). hgnc:29182 is a gene from t
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6579,15 +6911,17 @@ This disease-associated gene is CEP164 (hgnc:29182). hgnc:29182 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRAF3IP1
 
 
-    <a href="https://bioregistry.io/hgnc:17861" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17861</a>
+    <a href="https://bioregistry.io/hgnc:17861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:17861</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6608,6 +6942,7 @@ This disease-associated gene is TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:3156" target="_blank">ORPHA:3156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6637,6 +6972,9 @@ This disease-associated gene is TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6653,18 +6991,18 @@ This disease-associated gene is TRAF3IP1 (hgnc:17861). hgnc:17861 is a gene from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">kidney transplantation</span>
+This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">NCIT:C15289</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15289">NCIT:C15289</a>
 
 
 
@@ -6704,18 +7042,18 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6755,17 +7093,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6821,7 +7159,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isolated-nephronophthisis">
                 <div class="item-name">
 
                     Isolated Nephronophthisis
@@ -6849,6 +7187,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15723066" target="_blank">PMID:15723066</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6874,7 +7213,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-leber-congenital-amaurosis">
                 <div class="item-name">
 
                     Leber Congenital Amaurosis
@@ -6901,6 +7240,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16909394" target="_blank">PMID:16909394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6994,6 +7334,7 @@ has_subtypes:
     photoreceptor connecting cilium.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;NPHP1 | nephrocystin 1 | hgnc:7905 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7040,6 +7381,7 @@ has_subtypes:
     predominantly renal, retinal, or syndromic ciliopathy phenotypes.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;CEP290 | centrosomal protein 290 | hgnc:29021 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7070,6 +7412,7 @@ has_subtypes:
     like features.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;SDCCAG8 | SHH signaling and ciliogenesis regulator SDCCAG8 | hgnc:10671 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7089,6 +7432,7 @@ has_subtypes:
     as skeletal ciliopathies.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;WDR19 | WD repeat domain 19 | hgnc:18340 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7102,6 +7446,7 @@ inheritance:
     in one of the causative ciliary genes.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;A rare autosomal recessive oculo-renal ciliopathy characterized by the association of nephronophthisis (NPHP), a chronic kidney disease, with retinal dystrophy.&#34;
     explanation: &gt;-
@@ -7129,6 +7474,7 @@ prevalence:
     Senior-Loken syndrome, consistent with its classification as a rare disorder.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;1-9 / 1 000 000 | Worldwide | Point prevalence&#34;
     explanation: &gt;-
@@ -7190,6 +7536,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0001263 | Global developmental delay | Very frequent (99-80%)&#34;
       explanation: Orphanet records global developmental delay as a very frequent feature of Senior-Loken syndrome.
@@ -7198,6 +7545,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0001251 | Ataxia | Occasional (29-5%)&#34;
       explanation: Orphanet records ataxia as an occasional feature of Senior-Loken syndrome.
@@ -7206,6 +7554,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0008209 | Premature ovarian insufficiency | Frequent (79-30%)&#34;
       explanation: Orphanet records premature ovarian insufficiency as a frequent Senior-Loken syndrome feature.
@@ -7287,6 +7636,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0000090 | Nephronophthisis | Frequent (79-30%)&#34;
       explanation: Orphanet records nephronophthisis as a frequent Senior-Loken syndrome feature.
@@ -7305,6 +7655,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0003774 | Stage 5 chronic kidney disease | Very frequent (99-80%)&#34;
       explanation: Orphanet records stage 5 chronic kidney disease as very frequent in Senior-Loken syndrome.
@@ -7313,6 +7664,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0000822 | Hypertension | Very frequent (99-80%)&#34;
       explanation: Orphanet records hypertension as a very frequent Senior-Loken syndrome feature.
@@ -7321,6 +7673,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0004322 | Short stature | Very frequent (99-80%)&#34;
       explanation: Orphanet records short stature as a very frequent Senior-Loken syndrome feature.
@@ -7368,6 +7721,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0000556 | Retinal dystrophy | Very frequent (99-80%)&#34;
       explanation: Orphanet records retinal dystrophy as a very frequent Senior-Loken syndrome feature.
@@ -7376,6 +7730,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0000505 | Visual impairment | Very frequent (99-80%)&#34;
       explanation: Orphanet records visual impairment as a very frequent feature.
@@ -7384,6 +7739,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0000529 | Progressive visual loss | Frequent (79-30%)&#34;
       explanation: Orphanet records progressive visual loss as a frequent feature.
@@ -7392,6 +7748,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:3156
+      reference_title: &#34;Senior-Loken syndrome&#34;
       supports: SUPPORT
       snippet: &#34;HP:0007703 | Abnormality of retinal pigmentation | Very frequent (99-80%)&#34;
       explanation: Orphanet records abnormal retinal pigmentation as a very frequent feature.
@@ -7409,6 +7766,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000090 | Nephronophthisis | Frequent (79-30%)&#34;
     explanation: &gt;-
@@ -7428,6 +7786,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000556 | Retinal dystrophy | Very frequent (99-80%)&#34;
     explanation: &gt;-
@@ -7446,6 +7805,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000505 | Visual impairment | Very frequent (99-80%)&#34;
     explanation: &gt;-
@@ -7463,6 +7823,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000529 | Progressive visual loss | Frequent (79-30%)&#34;
     explanation: &gt;-
@@ -7481,6 +7842,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0007703 | Abnormality of retinal pigmentation | Very frequent (99-80%)&#34;
     explanation: &gt;-
@@ -7500,6 +7862,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003774 | Stage 5 chronic kidney disease | Very frequent (99-80%)&#34;
     explanation: &gt;-
@@ -7536,6 +7899,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001263 | Global developmental delay | Very frequent (99-80%)&#34;
     explanation: &gt;-
@@ -7554,6 +7918,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001251 | Ataxia | Occasional (29-5%)&#34;
     explanation: &gt;-
@@ -7573,6 +7938,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000822 | Hypertension | Very frequent (99-80%)&#34;
     explanation: &gt;-
@@ -7592,6 +7958,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0004322 | Short stature | Very frequent (99-80%)&#34;
     explanation: &gt;-
@@ -7611,6 +7978,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;HP:0008209 | Premature ovarian insufficiency | Frequent (79-30%)&#34;
     explanation: &gt;-
@@ -7629,6 +7997,7 @@ genetic:
     SLSN1; NPHP1 also causes isolated juvenile nephronophthisis.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;NPHP1 | nephrocystin 1 | hgnc:7905 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7670,6 +8039,7 @@ genetic:
     Joubert syndrome, and Meckel syndrome.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;CEP290 | centrosomal protein 290 | hgnc:29021 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7686,6 +8056,7 @@ genetic:
     hedgehog signaling; biallelic mutations cause SLSN7.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;SDCCAG8 | SHH signaling and ciliogenesis regulator SDCCAG8 | hgnc:10671 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7702,6 +8073,7 @@ genetic:
     cause SLSN8 within a broader WDR19 ciliopathy spectrum.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;WDR19 | WD repeat domain 19 | hgnc:18340 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7718,6 +8090,7 @@ genetic:
     nephronophthisis protein network at the ciliary transition zone.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;NPHP3 | nephrocystin 3 | hgnc:7907 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7734,6 +8107,7 @@ genetic:
     complex with NPHP1 at the ciliary transition zone.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;NPHP4 | nephrocystin 4 | hgnc:19104 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7751,6 +8125,7 @@ genetic:
     pathways.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;INVS | inversin | hgnc:17870 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7767,6 +8142,7 @@ genetic:
     and is required for ciliogenesis; mutations cause SLSN10.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;CEP164 | centrosomal protein 164 | hgnc:29182 | Disease-causing germline mutation(s) in&#34;
     explanation: &gt;-
@@ -7783,6 +8159,7 @@ genetic:
     loss-of-function mutations cause SLSN9 within a spectrum of ciliopathies.
   evidence:
   - reference: ORPHA:3156
+    reference_title: &#34;Senior-Loken syndrome&#34;
     supports: SUPPORT
     snippet: &#34;TRAF3IP1 | TRAF3 interacting protein 1 | hgnc:17861 | Disease-causing germline mutation(s) (loss of function) in&#34;
     explanation: &gt;-
@@ -8092,7 +8469,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Senior-Loken Syndrome", "mondoId": "MONDO:0017842", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Senior-Loken_Syndrome", "yamlRevision": "23433d801cc5"};
+        const OS_CONFIG = {"diseaseName": "Senior-Loken Syndrome", "mondoId": "MONDO:0017842", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Senior-Loken_Syndrome", "yamlRevision": "c071840f321e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8511,5 +8888,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

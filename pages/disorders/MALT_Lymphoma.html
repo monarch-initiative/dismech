@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>MALT Lymphoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>MALT Lymphoma</h1>
             <div class="header-meta">
 
@@ -3809,7 +3931,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3938,7 +4060,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gastric-malt">
 
                     <div class="item-name">
                         Gastric MALT Lymphoma (H. pylori-driven)
@@ -3966,7 +4088,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-t-11-18-malt">
 
                     <div class="item-name">
                         t(11;18) BIRC3::MALT1 MALT Lymphoma
@@ -4000,6 +4122,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21568677" target="_blank">PMID:21568677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4026,7 +4149,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pulmonary-malt">
 
                     <div class="item-name">
                         Pulmonary / BALT Lymphoma
@@ -4054,7 +4177,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ocular-adnexal-malt">
 
                     <div class="item-name">
                         Ocular Adnexal MALT Lymphoma
@@ -4082,7 +4205,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-salivary-gland-malt">
 
                     <div class="item-name">
                         Salivary Gland MALT Lymphoma
@@ -4115,6 +4238,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28288723" target="_blank">PMID:28288723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4171,18 +4295,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         marginal zone B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl">CL:0009060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0009060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4210,18 +4336,20 @@ This pathophysiological event involves marginal zone B cell, annotated with marg
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4279,6 +4407,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21568677" target="_blank">PMID:21568677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4312,18 +4441,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         marginal zone B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl">CL:0009060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0009060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4351,18 +4482,20 @@ This pathophysiological event involves marginal zone B cell, annotated with marg
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased B cell receptor signaling pathway (GO:0050853). GO:0050853 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         B cell receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050853" target="_blank" class="curie-chip curie-chip-go">GO:0050853</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050853" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0050853</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased B cell receptor signaling pathway (GO:0050853). GO:0050853 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4383,18 +4516,20 @@ This pathophysiological event involves increased B cell receptor signaling pathw
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased B cell proliferation (GO:0042100). GO:0042100 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         B cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042100" target="_blank" class="curie-chip curie-chip-go">GO:0042100</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042100" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased B cell proliferation (GO:0042100). GO:0042100 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4452,6 +4587,7 @@ This pathophysiological event involves increased B cell proliferation (GO:004210
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21568677" target="_blank">PMID:21568677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4485,18 +4621,20 @@ This pathophysiological event involves increased B cell proliferation (GO:004210
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         marginal zone B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl">CL:0009060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0009060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4524,18 +4662,20 @@ This pathophysiological event involves marginal zone B cell, annotated with marg
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         canonical NF-kappaB signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go">GO:0007249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4593,6 +4733,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15694184" target="_blank">PMID:15694184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4614,6 +4755,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15694184" target="_blank">PMID:15694184</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4648,18 +4790,20 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         marginal zone B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl">CL:0009060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0009060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves marginal zone B cell, annotated with marginal zone B cell of lymph node (CL:0009060). CL:0009060 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4687,18 +4831,20 @@ This pathophysiological event involves marginal zone B cell, annotated with marg
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased B cell proliferation (GO:0042100). GO:0042100 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         B cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042100" target="_blank" class="curie-chip curie-chip-go">GO:0042100</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042100" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0042100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased B cell proliferation (GO:0042100). GO:0042100 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4719,18 +4865,20 @@ This pathophysiological event involves increased B cell proliferation (GO:004210
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4772,6 +4920,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21568677" target="_blank">PMID:21568677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4834,7 +4983,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
 
@@ -4844,7 +4993,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4863,16 +5012,20 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4892,6 +5045,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28288723" target="_blank">PMID:28288723</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4934,16 +5088,20 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0410281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspepsia (HP:0410281). HP:0410281 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspepsia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410281" target="_blank" class="curie-chip curie-chip-hp">HP:0410281</a>
-
-
+This clinical feature is Dyspepsia (HP:0410281). HP:0410281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4963,6 +5121,7 @@ This clinical feature is Dyspepsia (HP:0410281). HP:0410281 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9646819" target="_blank">PMID:9646819</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4996,8 +5155,75 @@ This clinical feature is Dyspepsia (HP:0410281). HP:0410281 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-Cell Lymphoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        B-Cell Lymphoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012191</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31757436" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31757436" target="_blank">PMID:31757436</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"including extranodal marginal zone B-cell lymphoma (EMZL) or mucosa-associated lymphoid tissue (MALT) lymphoma, splenic MZL, and nodal MZL, accounting for approximately 70%, 20%, and 10% of MZLs, respectively."</div>
+
+
+                <div class="evidence-explanation">Identifies MALT lymphoma as synonymous with extranodal marginal zone B-cell lymphoma, a B-cell lymphoma subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-epigastric-pain" data-dismech-node="Epigastric Pain" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5005,16 +5231,20 @@ This clinical feature is Dyspepsia (HP:0410281). HP:0410281 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0410019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Epigastric pain (HP:0410019). HP:0410019 is a phenotype from the Human Phenotype Ontology.">
-                        Epigastric pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410019" target="_blank" class="curie-chip curie-chip-hp">HP:0410019</a>
-
-
+This clinical feature is Epigastric pain (HP:0410019). HP:0410019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5034,6 +5264,7 @@ This clinical feature is Epigastric pain (HP:0410019). HP:0410019 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9646819" target="_blank">PMID:9646819</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5113,15 +5344,17 @@ This clinical feature is Epigastric pain (HP:0410019). HP:0410019 is a phenotype
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MALT1 (hgnc:6819). hgnc:6819 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MALT1
 
 
-    <a href="https://bioregistry.io/hgnc:6819" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6819</a>
+    <a href="https://bioregistry.io/hgnc:6819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:6819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MALT1 (hgnc:6819). hgnc:6819 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5142,6 +5375,7 @@ This disease-associated gene is MALT1 (hgnc:6819). hgnc:6819 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21568677" target="_blank">PMID:21568677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5180,15 +5414,17 @@ This disease-associated gene is MALT1 (hgnc:6819). hgnc:6819 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is BCL10 (hgnc:989). hgnc:989 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BCL10
 
 
-    <a href="https://bioregistry.io/hgnc:989" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:989</a>
+    <a href="https://bioregistry.io/hgnc:989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BCL10 (hgnc:989). hgnc:989 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5209,6 +5445,7 @@ This disease-associated gene is BCL10 (hgnc:989). hgnc:989 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15694184" target="_blank">PMID:15694184</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5240,6 +5477,9 @@ This disease-associated gene is BCL10 (hgnc:989). hgnc:989 is a gene from the HU
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5256,18 +5496,18 @@ This disease-associated gene is BCL10 (hgnc:989). hgnc:989 is a gene from the HU
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">antibiotic therapy</span>
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -5309,6 +5549,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37122607" target="_blank">PMID:37122607</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5330,6 +5571,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37122607" target="_blank">PMID:37122607</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5361,18 +5603,18 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">radiation therapy</span>
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -5414,6 +5656,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39448038" target="_blank">PMID:39448038</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5435,6 +5678,7 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39448038" target="_blank">PMID:39448038</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5466,17 +5710,17 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5501,18 +5745,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5537,6 +5783,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28355112" target="_blank">PMID:28355112</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5582,7 +5829,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001006631">
                 <div class="item-name">
                     The Genetic Landscape of Ocular Adnexa MALT Lymphoma Reveals Frequent Aberrations in NFAT and MEF2B Signaling Pathways
 
@@ -5629,7 +5876,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00210353">
                 <div class="item-name">
                     NCT00210353
 
@@ -5656,6 +5903,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00210353" target="_blank">clinicaltrials:NCT00210353</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5896,6 +6144,27 @@ pathophysiology:
       id: GO:0006915
       label: apoptotic process
 phenotypes:
+- category: Neoplastic
+  name: B-Cell Lymphoma
+  description: &gt;-
+    MALT lymphoma is an extranodal marginal zone lymphoma of mature B
+    lymphocytes and is classified as a B-cell non-Hodgkin lymphoma.
+  phenotype_term:
+    preferred_term: B-cell lymphoma
+    term:
+      id: HP:0012191
+      label: B-cell lymphoma
+  evidence:
+  - reference: PMID:31757436
+    reference_title: &#34;Marginal zone B-cell lymphoma: lessons from Western and Eastern diagnostic approaches.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      including extranodal marginal zone B-cell lymphoma (EMZL) or
+      mucosa-associated lymphoid tissue (MALT) lymphoma, splenic MZL, and
+      nodal MZL, accounting for approximately 70%, 20%, and 10% of MZLs,
+      respectively.
+    explanation: Identifies MALT lymphoma as synonymous with extranodal marginal zone B-cell lymphoma, a B-cell lymphoma subtype.
 - category: Clinical
   name: Lymphadenopathy
   description: Regional or disseminated lymph node involvement in advanced disease.
@@ -6060,6 +6329,7 @@ clinical_trials:
     (MALT) lymphoma.
   evidence:
   - reference: clinicaltrials:NCT00210353
+    reference_title: &#34;Multicenter Randomized Trial of Chlorambucil Versus Chlorambucil Plus Rituximab Versus Rituximab in Extranodal Marginal Zone B-cell Lymphoma of Mucosa Associated Lymphoid Tissue (MALT Lymphoma)&#34;
     supports: SUPPORT
     snippet: &#34;determine whether the addition of Rituximab to Chlorambucil will improve the outcome of MALT lymphoma in comparison to treatment with Chlorambucil alone&#34;
     explanation: ClinicalTrials.gov summary confirms IELSG-19 tested adding rituximab to chlorambucil in MALT lymphoma.
@@ -7103,7 +7373,7 @@ Guideline emphasizes IHC is primarily used to <strong>exclude</strong> other sma
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "MALT Lymphoma", "mondoId": "MONDO:0007650", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MALT_Lymphoma", "yamlRevision": "0f8578489bd2"};
+        const OS_CONFIG = {"diseaseName": "MALT Lymphoma", "mondoId": "MONDO:0007650", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MALT_Lymphoma", "yamlRevision": "95239558aa00"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7522,5 +7792,73 @@ Guideline emphasizes IHC is primarily used to <strong>exclude</strong> other sma
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

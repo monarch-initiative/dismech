@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>PCDH19 Clustering Epilepsy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>PCDH19 Clustering Epilepsy</h1>
             <div class="header-meta">
 
@@ -3660,7 +3782,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=PCDH19%20Clustering%20Epilepsy"
@@ -3852,7 +3974,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3968,7 +4090,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance-with-female-limited-expression">
                 <div class="item-name">
                     X-linked inheritance with female-limited expression
 
@@ -4013,6 +4135,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18469813" target="_blank">PMID:18469813</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4034,6 +4157,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19752159" target="_blank">PMID:19752159</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4134,11 +4258,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type mosaic versus uniform comparison experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         mosaic versus uniform comparison experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type mosaic versus uniform comparison experiment.</span>
     </span>
 
 
@@ -4199,11 +4327,15 @@ This experiment is of type mosaic versus uniform comparison experiment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by multielectrode array recording.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -4228,11 +4360,15 @@ This readout is measured by multielectrode array recording.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by immunostaining.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         immunostaining
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by immunostaining.</span>
     </span>
 
 
@@ -4317,6 +4453,12 @@ This readout is measured by immunostaining.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4339,6 +4481,7 @@ This readout is measured by immunostaining.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29301106" target="_blank">PMID:29301106</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4411,11 +4554,15 @@ This readout is measured by immunostaining.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type biomarker-stratified treatment-response experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-4">
 
         biomarker-stratified treatment-response experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this experiment is of type this experiment type
+This experiment is of type biomarker-stratified treatment-response experiment.</span>
     </span>
 
 
@@ -4476,11 +4623,15 @@ This experiment is of type biomarker-stratified treatment-response experiment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by electroencephalography.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         electroencephalography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by electroencephalography.</span>
     </span>
 
 
@@ -4565,6 +4716,12 @@ This readout is measured by electroencephalography.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4588,6 +4745,7 @@ This readout is measured by electroencephalography.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26123493" target="_blank">PMID:26123493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4609,6 +4767,7 @@ This readout is measured by electroencephalography.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36870093" target="_blank">PMID:36870093</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4688,11 +4847,15 @@ This readout is measured by electroencephalography.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type graded-mosaic correction experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         graded-mosaic correction experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
+This experiment is of type graded-mosaic correction experiment.</span>
     </span>
 
 
@@ -4753,11 +4916,15 @@ This experiment is of type graded-mosaic correction experiment.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by multielectrode array recording.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -4842,6 +5009,12 @@ This readout is measured by multielectrode array recording.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4883,17 +5056,21 @@ This readout is measured by multielectrode array recording.">
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PCDH19 (hgnc:14270). hgnc:14270 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PCDH19
 
 
-    <a href="https://bioregistry.io/hgnc:14270" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14270</a>
+    <a href="https://bioregistry.io/hgnc:14270" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:14270</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PCDH19 (hgnc:14270). hgnc:14270 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4943,6 +5120,62 @@ This pathophysiological event involves PCDH19 (hgnc:14270). hgnc:14270 is a gene
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18469813" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18469813" target="_blank">PMID:18469813</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Five mutations resulted in the introduction of a premature termination codon. Study of two of these demonstrated nonsense-mediated decay of PCDH19 mRNA."</div>
+
+
+                <div class="evidence-explanation">Establishes the loss-of-function character of the initiating lesion: most of the founding mutations truncate the protein and are cleared by nonsense-mediated decay, so functional protocadherin-19 is absent from the mutant allele rather than merely altered.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18469813" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18469813" target="_blank">PMID:18469813</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The two missense mutations were predicted to affect adhesiveness of PCDH19 through impaired calcium binding."</div>
+
+
+                <div class="evidence-explanation">Covers the missense arm of the same node and ties it to the calcium-dependent adhesion function that the downstream cellular-interference node depends on.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -4956,18 +5189,20 @@ This pathophysiological event involves PCDH19 (hgnc:14270). hgnc:14270 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5016,6 +5251,62 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29301106" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29301106" target="_blank">PMID:29301106</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mosaic expression of Pcdh19 in heterozygous female mice leads to striking sorting between cells expressing wild-type (WT) PCDH19 and null PCDH19 in the developing cortex, correlating with altered network activity."</div>
+
+
+                <div class="evidence-explanation">Demonstrates the mosaic cell-population state this node models, and shows it has a physical consequence in the developing cortex: positive and negative neurons segregate from one another, with altered network activity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32366910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There were no phenotypic differences between heterozygous females and mosaic males."</div>
+
+
+                <div class="evidence-explanation">Strong human support for mosaicism (not sex) being the operative variable: mosaic males, who share the mosaic cell population but not the female karyotype, are phenotypically indistinguishable from heterozygous females.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -5029,18 +5320,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5068,18 +5361,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated Homophilic cell-cell adhesion (GO:0007156). GO:0007156 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Homophilic cell-cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007156" target="_blank" class="curie-chip curie-chip-go">GO:0007156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Homophilic cell-cell adhesion (GO:0007156). GO:0007156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5137,6 +5432,7 @@ This pathophysiological event involves dysregulated Homophilic cell-cell adhesio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29301106" target="_blank">PMID:29301106</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5158,6 +5454,7 @@ This pathophysiological event involves dysregulated Homophilic cell-cell adhesio
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29301106" target="_blank">PMID:29301106</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5192,18 +5489,20 @@ This pathophysiological event involves dysregulated Homophilic cell-cell adhesio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5260,6 +5559,62 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29301106" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29301106" target="_blank">PMID:29301106</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our results highlight the role of PCDH19 in determining cell adhesion affinities during cortical development and the way segregation of WT and null PCDH19 cells is associated with the unique X-linked inheritance of PCDH19 epilepsy."</div>
+
+
+                <div class="evidence-explanation">Places the defect at the level of cortical developmental assembly, which is what this node asserts, rather than at ongoing synaptic function.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29301106" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29301106" target="_blank">PMID:29301106</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furthermore, we identify variable cortical malformations in PCDH19 epilepsy patients."</div>
+
+
+                <div class="evidence-explanation">Human structural correlate of the circuit-assembly defect. Rated PARTIAL because the malformations are described as variable, so they are not a constant feature and cannot carry the node on their own.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -5273,18 +5628,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5333,6 +5690,39 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29301106" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29301106" target="_blank">PMID:29301106</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complete deletion of PCDH19 in heterozygous mice abolishes abnormal cell sorting and restores normal network activity."</div>
+
+
+                <div class="evidence-explanation">The rescue experiment shows network activity is abnormal in the mosaic state and normalizes when the mosaic is removed, which is the closest direct measurement of this node available. Rated PARTIAL because &#34;altered network activity&#34; in mouse cortex is not the same claim as the hypersynchronous, fever-sensitive hyperexcitability this node asserts in humans.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -5346,18 +5736,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5388,6 +5780,69 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Clustering Seizures</span>
+
+	                            <span class="crosslink-desc">Seizures occur in tight clusters over one or a few days separated by longer seizure-free intervals - the defining feature that names the disorder.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Focal-Onset Seizures</span>
+
+	                            <span class="crosslink-desc">The clusters are built predominantly from focal-onset seizures with prominent affective (fearful) semiology.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Fever-Sensitive Seizures</span>
+
+	                            <span class="crosslink-desc">The same endpoint is characteristically triggered or exacerbated by fever, especially at onset.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Bilateral Tonic-Clonic Seizures</span>
+
+	                            <span class="crosslink-desc">Bilateral tonic-clonic seizures are one of the seizure types making up the clusters.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Absence Seizures</span>
+
+	                            <span class="crosslink-desc">Absence (generalized non-motor) seizures occur within the seizure repertoire of some individuals.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myoclonic Seizures</span>
+
+	                            <span class="crosslink-desc">Myoclonic seizures occur within the seizure repertoire of some individuals.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atonic Seizures</span>
+
+	                            <span class="crosslink-desc">Atonic seizures occur within the seizure repertoire of some individuals.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5404,18 +5859,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5447,7 +5904,94 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual Disability</span>
+
+	                            <span class="crosslink-desc">The cognitive arm of the outcome is intellectual disability of variable severity.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Autistic Behavior</span>
+
+	                            <span class="crosslink-desc">Autistic features are a frequent component of the behavioral outcome.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aggressive Behavior</span>
+
+	                            <span class="crosslink-desc">Behavioral disturbance including aggression is a frequent component of the same outcome.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32366910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Executive dysfunction and autism spectrum disorder (ASD) occurred in approximately 60% of individuals."</div>
+
+
+                <div class="evidence-explanation">Quantifies the cognitive and behavioral outcome in a 112-individual standardized-assessment cohort, supporting this node as a major arm of the disorder rather than an occasional accompaniment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32366910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Earlier seizure onset age and increased number of seizures within a cluster were associated with more severe ASD symptoms (p = 0.001)"</div>
+
+
+                <div class="evidence-explanation">Couples seizure burden to the severity of the behavioral outcome, the quantitative signal behind treating this node as downstream of the same circuit defect that drives the seizures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -5477,7 +6021,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cellular Interference and Impaired Homophilic Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Protocadherin-19 mediates calcium-dependent homophilic cell-cell adhesion. In a mosaic brain, protocadherin-19-positive and protocadherin-19-negative neurons cannot engage in normal homophilic interactions at their shared boundaries, so the mismatch itself (cellular interference), rather than simple loss of the protein, disrupts neuronal communication. This explains why uniform loss in hemizygous males is tolerated. This node captures the single concept of the cellular-interference mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Homophilic cell-cell adhesion\"], \"role\": \"mediator\"}}, {\"id\": \"Cognitive and Behavioral Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many affected individuals have intellectual disability of variable severity and behavioral features including autistic traits, hyperactivity, and aggression. This node captures the single concept of the cognitive/behavioral outcome.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"effector\"}}, {\"id\": \"Disrupted Neuronal Network Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Faulty protocadherin-19-dependent interactions perturb neuronal migration, sorting, and synaptic connectivity, yielding abnormally assembled cortical and limbic circuits. This node captures the single concept of the circuit-assembly defect.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Fever-Sensitive Clustering Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical hallmark is seizures, often triggered or worsened by fever, that occur in tight clusters (many seizures over one or a few days separated by longer seizure-free intervals). Seizure types include focal, tonic-clonic, and absence. This node captures the single concept of the clustering-seizure endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Mosaic Protocadherin-19 Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because PCDH19 is subject to random X-chromosome inactivation, a heterozygous female is a mosaic of neurons expressing normal protocadherin-19 and neurons lacking it. A hemizygous male instead has a uniform, all-negative population. This node captures the single concept of the mosaic cell-population state that is necessary for disease.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Neuronal Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disrupted networks are hyperexcitable and prone to hypersynchronous discharges, with a characteristic sensitivity to fever. This node captures the single concept of network hyperexcitability and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"PCDH19\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"PCDH19\"], \"gene_terms\": [{\"label\": \"PCDH19\", \"id\": \"hgnc:14270\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PCDH19 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A loss-of-function variant in PCDH19 (missense, truncating, or deletion) abolishes or reduces functional protocadherin-19, a calcium-dependent cell-adhesion molecule of the delta-2 protocadherin family expressed in neurons. This node captures the single concept of the initiating genetic lesion.\", \"meta\": {\"genes\": [\"PCDH19\"], \"gene_terms\": [{\"label\": \"PCDH19\", \"id\": \"hgnc:14270\"}], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"PCDH19 Loss-of-Function Variant\", \"target\": \"Mosaic Protocadherin-19 Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a heterozygous female (or mosaic male), the variant produces a mixture of protocadherin-19-positive and protocadherin-19-negative cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mosaic Protocadherin-19 Expression\", \"target\": \"Cellular Interference and Impaired Homophilic Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The coexistence of positive and negative neuron populations sets up pathological cellular interference.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Interference and Impaired Homophilic Adhesion\", \"target\": \"Disrupted Neuronal Network Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired adhesion between mismatched neuron populations disrupts the assembly and wiring of neuronal networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neuronal Network Assembly\", \"target\": \"Neuronal Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormally assembled circuits become hyperexcitable, particularly under the provocation of fever.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neuronal Network Assembly\", \"target\": \"Cognitive and Behavioral Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same circuit-assembly defect underlies the cognitive and behavioral features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Network Hyperexcitability\", \"target\": \"Fever-Sensitive Clustering Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable networks generate the characteristic fever-sensitive seizure clusters.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PCDH19\", \"target\": \"PCDH19 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence (generalized non-motor) seizures occur in some individuals.\", \"meta\": {\"term_id\": \"HP:0002121\"}}, {\"id\": \"Aggressive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral disturbance including aggression is frequent.\", \"meta\": {\"term_id\": \"HP:0000718\"}}, {\"id\": \"Atonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atonic seizures occur in some individuals.\", \"meta\": {\"term_id\": \"HP:0010819\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features are frequently associated.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Bilateral Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized (bilateral) tonic-clonic seizures occur.\", \"meta\": {\"term_id\": \"HP:0002069\"}}, {\"id\": \"Cellular Interference and Impaired Homophilic Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Protocadherin-19 mediates calcium-dependent homophilic cell-cell adhesion. In a mosaic brain, protocadherin-19-positive and protocadherin-19-negative neurons cannot engage in normal homophilic interactions at their shared boundaries, so the mismatch itself (cellular interference), rather than simple loss of the protein, disrupts neuronal communication. This explains why uniform loss in hemizygous males is tolerated. This node captures the single concept of the cellular-interference mechanism.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Homophilic cell-cell adhesion\"], \"role\": \"mediator\"}}, {\"id\": \"Clustering Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures characteristically occur in clusters over one or a few days, separated by longer seizure-free intervals - the defining feature that gives the disorder its name.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033349\"}}, {\"id\": \"Cognitive and Behavioral Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many affected individuals have intellectual disability of variable severity and behavioral features including autistic traits, hyperactivity, and aggression. This node captures the single concept of the cognitive/behavioral outcome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"effector\"}}, {\"id\": \"Disrupted Neuronal Network Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Faulty protocadherin-19-dependent interactions perturb neuronal migration, sorting, and synaptic connectivity, yielding abnormally assembled cortical and limbic circuits. This node captures the single concept of the circuit-assembly defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Fever-Sensitive Clustering Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical hallmark is seizures, often triggered or worsened by fever, that occur in tight clusters (many seizures over one or a few days separated by longer seizure-free intervals). Seizure types include focal, tonic-clonic, and absence. This node captures the single concept of the clustering-seizure endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Fever-Sensitive Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are frequently triggered or exacerbated by fever, especially at onset.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002373\"}}, {\"id\": \"Focal-Onset Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The characteristic seizures of PCDH19 clustering epilepsy are focal-onset with prominent affective (fearful) semiology, frequently fever-triggered.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007359\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability of variable severity is common.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Mosaic Protocadherin-19 Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because PCDH19 is subject to random X-chromosome inactivation, a heterozygous female is a mosaic of neurons expressing normal protocadherin-19 and neurons lacking it. A hemizygous male instead has a uniform, all-negative population. This node captures the single concept of the mosaic cell-population state that is necessary for disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Myoclonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myoclonic seizures occur in some individuals.\", \"meta\": {\"term_id\": \"HP:0032794\"}}, {\"id\": \"Neuronal Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disrupted networks are hyperexcitable and prone to hypersynchronous discharges, with a characteristic sensitivity to fever. This node captures the single concept of network hyperexcitability and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"PCDH19\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PCDH19\"], \"gene_terms\": [{\"label\": \"PCDH19\", \"id\": \"hgnc:14270\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PCDH19 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A loss-of-function variant in PCDH19 (missense, truncating, or deletion) abolishes or reduces functional protocadherin-19, a calcium-dependent cell-adhesion molecule of the delta-2 protocadherin family expressed in neurons. This node captures the single concept of the initiating genetic lesion.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCDH19\"], \"gene_terms\": [{\"label\": \"PCDH19\", \"id\": \"hgnc:14270\"}], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"PCDH19 Loss-of-Function Variant\", \"target\": \"Mosaic Protocadherin-19 Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a heterozygous female (or mosaic male), the variant produces a mixture of protocadherin-19-positive and protocadherin-19-negative cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mosaic Protocadherin-19 Expression\", \"target\": \"Cellular Interference and Impaired Homophilic Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The coexistence of positive and negative neuron populations sets up pathological cellular interference.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cellular Interference and Impaired Homophilic Adhesion\", \"target\": \"Disrupted Neuronal Network Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired adhesion between mismatched neuron populations disrupts the assembly and wiring of neuronal networks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neuronal Network Assembly\", \"target\": \"Neuronal Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormally assembled circuits become hyperexcitable, particularly under the provocation of fever.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neuronal Network Assembly\", \"target\": \"Cognitive and Behavioral Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same circuit-assembly defect underlies the cognitive and behavioral features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Network Hyperexcitability\", \"target\": \"Fever-Sensitive Clustering Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable networks generate the characteristic fever-sensitive seizure clusters.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-Sensitive Clustering Seizures\", \"target\": \"Clustering Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures occur in tight clusters over one or a few days separated by longer seizure-free intervals - the defining feature that names the disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-Sensitive Clustering Seizures\", \"target\": \"Focal-Onset Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clusters are built predominantly from focal-onset seizures with prominent affective (fearful) semiology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-Sensitive Clustering Seizures\", \"target\": \"Fever-Sensitive Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same endpoint is characteristically triggered or exacerbated by fever, especially at onset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-Sensitive Clustering Seizures\", \"target\": \"Bilateral Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilateral tonic-clonic seizures are one of the seizure types making up the clusters.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-Sensitive Clustering Seizures\", \"target\": \"Absence Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence (generalized non-motor) seizures occur within the seizure repertoire of some individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-Sensitive Clustering Seizures\", \"target\": \"Myoclonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myoclonic seizures occur within the seizure repertoire of some individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever-Sensitive Clustering Seizures\", \"target\": \"Atonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atonic seizures occur within the seizure repertoire of some individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cognitive and Behavioral Impairment\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive arm of the outcome is intellectual disability of variable severity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cognitive and Behavioral Impairment\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autistic features are a frequent component of the behavioral outcome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cognitive and Behavioral Impairment\", \"target\": \"Aggressive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral disturbance including aggression is a frequent component of the same outcome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PCDH19\", \"target\": \"PCDH19 Loss-of-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5517,16 +6061,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007359</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.">
-                        Focal-onset seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp">HP:0007359</a>
-
-
+This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5546,6 +6094,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5579,16 +6128,22 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Febrile seizure (within the age range of 3 months to 6 years)</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002373</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Febrile seizure, annotated with Febrile seizure (within the age range of 3 months to 6 years) (HP:0002373). HP:0002373 is a phenotype from the Human Phenotype Ontology.">
-                        Febrile seizure (within the age range of 3 months to 6 years)
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp">HP:0002373</a>
-
-
+This clinical feature is Febrile seizure, annotated with Febrile seizure (within the age range of 3 months to 6 years) (HP:0002373). HP:0002373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5596,6 +6151,39 @@ This clinical feature is Febrile seizure, annotated with Febrile seizure (within
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39017914" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39017914" target="_blank">PMID:39017914</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The initial seizures usually develop in association with fever, begin on average at 15 months of age, and often occur in clusters."</div>
+
+
+                <div class="evidence-explanation">States the fever association directly, together with the infantile onset and clustering this entry records alongside it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5609,16 +6197,20 @@ This clinical feature is Febrile seizure, annotated with Febrile seizure (within
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002069</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral tonic-clonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
-
-
+This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5639,16 +6231,22 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized non-motor (absence) seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized non-motor (absence) seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp">HP:0002121</a>
-
-
+This clinical feature is Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5669,16 +6267,20 @@ This clinical feature is Absence seizure, annotated with Generalized non-motor (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5686,6 +6288,62 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30451291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30451291" target="_blank">PMID:30451291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thirty-six patients (59.0%) had ID and behavioral disturbances."</div>
+
+
+                <div class="evidence-explanation">Multicenter cohort of 61 patients putting intellectual disability with behavioral disturbance at 59%, supporting &#34;common&#34; in this description.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30451291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30451291" target="_blank">PMID:30451291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An earlier age at epilepsy onset emerged as the only predictive factor for ID (P = 0.047) and ASD (P = 0.014)."</div>
+
+
+                <div class="evidence-explanation">Independently reproduces the onset-age/severity coupling reported by PMID:32366910 in a separate cohort, and is the basis for describing the cognitive outcome as variable in severity rather than uniform.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5699,16 +6357,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000729</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.">
-                        Autistic behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp">HP:0000729</a>
-
-
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5716,6 +6378,62 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32366910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Executive dysfunction and autism spectrum disorder (ASD) occurred in approximately 60% of individuals."</div>
+
+
+                <div class="evidence-explanation">Standardized assessment (Social Responsiveness Scale) in 112 individuals putting autism spectrum disorder at roughly 60%, well beyond &#34;frequently associated&#34;.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32366910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ASD profile included features of attention-deficit hyperactivity disorder."</div>
+
+
+                <div class="evidence-explanation">Characterizes the autism profile, and is the source for the hyperactivity component named in this entry&#39;s disease description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5729,16 +6447,20 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a phenotype from the Human Phenotype Ontology.">
-                        Aggressive behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp">HP:0000718</a>
-
-
+This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5768,16 +6490,22 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Seizure cluster</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0033349</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure cluster (HP:0033349), qualified as infantile onset. HP:0033349 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure cluster
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033349" target="_blank" class="curie-chip curie-chip-hp">HP:0033349</a>
-
-
+This clinical feature is Seizure cluster (HP:0033349), qualified as infantile onset. HP:0033349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5827,6 +6555,7 @@ This clinical feature is Seizure cluster (HP:0033349), qualified as infantile on
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5859,16 +6588,20 @@ This clinical feature is Seizure cluster (HP:0033349), qualified as infantile on
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0032794</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.">
-                        Myoclonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp">HP:0032794</a>
-
-
+This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5889,16 +6622,20 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.">
-                        Atonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp">HP:0010819</a>
-
-
+This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5963,15 +6700,17 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PCDH19
 
 
-    <a href="https://bioregistry.io/hgnc:14270" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14270</a>
+    <a href="https://bioregistry.io/hgnc:14270" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:14270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5983,6 +6722,85 @@ This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from t
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18469813" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18469813" target="_blank">PMID:18469813</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Aided by systematic resequencing of 737 X chromosome genes, we identified different protocadherin 19 (PCDH19) gene mutations in seven families with EFMR."</div>
+
+
+                <div class="evidence-explanation">The gene-discovery study establishing PCDH19 as causative, across seven independent EFMR families.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18469813" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18469813" target="_blank">PMID:18469813</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PCDH19 is expressed in developing brains of human and mouse and is the first member of the cadherin superfamily to be directly implicated in epilepsy or mental retardation."</div>
+
+
+                <div class="evidence-explanation">Supports the notes&#39; framing of PCDH19 as a brain-expressed cell-adhesion molecule, the property the cellular-interference mechanism turns on.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32366910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32366910" target="_blank">PMID:32366910</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of the 112 individuals represented (15 males), there were 70 unique variants."</div>
+
+
+                <div class="evidence-explanation">Documents the allelic heterogeneity this notes block describes: 70 distinct variants across 112 individuals, with no single recurrent lesion dominating.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 
             </div>
@@ -5991,6 +6809,9 @@ This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from t
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6009,17 +6830,17 @@ This disease-associated gene is PCDH19 (hgnc:14270). hgnc:14270 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6044,18 +6865,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         clobazam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31413" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31413</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31413" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:31413</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6079,17 +6902,17 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6131,6 +6954,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26123493" target="_blank">PMID:26123493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6152,6 +6976,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36870093" target="_blank">PMID:36870093</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6302,6 +7127,26 @@ pathophysiology:
     term:
       id: hgnc:14270
       label: PCDH19
+  evidence:
+  - reference: PMID:18469813
+    reference_title: &#34;X-linked protocadherin 19 mutations cause female-limited epilepsy and cognitive impairment.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Five mutations resulted in the introduction of a premature termination codon. Study of two of these demonstrated nonsense-mediated decay of PCDH19 mRNA.&#34;
+    explanation: &gt;-
+      Establishes the loss-of-function character of the initiating lesion: most
+      of the founding mutations truncate the protein and are cleared by
+      nonsense-mediated decay, so functional protocadherin-19 is absent from the
+      mutant allele rather than merely altered.
+  - reference: PMID:18469813
+    reference_title: &#34;X-linked protocadherin 19 mutations cause female-limited epilepsy and cognitive impairment.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The two missense mutations were predicted to affect adhesiveness of PCDH19 through impaired calcium binding.&#34;
+    explanation: &gt;-
+      Covers the missense arm of the same node and ties it to the
+      calcium-dependent adhesion function that the downstream
+      cellular-interference node depends on.
   downstream:
   - target: Mosaic Protocadherin-19 Expression
     causal_link_type: DIRECT
@@ -6321,6 +7166,26 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  evidence:
+  - reference: PMID:29301106
+    reference_title: &#34;Abnormal Cell Sorting Underlies the Unique X-Linked Inheritance of PCDH19 Epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;mosaic expression of Pcdh19 in heterozygous female mice leads to striking sorting between cells expressing wild-type (WT) PCDH19 and null PCDH19 in the developing cortex, correlating with altered network activity.&#34;
+    explanation: &gt;-
+      Demonstrates the mosaic cell-population state this node models, and shows
+      it has a physical consequence in the developing cortex: positive and
+      negative neurons segregate from one another, with altered network
+      activity.
+  - reference: PMID:32366910
+    reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;There were no phenotypic differences between heterozygous females and mosaic males.&#34;
+    explanation: &gt;-
+      Strong human support for mosaicism (not sex) being the operative variable:
+      mosaic males, who share the mosaic cell population but not the female
+      karyotype, are phenotypically indistinguishable from heterozygous females.
   downstream:
   - target: Cellular Interference and Impaired Homophilic Adhesion
     causal_link_type: DIRECT
@@ -6385,6 +7250,24 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  evidence:
+  - reference: PMID:29301106
+    reference_title: &#34;Abnormal Cell Sorting Underlies the Unique X-Linked Inheritance of PCDH19 Epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Our results highlight the role of PCDH19 in determining cell adhesion affinities during cortical development and the way segregation of WT and null PCDH19 cells is associated with the unique X-linked inheritance of PCDH19 epilepsy.&#34;
+    explanation: &gt;-
+      Places the defect at the level of cortical developmental assembly, which
+      is what this node asserts, rather than at ongoing synaptic function.
+  - reference: PMID:29301106
+    reference_title: &#34;Abnormal Cell Sorting Underlies the Unique X-Linked Inheritance of PCDH19 Epilepsy.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Furthermore, we identify variable cortical malformations in PCDH19 epilepsy patients.&#34;
+    explanation: &gt;-
+      Human structural correlate of the circuit-assembly defect. Rated PARTIAL
+      because the malformations are described as variable, so they are not a
+      constant feature and cannot carry the node on their own.
   downstream:
   - target: Neuronal Network Hyperexcitability
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
@@ -6409,6 +7292,19 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  evidence:
+  - reference: PMID:29301106
+    reference_title: &#34;Abnormal Cell Sorting Underlies the Unique X-Linked Inheritance of PCDH19 Epilepsy.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Complete deletion of PCDH19 in heterozygous mice abolishes abnormal cell sorting and restores normal network activity.&#34;
+    explanation: &gt;-
+      The rescue experiment shows network activity is abnormal in the mosaic
+      state and normalizes when the mosaic is removed, which is the closest
+      direct measurement of this node available. Rated PARTIAL because &#34;altered
+      network activity&#34; in mouse cortex is not the same claim as the
+      hypersynchronous, fever-sensitive hyperexcitability this node asserts in
+      humans.
   downstream:
   - target: Fever-Sensitive Clustering Seizures
     causal_link_type: DIRECT
@@ -6429,6 +7325,62 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  downstream:
+  - target: Clustering Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      Seizures occur in tight clusters over one or a few days separated by
+      longer seizure-free intervals - the defining feature that names the
+      disorder.
+    evidence:
+    - reference: PMID:32366910
+      reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Seizures occurred in clusters in 94% of individuals&#34;
+      explanation: &gt;-
+        PARTIAL: the cohort establishes that clustering is near-universal, which
+        is this edge&#39;s target, but reports the clinical observation rather than
+        the mechanism-to-manifestation step the edge encodes.
+  - target: Focal-Onset Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      The clusters are built predominantly from focal-onset seizures with
+      prominent affective (fearful) semiology.
+    evidence:
+    - reference: PMID:32366910
+      reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;focal seizure clusters with affective semiology&#34;
+      explanation: &gt;-
+        PARTIAL: documents focal seizure clusters with affective semiology as the
+        hallmark presentation, establishing the edge&#39;s target without asserting
+        the causal step.
+  - target: Fever-Sensitive Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      The same endpoint is characteristically triggered or exacerbated by fever,
+      especially at onset.
+  - target: Bilateral Tonic-Clonic Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      Bilateral tonic-clonic seizures are one of the seizure types making up the
+      clusters.
+  - target: Absence Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      Absence (generalized non-motor) seizures occur within the seizure
+      repertoire of some individuals.
+  - target: Myoclonic Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      Myoclonic seizures occur within the seizure repertoire of some
+      individuals.
+  - target: Atonic Seizures
+    causal_link_type: DIRECT
+    description: &gt;-
+      Atonic seizures occur within the seizure repertoire of some individuals.
 - name: Cognitive and Behavioral Impairment
   description: &gt;-
     Many affected individuals have intellectual disability of variable severity
@@ -6441,6 +7393,40 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  evidence:
+  - reference: PMID:32366910
+    reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Executive dysfunction and autism spectrum disorder (ASD) occurred in approximately 60% of individuals.&#34;
+    explanation: &gt;-
+      Quantifies the cognitive and behavioral outcome in a 112-individual
+      standardized-assessment cohort, supporting this node as a major arm of the
+      disorder rather than an occasional accompaniment.
+  - reference: PMID:32366910
+    reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Earlier seizure onset age and increased number of seizures within a cluster were associated with more severe ASD symptoms (p = 0.001)&#34;
+    explanation: &gt;-
+      Couples seizure burden to the severity of the behavioral outcome, the
+      quantitative signal behind treating this node as downstream of the same
+      circuit defect that drives the seizures.
+  downstream:
+  - target: Intellectual Disability
+    causal_link_type: DIRECT
+    description: &gt;-
+      The cognitive arm of the outcome is intellectual disability of variable
+      severity.
+  - target: Autistic Behavior
+    causal_link_type: DIRECT
+    description: &gt;-
+      Autistic features are a frequent component of the behavioral outcome.
+  - target: Aggressive Behavior
+    causal_link_type: DIRECT
+    description: &gt;-
+      Behavioral disturbance including aggression is a frequent component of the
+      same outcome.
 phenotypes:
 - name: Clustering Seizures
   description: &gt;-
@@ -6490,6 +7476,15 @@ phenotypes:
     term:
       id: HP:0002373
       label: Febrile seizure (within the age range of 3 months to 6 years)
+  evidence:
+  - reference: PMID:39017914
+    reference_title: &#34;Multicenter retrospective study of patients with PCDH19-related epilepsy: The first Hungarian cohort.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The initial seizures usually develop in association with fever, begin on average at 15 months of age, and often occur in clusters.&#34;
+    explanation: &gt;-
+      States the fever association directly, together with the infantile onset
+      and clustering this entry records alongside it.
 - name: Bilateral Tonic-Clonic Seizures
   description: Generalized (bilateral) tonic-clonic seizures occur.
   phenotype_term:
@@ -6512,6 +7507,24 @@ phenotypes:
     term:
       id: HP:0001249
       label: Intellectual disability
+  evidence:
+  - reference: PMID:30451291
+    reference_title: &#34;Defining the electroclinical phenotype and outcome of PCDH19-related epilepsy: A multicenter study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thirty-six patients (59.0%) had ID and behavioral disturbances.&#34;
+    explanation: &gt;-
+      Multicenter cohort of 61 patients putting intellectual disability with
+      behavioral disturbance at 59%, supporting &#34;common&#34; in this description.
+  - reference: PMID:30451291
+    reference_title: &#34;Defining the electroclinical phenotype and outcome of PCDH19-related epilepsy: A multicenter study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;An earlier age at epilepsy onset emerged as the only predictive factor for ID (P = 0.047) and ASD (P = 0.014).&#34;
+    explanation: &gt;-
+      Independently reproduces the onset-age/severity coupling reported by
+      PMID:32366910 in a separate cohort, and is the basis for describing the
+      cognitive outcome as variable in severity rather than uniform.
 - name: Autistic Behavior
   description: Autistic features are frequently associated.
   phenotype_term:
@@ -6519,6 +7532,24 @@ phenotypes:
     term:
       id: HP:0000729
       label: Autistic behavior
+  evidence:
+  - reference: PMID:32366910
+    reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Executive dysfunction and autism spectrum disorder (ASD) occurred in approximately 60% of individuals.&#34;
+    explanation: &gt;-
+      Standardized assessment (Social Responsiveness Scale) in 112 individuals
+      putting autism spectrum disorder at roughly 60%, well beyond &#34;frequently
+      associated&#34;.
+  - reference: PMID:32366910
+    reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The ASD profile included features of attention-deficit hyperactivity disorder.&#34;
+    explanation: &gt;-
+      Characterizes the autism profile, and is the source for the hyperactivity
+      component named in this entry&#39;s disease description.
 - name: Aggressive Behavior
   description: Behavioral disturbance including aggression is frequent.
   phenotype_term:
@@ -6555,6 +7586,31 @@ genetic:
     males are affected, whereas hemizygous (uniformly negative) males are usually
     unaffected carriers. Variants include missense, truncating, and whole-gene
     deletions.
+  evidence:
+  - reference: PMID:18469813
+    reference_title: &#34;X-linked protocadherin 19 mutations cause female-limited epilepsy and cognitive impairment.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Aided by systematic resequencing of 737 X chromosome genes, we identified different protocadherin 19 (PCDH19) gene mutations in seven families with EFMR.&#34;
+    explanation: &gt;-
+      The gene-discovery study establishing PCDH19 as causative, across seven
+      independent EFMR families.
+  - reference: PMID:18469813
+    reference_title: &#34;X-linked protocadherin 19 mutations cause female-limited epilepsy and cognitive impairment.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;PCDH19 is expressed in developing brains of human and mouse and is the first member of the cadherin superfamily to be directly implicated in epilepsy or mental retardation.&#34;
+    explanation: &gt;-
+      Supports the notes&#39; framing of PCDH19 as a brain-expressed cell-adhesion
+      molecule, the property the cellular-interference mechanism turns on.
+  - reference: PMID:32366910
+    reference_title: &#34;A standardized patient-centered characterization of the phenotypic spectrum of PCDH19 girls clustering epilepsy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Of the 112 individuals represented (15 males), there were 70 unique variants.&#34;
+    explanation: &gt;-
+      Documents the allelic heterogeneity this notes block describes: 70 distinct
+      variants across 112 individuals, with no single recurrent lesion dominating.
 diagnosis:
 - name: PCDH19 Molecular Genetic Testing
   description: &gt;-
@@ -7156,7 +8212,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PCDH19 Clustering Epilepsy", "mondoId": "MONDO:0010246", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PCDH19_Clustering_Epilepsy", "yamlRevision": "cac57a647db4"};
+        const OS_CONFIG = {"diseaseName": "PCDH19 Clustering Epilepsy", "mondoId": "MONDO:0010246", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PCDH19_Clustering_Epilepsy", "yamlRevision": "fbbe423623b5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7575,5 +8631,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Clostridioides difficile Infection</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Clostridioides difficile Infection</h1>
             <div class="header-meta">
 
@@ -3899,27 +4021,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">INFECTIOUS_DISEASES</span>
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3962,7 +4161,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-acute-clostridioides-difficile-infection">
 
                     <div class="item-name">
                         Acute Clostridioides difficile infection
@@ -3997,6 +4196,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4023,7 +4223,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-recurrent-clostridioides-difficile-infection">
 
                     <div class="item-name">
                         Recurrent Clostridioides difficile infection
@@ -4060,6 +4260,7 @@
                         <a href="https://bioregistry.io/DOI:10.1177/20503121241274192" target="_blank">DOI:10.1177/20503121241274192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4081,6 +4282,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282548" target="_blank">PMID:39282548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4108,7 +4310,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-non-colitic-c-difficile-infection-carrier-state-or-diarrheal-disease">
 
                     <div class="item-name">
                         Non-colitic C. difficile infection (carrier state or diarrheal disease)
@@ -4142,6 +4344,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4234,6 +4437,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42299067" target="_blank">PMID:42299067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4279,18 +4483,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Colonic Epithelial Cell, annotated with colon epithelial cell (CL:0011108). CL:0011108 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Colonic Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011108" target="_blank" class="curie-chip curie-chip-cl">CL:0011108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0011108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Colonic Epithelial Cell, annotated with colon epithelial cell (CL:0011108). CL:0011108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4318,18 +4524,20 @@ This pathophysiological event involves Colonic Epithelial Cell, annotated with c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cell Adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4383,6 +4591,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42299067" target="_blank">PMID:42299067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4405,6 +4614,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42299067" target="_blank">PMID:42299067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4426,6 +4636,7 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36448839" target="_blank">PMID:36448839</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4469,18 +4680,20 @@ This pathophysiological event involves Cell Adhesion (GO:0007155). GO:0007155 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Peptidoglycan Biosynthetic Process (GO:0009252). GO:0009252 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Peptidoglycan Biosynthetic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009252" target="_blank" class="curie-chip curie-chip-go">GO:0009252</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0009252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Peptidoglycan Biosynthetic Process (GO:0009252). GO:0009252 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4518,6 +4731,7 @@ This pathophysiological event involves Peptidoglycan Biosynthetic Process (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18302341" target="_blank">PMID:18302341</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4563,18 +4777,20 @@ This pathophysiological event involves Peptidoglycan Biosynthetic Process (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         colon
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001155</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0001155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4619,6 +4835,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4692,6 +4909,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26185088" target="_blank">PMID:26185088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4711,6 +4929,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40366862" target="_blank">PMID:40366862</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4784,6 +5003,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32179626" target="_blank">PMID:32179626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4805,6 +5025,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28066726" target="_blank">PMID:28066726</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4880,6 +5101,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37126691" target="_blank">PMID:37126691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4954,6 +5176,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4993,18 +5216,20 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Pathogenesis, annotated with symbiont-mediated perturbation of host process (GO:0044003). GO:0044003 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Pathogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044003" target="_blank" class="curie-chip curie-chip-go">GO:0044003</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044003" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0044003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Pathogenesis, annotated with symbiont-mediated perturbation of host process (GO:0044003). GO:0044003 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5074,6 +5299,7 @@ This pathophysiological event involves Pathogenesis, annotated with symbiont-med
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15831824" target="_blank">PMID:15831824</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5093,6 +5319,7 @@ This pathophysiological event involves Pathogenesis, annotated with symbiont-med
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34837014" target="_blank">PMID:34837014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5126,18 +5353,20 @@ This pathophysiological event involves Pathogenesis, annotated with symbiont-med
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Colonic Epithelial Cell, annotated with colon epithelial cell (CL:0011108). CL:0011108 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Colonic Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011108" target="_blank" class="curie-chip curie-chip-cl">CL:0011108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0011108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Colonic Epithelial Cell, annotated with colon epithelial cell (CL:0011108). CL:0011108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5197,6 +5426,7 @@ This pathophysiological event involves Colonic Epithelial Cell, annotated with c
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15831824" target="_blank">PMID:15831824</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5270,6 +5500,7 @@ This pathophysiological event involves Colonic Epithelial Cell, annotated with c
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39298531" target="_blank">PMID:39298531</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5292,6 +5523,7 @@ This pathophysiological event involves Colonic Epithelial Cell, annotated with c
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39298531" target="_blank">PMID:39298531</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5313,6 +5545,7 @@ This pathophysiological event involves Colonic Epithelial Cell, annotated with c
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39298531" target="_blank">PMID:39298531</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5348,18 +5581,20 @@ This pathophysiological event involves Colonic Epithelial Cell, annotated with c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5387,18 +5622,20 @@ This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5452,6 +5689,7 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15831824" target="_blank">PMID:15831824</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5494,18 +5732,20 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         colon
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001155</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5527,6 +5767,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34837014" target="_blank">PMID:34837014</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5618,16 +5859,20 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0031273</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Shock (HP:0031273). HP:0031273 is a phenotype from the Human Phenotype Ontology.">
-                        Shock
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" class="curie-chip curie-chip-hp">HP:0031273</a>
-
-
+This clinical feature is Shock (HP:0031273). HP:0031273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5647,6 +5892,7 @@ This clinical feature is Shock (HP:0031273). HP:0031273 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5689,16 +5935,20 @@ This clinical feature is Shock (HP:0031273). HP:0031273 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
-                        Diarrhea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
-
-
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5718,6 +5968,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5749,16 +6000,20 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.">
-                        Nausea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp">HP:0002018</a>
-
-
+This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5778,6 +6033,7 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33402156" target="_blank">PMID:33402156</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5811,16 +6067,20 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002013</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.">
-                        Vomiting
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp">HP:0002013</a>
-
-
+This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5840,6 +6100,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33402156" target="_blank">PMID:33402156</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5873,16 +6134,20 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002583</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.">
-                        Colitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp">HP:0002583</a>
-
-
+This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5902,6 +6167,7 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5935,16 +6201,20 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000852" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:6000852</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Megacolon (HP:6000852). HP:6000852 is a phenotype from the Human Phenotype Ontology.">
-                        Megacolon
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000852" target="_blank" class="curie-chip curie-chip-hp">HP:6000852</a>
-
-
+This clinical feature is Megacolon (HP:6000852). HP:6000852 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5964,6 +6234,7 @@ This clinical feature is Megacolon (HP:6000852). HP:6000852 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6006,16 +6277,20 @@ This clinical feature is Megacolon (HP:6000852). HP:6000852 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6035,6 +6310,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33402156" target="_blank">PMID:33402156</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6075,16 +6351,20 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6104,6 +6384,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37004449" target="_blank">PMID:37004449</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6165,6 +6446,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6181,17 +6465,17 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administration oral route of administration; therapeutic agent vancomycin. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administration oral route of administration; therapeutic agent vancomycin. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administration oral route of administration; therapeutic agent vancomycin. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6251,6 +6535,7 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38508330" target="_blank">PMID:38508330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6279,17 +6564,17 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administration oral route of administration; therapeutic agent fidaxomicin. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administration oral route of administration; therapeutic agent fidaxomicin. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administration oral route of administration; therapeutic agent fidaxomicin. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6331,6 +6616,7 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38726585" target="_blank">PMID:38726585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6350,6 +6636,7 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282548" target="_blank">PMID:39282548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6379,17 +6666,17 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Fecal Microbiota Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Fecal Microbiota Transplantation (NCIT:C118643), qualified as temporality recurrent. NCIT:C118643 is a clinical intervention from the NCI Thesaurus.">Fecal Microbiota Transplantation</span>
+This treatment is Fecal Microbiota Transplantation (NCIT:C118643), qualified as temporality recurrent. NCIT:C118643 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C118643" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Fecal Microbiota Transplantation (NCIT:C118643), qualified as temporality recurrent. NCIT:C118643 is a clinical intervention from the NCI Thesaurus.">NCIT:C118643</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C118643" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C118643">NCIT:C118643</a>
 
 
 
@@ -6433,6 +6720,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643), qualified as 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38508330" target="_blank">PMID:38508330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6452,6 +6740,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643), qualified as 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282548" target="_blank">PMID:39282548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6481,17 +6770,17 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643), qualified as 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6516,18 +6805,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses bezlotoxumab (NCIT:C153084). NCIT:C153084 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         bezlotoxumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C153084" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C153084</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C153084" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C153084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bezlotoxumab (NCIT:C153084). NCIT:C153084 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6553,6 +6844,7 @@ This treatment uses bezlotoxumab (NCIT:C153084). NCIT:C153084 is a therapeutic a
                         <a href="http://purl.obolibrary.org/obo/NCIT_C153084" target="_blank">NCIT:C153084</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6574,6 +6866,7 @@ This treatment uses bezlotoxumab (NCIT:C153084). NCIT:C153084 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282548" target="_blank">PMID:39282548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6603,18 +6896,18 @@ This treatment uses bezlotoxumab (NCIT:C153084). NCIT:C153084 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6656,6 +6949,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39650985" target="_blank">PMID:39650985</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6694,6 +6988,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">Hospital environments facilitate C. difficile spore persistence and transmission, underpinning healthcare-associated CDI.</div>
 
 
@@ -6709,6 +7007,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6759,6 +7058,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28613708" target="_blank">PMID:28613708</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6791,6 +7091,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">Beyond antibiotics, gastric acid suppression by proton pump inhibitors, advanced age, and hospitalization are established modifiable and host risk factors that predispose to CDI by altering the gut environment and host defenses.
 </div>
 
@@ -6807,6 +7111,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282548" target="_blank">PMID:39282548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6857,6 +7162,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282548" target="_blank">PMID:39282548</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6904,7 +7210,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-ulcerative-colitis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Ulcerative_Colitis.html">Ulcerative colitis</a>
@@ -6953,6 +7259,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38335423" target="_blank">PMID:38335423</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6976,7 +7283,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-lymphocytic-colitis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Lymphocytic colitis</span>
@@ -7024,6 +7331,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38313897" target="_blank">PMID:38313897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7047,7 +7355,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-ischemic-colitis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Ischemic colitis</span>
@@ -7095,6 +7403,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37004449" target="_blank">PMID:37004449</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7118,7 +7427,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-strongyloidiasis-hyperinfection">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Strongyloidiasis hyperinfection</span>
@@ -7166,6 +7475,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35181536" target="_blank">PMID:35181536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7189,7 +7499,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-appendicitis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Acute appendicitis</span>
@@ -7237,6 +7547,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33402156" target="_blank">PMID:33402156</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7270,7 +7581,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-bioproject-prjna1055134">
                 <div class="item-name">
                     Metagenomic, metabolomic, and lipidomic shifts associated with fecal microbiota transplantation for recurrent CDI
 
@@ -7332,6 +7643,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39377587" target="_blank">PMID:39377587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7367,7 +7679,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03183128">
                 <div class="item-name">
                     NCT03183128
 
@@ -7386,18 +7698,20 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Diarrhea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002014</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7415,6 +7729,7 @@ This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03183128" target="_blank">clinicaltrials:NCT03183128</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7435,6 +7750,7 @@ This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1177/20503121241274192" target="_blank">DOI:10.1177/20503121241274192</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7459,7 +7775,7 @@ This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype fro
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03244644">
                 <div class="item-name">
                     NCT03244644
 
@@ -7478,18 +7794,20 @@ This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype fro
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Diarrhea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002014</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7507,6 +7825,7 @@ This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03244644" target="_blank">clinicaltrials:NCT03244644</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7529,7 +7848,7 @@ This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype fro
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01241552">
                 <div class="item-name">
                     NCT01241552
 
@@ -7548,33 +7867,37 @@ This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype fro
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Diarrhea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002014</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fever
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001945</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7592,6 +7915,7 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01241552" target="_blank">clinicaltrials:NCT01241552</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7639,7 +7963,6 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Clostridioides difficile Infection
 creation_date: &#39;2025-12-19T01:18:09Z&#39;
-updated_date: &#39;2026-05-15T00:00:00Z&#39;
 description: &gt;-
   Clostridioides difficile infection (CDI) is an antibiotic-associated colitis
   caused by the spore-forming, toxin-producing anaerobic bacterium Clostridioides
@@ -9231,7 +9554,7 @@ Some mechanistic specifics (e.g., complete host receptor catalogs and structural
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Clostridioides difficile Infection", "mondoId": "MONDO:0000705", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Clostridioides_difficile_Infection", "yamlRevision": "d45967a76571"};
+        const OS_CONFIG = {"diseaseName": "Clostridioides difficile Infection", "mondoId": "MONDO:0000705", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Clostridioides_difficile_Infection", "yamlRevision": "9e0b4a35fc18"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9650,5 +9973,73 @@ Some mechanistic specifics (e.g., complete host receptor catalogs and structural
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Adult-Onset Foveomacular Vitelliform Dystrophy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adult-Onset Foveomacular Vitelliform Dystrophy</h1>
             <div class="header-meta">
 
@@ -3909,7 +4031,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3953,6 +4075,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25085631" target="_blank">PMID:25085631</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4019,7 +4142,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-prph2-related">
 
                     <div class="item-name">
                         PRPH2-related AVMD (vitelliform macular dystrophy 3)
@@ -4034,18 +4157,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PRPH2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9942</a>
+    <a href="https://bioregistry.io/hgnc:9942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9942</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4076,6 +4201,7 @@ This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4102,7 +4228,7 @@ This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-best1-related">
 
                     <div class="item-name">
                         BEST1-related AVMD (adult-onset bestrophinopathy / pseudo-Best)
@@ -4115,18 +4241,20 @@ This subtype is caused by variation in PRPH2 (hgnc:9942). hgnc:9942 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in BEST1 (hgnc:12703). hgnc:12703 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 BEST1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12703" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12703</a>
+    <a href="https://bioregistry.io/hgnc:12703" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:12703</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in BEST1 (hgnc:12703). hgnc:12703 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4157,6 +4285,7 @@ This subtype is caused by variation in BEST1 (hgnc:12703). hgnc:12703 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4183,7 +4312,7 @@ This subtype is caused by variation in BEST1 (hgnc:12703). hgnc:12703 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-impg1-related">
 
                     <div class="item-name">
                         IMPG1-related AVMD (vitelliform macular dystrophy 4)
@@ -4198,18 +4327,20 @@ This subtype is caused by variation in BEST1 (hgnc:12703). hgnc:12703 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in IMPG1 (hgnc:6055). hgnc:6055 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 IMPG1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6055" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6055</a>
+    <a href="https://bioregistry.io/hgnc:6055" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6055</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in IMPG1 (hgnc:6055). hgnc:6055 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4240,6 +4371,7 @@ This subtype is caused by variation in IMPG1 (hgnc:6055). hgnc:6055 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25085631" target="_blank">PMID:25085631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4261,6 +4393,7 @@ This subtype is caused by variation in IMPG1 (hgnc:6055). hgnc:6055 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28644393" target="_blank">PMID:28644393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4288,7 +4421,7 @@ This subtype is caused by variation in IMPG1 (hgnc:6055). hgnc:6055 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-impg2-related">
 
                     <div class="item-name">
                         IMPG2-related AVMD (vitelliform macular dystrophy 5)
@@ -4303,18 +4436,20 @@ This subtype is caused by variation in IMPG1 (hgnc:6055). hgnc:6055 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 IMPG2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18362" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18362</a>
+    <a href="https://bioregistry.io/hgnc:18362" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:18362</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4345,6 +4480,7 @@ This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25085631" target="_blank">PMID:25085631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4366,6 +4502,7 @@ This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28644393" target="_blank">PMID:28644393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4393,7 +4530,7 @@ This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-idiopathic">
 
                     <div class="item-name">
                         Idiopathic / non-Mendelian AVMD
@@ -4427,6 +4564,7 @@ This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26802173" target="_blank">PMID:26802173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4449,6 +4587,7 @@ This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39585675" target="_blank">PMID:39585675</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4470,6 +4609,7 @@ This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39585675" target="_blank">PMID:39585675</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4526,18 +4666,20 @@ This subtype is caused by variation in IMPG2 (hgnc:18362). hgnc:18362 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4554,18 +4696,20 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         photoreceptor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4593,18 +4737,20 @@ This pathophysiological event involves photoreceptor cell (CL:0000210). CL:00002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         photoreceptor cell maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4632,33 +4778,37 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON:0001786 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         fovea centralis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001786</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON:0001786 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         macula lutea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0000053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4696,6 +4846,7 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4729,18 +4880,20 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4768,18 +4921,20 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased phagocytosis of shed photoreceptor outer segments, annotated with phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phagocytosis of shed photoreceptor outer segments
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phagocytosis of shed photoreceptor outer segments, annotated with phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4807,18 +4962,20 @@ This pathophysiological event involves decreased phagocytosis of shed photorecep
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON:0001786 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         fovea centralis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001786</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON:0001786 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4864,6 +5021,7 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4885,6 +5043,7 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4919,18 +5078,20 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         photoreceptor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4947,18 +5108,20 @@ This pathophysiological event involves photoreceptor cell (CL:0000210). CL:00002
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4986,18 +5149,20 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased retina homeostasis (GO:0001895). GO:0001895 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         retina homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001895" target="_blank" class="curie-chip curie-chip-go">GO:0001895</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001895" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001895</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retina homeostasis (GO:0001895). GO:0001895 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5025,18 +5190,20 @@ This pathophysiological event involves decreased retina homeostasis (GO:0001895)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         macula lutea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0000053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5098,6 +5265,7 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5119,6 +5287,7 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26802173" target="_blank">PMID:26802173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5208,16 +5377,20 @@ This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced visual acuity (HP:0007663), qualified as course progressive. HP:0007663 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced visual acuity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp">HP:0007663</a>
-
-
+This clinical feature is Reduced visual acuity (HP:0007663), qualified as course progressive. HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5256,6 +5429,7 @@ This clinical feature is Reduced visual acuity (HP:0007663), qualified as course
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5288,16 +5462,20 @@ This clinical feature is Reduced visual acuity (HP:0007663), qualified as course
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0007401</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype from the Human Phenotype Ontology.">
-                        Macular atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp">HP:0007401</a>
-
-
+This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5317,6 +5495,7 @@ This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5359,16 +5538,22 @@ This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Vitelliform-like macular lesions</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007677</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Vitelliform macular lesion, annotated with Vitelliform-like macular lesions (HP:0007677). HP:0007677 is a phenotype from the Human Phenotype Ontology.">
-                        Vitelliform-like macular lesions
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007677" target="_blank" class="curie-chip curie-chip-hp">HP:0007677</a>
-
-
+This clinical feature is Vitelliform macular lesion, annotated with Vitelliform-like macular lesions (HP:0007677). HP:0007677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5388,6 +5573,7 @@ This clinical feature is Vitelliform macular lesion, annotated with Vitelliform-
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28644393" target="_blank">PMID:28644393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5421,16 +5607,20 @@ This clinical feature is Vitelliform macular lesion, annotated with Vitelliform-
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype from the Human Phenotype Ontology.">
-                        Metamorphopsia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012508" target="_blank" class="curie-chip curie-chip-hp">HP:0012508</a>
-
-
+This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5450,6 +5640,7 @@ This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16567277" target="_blank">PMID:16567277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5483,16 +5674,20 @@ This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0011506</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.">
-                        Choroidal neovascularization
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp">HP:0011506</a>
-
-
+This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5512,6 +5707,7 @@ This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5534,6 +5730,7 @@ This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16567277" target="_blank">PMID:16567277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5621,6 +5818,7 @@ This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5651,6 +5849,9 @@ This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 i
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5667,17 +5868,17 @@ This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 i
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5702,33 +5903,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses angiogenesis inhibitor (anti-VEGF), annotated with Angiogenesis Inhibitor (NCIT:C1742). NCIT:C1742 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         angiogenesis inhibitor (anti-VEGF)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1742" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1742</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1742" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C1742</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses angiogenesis inhibitor (anti-VEGF), annotated with Angiogenesis Inhibitor (NCIT:C1742). NCIT:C1742 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         bevacizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C2039</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C2039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5743,18 +5948,20 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Choroidal neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Choroidal neovascularization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp">HP:0011506</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011506</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Choroidal neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5773,6 +5980,7 @@ This treatment targets Choroidal neovascularization (HP:0011506). HP:0011506 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25681578" target="_blank">PMID:25681578</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5804,18 +6012,18 @@ This treatment targets Choroidal neovascularization (HP:0011506). HP:0011506 is 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5856,6 +6064,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38983024" target="_blank">PMID:38983024</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7639,5 +7848,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

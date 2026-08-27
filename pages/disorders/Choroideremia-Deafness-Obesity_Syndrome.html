@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Choroideremia-Deafness-Obesity Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Choroideremia-Deafness-Obesity Syndrome</h1>
             <div class="header-meta">
 
@@ -3900,31 +4022,110 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">DISORDER_OF_EAR</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+                    <span class="tag tag-classification">DISORDER OF EAR</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3942,7 +4143,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive-inheritance">
                 <div class="item-name">
                     X-linked recessive inheritance
 
@@ -3988,6 +4189,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28630650" target="_blank">PMID:28630650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4010,6 +4212,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4123,6 +4326,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4210,6 +4419,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28630650" target="_blank">PMID:28630650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4233,6 +4443,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28630650" target="_blank">PMID:28630650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4255,6 +4466,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10644430" target="_blank">PMID:10644430</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4298,18 +4510,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein geranylgeranylation (GO:0018344). GO:0018344 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein geranylgeranylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0018344" target="_blank" class="curie-chip curie-chip-go">GO:0018344</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0018344" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0018344</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein geranylgeranylation (GO:0018344). GO:0018344 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4330,18 +4544,20 @@ This pathophysiological event involves decreased protein geranylgeranylation (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Rab protein signal transduction (GO:0032482). GO:0032482 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Rab protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032482" target="_blank" class="curie-chip curie-chip-go">GO:0032482</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032482" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0032482</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Rab protein signal transduction (GO:0032482). GO:0032482 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4367,18 +4583,20 @@ This pathophysiological event involves abnormal Rab protein signal transduction 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased Rab geranylgeranyltransferase activity (GO:0004663). GO:0004663 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Rab geranylgeranyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004663" target="_blank" class="curie-chip curie-chip-go">GO:0004663</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004663" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004663</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased Rab geranylgeranyltransferase activity (GO:0004663). GO:0004663 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4433,6 +4651,7 @@ This pathophysiological event involves decreased Rab geranylgeranyltransferase a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8380507" target="_blank">PMID:8380507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4456,6 +4675,7 @@ This pathophysiological event involves decreased Rab geranylgeranyltransferase a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8380507" target="_blank">PMID:8380507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4478,6 +4698,7 @@ This pathophysiological event involves decreased Rab geranylgeranyltransferase a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10644430" target="_blank">PMID:10644430</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4514,18 +4735,20 @@ This pathophysiological event involves decreased Rab geranylgeranyltransferase a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decreased retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4546,18 +4769,20 @@ This pathophysiological event involves decreased retinal pigment epithelial cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decreased photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         photoreceptor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4607,6 +4832,7 @@ This pathophysiological event involves decreased photoreceptor cell (CL:0000210)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3476958" target="_blank">PMID:3476958</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4629,6 +4855,7 @@ This pathophysiological event involves decreased photoreceptor cell (CL:0000210)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4672,18 +4899,20 @@ This pathophysiological event involves decreased photoreceptor cell (CL:0000210)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal inner ear development (GO:0048839). GO:0048839 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inner ear development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048839" target="_blank" class="curie-chip curie-chip-go">GO:0048839</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048839" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0048839</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal inner ear development (GO:0048839). GO:0048839 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4739,6 +4968,7 @@ This pathophysiological event involves abnormal inner ear development (GO:004883
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10644430" target="_blank">PMID:10644430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4761,6 +4991,7 @@ This pathophysiological event involves abnormal inner ear development (GO:004883
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2491012" target="_blank">PMID:2491012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4821,6 +5052,7 @@ This pathophysiological event involves abnormal inner ear development (GO:004883
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2491012" target="_blank">PMID:2491012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4895,6 +5127,7 @@ This pathophysiological event involves abnormal inner ear development (GO:004883
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10644430" target="_blank">PMID:10644430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4917,6 +5150,7 @@ This pathophysiological event involves abnormal inner ear development (GO:004883
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28630650" target="_blank">PMID:28630650</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4977,6 +5211,7 @@ This pathophysiological event involves abnormal inner ear development (GO:004883
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3476958" target="_blank">PMID:3476958</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5071,16 +5306,20 @@ This pathophysiological event involves abnormal inner ear development (GO:004883
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000662</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nyctalopia (HP:0000662), qualified as course progressive. HP:0000662 is a phenotype from the Human Phenotype Ontology.">
-                        Nyctalopia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp">HP:0000662</a>
-
-
+This clinical feature is Nyctalopia (HP:0000662), qualified as course progressive. HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5118,6 +5357,7 @@ This clinical feature is Nyctalopia (HP:0000662), qualified as course progressiv
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3476958" target="_blank">PMID:3476958</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5152,16 +5392,20 @@ This clinical feature is Nyctalopia (HP:0000662), qualified as course progressiv
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001135</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chorioretinal dystrophy (choroideremia), annotated with Chorioretinal dystrophy (HP:0001135), qualified as course progressive. HP:0001135 is a phenotype from the Human Phenotype Ontology.">
-                        Chorioretinal dystrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001135" target="_blank" class="curie-chip curie-chip-hp">HP:0001135</a>
-
-
+This clinical feature is Chorioretinal dystrophy (choroideremia), annotated with Chorioretinal dystrophy (HP:0001135), qualified as course progressive. HP:0001135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5199,6 +5443,7 @@ This clinical feature is Chorioretinal dystrophy (choroideremia), annotated with
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5233,16 +5478,20 @@ This clinical feature is Chorioretinal dystrophy (choroideremia), annotated with
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Constriction of peripheral visual field (HP:0001133), qualified as course progressive. HP:0001133 is a phenotype from the Human Phenotype Ontology.">
-                        Constriction of peripheral visual field
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp">HP:0001133</a>
-
-
+This clinical feature is Constriction of peripheral visual field (HP:0001133), qualified as course progressive. HP:0001133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5281,6 +5530,7 @@ This clinical feature is Constriction of peripheral visual field (HP:0001133), q
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5314,16 +5564,20 @@ This clinical feature is Constriction of peripheral visual field (HP:0001133), q
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000618</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Blindness (eventual central vision loss), annotated with Blindness (HP:0000618). HP:0000618 is a phenotype from the Human Phenotype Ontology.">
-                        Blindness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" class="curie-chip curie-chip-hp">HP:0000618</a>
-
-
+This clinical feature is Blindness (eventual central vision loss), annotated with Blindness (HP:0000618). HP:0000618 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5343,6 +5597,7 @@ This clinical feature is Blindness (eventual central vision loss), annotated wit
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3476958" target="_blank">PMID:3476958</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5386,16 +5641,20 @@ This clinical feature is Blindness (eventual central vision loss), annotated wit
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5415,6 +5674,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3476958" target="_blank">PMID:3476958</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5458,16 +5718,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001513</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.">
-                        Obesity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp">HP:0001513</a>
-
-
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5487,6 +5751,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7258279" target="_blank">PMID:7258279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5530,16 +5795,20 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000410</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a phenotype from the Human Phenotype Ontology.">
-                        Mixed hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp">HP:0000410</a>
-
-
+This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5559,6 +5828,7 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2491012" target="_blank">PMID:2491012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5637,15 +5907,17 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CHM (hgnc:1940). hgnc:1940 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CHM
 
 
-    <a href="https://bioregistry.io/hgnc:1940" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1940</a>
+    <a href="https://bioregistry.io/hgnc:1940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:1940</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHM (hgnc:1940). hgnc:1940 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5668,6 +5940,7 @@ This disease-associated gene is CHM (hgnc:1940). hgnc:1940 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5705,15 +5978,17 @@ This disease-associated gene is CHM (hgnc:1940). hgnc:1940 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is POU3F4 (hgnc:9217). hgnc:9217 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POU3F4
 
 
-    <a href="https://bioregistry.io/hgnc:9217" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9217</a>
+    <a href="https://bioregistry.io/hgnc:9217" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:9217</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POU3F4 (hgnc:9217). hgnc:9217 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5736,6 +6011,7 @@ This disease-associated gene is POU3F4 (hgnc:9217). hgnc:9217 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10644430" target="_blank">PMID:10644430</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5773,15 +6049,17 @@ This disease-associated gene is POU3F4 (hgnc:9217). hgnc:9217 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RPS6KA6 (hgnc:10435). hgnc:10435 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RPS6KA6
 
 
-    <a href="https://bioregistry.io/hgnc:10435" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10435</a>
+    <a href="https://bioregistry.io/hgnc:10435" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:10435</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RPS6KA6 (hgnc:10435). hgnc:10435 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5804,6 +6082,7 @@ This disease-associated gene is RPS6KA6 (hgnc:10435). hgnc:10435 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10644430" target="_blank">PMID:10644430</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5841,15 +6120,17 @@ This disease-associated gene is RPS6KA6 (hgnc:10435). hgnc:10435 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ZNF711 (hgnc:13128). hgnc:13128 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZNF711
 
 
-    <a href="https://bioregistry.io/hgnc:13128" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13128</a>
+    <a href="https://bioregistry.io/hgnc:13128" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:13128</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZNF711 (hgnc:13128). hgnc:13128 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5872,6 +6153,7 @@ This disease-associated gene is ZNF711 (hgnc:13128). hgnc:13128 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28630650" target="_blank">PMID:28630650</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5904,6 +6186,9 @@ This disease-associated gene is ZNF711 (hgnc:13128). hgnc:13128 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5920,18 +6205,18 @@ This disease-associated gene is ZNF711 (hgnc:13128). hgnc:13128 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">rehabilitation</span>
+This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Rehabilitation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
 
 
 
@@ -5974,6 +6259,7 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6005,18 +6291,18 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">rehabilitation</span>
+This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Rehabilitation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
 
 
 
@@ -6059,6 +6345,7 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2491012" target="_blank">PMID:2491012</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6090,18 +6377,18 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6143,6 +6430,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6191,15 +6479,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isolated-x-linked-choroideremia">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Isolated X-linked choroideremia</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Choroideremia.html">Isolated X-linked choroideremia</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0010557" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0010557" target="_blank">
                             MONDO:0010557
                         </a>
                     </span>
@@ -6240,6 +6527,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301511" target="_blank">PMID:20301511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6266,7 +6554,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isolated-x-linked-deafness-type-3-dfnx2-dfn3">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Isolated X-linked deafness type 3 (DFNX2/DFN3)</span>
@@ -6315,6 +6603,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37371790" target="_blank">PMID:37371790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6341,7 +6630,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bardet-biedl-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Bardet-Biedl_syndrome.html">Bardet-Biedl syndrome</a>
@@ -7943,5 +8232,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

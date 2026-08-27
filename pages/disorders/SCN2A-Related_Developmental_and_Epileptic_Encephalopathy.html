@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>SCN2A-Related Developmental and Epileptic Encephalopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>SCN2A-Related Developmental and Epileptic Encephalopathy</h1>
             <div class="header-meta">
 
@@ -3831,7 +3953,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3982,7 +4104,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-de-novo">
                 <div class="item-name">
                     Autosomal dominant (de novo)
 
@@ -4014,6 +4136,85 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34859793" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34859793" target="_blank">PMID:34859793</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"With regards to inheritance pattern, de novo heterozygous mutations accounted for the majority (104/118; 88.1%)"</div>
+
+
+                <div class="evidence-explanation">In a genetically diagnosed early-infantile-onset DEE cohort (which included SCN2A cases), de novo heterozygous variants accounted for the large majority, supporting the de novo autosomal dominant mode of inheritance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31077350" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31077350" target="_blank">PMID:31077350</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Parental mosaicism was observed in the following genes: SCN1A, SCN2A, SCN8A, and STXBP1."</div>
+
+
+                <div class="evidence-explanation">Documents parental somatic mosaicism for SCN2A variants that appeared de novo, the basis for the small but non-zero sibling recurrence risk.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31077350" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31077350" target="_blank">PMID:31077350</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"parents affected by low-grade mosaicism are faced with an increased recurrence risk for transmitting the pathogenic variant, compared to the overall recurrence risk for a second affected child estimated at approximately 1%"</div>
+
+
+                <div class="evidence-explanation">Quantifies the baseline sibling recurrence risk (~1%) and the mosaicism mechanism that raises it in individual families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -4048,6 +4249,13 @@
 
                 </div>
 
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">2 support</span>
+
+                </div>
 
 
                 <div class="item-desc" style="margin-top: 8px;">Gain-of-function SCN2A variants increase Nav1.2 sodium current and neuronal excitability, producing early-infantile-onset epilepsy (typically before three months of age) that often responds to sodium-channel-blocking drugs.</div>
@@ -4098,6 +4306,62 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Some missense, gain of function variants tend to present in early infancy with epilepsy"</div>
+
+
+                <div class="evidence-explanation">States the gain-of-function / early-infantile-onset arm of the SCN2A dichotomy that this hypothesis group models.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28256214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28256214" target="_blank">PMID:28256214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Variants observed in infantile seizures are predominantly missense, leading to a gain of function and increased neuronal excitability."</div>
+
+
+                <div class="evidence-explanation">Voltage-clamp characterization links infantile-seizure SCN2A variants to gain of Nav1.2 function and increased neuronal excitability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -4113,6 +4377,15 @@
 
                 </div>
 
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">2 support</span>
+
+                    <span class="evidence-support support-PARTIAL">1 partial</span>
+
+                </div>
 
 
                 <div class="item-desc" style="margin-top: 8px;">Loss-of-function SCN2A variants reduce Nav1.2 current, impairing action potential firing in excitatory neurons, and typically produce later-onset (after three months) epilepsy and/or autism and intellectual disability, in which sodium-channel blockers can worsen seizures.</div>
@@ -4162,6 +4435,85 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37578743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37578743" target="_blank">PMID:37578743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"predominantly gain-of-function variants cause neonatal-onset epilepsy, whereas loss-of-function variants are associated with ASD and ID"</div>
+
+
+                <div class="evidence-explanation">States the loss-of-function arm (autism and intellectual disability) of the SCN2A functional dichotomy modeled by this hypothesis group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28256214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28256214" target="_blank">PMID:28256214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast to gain of function variants that contribute to seizure, we found that all ASD-associated variants dampened or eliminated channel function."</div>
+
+
+                <div class="evidence-explanation">Direct electrophysiological demonstration that autism-associated SCN2A variants reduce or abolish Nav1.2 function.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37578743" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37578743" target="_blank">PMID:37578743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Many epilepsy-associated variants in our study exhibited complex patterns of gain- and loss-of-functions that are difficult to classify by a simple binary scheme."</div>
+
+
+                <div class="evidence-explanation">Important caveat: high-throughput automated patch-clamp shows many variants have mixed gain/loss features, so the two-arm model is a useful simplification rather than a strict binary.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -4311,6 +4663,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4333,6 +4691,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4471,6 +4830,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4481,6 +4846,62 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34850743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34850743" target="_blank">PMID:34850743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Across a range of behavioral tests, Scn2a ASO-treated Q/+ mice were largely indistinguishable from WT mice, suggesting treatment is well tolerated."</div>
+
+
+                <div class="evidence-explanation">Shows that direction-specific Nav1.2 lowering was tolerated in a gain-of-function model, the starting point for the open question of whether such approaches are safe without tipping toward the opposite arm.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29691040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29691040" target="_blank">PMID:29691040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"raises the possibility that ligands that selectively enhance or diminish channel function may improve symptoms"</div>
+
+
+                <div class="evidence-explanation">Frames the direction-specific therapeutic strategy (enhancing versus diminishing Nav1.2) that this knowledge gap interrogates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -4599,6 +5020,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4609,6 +5036,62 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31230762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31230762" target="_blank">PMID:31230762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The link between an axonal sodium channel and ASD, a disorder typically attributed to synaptic or transcriptional dysfunction, is unclear."</div>
+
+
+                <div class="evidence-explanation">States the open question this knowledge gap captures: how an axonal sodium channel defect produces autism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31230762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31230762" target="_blank">PMID:31230762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results reveal a novel dendritic function for NaV1.2, providing insight into cellular mechanisms probably underlying circuit and behavioral dysfunction in ASD."</div>
+
+
+                <div class="evidence-explanation">Supports the proposed dendritic-excitability/synaptic-maturation explanation named in the prompt, while the authors&#39; hedged wording shows it remains a partial answer.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -4658,17 +5141,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SCN2A (hgnc:10588). hgnc:10588 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SCN2A
 
 
-    <a href="https://bioregistry.io/hgnc:10588" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10588</a>
+    <a href="https://bioregistry.io/hgnc:10588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10588</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN2A (hgnc:10588). hgnc:10588 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4748,6 +5235,62 @@ This pathophysiological event involves SCN2A (hgnc:10588). hgnc:10588 is a gene 
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29691040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29691040" target="_blank">PMID:29691040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Advances in gene discovery for neurodevelopmental disorders have identified SCN2A dysfunction as a leading cause of infantile seizures, autism spectrum disorder, and intellectual disability. SCN2A encodes the neuronal sodium channel NaV1.2."</div>
+
+
+                <div class="evidence-explanation">Establishes the initiating lesion of this entry: SCN2A variants disrupting the neuronal sodium channel Nav1.2 as a leading cause of infantile seizures and neurodevelopmental disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29691040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29691040" target="_blank">PMID:29691040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Functional assays demonstrate strong correlation between genotype and phenotype."</div>
+
+
+                <div class="evidence-explanation">Supports the modeling choice that the functional direction of the variant (gain versus loss of function) is what sets the clinical arm. The genotype-phenotype correlation is established by in vitro functional (electrophysiological) characterization of the variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -4772,18 +5315,20 @@ This pathophysiological event involves SCN2A (hgnc:10588). hgnc:10588 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4811,18 +5356,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Sodium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go">GO:0035725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0035725</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4891,6 +5438,7 @@ This pathophysiological event involves increased Sodium ion transmembrane transp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4935,18 +5483,20 @@ This pathophysiological event involves increased Sodium ion transmembrane transp
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Pyramidal (excitatory) neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Pyramidal (excitatory) neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Pyramidal (excitatory) neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4974,18 +5524,20 @@ This pathophysiological event involves Pyramidal (excitatory) neuron, annotated 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Sodium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go">GO:0035725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0035725</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5054,6 +5606,7 @@ This pathophysiological event involves decreased Sodium ion transmembrane transp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5087,18 +5640,20 @@ This pathophysiological event involves decreased Sodium ion transmembrane transp
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5147,6 +5702,62 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34348148" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34348148" target="_blank">PMID:34348148</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report the counterintuitive finding that severe NaV1.2 deficiency results in increased neuronal excitability."</div>
+
+
+                <div class="evidence-explanation">Frames the convergent node: the loss-of-function arm does not simply reduce excitability but converges on the same abnormal network excitability as the gain-of-function arm.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34348148" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34348148" target="_blank">PMID:34348148</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This unexpected neuronal hyperexcitability may serve as a cellular basis underlying NaV1.2 deficiency-related seizures."</div>
+
+
+                <div class="evidence-explanation">Supports modeling this node as the proximate cellular substrate of seizures for both arms, including the loss-of-function arm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -5160,18 +5771,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5204,6 +5817,62 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30813884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30813884" target="_blank">PMID:30813884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Deleterious variants in the voltage-gated sodium channel type 2 (Nav1.2) lead to a broad spectrum of phenotypes ranging from benign familial neonatal-infantile epilepsy (BFNIE), severe developmental and epileptic encephalopathy (DEE) and intellectual disability (ID) to autism spectrum disorders (ASD)."</div>
+
+
+                <div class="evidence-explanation">Defines the clinical endpoint of the pathograph: seizures plus developmental impairment across a spectrum from benign epilepsy to DEE, intellectual disability, and autism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There is increasing evidence that an important phenotype linked to the gene is autism and intellectual disability without epilepsy or with rare seizures in later childhood."</div>
+
+
+                <div class="evidence-explanation">Supports the arm-dependence of the endpoint: the loss-of-function arm can present as autism and intellectual disability with little or no epilepsy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -5233,7 +5902,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased Nav1.2 Sodium Current (Loss of Function)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants reduce the Nav1.2 sodium current, impairing action potential initiation and propagation especially in excitatory pyramidal neurons during early development. This node captures the single concept of the loss-of-function channel state and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Pyramidal (excitatory) neuron\"], \"biological_processes\": [\"Sodium ion transmembrane transport\"], \"role\": \"mediator\"}}, {\"id\": \"Elsunersen (SCN2A-Directed Antisense Oligonucleotide)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Elsunersen (PRAX-222) is an investigational antisense oligonucleotide that lowers SCN2A expression by RNase H-mediated transcript knockdown, designed for the gain-of-function, early-onset arm; it holds FDA Breakthrough Therapy designation and is in clinical trials.\"}, {\"id\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function variants increase the Nav1.2 sodium current (through enhanced activation, impaired inactivation, or increased persistent current), directly raising neuronal excitability. This node captures the single concept of the gain-of-function channel state and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Sodium ion transmembrane transport\"], \"role\": \"mediator\"}}, {\"id\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both arms converge on abnormal cortical network excitability - direct hyperexcitability in the gain-of-function arm, and developmental network dysfunction in the loss-of-function arm. This node captures the single concept of the resulting network dysfunction and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"SCN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pathogenic variant in SCN2A alters the function of the voltage-gated sodium channel Nav1.2. This node captures the single concept of the initiating channel lesion, whose functional direction (gain versus loss of function) sets the clinical arm.\", \"meta\": {\"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"role\": \"trigger\"}}, {\"id\": \"Seizures and Developmental Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical result is seizures (focal, tonic, epileptic spasms, and others, with age and arm-dependent semiology) together with developmental impairment; the loss-of-function arm is more associated with autism and intellectual disability. This node captures the single concept of the seizure/encephalopathy endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel blockers (e.g., phenytoin, carbamazepine, oxcarbazepine, lacosamide) are often effective in the early-onset gain-of-function group by countering the increased sodium current, but can paradoxically worsen seizures in the later-onset loss-of-function group - making functional variant classification central to treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"phenytoin\"]}}], \"edges\": [{\"source\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"target\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gain-of-function variants increase Nav1.2 sodium current.\", \"hypothesis_groups\": [\"scn2a_gain_of_function_early_onset\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"target\": \"Decreased Nav1.2 Sodium Current (Loss of Function)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss-of-function variants reduce Nav1.2 sodium current.\", \"hypothesis_groups\": [\"scn2a_loss_of_function_later_onset\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"target\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased sodium current directly raises neuronal excitability.\", \"hypothesis_groups\": [\"scn2a_gain_of_function_early_onset\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Decreased Nav1.2 Sodium Current (Loss of Function)\", \"target\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced excitatory-neuron firing dysregulates developing circuits and network excitability.\", \"hypothesis_groups\": [\"scn2a_loss_of_function_later_onset\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"target\": \"Seizures and Developmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network dysfunction produces seizures and impaired development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"target\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Elsunersen (SCN2A-Directed Antisense Oligonucleotide)\", \"target\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SCN2A\", \"target\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased Nav1.2 Sodium Current (Loss of Function)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function variants reduce the Nav1.2 sodium current, impairing action potential initiation and propagation especially in excitatory pyramidal neurons during early development. This node captures the single concept of the loss-of-function channel state and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Pyramidal (excitatory) neuron\"], \"biological_processes\": [\"Sodium ion transmembrane transport\"], \"role\": \"mediator\"}}, {\"id\": \"Elsunersen (SCN2A-Directed Antisense Oligonucleotide)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Elsunersen (PRAX-222) is an investigational antisense oligonucleotide that lowers SCN2A expression by RNase H-mediated transcript knockdown, designed for the gain-of-function, early-onset arm; it holds FDA Breakthrough Therapy designation and is in clinical trials.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function variants increase the Nav1.2 sodium current (through enhanced activation, impaired inactivation, or increased persistent current), directly raising neuronal excitability. This node captures the single concept of the gain-of-function channel state and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Sodium ion transmembrane transport\"], \"role\": \"mediator\"}}, {\"id\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both arms converge on abnormal cortical network excitability - direct hyperexcitability in the gain-of-function arm, and developmental network dysfunction in the loss-of-function arm. This node captures the single concept of the resulting network dysfunction and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"SCN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pathogenic variant in SCN2A alters the function of the voltage-gated sodium channel Nav1.2. This node captures the single concept of the initiating channel lesion, whose functional direction (gain versus loss of function) sets the clinical arm.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SCN2A\"], \"gene_terms\": [{\"label\": \"SCN2A\", \"id\": \"hgnc:10588\"}], \"role\": \"trigger\"}}, {\"id\": \"Seizures and Developmental Encephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical result is seizures (focal, tonic, epileptic spasms, and others, with age and arm-dependent semiology) together with developmental impairment; the loss-of-function arm is more associated with autism and intellectual disability. This node captures the single concept of the seizure/encephalopathy endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel blockers (e.g., phenytoin, carbamazepine, oxcarbazepine, lacosamide) are often effective in the early-onset gain-of-function group by countering the increased sodium current, but can paradoxically worsen seizures in the later-onset loss-of-function group - making functional variant classification central to treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"phenytoin\"]}}], \"edges\": [{\"source\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"target\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gain-of-function variants increase Nav1.2 sodium current.\", \"hypothesis_groups\": [\"scn2a_gain_of_function_early_onset\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"target\": \"Decreased Nav1.2 Sodium Current (Loss of Function)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss-of-function variants reduce Nav1.2 sodium current.\", \"hypothesis_groups\": [\"scn2a_loss_of_function_later_onset\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"target\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased sodium current directly raises neuronal excitability.\", \"hypothesis_groups\": [\"scn2a_gain_of_function_early_onset\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Decreased Nav1.2 Sodium Current (Loss of Function)\", \"target\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced excitatory-neuron firing dysregulates developing circuits and network excitability.\", \"hypothesis_groups\": [\"scn2a_loss_of_function_later_onset\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Hyperexcitability and Network Dysfunction\", \"target\": \"Seizures and Developmental Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network dysfunction produces seizures and impaired development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sodium-Channel-Blocking Antiseizure Medication\", \"target\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Elsunersen (SCN2A-Directed Antisense Oligonucleotide)\", \"target\": \"Increased Nav1.2 Sodium Current (Gain of Function)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SCN2A\", \"target\": \"SCN2A Variant (Nav1.2 Dysfunction)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5246,7 +5915,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">10</span>
             </div>
 
 
@@ -5254,7 +5923,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5273,16 +5942,22 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal-onset seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0007359</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.">
-                        Focal-onset seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp">HP:0007359</a>
-
-
+This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5290,6 +5965,62 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other known phenotypes include Ohtahara syndrome, epilepsy of infancy with migrating focal seizures, and intellectual disability or autism without epilepsy."</div>
+
+
+                <div class="evidence-explanation">A 201-patient SCN2A series documents focal-seizure phenotypes (including epilepsy of infancy with migrating focal seizures).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"focal epilepsies with an electrical status epilepticus during slow sleep-like EEG pattern (six patients)"</div>
+
+
+                <div class="evidence-explanation">Focal epilepsies were also identified as a distinct phenotype within the later-onset SCN2A group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5303,16 +6034,20 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0011097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype from the Human Phenotype Ontology.">
-                        Epileptic spasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp">HP:0011097</a>
-
-
+This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5320,6 +6055,39 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"West syndrome constitutes a common phenotype with a major recurring mutation (p.Arg853Gln: two new and four previously reported children)"</div>
+
+
+                <div class="evidence-explanation">West syndrome (infantile epileptic spasms syndrome) is reported as a common SCN2A phenotype, supporting epileptic spasms as a recognized feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5333,16 +6101,20 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5350,6 +6122,39 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28256214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28256214" target="_blank">PMID:28256214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Variants in the SCN2A gene that disrupt the encoded neuronal sodium channel NaV1.2 are important risk factors for autism spectrum disorder (ASD), developmental delay, and infantile seizures."</div>
+
+
+                <div class="evidence-explanation">Names developmental delay as one of the core phenotypes associated with disruptive SCN2A variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5363,16 +6168,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5380,6 +6189,62 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"other missense or truncating, loss of function variants present with later-onset epilepsies or intellectual disability only"</div>
+
+
+                <div class="evidence-explanation">Ties intellectual disability specifically to the loss-of-function arm, as described for this phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30813884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30813884" target="_blank">PMID:30813884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"complete loss-of-function variants lead to ID without seizures"</div>
+
+
+                <div class="evidence-explanation">Patient-derived variants with complete loss of Nav1.2 function were found in individuals with intellectual disability and no seizures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5393,16 +6258,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000729</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.">
-                        Autistic behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp">HP:0000729</a>
-
-
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5410,6 +6279,62 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29691040" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29691040" target="_blank">PMID:29691040</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"identified SCN2A dysfunction as a leading cause of infantile seizures, autism spectrum disorder, and intellectual disability"</div>
+
+
+                <div class="evidence-explanation">SCN2A is established as a leading cause of autism spectrum disorder, supporting autistic behavior as a core phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28256214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28256214" target="_blank">PMID:28256214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This functional characterization thus identifies SCN2A mutation and NaV1.2 dysfunction as the most frequently observed ASD risk factor detectable by exome sequencing"</div>
+
+
+                <div class="evidence-explanation">Quantifies the strength of the autism association and links it to the loss-of-function arm characterized in the same study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5423,7 +6348,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-epileptic-encephalopathy" data-dismech-node="Epileptic Encephalopathy" data-dismech-type="phenotype">
@@ -5432,16 +6357,20 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0200134</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.">
-                        Epileptic encephalopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp">HP:0200134</a>
-
-
+This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5449,6 +6378,307 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phenotypes include benign (self-limited) neonatal and infantile epilepsy and more severe developmental and epileptic encephalopathies also presenting in early infancy."</div>
+
+
+                <div class="evidence-explanation">Confirms developmental and epileptic encephalopathy as a core SCN2A phenotype presenting in early infancy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-migrating-focal-seizures" data-dismech-node="Migrating Focal Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Migrating Focal Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032786</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Migrating focal seizure (HP:0032786). HP:0032786 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other known phenotypes include Ohtahara syndrome, epilepsy of infancy with migrating focal seizures, and intellectual disability or autism without epilepsy."</div>
+
+
+                <div class="evidence-explanation">A 201-patient SCN2A series lists epilepsy of infancy with migrating focal seizures among the recognized phenotypes of the disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-continuous-spike-and-waves-during-slow-sleep" data-dismech-node="Continuous Spike and Waves During Slow Sleep" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Continuous Spike and Waves During Slow Sleep
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0031491</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Continuous spike and waves during slow sleep (HP:0031491). HP:0031491 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"focal epilepsies with an electrical status epilepticus during slow sleep-like EEG pattern (six patients)"</div>
+
+
+                <div class="evidence-explanation">Six patients in the later-onset SCN2A group showed an electrical status epilepticus during slow sleep-like EEG pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-myoclonic-atonic-seizures" data-dismech-node="Generalized Myoclonic-Atonic Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Generalized Myoclonic-Atonic Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011170</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized myoclonic-atonic seizure (HP:0011170). HP:0011170 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"distinct phenotypes can be seen within the late onset group, including myoclonic-atonic epilepsy (two patients)"</div>
+
+
+                <div class="evidence-explanation">Myoclonic-atonic epilepsy is reported as a distinct phenotype within the later-onset (loss-of-function) SCN2A group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-seizures" data-dismech-node="Neonatal Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neonatal Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0032807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phenotypes include benign (self-limited) neonatal and infantile epilepsy and more severe developmental and epileptic encephalopathies also presenting in early infancy."</div>
+
+
+                <div class="evidence-explanation">Establishes neonatal-onset epilepsy as part of the SCN2A phenotypic spectrum, at both the self-limited and encephalopathic ends.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5506,15 +6736,17 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN2A
 
 
-    <a href="https://bioregistry.io/hgnc:10588" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10588</a>
+    <a href="https://bioregistry.io/hgnc:10588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:10588</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5539,6 +6771,7 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5570,6 +6803,9 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5586,17 +6822,17 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5621,18 +6857,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         phenytoin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8107" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8107</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8107" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:8107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5655,6 +6893,62 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sodium channel blockers may be effective antiepileptic medications in gain of function, neonatal and infantile presentations."</div>
+
+
+                <div class="evidence-explanation">Explicitly matches the drug class to the gain-of-function mechanism node it targets.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a good response to sodium channel blockers clinically was found to be associated with a relatively small gain-of-function"</div>
+
+
+                <div class="evidence-explanation">Links the degree of Nav1.2 gain of function to the clinical response to the inhibiting drug, supporting the mechanism-target relationship.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                     </div>
 
@@ -5675,6 +6969,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5697,6 +6992,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5728,17 +7024,17 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5761,12 +7057,68 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-                <div class="item-desc">Broad-spectrum agents (e.g., levetiracetam, valproate, benzodiazepines) and the ketogenic diet are used, particularly in the later-onset loss-of-function group where sodium-channel blockers are avoided.</div>
+                <div class="item-desc">Broad-spectrum agents (e.g., levetiracetam, valproate, benzodiazepines) and the ketogenic diet are used, particularly in the later-onset loss-of-function group where sodium-channel blockers are avoided. Evidence for a specific non-sodium-channel-blocker regimen in SCN2A is limited; the rationale is largely the avoidance of sodium-channel blockade in the loss-of-function arm.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"sodium channel blockers were rarely effective in epilepsies with later onset (≥3 months) and sometimes induced seizure worsening"</div>
+
+
+                <div class="evidence-explanation">Provides the rationale for using non-sodium-channel-blocking agents in the later-onset (loss-of-function) group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28379373" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28379373" target="_blank">PMID:28379373</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"whereas other antiepileptic drugs were less effective"</div>
+
+
+                <div class="evidence-explanation">Important caveat: in the early-infantile (gain-of-function) group, non-sodium-channel-blocking antiseizure drugs performed worse than sodium channel blockers, so this option is arm-specific rather than general.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5778,17 +7130,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5827,6 +7179,39 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34850743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34850743" target="_blank">PMID:34850743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biophysical gain of function in SCN2A is seen in some patients with early seizure onset developmental and epileptic encephalopathy (DEE). In these cases, targeted reduction in SCN2A expression could substantially improve clinical outcomes."</div>
+
+
+                <div class="evidence-explanation">States the mechanism-target rationale: lowering SCN2A expression to counter the gain-of-function Nav1.2 node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                     </div>
 
@@ -5835,6 +7220,62 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34850743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34850743" target="_blank">PMID:34850743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Administration of the ASO to Q/+ mice reduced spontaneous seizures and significantly extended life span."</div>
+
+
+                <div class="evidence-explanation">Preclinical proof of concept for the RNase H gapmer ASO knockdown strategy that elsunersen (PRAX-222) implements in the gain-of-function arm.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34850743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34850743" target="_blank">PMID:34850743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A human SCN2A gapmer ASO could likewise impact the lives of patients with SCN2A gain-of-function DEE."</div>
+
+
+                <div class="evidence-explanation">Explicitly frames the human gapmer ASO (the elsunersen approach) as the translational target of this preclinical result; efficacy in patients is not yet established.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5863,7 +7304,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05737784">
                 <div class="item-name">
                     NCT05737784
 
@@ -5881,18 +7322,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Focal-onset seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5910,6 +7353,7 @@ This clinical trial targets Focal-onset seizure (HP:0007359). HP:0007359 is a ph
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05737784" target="_blank">clinicaltrials:NCT05737784</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6004,6 +7448,32 @@ inheritance:
     Recurrence risk to siblings is low but not zero (on the order of 1-2%)
     because of the possibility of parental germline (or low-level somatic)
     mosaicism.
+  evidence:
+  - reference: PMID:34859793
+    reference_title: &#34;Phenotypic spectrum and long-term outcome of children with genetic early-infantile-onset developmental and epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;With regards to inheritance pattern, de novo heterozygous mutations accounted for the majority (104/118; 88.1%)&#34;
+    explanation: &gt;-
+      In a genetically diagnosed early-infantile-onset DEE cohort (which included
+      SCN2A cases), de novo heterozygous variants accounted for the large
+      majority, supporting the de novo autosomal dominant mode of inheritance.
+  - reference: PMID:31077350
+    reference_title: &#34;Parental mosaicism in epilepsies due to alleged de novo variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Parental mosaicism was observed in the following genes: SCN1A, SCN2A, SCN8A, and STXBP1.&#34;
+    explanation: &gt;-
+      Documents parental somatic mosaicism for SCN2A variants that appeared de
+      novo, the basis for the small but non-zero sibling recurrence risk.
+  - reference: PMID:31077350
+    reference_title: &#34;Parental mosaicism in epilepsies due to alleged de novo variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;parents affected by low-grade mosaicism are faced with an increased recurrence risk for transmitting the pathogenic variant, compared to the overall recurrence risk for a second affected child estimated at approximately 1%&#34;
+    explanation: &gt;-
+      Quantifies the baseline sibling recurrence risk (~1%) and the mosaicism
+      mechanism that raises it in individual families.
 mechanistic_hypotheses:
 - hypothesis_group_id: scn2a_gain_of_function_early_onset
   hypothesis_label: Gain-of-Function / Early-Onset Model
@@ -6012,6 +7482,23 @@ mechanistic_hypotheses:
     Gain-of-function SCN2A variants increase Nav1.2 sodium current and neuronal
     excitability, producing early-infantile-onset epilepsy (typically before
     three months of age) that often responds to sodium-channel-blocking drugs.
+  evidence:
+  - reference: PMID:31904126
+    reference_title: &#34;Phenotypic spectrum and genetics of SCN2A-related disorders, treatment options, and outcomes in epilepsy and beyond.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Some missense, gain of function variants tend to present in early infancy with epilepsy&#34;
+    explanation: &gt;-
+      States the gain-of-function / early-infantile-onset arm of the SCN2A
+      dichotomy that this hypothesis group models.
+  - reference: PMID:28256214
+    reference_title: &#34;Opposing Effects on Na(V)1.2 Function Underlie Differences Between SCN2A Variants Observed in Individuals With Autism Spectrum Disorder or Infantile Seizures.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Variants observed in infantile seizures are predominantly missense, leading to a gain of function and increased neuronal excitability.&#34;
+    explanation: &gt;-
+      Voltage-clamp characterization links infantile-seizure SCN2A variants to
+      gain of Nav1.2 function and increased neuronal excitability.
 - hypothesis_group_id: scn2a_loss_of_function_later_onset
   hypothesis_label: Loss-of-Function / Later-Onset Model
   status: CANONICAL
@@ -6020,6 +7507,32 @@ mechanistic_hypotheses:
     potential firing in excitatory neurons, and typically produce later-onset
     (after three months) epilepsy and/or autism and intellectual disability, in
     which sodium-channel blockers can worsen seizures.
+  evidence:
+  - reference: PMID:37578743
+    reference_title: &#34;Epilepsy-associated SCN2A (NaV1.2) variants exhibit diverse and complex functional properties.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;predominantly gain-of-function variants cause neonatal-onset epilepsy, whereas loss-of-function variants are associated with ASD and ID&#34;
+    explanation: &gt;-
+      States the loss-of-function arm (autism and intellectual disability) of the
+      SCN2A functional dichotomy modeled by this hypothesis group.
+  - reference: PMID:28256214
+    reference_title: &#34;Opposing Effects on Na(V)1.2 Function Underlie Differences Between SCN2A Variants Observed in Individuals With Autism Spectrum Disorder or Infantile Seizures.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;In contrast to gain of function variants that contribute to seizure, we found that all ASD-associated variants dampened or eliminated channel function.&#34;
+    explanation: &gt;-
+      Direct electrophysiological demonstration that autism-associated SCN2A
+      variants reduce or abolish Nav1.2 function.
+  - reference: PMID:37578743
+    reference_title: &#34;Epilepsy-associated SCN2A (NaV1.2) variants exhibit diverse and complex functional properties.&#34;
+    supports: PARTIAL
+    evidence_source: IN_VITRO
+    snippet: &#34;Many epilepsy-associated variants in our study exhibited complex patterns of gain- and loss-of-functions that are difficult to classify by a simple binary scheme.&#34;
+    explanation: &gt;-
+      Important caveat: high-throughput automated patch-clamp shows many variants
+      have mixed gain/loss features, so the two-arm model is a useful
+      simplification rather than a strict binary.
 pathophysiology:
 - name: SCN2A Variant (Nav1.2 Dysfunction)
   description: &gt;-
@@ -6033,6 +7546,26 @@ pathophysiology:
     term:
       id: hgnc:10588
       label: SCN2A
+  evidence:
+  - reference: PMID:29691040
+    reference_title: &#34;Progress in Understanding and Treating SCN2A-Mediated Disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Advances in gene discovery for neurodevelopmental disorders have identified SCN2A dysfunction as a leading cause of infantile seizures, autism spectrum disorder, and intellectual disability. SCN2A encodes the neuronal sodium channel NaV1.2.&#34;
+    explanation: &gt;-
+      Establishes the initiating lesion of this entry: SCN2A variants disrupting
+      the neuronal sodium channel Nav1.2 as a leading cause of infantile
+      seizures and neurodevelopmental disease.
+  - reference: PMID:29691040
+    reference_title: &#34;Progress in Understanding and Treating SCN2A-Mediated Disorders.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Functional assays demonstrate strong correlation between genotype and phenotype.&#34;
+    explanation: &gt;-
+      Supports the modeling choice that the functional direction of the variant
+      (gain versus loss of function) is what sets the clinical arm. The
+      genotype-phenotype correlation is established by in vitro functional
+      (electrophysiological) characterization of the variants.
   downstream:
   - target: Increased Nav1.2 Sodium Current (Gain of Function)
     causal_link_type: DIRECT
@@ -6040,12 +7573,30 @@ pathophysiology:
       Gain-of-function variants increase Nav1.2 sodium current.
     hypothesis_groups:
     - scn2a_gain_of_function_early_onset
+    evidence:
+    - reference: PMID:30813884
+      reference_title: &#34;Further corroboration of distinct functional features in SCN2A variants causing intellectual disability or epileptic phenotypes.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;small gain-of-function variants cause BFNIE and EE variants exhibit variable but profound Nav1.2 gating changes&#34;
+      explanation: &gt;-
+        Whole-cell patch-clamp of patient variants links epilepsy-associated
+        SCN2A alleles to gain of Nav1.2 channel function.
   - target: Decreased Nav1.2 Sodium Current (Loss of Function)
     causal_link_type: DIRECT
     description: &gt;-
       Loss-of-function variants reduce Nav1.2 sodium current.
     hypothesis_groups:
     - scn2a_loss_of_function_later_onset
+    evidence:
+    - reference: PMID:30813884
+      reference_title: &#34;Further corroboration of distinct functional features in SCN2A variants causing intellectual disability or epileptic phenotypes.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;The three variants identified in ID patients without seizures, p.R937C, p.L611Vfs*35 and p.W1716*, did not produce measurable currents.&#34;
+      explanation: &gt;-
+        Variants from intellectual-disability patients produced no measurable
+        sodium current, i.e. loss of Nav1.2 function.
 - name: Increased Nav1.2 Sodium Current (Gain of Function)
   description: &gt;-
     Gain-of-function variants increase the Nav1.2 sodium current (through
@@ -6068,6 +7619,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;mutations associated with early infantile epilepsy result in increased sodium channel activity with gain-of-function&#34;
@@ -6081,6 +7633,15 @@ pathophysiology:
       Increased sodium current directly raises neuronal excitability.
     hypothesis_groups:
     - scn2a_gain_of_function_early_onset
+    evidence:
+    - reference: PMID:28256214
+      reference_title: &#34;Opposing Effects on Na(V)1.2 Function Underlie Differences Between SCN2A Variants Observed in Individuals With Autism Spectrum Disorder or Infantile Seizures.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;leading to a gain of function and increased neuronal excitability&#34;
+      explanation: &gt;-
+        Directly links increased Nav1.2 function to increased neuronal
+        excitability, the causal step modeled by this edge.
 - name: Decreased Nav1.2 Sodium Current (Loss of Function)
   description: &gt;-
     Loss-of-function variants reduce the Nav1.2 sodium current, impairing action
@@ -6103,6 +7664,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;mutations in patients with late-onset forms and an insufficient response to sodium channel blockers were associated with loss-of-function effects&#34;
@@ -6117,6 +7679,24 @@ pathophysiology:
       network excitability.
     hypothesis_groups:
     - scn2a_loss_of_function_later_onset
+    evidence:
+    - reference: PMID:31230762
+      reference_title: &#34;The Autism-Associated Gene Scn2a Contributes to Dendritic Excitability and Synaptic Function in the Prefrontal Cortex.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;NaV1.2 loss reduced action potential backpropagation into dendrites, impairing synaptic plasticity and synaptic strength&#34;
+      explanation: &gt;-
+        Shows the intermediate steps by which reduced Nav1.2 current
+        dysregulates cortical circuits (dendritic excitability and synaptic
+        function) rather than acting through simple firing loss alone.
+    - reference: PMID:34348148
+      reference_title: &#34;Severe deficiency of the voltage-gated sodium channel Na(V)1.2 elevates neuronal excitability in adult mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Using a NaV1.2-deficient mouse model, we show enhanced intrinsic excitability of principal neurons in the prefrontal cortex and striatum, brain regions known to be involved in Scn2a-related seizures.&#34;
+      explanation: &gt;-
+        Demonstrates that severe Nav1.2 deficiency can paradoxically produce
+        network hyperexcitability, the counter-intuitive link this edge encodes.
 - name: Neuronal Hyperexcitability and Network Dysfunction
   description: &gt;-
     Both arms converge on abnormal cortical network excitability - direct
@@ -6131,11 +7711,39 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  evidence:
+  - reference: PMID:34348148
+    reference_title: &#34;Severe deficiency of the voltage-gated sodium channel Na(V)1.2 elevates neuronal excitability in adult mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Here, we report the counterintuitive finding that severe NaV1.2 deficiency results in increased neuronal excitability.&#34;
+    explanation: &gt;-
+      Frames the convergent node: the loss-of-function arm does not simply
+      reduce excitability but converges on the same abnormal network
+      excitability as the gain-of-function arm.
+  - reference: PMID:34348148
+    reference_title: &#34;Severe deficiency of the voltage-gated sodium channel Na(V)1.2 elevates neuronal excitability in adult mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;This unexpected neuronal hyperexcitability may serve as a cellular basis underlying NaV1.2 deficiency-related seizures.&#34;
+    explanation: &gt;-
+      Supports modeling this node as the proximate cellular substrate of
+      seizures for both arms, including the loss-of-function arm.
   downstream:
   - target: Seizures and Developmental Encephalopathy
     causal_link_type: DIRECT
     description: &gt;-
       Network dysfunction produces seizures and impaired development.
+    evidence:
+    - reference: PMID:34850743
+      reference_title: &#34;Antisense oligonucleotide therapy reduces seizures and extends life span in an SCN2A gain-of-function epilepsy model.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Untreated Q/+ mice presented with spontaneous seizures at P1 and did not survive beyond P30.&#34;
+      explanation: &gt;-
+        In a knock-in model of an SCN2A gain-of-function DEE variant, the
+        resulting excitability change produces spontaneous seizures and early
+        death, the clinical endpoint this edge encodes.
 - name: Seizures and Developmental Encephalopathy
   description: &gt;-
     The clinical result is seizures (focal, tonic, epileptic spasms, and others,
@@ -6151,6 +7759,24 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  evidence:
+  - reference: PMID:30813884
+    reference_title: &#34;Further corroboration of distinct functional features in SCN2A variants causing intellectual disability or epileptic phenotypes.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Deleterious variants in the voltage-gated sodium channel type 2 (Nav1.2) lead to a broad spectrum of phenotypes ranging from benign familial neonatal-infantile epilepsy (BFNIE), severe developmental and epileptic encephalopathy (DEE) and intellectual disability (ID) to autism spectrum disorders (ASD).&#34;
+    explanation: &gt;-
+      Defines the clinical endpoint of the pathograph: seizures plus
+      developmental impairment across a spectrum from benign epilepsy to DEE,
+      intellectual disability, and autism.
+  - reference: PMID:31904126
+    reference_title: &#34;Phenotypic spectrum and genetics of SCN2A-related disorders, treatment options, and outcomes in epilepsy and beyond.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;There is increasing evidence that an important phenotype linked to the gene is autism and intellectual disability without epilepsy or with rare seizures in later childhood.&#34;
+    explanation: &gt;-
+      Supports the arm-dependence of the endpoint: the loss-of-function arm can
+      present as autism and intellectual disability with little or no epilepsy.
 phenotypes:
 - name: Focal Seizures
   description: &gt;-
@@ -6161,6 +7787,23 @@ phenotypes:
     term:
       id: HP:0007359
       label: Focal-onset seizure
+  evidence:
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Other known phenotypes include Ohtahara syndrome, epilepsy of infancy with migrating focal seizures, and intellectual disability or autism without epilepsy.&#34;
+    explanation: &gt;-
+      A 201-patient SCN2A series documents focal-seizure phenotypes (including
+      epilepsy of infancy with migrating focal seizures).
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;focal epilepsies with an electrical status epilepticus during slow sleep-like EEG pattern (six patients)&#34;
+    explanation: &gt;-
+      Focal epilepsies were also identified as a distinct phenotype within the
+      later-onset SCN2A group.
 - name: Epileptic Spasms
   description: &gt;-
     Epileptic spasms occur in a subset of patients.
@@ -6169,6 +7812,15 @@ phenotypes:
     term:
       id: HP:0011097
       label: Epileptic spasm
+  evidence:
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;West syndrome constitutes a common phenotype with a major recurring mutation (p.Arg853Gln: two new and four previously reported children)&#34;
+    explanation: &gt;-
+      West syndrome (infantile epileptic spasms syndrome) is reported as a common
+      SCN2A phenotype, supporting epileptic spasms as a recognized feature.
 - name: Epileptic Encephalopathy
   description: &gt;-
     The epilepsy is accompanied by a developmental and epileptic encephalopathy.
@@ -6177,6 +7829,15 @@ phenotypes:
     term:
       id: HP:0200134
       label: Epileptic encephalopathy
+  evidence:
+  - reference: PMID:31904126
+    reference_title: &#34;Phenotypic spectrum and genetics of SCN2A-related disorders, treatment options, and outcomes in epilepsy and beyond.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Phenotypes include benign (self-limited) neonatal and infantile epilepsy and more severe developmental and epileptic encephalopathies also presenting in early infancy.&#34;
+    explanation: &gt;-
+      Confirms developmental and epileptic encephalopathy as a core SCN2A
+      phenotype presenting in early infancy.
 - name: Global Developmental Delay
   description: &gt;-
     Global developmental delay and intellectual disability are typical,
@@ -6186,6 +7847,15 @@ phenotypes:
     term:
       id: HP:0001263
       label: Global developmental delay
+  evidence:
+  - reference: PMID:28256214
+    reference_title: &#34;Opposing Effects on Na(V)1.2 Function Underlie Differences Between SCN2A Variants Observed in Individuals With Autism Spectrum Disorder or Infantile Seizures.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Variants in the SCN2A gene that disrupt the encoded neuronal sodium channel NaV1.2 are important risk factors for autism spectrum disorder (ASD), developmental delay, and infantile seizures.&#34;
+    explanation: &gt;-
+      Names developmental delay as one of the core phenotypes associated with
+      disruptive SCN2A variants.
 - name: Intellectual Disability
   description: &gt;-
     Intellectual disability is typical, particularly in the loss-of-function
@@ -6195,6 +7865,23 @@ phenotypes:
     term:
       id: HP:0001249
       label: Intellectual disability
+  evidence:
+  - reference: PMID:31904126
+    reference_title: &#34;Phenotypic spectrum and genetics of SCN2A-related disorders, treatment options, and outcomes in epilepsy and beyond.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;other missense or truncating, loss of function variants present with later-onset epilepsies or intellectual disability only&#34;
+    explanation: &gt;-
+      Ties intellectual disability specifically to the loss-of-function arm, as
+      described for this phenotype.
+  - reference: PMID:30813884
+    reference_title: &#34;Further corroboration of distinct functional features in SCN2A variants causing intellectual disability or epileptic phenotypes.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;complete loss-of-function variants lead to ID without seizures&#34;
+    explanation: &gt;-
+      Patient-derived variants with complete loss of Nav1.2 function were found
+      in individuals with intellectual disability and no seizures.
 - name: Autistic Behavior
   description: &gt;-
     Autism spectrum features are strongly associated with the loss-of-function
@@ -6204,18 +7891,137 @@ phenotypes:
     term:
       id: HP:0000729
       label: Autistic behavior
+  evidence:
+  - reference: PMID:29691040
+    reference_title: &#34;Progress in Understanding and Treating SCN2A-Mediated Disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;identified SCN2A dysfunction as a leading cause of infantile seizures, autism spectrum disorder, and intellectual disability&#34;
+    explanation: &gt;-
+      SCN2A is established as a leading cause of autism spectrum disorder,
+      supporting autistic behavior as a core phenotype.
+  - reference: PMID:28256214
+    reference_title: &#34;Opposing Effects on Na(V)1.2 Function Underlie Differences Between SCN2A Variants Observed in Individuals With Autism Spectrum Disorder or Infantile Seizures.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;This functional characterization thus identifies SCN2A mutation and NaV1.2 dysfunction as the most frequently observed ASD risk factor detectable by exome sequencing&#34;
+    explanation: &gt;-
+      Quantifies the strength of the autism association and links it to the
+      loss-of-function arm characterized in the same study.
+- name: Migrating Focal Seizures
+  description: &gt;-
+    Epilepsy of infancy with migrating focal seizures (EIMFS) is one of the
+    recognized early-onset SCN2A epilepsy syndromes.
+  phenotype_term:
+    preferred_term: Migrating focal seizure
+    term:
+      id: HP:0032786
+      label: Migrating focal seizure
+  evidence:
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Other known phenotypes include Ohtahara syndrome, epilepsy of infancy with migrating focal seizures, and intellectual disability or autism without epilepsy.&#34;
+    explanation: &gt;-
+      A 201-patient SCN2A series lists epilepsy of infancy with migrating focal
+      seizures among the recognized phenotypes of the disorder.
+- name: Continuous Spike and Waves During Slow Sleep
+  description: &gt;-
+    An electrical status epilepticus in sleep (ESES)-like EEG pattern was
+    documented in a subset of the later-onset group.
+  phenotype_term:
+    preferred_term: Continuous spike and waves during slow sleep
+    term:
+      id: HP:0031491
+      label: Continuous spike and waves during slow sleep
+  evidence:
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;focal epilepsies with an electrical status epilepticus during slow sleep-like EEG pattern (six patients)&#34;
+    explanation: &gt;-
+      Six patients in the later-onset SCN2A group showed an electrical status
+      epilepticus during slow sleep-like EEG pattern.
+- name: Generalized Myoclonic-Atonic Seizures
+  description: &gt;-
+    Myoclonic-atonic epilepsy is one of the distinct phenotypes seen within the
+    later-onset SCN2A group.
+  phenotype_term:
+    preferred_term: Generalized myoclonic-atonic seizure
+    term:
+      id: HP:0011170
+      label: Generalized myoclonic-atonic seizure
+  evidence:
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;distinct phenotypes can be seen within the late onset group, including myoclonic-atonic epilepsy (two patients)&#34;
+    explanation: &gt;-
+      Myoclonic-atonic epilepsy is reported as a distinct phenotype within the
+      later-onset (loss-of-function) SCN2A group.
+- name: Neonatal Seizures
+  description: &gt;-
+    Seizures with neonatal onset occur in the early-onset, gain-of-function arm,
+    spanning self-limited neonatal epilepsy through severe encephalopathy.
+  phenotype_term:
+    preferred_term: Neonatal seizure
+    term:
+      id: HP:0032807
+      label: Neonatal seizure
+  evidence:
+  - reference: PMID:31904126
+    reference_title: &#34;Phenotypic spectrum and genetics of SCN2A-related disorders, treatment options, and outcomes in epilepsy and beyond.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Phenotypes include benign (self-limited) neonatal and infantile epilepsy and more severe developmental and epileptic encephalopathies also presenting in early infancy.&#34;
+    explanation: &gt;-
+      Establishes neonatal-onset epilepsy as part of the SCN2A phenotypic
+      spectrum, at both the self-limited and encephalopathic ends.
 prevalence:
-- population: Worldwide
-  measure_type: POINT_PREVALENCE
-  prevalence_class: BAND_1_5_PER_10000
-  rate_per_100000: 7.5
+- population: Denmark
+  measure_type: BIRTH_PREVALENCE
+  prevalence_class: BAND_1_9_PER_100000
+  rate_per_100000: 1.3
   notes: &gt;-
-    SCN2A-related disorders have an estimated prevalence on the order of 5-8 per
-    100,000 (cohort and patient-foundation estimates), with disease-causing
-    variants arising in roughly 7.5 per 100,000 births; SCN2A is among the most
-    frequently implicated single genes in developmental and epileptic
-    encephalopathy and de novo autism. Figures are ascertainment-dependent and
-    rising with expanded sequencing.
+    Danish population data give a disease frequency of approximately 1/78,608
+    live births (~1.3 per 100,000). Estimates are strongly
+    ascertainment-dependent and are rising with expanded genetic testing.
+  evidence:
+  - reference: PMID:37776663
+    reference_title: &#34;Frequency of SCN2A-related disorder in the regional epilepsy centre of brescia between 2002 and 2021.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Researches conducted in Denmark have revealed a disease frequency of approximately 1/78,608 (0.0012%) live births in this population.&#34;
+    explanation: &gt;-
+      Reports the Danish population birth frequency of SCN2A-related disorder.
+- population: Brescia province, Italy
+  measure_type: BIRTH_PREVALENCE
+  prevalence_class: BAND_1_9_PER_100000
+  rate_per_100000: 4.7
+  notes: &gt;-
+    A regional Italian birth-cohort study (Brescia, 2002-2021) found 11 SCN2A
+    cases among 232,678 live births (0.0047%, ~4.7 per 100,000) - about three to
+    four times the Danish estimate, illustrating how ascertainment and testing
+    practice drive these figures.
+  evidence:
+  - reference: PMID:37776663
+    reference_title: &#34;Frequency of SCN2A-related disorder in the regional epilepsy centre of brescia between 2002 and 2021.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A frequency of 11/23,2678 births (0.0047%) was found.&#34;
+    explanation: &gt;-
+      Reports the Brescia regional birth frequency of SCN2A-related disorder.
+  - reference: PMID:37776663
+    reference_title: &#34;Frequency of SCN2A-related disorder in the regional epilepsy centre of brescia between 2002 and 2021.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;More studies are needed to further delineate the frequency of SCN2A pathogenic variant in Italian population.&#34;
+    explanation: &gt;-
+      The authors themselves flag the uncertainty of these ascertainment-limited
+      frequency estimates.
 genetic:
 - name: SCN2A
   gene_term:
@@ -6234,6 +8040,7 @@ genetic:
     can worsen seizures.
   evidence:
   - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;truncating mutations were exclusively seen in patients with late onset epilepsies and lack of response to sodium channel blockers&#34;
@@ -6255,6 +8062,23 @@ treatments:
     description: &gt;-
       Sodium-channel blockers reduce the increased Nav1.2 current in the
       gain-of-function arm.
+    evidence:
+    - reference: PMID:31904126
+      reference_title: &#34;Phenotypic spectrum and genetics of SCN2A-related disorders, treatment options, and outcomes in epilepsy and beyond.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Sodium channel blockers may be effective antiepileptic medications in gain of function, neonatal and infantile presentations.&#34;
+      explanation: &gt;-
+        Explicitly matches the drug class to the gain-of-function mechanism node
+        it targets.
+    - reference: PMID:28379373
+      reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;a good response to sodium channel blockers clinically was found to be associated with a relatively small gain-of-function&#34;
+      explanation: &gt;-
+        Links the degree of Nav1.2 gain of function to the clinical response to
+        the inhibiting drug, supporting the mechanism-target relationship.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -6267,6 +8091,7 @@ treatments:
         label: phenytoin
   evidence:
   - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the use of sodium channel blockers was often associated with clinically relevant seizure reduction or seizure freedom in children with early infantile epilepsies (&lt;3 months)&#34;
@@ -6274,6 +8099,7 @@ treatments:
       Sodium-channel blockers reduced seizures or achieved freedom in
       early-infantile (gain-of-function) SCN2A epilepsy.
   - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;sodium channel blockers were rarely effective in epilepsies with later onset (≥3 months) and sometimes induced seizure worsening&#34;
@@ -6285,12 +8111,32 @@ treatments:
   description: &gt;-
     Broad-spectrum agents (e.g., levetiracetam, valproate, benzodiazepines) and
     the ketogenic diet are used, particularly in the later-onset loss-of-function
-    group where sodium-channel blockers are avoided.
+    group where sodium-channel blockers are avoided. Evidence for a specific
+    non-sodium-channel-blocker regimen in SCN2A is limited; the rationale is
+    largely the avoidance of sodium-channel blockade in the loss-of-function arm.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+  evidence:
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;sodium channel blockers were rarely effective in epilepsies with later onset (≥3 months) and sometimes induced seizure worsening&#34;
+    explanation: &gt;-
+      Provides the rationale for using non-sodium-channel-blocking agents in the
+      later-onset (loss-of-function) group.
+  - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;whereas other antiepileptic drugs were less effective&#34;
+    explanation: &gt;-
+      Important caveat: in the early-infantile (gain-of-function) group,
+      non-sodium-channel-blocking antiseizure drugs performed worse than sodium
+      channel blockers, so this option is arm-specific rather than general.
 - name: Elsunersen (SCN2A-Directed Antisense Oligonucleotide)
   description: &gt;-
     Elsunersen (PRAX-222) is an investigational antisense oligonucleotide that
@@ -6311,11 +8157,38 @@ treatments:
     treatment_effect: INHIBITS
     description: &gt;-
       Knocking down SCN2A lowers Nav1.2, countering the gain-of-function current.
+    evidence:
+    - reference: PMID:34850743
+      reference_title: &#34;Antisense oligonucleotide therapy reduces seizures and extends life span in an SCN2A gain-of-function epilepsy model.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Biophysical gain of function in SCN2A is seen in some patients with early seizure onset developmental and epileptic encephalopathy (DEE). In these cases, targeted reduction in SCN2A expression could substantially improve clinical outcomes.&#34;
+      explanation: &gt;-
+        States the mechanism-target rationale: lowering SCN2A expression to
+        counter the gain-of-function Nav1.2 node.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+  evidence:
+  - reference: PMID:34850743
+    reference_title: &#34;Antisense oligonucleotide therapy reduces seizures and extends life span in an SCN2A gain-of-function epilepsy model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Administration of the ASO to Q/+ mice reduced spontaneous seizures and significantly extended life span.&#34;
+    explanation: &gt;-
+      Preclinical proof of concept for the RNase H gapmer ASO knockdown strategy
+      that elsunersen (PRAX-222) implements in the gain-of-function arm.
+  - reference: PMID:34850743
+    reference_title: &#34;Antisense oligonucleotide therapy reduces seizures and extends life span in an SCN2A gain-of-function epilepsy model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;A human SCN2A gapmer ASO could likewise impact the lives of patients with SCN2A gain-of-function DEE.&#34;
+    explanation: &gt;-
+      Explicitly frames the human gapmer ASO (the elsunersen approach) as the
+      translational target of this preclinical result; efficacy in patients is
+      not yet established.
 clinical_trials:
 - name: NCT05737784
   phase: PHASE_I
@@ -6331,6 +8204,7 @@ clinical_trials:
       label: Focal-onset seizure
   evidence:
   - reference: clinicaltrials:NCT05737784
+    reference_title: &#34;A Seamless, Clinical Trial to Investigate the Safety and Efficacy of Multiple Doses of PRAX-222 in Pediatric Participants With Early Onset SCN2A Developmental and Epileptic Encephalopathy&#34;
     supports: SUPPORT
     snippet: &#34;The goal of this trial is to learn about the effect of PRAX-222 in pediatric participants with early onset SCN2A developmental and epileptic encephalopathy&#34;
     explanation: &gt;-
@@ -6359,6 +8233,7 @@ discussions:
     pathway would directly change management.
   evidence:
   - reference: PMID:28379373
+    reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;sodium channel blockers were rarely effective in epilepsies with later onset (≥3 months) and sometimes induced seizure worsening&#34;
@@ -6396,6 +8271,24 @@ discussions:
     Because the two arms need opposite corrections, a one-size intervention is
     unsafe; the therapeutic window and the reversibility of the encephalopathy
     once established are open questions central to precision therapy.
+  evidence:
+  - reference: PMID:34850743
+    reference_title: &#34;Antisense oligonucleotide therapy reduces seizures and extends life span in an SCN2A gain-of-function epilepsy model.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Across a range of behavioral tests, Scn2a ASO-treated Q/+ mice were largely indistinguishable from WT mice, suggesting treatment is well tolerated.&#34;
+    explanation: &gt;-
+      Shows that direction-specific Nav1.2 lowering was tolerated in a
+      gain-of-function model, the starting point for the open question of whether
+      such approaches are safe without tipping toward the opposite arm.
+  - reference: PMID:29691040
+    reference_title: &#34;Progress in Understanding and Treating SCN2A-Mediated Disorders.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;raises the possibility that ligands that selectively enhance or diminish channel function may improve symptoms&#34;
+    explanation: &gt;-
+      Frames the direction-specific therapeutic strategy (enhancing versus
+      diminishing Nav1.2) that this knowledge gap interrogates.
   proposed_experiments:
   - experiment_id: scn2a-directional-therapy-model
     name: Direction-specific Nav1.2 modulation study
@@ -6424,6 +8317,24 @@ discussions:
     function is mechanistically distinct from the epileptogenic arm and is only
     partially understood, yet it defines the prognosis and therapeutic targets
     for a large share of SCN2A patients.
+  evidence:
+  - reference: PMID:31230762
+    reference_title: &#34;The Autism-Associated Gene Scn2a Contributes to Dendritic Excitability and Synaptic Function in the Prefrontal Cortex.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;The link between an axonal sodium channel and ASD, a disorder typically attributed to synaptic or transcriptional dysfunction, is unclear.&#34;
+    explanation: &gt;-
+      States the open question this knowledge gap captures: how an axonal sodium
+      channel defect produces autism.
+  - reference: PMID:31230762
+    reference_title: &#34;The Autism-Associated Gene Scn2a Contributes to Dendritic Excitability and Synaptic Function in the Prefrontal Cortex.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;These results reveal a novel dendritic function for NaV1.2, providing insight into cellular mechanisms probably underlying circuit and behavioral dysfunction in ASD.&#34;
+    explanation: &gt;-
+      Supports the proposed dendritic-excitability/synaptic-maturation
+      explanation named in the prompt, while the authors&#39; hedged wording shows it
+      remains a partial answer.
   proposed_experiments:
   - experiment_id: scn2a-lof-neurodevelopment
     name: Nav1.2 loss-of-function neurodevelopmental study
@@ -6911,7 +8822,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SCN2A-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0013388", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SCN2A-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "abd282fbf57c"};
+        const OS_CONFIG = {"diseaseName": "SCN2A-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0013388", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SCN2A-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "a88103a34466"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7330,5 +9241,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Ankylosing Spondylitis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Ankylosing Spondylitis</h1>
             <div class="header-meta">
 
@@ -3818,6 +3940,14 @@
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
@@ -3883,27 +4013,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3925,6 +4132,541 @@
 
 
         <!-- Discussions / Knowledge Gaps -->
+
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_as_cuproptosis_evidence_hierarchy">
+                <div class="item-name">Is the copper-associated mitochondrial and redox stress reported in ankylosing spondylitis a distinct canonical cuproptosis mechanism - copper-dependent, FDX1-lipoylation-driven, with lipoylated-protein aggregation and Fe-S cluster destabilization - or is it subsumed by the oxidative stress this entry already models downstream of HLA-B27 misfolding?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_as_cuproptosis_evidence_hierarchy</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-oxidative-stress">pathophysiology#Oxidative Stress</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hla-b27-misfolding-and-er-stress">pathophysiology#HLA-B27 Misfolding and ER Stress</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Ankylosing spondylitis is one of the organ-specific autoimmune diseases named in the cuproptosis-in-autoimmunity literature, and this entry already carries an oxidative stress node fed by HLA-B27 misfolding and ER stress - the exact place a copper-dependent mitochondrial mechanism would have to be distinguished from what is already modeled. The source review sets a five-part bar for calling something canonical cuproptosis and reports that the AS-relevant findings do not clear it, amounting to copper-associated metabolic stress or susceptibility markers. No cuproptosis node is added here; the gap is recorded so the question survives as a curation target and so a future transcriptomic association is not mistaken for a resolved mechanism. Copper-modulating therapy is likewise not curated as a treatment, since the review classes chelators and ionophores as hypothesis-generating.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Canonical-cuproptosis criteria applied to entheseal and sacroiliac tissue in spondyloarthritis</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
+
+        mechanism validation study with biochemical and in vivo arms
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type mechanism validation study with biochemical and in vivo arms.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_as_canonical_cuproptosis_criteria_at_the_enthesis</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Apply the five canonical cuproptosis criteria to spondyloarthritis-relevant material rather than to transcriptomic surrogates: quantify copper in entheseal, sacroiliac, and bone-marrow biopsy tissue and in sorted peripheral immune subsets from HLA-B27-positive patients, assay FDX1 protein with lipoylated DLAT/DLST aggregation, measure Fe-S cluster protein destabilization, and test chelation and ionophore rescue in an HLA-B27 transgenic model with the same panel read out at the enthesis. Model every readout against matched markers of HLA-B27 misfolding, ER stress, and general oxidative stress so a copper-specific program can be separated from the stress response this entry already curates.</div>
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Assays</div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
+
+        tissue and intracellular copper quantification
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment uses this assay
+This experiment uses tissue and intracellular copper quantification.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
+
+        FDX1 immunoblot and in situ protein detection
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment uses this assay
+This experiment uses FDX1 immunoblot and in situ protein detection.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
+
+        lipoylated protein aggregation assay
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this experiment uses this assay
+This experiment uses lipoylated protein aggregation assay.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
+
+        Fe-S cluster protein stability assay
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experiment uses this assay
+This experiment uses Fe-S cluster protein stability assay.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
+
+        unfolded protein response and oxidative stress marker profiling
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment uses this assay
+This experiment uses unfolded protein response and oxidative stress marker profiling.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Copper specificity against the existing oxidative stress node</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-oxidative-stress">pathophysiology#Oxidative Stress</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">FDX1-lipoylation and Fe-S destabilization readouts modeled against matched general oxidative-stress markers in the same entheseal tissue.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: A copper-dependent signal that persists after adjusting for general oxidative stress would justify a distinct mechanism node; one that collapses would confirm it is already captured by the oxidative stress node.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Relationship to HLA-B27 misfolding</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hla-b27-misfolding-and-er-stress">pathophysiology#HLA-B27 Misfolding and ER Stress</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Copper handling and FDX1-lipoylation readouts compared between HLA-B27-positive and HLA-B27-negative spondyloarthritis and healthy tissue.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: A copper phenotype restricted to HLA-B27-positive tissue would place it downstream of misfolding and ER stress; an HLA-B27-independent phenotype would argue for a parallel mechanism.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Controls</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">HLA-B27-negative spondyloarthritis</div>
+
+        <div>Separates copper biology attributable to HLA-B27 misfolding from inflammation-associated copper handling.</div>
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Mechanical enthesopathy without inflammatory disease</div>
+
+        <div>Non-autoimmune entheseal injury, to test whether any copper signal is specific to inflammatory spondyloarthritis.</div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Add a cuproptosis pathophysiology node to this entry only if all five canonical criteria are met in entheseal or sacroiliac material and the signal survives adjustment for general oxidative stress; otherwise record copper dysregulation as a susceptibility or metabolic-stress marker on the existing oxidative stress node.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-oxidative-stress">pathophysiology#Oxidative Stress</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hla-b27-misfolding-and-er-stress">pathophysiology#HLA-B27 Misfolding and ER Stress</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-discussion-status">Posed 2026-08-11T00:00:00Z</span>
+
+
+                </div>
+
+
+
+                <div class="mapping-notes">Filed from monarch-initiative/dismech#6381. The parallel gap is recorded on Systemic_Lupus_Erythematosus and Rheumatoid_Arthritis, the other dismech entries named in the source review.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435071" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435071" target="_blank">PMID:42435071</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"direct in vivo evidence of canonical cuproptosis in autoimmune lesions remains scarce, and most relevant studies rely on transcriptomic associations, public dataset mining, or model-dependent experiments"</div>
+
+
+                <div class="evidence-explanation">States the evidence-hierarchy gap directly - the reason this entry records cuproptosis as an open question rather than as a pathophysiology node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435071" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435071" target="_blank">PMID:42435071</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"systemic AIDs (e.g., systemic lupus erythematosus, rheumatoid arthritis) and organ-specific AIDs (e.g., inflammatory bowel disease, ankylosing spondylitis) were summarized. Findings mostly reflected copper-associated metabolic stress or susceptibility markers rather than definitive functional activation."</div>
+
+
+                <div class="evidence-explanation">Names ankylosing spondylitis specifically, and characterizes what the AS-relevant findings actually show - metabolic stress or susceptibility markers, not demonstrated functional activation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435071" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435071" target="_blank">PMID:42435071</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"canonical cuproptosis can only be confirmed when copper dependence, involvement of the Ferredoxin 1 (FDX1)-lipoylation axis, aggregation of lipoylated proteins, destabilization of Fe-S clusters, and functional rescue are demonstrated"</div>
+
+
+                <div class="evidence-explanation">Gives the explicit five-part confirmation bar that the proposed experiment&#39;s decision criterion is written against.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Pathophysiology -->
@@ -3953,17 +4695,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HLA-B27, annotated with HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HLA-B27
 
 
-    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4932</a>
+    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:4932</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-B27, annotated with HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3992,18 +4738,20 @@ This pathophysiological event involves HLA-B27, annotated with HLA-B (hgnc:4932)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Unfolded Protein Response, annotated with endoplasmic reticulum unfolded protein response (GO:0030968). GO:0030968 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Unfolded Protein Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go">GO:0030968</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Unfolded Protein Response, annotated with endoplasmic reticulum unfolded protein response (GO:0030968). GO:0030968 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4020,18 +4768,20 @@ This pathophysiological event involves Unfolded Protein Response, annotated with
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Interleukin-23 Production (GO:0032627). GO:0032627 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Interleukin-23 Production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032627" target="_blank" class="curie-chip curie-chip-go">GO:0032627</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032627" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0032627</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Interleukin-23 Production (GO:0032627). GO:0032627 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4097,6 +4847,7 @@ This pathophysiological event involves increased Interleukin-23 Production (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4128,18 +4879,20 @@ This pathophysiological event involves increased Interleukin-23 Production (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4156,18 +4909,20 @@ This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 i
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD8-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4195,17 +4950,21 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ERAP1 (hgnc:18173). hgnc:18173 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ERAP1
 
 
-    <a href="https://bioregistry.io/hgnc:18173" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18173</a>
+    <a href="https://bioregistry.io/hgnc:18173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:18173</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERAP1 (hgnc:18173). hgnc:18173 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4234,18 +4993,20 @@ This pathophysiological event involves ERAP1 (hgnc:18173). hgnc:18173 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Antigen Processing and Presentation via MHC Class I, annotated with antigen processing and presentation of peptide antigen via MHC class I (GO:0002474). GO:0002474 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Antigen Processing and Presentation via MHC Class I
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002474" target="_blank" class="curie-chip curie-chip-go">GO:0002474</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002474" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0002474</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Antigen Processing and Presentation via MHC Class I, annotated with antigen processing and presentation of peptide antigen via MHC class I (GO:0002474). GO:0002474 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4299,6 +5060,7 @@ This pathophysiological event involves Antigen Processing and Presentation via M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308677" target="_blank">PMID:36308677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4330,18 +5092,20 @@ This pathophysiological event involves Antigen Processing and Presentation via M
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Group 3 innate lymphoid cell (CL:0001071). CL:0001071 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Group 3 innate lymphoid cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0001071" target="_blank" class="curie-chip curie-chip-cl">CL:0001071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0001071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0001071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Group 3 innate lymphoid cell (CL:0001071). CL:0001071 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4369,18 +5133,20 @@ This pathophysiological event involves Group 3 innate lymphoid cell (CL:0001071)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Host-Microbe Interaction, annotated with biological process involved in symbiotic interaction (GO:0044403). GO:0044403 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Host-Microbe Interaction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044403" target="_blank" class="curie-chip curie-chip-go">GO:0044403</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044403" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0044403</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Host-Microbe Interaction, annotated with biological process involved in symbiotic interaction (GO:0044403). GO:0044403 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4434,6 +5200,7 @@ This pathophysiological event involves Host-Microbe Interaction, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4474,18 +5241,20 @@ This pathophysiological event involves Host-Microbe Interaction, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Response to Mechanical Stimulus (GO:0009612). GO:0009612 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Response to Mechanical Stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009612" target="_blank" class="curie-chip curie-chip-go">GO:0009612</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009612" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0009612</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Mechanical Stimulus (GO:0009612). GO:0009612 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4547,6 +5316,7 @@ This pathophysiological event involves Response to Mechanical Stimulus (GO:00096
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33547227" target="_blank">PMID:33547227</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4568,6 +5338,7 @@ This pathophysiological event involves Response to Mechanical Stimulus (GO:00096
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39590356" target="_blank">PMID:39590356</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4609,18 +5380,20 @@ This pathophysiological event involves Response to Mechanical Stimulus (GO:00096
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Response to Oxidative Stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4678,6 +5451,7 @@ This pathophysiological event involves increased Response to Oxidative Stress (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39063056" target="_blank">PMID:39063056</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4711,18 +5485,20 @@ This pathophysiological event involves increased Response to Oxidative Stress (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T-helper 17 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4739,18 +5515,20 @@ This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Gamma-delta T cell (CL:0000798). CL:0000798 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Gamma-delta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000798" target="_blank" class="curie-chip curie-chip-cl">CL:0000798</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000798" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000798</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Gamma-delta T cell (CL:0000798). CL:0000798 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4767,18 +5545,20 @@ This pathophysiological event involves Gamma-delta T cell (CL:0000798). CL:00007
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4806,17 +5586,21 @@ This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves IL23R (hgnc:19100). hgnc:19100 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         IL23R
 
 
-    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19100</a>
+    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:19100</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL23R (hgnc:19100). hgnc:19100 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4841,17 +5625,21 @@ This pathophysiological event involves IL23R (hgnc:19100). hgnc:19100 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4880,18 +5668,20 @@ This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4912,18 +5702,20 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased T-helper 17 type immune response (GO:0072538). GO:0072538 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T-helper 17 type immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go">GO:0072538</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0072538</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T-helper 17 type immune response (GO:0072538). GO:0072538 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4944,18 +5736,20 @@ This pathophysiological event involves increased T-helper 17 type immune respons
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Interleukin-17 Production (GO:0032620). GO:0032620 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Interleukin-17 Production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032620" target="_blank" class="curie-chip curie-chip-go">GO:0032620</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032620" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0032620</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Interleukin-17 Production (GO:0032620). GO:0032620 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5021,6 +5815,7 @@ This pathophysiological event involves increased Interleukin-17 Production (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5042,6 +5837,7 @@ This pathophysiological event involves increased Interleukin-17 Production (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5074,18 +5870,20 @@ This pathophysiological event involves increased Interleukin-17 Production (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5113,18 +5911,20 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Tumor Necrosis Factor Production (GO:0032640). GO:0032640 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Tumor Necrosis Factor Production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" class="curie-chip curie-chip-go">GO:0032640</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0032640</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Tumor Necrosis Factor Production (GO:0032640). GO:0032640 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5230,6 +6030,7 @@ This pathophysiological event involves increased Tumor Necrosis Factor Productio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5270,18 +6071,20 @@ This pathophysiological event involves increased Tumor Necrosis Factor Productio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5309,33 +6112,37 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Sacroiliac Joint, annotated with sacro-iliac joint (UBERON:0001365). UBERON:0001365 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Sacroiliac Joint
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001365" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001365</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001365" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0001365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Sacroiliac Joint, annotated with sacro-iliac joint (UBERON:0001365). UBERON:0001365 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:0035845 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Enthesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0035845" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0035845</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0035845" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0035845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:0035845 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5421,6 +6228,7 @@ This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:003584
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38758383" target="_blank">PMID:38758383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5440,6 +6248,7 @@ This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:003584
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38758383" target="_blank">PMID:38758383</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5472,18 +6281,20 @@ This pathophysiological event occurs in Enthesis (UBERON:0035845). UBERON:003584
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoclast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5511,18 +6322,20 @@ This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Bone Resorption (GO:0045453). GO:0045453 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Bone Resorption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go">GO:0045453</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0045453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Bone Resorption (GO:0045453). GO:0045453 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5580,6 +6393,7 @@ This pathophysiological event involves increased Bone Resorption (GO:0045453). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308677" target="_blank">PMID:36308677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5611,18 +6425,20 @@ This pathophysiological event involves increased Bone Resorption (GO:0045453). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5650,18 +6466,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0001503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5682,18 +6500,20 @@ This pathophysiological event involves increased Ossification (GO:0001503). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Wnt Signaling Pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0016055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5732,6 +6552,7 @@ This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5751,6 +6572,7 @@ This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36308677" target="_blank">PMID:36308677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5798,7 +6620,7 @@ This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Antigen Processing and Presentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-HLA susceptibility genes ERAP1 and ERAP2 shape the MHC class I peptide repertoire presented by HLA-B27, and ERAP1 variants show genetic interaction with HLA-B27. This supports an arthritogenic peptide model in which altered antigen processing contributes to autoreactive CD8 T-cell activation at axial sites.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Antigen Processing and Presentation via MHC Class I\"], \"genes\": [\"ERAP1\"], \"gene_terms\": [{\"label\": \"ERAP1\", \"id\": \"hgnc:18173\"}]}}, {\"id\": \"Aberrant New Bone Formation and Ankylosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic axial inflammation drives a dysregulated osteoblastic program with Wnt and BMP signaling, producing syndesmophytes that bridge vertebrae and ultimately cause bamboo-spine ankylosis and irreversible loss of spinal mobility.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"Ossification\", \"Wnt Signaling Pathway\"]}}, {\"id\": \"Anterior uveitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute anterior uveitis is the most common extra-articular manifestation of ankylosing spondylitis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012122\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Cardiac arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac conduction disturbances and arrhythmias are recognized cardiovascular manifestations of AS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjunctivitis is a rare ocular manifestation of ankylosing spondylitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000509\"}}, {\"id\": \"ERAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"Enthesitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enthesitis (inflammation at tendon/ligament insertions) is a core feature of axial spondyloarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100686\"}}, {\"id\": \"Enthesitis and Sacroiliitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammation localizes to entheses (tendon and ligament insertions) and to the sacroiliac joints, producing bone marrow edema on MRI, pain, and structural injury. Enthesitis is the hallmark initiating lesion of AS and axial SpA.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\"], \"locations\": [\"Sacroiliac Joint\", \"Enthesis\"]}}, {\"id\": \"Gut Dysbiosis and Gut-Joint Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intestinal dysbiosis and altered gut permeability are consistent features of AS. Gut-primed, IL-23-responsive immune cells (including alpha4-beta7+ ILC3s) are proposed to traffic from the mucosa to joints and entheses, where they produce IL-17 and IL-22, linking the gut to axial inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Group 3 innate lymphoid cell\"], \"biological_processes\": [\"Host-Microbe Interaction\"]}}, {\"id\": \"HLA-B27\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Strong Risk Factor\", \"relationship_type\": \"RISK_FACTOR\"}}, {\"id\": \"HLA-B27 Misfolding and ER Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLA-B27 has a tendency to misfold in the endoplasmic reticulum and form aberrant homodimers. Accumulation of misfolded protein triggers the unfolded protein response (UPR) and drives IL-23 production, linking the major genetic susceptibility allele to downstream cytokine activation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Unfolded Protein Response\", \"Interleukin-23 Production\"], \"genes\": [\"HLA-B27\"], \"gene_terms\": [{\"label\": \"HLA-B27\", \"id\": \"hgnc:4932\"}]}}, {\"id\": \"IL-23/IL-17 Axis Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 produced by dendritic cells and macrophages drives differentiation and effector function of Th17 cells, IL-23R+ gamma-delta T cells, and innate lymphoid cells, which secrete IL-17A/F at entheses and axial joints. This axis is a dominant mechanistic node in AS and the target of IL-17 and IL-23 inhibitor therapies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 17 cell\", \"Gamma-delta T cell\", \"Dendritic cell\"], \"biological_processes\": [\"Inflammatory Response\", \"T-helper 17 type immune response\", \"Interleukin-17 Production\"], \"genes\": [\"IL23R\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"Inflammatory Back Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Mechanical Stress at Entheses\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repetitive biomechanical stress at tendon and ligament insertion sites produces microtrauma with release of cartilage peptides and local vascularization. Entheses are proposed as the primary sites where mechanical strain converges with genetic and immune predisposition to seed inflammation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to Mechanical Stimulus\"]}}, {\"id\": \"Osteitis and Bone Erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active inflammation at entheses and subchondral bone produces osteitis with increased bone turnover, focal erosions, and periarticular bone loss. This catabolic phase coexists with downstream aberrant bone formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoclast\"], \"biological_processes\": [\"Bone Resorption\"]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Environmental exposures such as smoking and heavy metals, combined with reduced antioxidant capacity, increase reactive oxygen species in AS patients. Oxidative injury potentiates NF-kB-driven cytokine production and is associated with more active and progressive disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Oxidative Stress\"]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Scleritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scleritis is a rare ocular manifestation of ankylosing spondylitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100532\"}}, {\"id\": \"Spinal Stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003306\"}}, {\"id\": \"Spondylitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory involvement of the spine is a defining feature of ankylosing/axial spondyloarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033631\"}}, {\"id\": \"TNF-Mediated Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNF-alpha is produced alongside IL-17 and is a pivotal cytokine recruiting and activating innate immune cells at axial and peripheral sites. TNF inhibitors were the first bDMARDs licensed for axSpA and established the pathogenic centrality of this cytokine.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Tumor Necrosis Factor Production\"]}}, {\"id\": \"Uveitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000554\"}}], \"edges\": [{\"source\": \"HLA-B27 Misfolding and ER Stress\", \"target\": \"Aberrant Antigen Processing and Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HLA-B27 misfolding co-occurs with altered MHC class I peptide handling and ERAP1/2-dependent peptide trimming, contributing to aberrant antigen presentation.\"}, {\"source\": \"HLA-B27 Misfolding and ER Stress\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"UPR-driven IL-23 production directly feeds the IL-23/IL-17 inflammatory axis.\"}, {\"source\": \"Aberrant Antigen Processing and Presentation\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant peptide presentation drives activation of IL-23R+ T cells and downstream IL-17 production.\"}, {\"source\": \"Gut Dysbiosis and Gut-Joint Axis\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gut-derived, IL-23-responsive lymphocytes traffic to joints and sustain local IL-17 production.\"}, {\"source\": \"Mechanical Stress at Entheses\", \"target\": \"Enthesitis and Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microtrauma from mechanical load initiates inflammation at entheses, particularly at axial and pelvic insertion sites.\"}, {\"source\": \"Mechanical Stress at Entheses\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damage-associated signals recruit resident IL-23R+ entheseal lymphocytes that produce IL-17 locally.\"}, {\"source\": \"Oxidative Stress\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress amplifies innate immune signaling that drives IL-23 and downstream IL-17 production.\"}, {\"source\": \"IL-23/IL-17 Axis Activation\", \"target\": \"TNF-Mediated Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-17-activated stromal and immune cells produce TNF-alpha, which amplifies and sustains the inflammatory response.\"}, {\"source\": \"IL-23/IL-17 Axis Activation\", \"target\": \"Enthesitis and Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-17 and IL-22 from entheseal resident lymphocytes drive inflammation at axial and pelvic entheses.\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Enthesitis and Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNF-driven recruitment of inflammatory cells sustains enthesitis and sacroiliac joint inflammation.\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Osteitis and Bone Erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNF promotes osteoclastogenesis and local bone loss at sites of active inflammation.\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Uveitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AS inflammatory pathways are associated with uveitis as a frequent extra-articular manifestation, although the exact disease-specific intermediate route is not fully represented in this pathograph.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Anterior uveitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ocular inflammatory branch in AS most often presents as acute anterior uveitis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Scleritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scleritis is a rarer ocular inflammatory manifestation associated with AS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conjunctivitis is a rarer ocular inflammatory manifestation associated with AS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Cardiac arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiovascular involvement in AS can include arrhythmias, but this entry does not resolve the specific intermediate mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Inflammatory Back Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic axial inflammation and vertebral ankylosis produce severe chronic back pain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sacroiliac joint inflammation is the hallmark articular manifestation of ankylosing spondylitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Spinal Stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Back inflammation and progressive ankylosis cause spinal stiffness and limited mobility.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Enthesitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enthesis inflammation is a core axial spondyloarthritis manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Spondylitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory involvement of the spine is a defining manifestation of ankylosing/axial spondyloarthritis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Osteitis and Bone Erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent entheseal and sacroiliac inflammation progresses to osteitis and focal bone erosion.\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Aberrant New Bone Formation and Ankylosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation triggers the aberrant reparative osteoproliferation that characterizes spinal fusion in AS.\"}, {\"source\": \"Osteitis and Bone Erosion\", \"target\": \"Aberrant New Bone Formation and Ankylosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erosive phases transition to reparative osteoproliferation, producing the characteristic combination of erosion and syndesmophyte formation.\"}, {\"source\": \"HLA-B27\", \"target\": \"HLA-B27 Misfolding and ER Stress\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERAP1\", \"target\": \"Aberrant Antigen Processing and Presentation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Antigen Processing and Presentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-HLA susceptibility genes ERAP1 and ERAP2 shape the MHC class I peptide repertoire presented by HLA-B27, and ERAP1 variants show genetic interaction with HLA-B27. This supports an arthritogenic peptide model in which altered antigen processing contributes to autoreactive CD8 T-cell activation at axial sites.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Antigen Processing and Presentation via MHC Class I\"], \"genes\": [\"ERAP1\"], \"gene_terms\": [{\"label\": \"ERAP1\", \"id\": \"hgnc:18173\"}]}}, {\"id\": \"Aberrant New Bone Formation and Ankylosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic axial inflammation drives a dysregulated osteoblastic program with Wnt and BMP signaling, producing syndesmophytes that bridge vertebrae and ultimately cause bamboo-spine ankylosis and irreversible loss of spinal mobility.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoblast\"], \"biological_processes\": [\"Ossification\", \"Wnt Signaling Pathway\"]}}, {\"id\": \"Anterior uveitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute anterior uveitis is the most common extra-articular manifestation of ankylosing spondylitis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012122\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Cardiac arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac conduction disturbances and arrhythmias are recognized cardiovascular manifestations of AS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjunctivitis is a rare ocular manifestation of ankylosing spondylitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000509\"}}, {\"id\": \"ERAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ERAP1\"], \"gene_terms\": [{\"label\": \"ERAP1\", \"id\": \"hgnc:18173\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Enthesitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enthesitis (inflammation at tendon/ligament insertions) is a core feature of axial spondyloarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100686\"}}, {\"id\": \"Enthesitis and Sacroiliitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammation localizes to entheses (tendon and ligament insertions) and to the sacroiliac joints, producing bone marrow edema on MRI, pain, and structural injury. Enthesitis is the hallmark initiating lesion of AS and axial SpA.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\"], \"locations\": [\"Sacroiliac Joint\", \"Enthesis\"]}}, {\"id\": \"Gut Dysbiosis and Gut-Joint Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intestinal dysbiosis and altered gut permeability are consistent features of AS. Gut-primed, IL-23-responsive immune cells (including alpha4-beta7+ ILC3s) are proposed to traffic from the mucosa to joints and entheses, where they produce IL-17 and IL-22, linking the gut to axial inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Group 3 innate lymphoid cell\"], \"biological_processes\": [\"Host-Microbe Interaction\"]}}, {\"id\": \"HLA-B27\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Strong Risk Factor\", \"relationship_type\": \"RISK_FACTOR\"}}, {\"id\": \"HLA-B27 Misfolding and ER Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLA-B27 has a tendency to misfold in the endoplasmic reticulum and form aberrant homodimers. Accumulation of misfolded protein triggers the unfolded protein response (UPR) and drives IL-23 production, linking the major genetic susceptibility allele to downstream cytokine activation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Unfolded Protein Response\", \"Interleukin-23 Production\"], \"genes\": [\"HLA-B27\"], \"gene_terms\": [{\"label\": \"HLA-B27\", \"id\": \"hgnc:4932\"}]}}, {\"id\": \"IL-23/IL-17 Axis Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 produced by dendritic cells and macrophages drives differentiation and effector function of Th17 cells, IL-23R+ gamma-delta T cells, and innate lymphoid cells, which secrete IL-17A/F at entheses and axial joints. This axis is a dominant mechanistic node in AS and the target of IL-17 and IL-23 inhibitor therapies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T-helper 17 cell\", \"Gamma-delta T cell\", \"Dendritic cell\"], \"biological_processes\": [\"Inflammatory Response\", \"T-helper 17 type immune response\", \"Interleukin-17 Production\"], \"genes\": [\"IL23R\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL23R\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Inflammatory Back Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003418\"}}, {\"id\": \"Mechanical Stress at Entheses\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repetitive biomechanical stress at tendon and ligament insertion sites produces microtrauma with release of cartilage peptides and local vascularization. Entheses are proposed as the primary sites where mechanical strain converges with genetic and immune predisposition to seed inflammation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to Mechanical Stimulus\"]}}, {\"id\": \"Osteitis and Bone Erosion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active inflammation at entheses and subchondral bone produces osteitis with increased bone turnover, focal erosions, and periarticular bone loss. This catabolic phase coexists with downstream aberrant bone formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoclast\"], \"biological_processes\": [\"Bone Resorption\"]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Environmental exposures such as smoking and heavy metals, combined with reduced antioxidant capacity, increase reactive oxygen species in AS patients. Oxidative injury potentiates NF-kB-driven cytokine production and is associated with more active and progressive disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Oxidative Stress\"]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"GWAS\"}}, {\"id\": \"Scleritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scleritis is a rare ocular manifestation of ankylosing spondylitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100532\"}}, {\"id\": \"Spinal Stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003306\"}}, {\"id\": \"Spondylitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory involvement of the spine is a defining feature of ankylosing/axial spondyloarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033631\"}}, {\"id\": \"TNF-Mediated Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TNF-alpha is produced alongside IL-17 and is a pivotal cytokine recruiting and activating innate immune cells at axial and peripheral sites. TNF inhibitors were the first bDMARDs licensed for axSpA and established the pathogenic centrality of this cytokine.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Tumor Necrosis Factor Production\"]}}, {\"id\": \"Uveitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000554\"}}], \"edges\": [{\"source\": \"HLA-B27 Misfolding and ER Stress\", \"target\": \"Aberrant Antigen Processing and Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HLA-B27 misfolding co-occurs with altered MHC class I peptide handling and ERAP1/2-dependent peptide trimming, contributing to aberrant antigen presentation.\"}, {\"source\": \"HLA-B27 Misfolding and ER Stress\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"UPR-driven IL-23 production directly feeds the IL-23/IL-17 inflammatory axis.\"}, {\"source\": \"Aberrant Antigen Processing and Presentation\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant peptide presentation drives activation of IL-23R+ T cells and downstream IL-17 production.\"}, {\"source\": \"Gut Dysbiosis and Gut-Joint Axis\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gut-derived, IL-23-responsive lymphocytes traffic to joints and sustain local IL-17 production.\"}, {\"source\": \"Mechanical Stress at Entheses\", \"target\": \"Enthesitis and Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microtrauma from mechanical load initiates inflammation at entheses, particularly at axial and pelvic insertion sites.\"}, {\"source\": \"Mechanical Stress at Entheses\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damage-associated signals recruit resident IL-23R+ entheseal lymphocytes that produce IL-17 locally.\"}, {\"source\": \"Oxidative Stress\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress amplifies innate immune signaling that drives IL-23 and downstream IL-17 production.\"}, {\"source\": \"IL-23/IL-17 Axis Activation\", \"target\": \"TNF-Mediated Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-17-activated stromal and immune cells produce TNF-alpha, which amplifies and sustains the inflammatory response.\"}, {\"source\": \"IL-23/IL-17 Axis Activation\", \"target\": \"Enthesitis and Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-17 and IL-22 from entheseal resident lymphocytes drive inflammation at axial and pelvic entheses.\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Enthesitis and Sacroiliitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNF-driven recruitment of inflammatory cells sustains enthesitis and sacroiliac joint inflammation.\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Osteitis and Bone Erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TNF promotes osteoclastogenesis and local bone loss at sites of active inflammation.\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Uveitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AS inflammatory pathways are associated with uveitis as a frequent extra-articular manifestation, although the exact disease-specific intermediate route is not fully represented in this pathograph.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Anterior uveitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ocular inflammatory branch in AS most often presents as acute anterior uveitis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Scleritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scleritis is a rarer ocular inflammatory manifestation associated with AS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conjunctivitis is a rarer ocular inflammatory manifestation associated with AS.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TNF-Mediated Inflammation\", \"target\": \"Cardiac arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiovascular involvement in AS can include arrhythmias, but this entry does not resolve the specific intermediate mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Inflammatory Back Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic axial inflammation and vertebral ankylosis produce severe chronic back pain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sacroiliac joint inflammation is the hallmark articular manifestation of ankylosing spondylitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Spinal Stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Back inflammation and progressive ankylosis cause spinal stiffness and limited mobility.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Enthesitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enthesis inflammation is a core axial spondyloarthritis manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Spondylitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory involvement of the spine is a defining manifestation of ankylosing/axial spondyloarthritis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Osteitis and Bone Erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent entheseal and sacroiliac inflammation progresses to osteitis and focal bone erosion.\"}, {\"source\": \"Enthesitis and Sacroiliitis\", \"target\": \"Aberrant New Bone Formation and Ankylosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation triggers the aberrant reparative osteoproliferation that characterizes spinal fusion in AS.\"}, {\"source\": \"Osteitis and Bone Erosion\", \"target\": \"Aberrant New Bone Formation and Ankylosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erosive phases transition to reparative osteoproliferation, producing the characteristic combination of erosion and syndesmophyte formation.\"}, {\"source\": \"HLA-B27\", \"target\": \"HLA-B27 Misfolding and ER Stress\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ERAP1\", \"target\": \"Aberrant Antigen Processing and Presentation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/IL-17 Axis Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5844,16 +6666,20 @@ This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000509</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype from the Human Phenotype Ontology.">
-                        Conjunctivitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp">HP:0000509</a>
-
-
+This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5873,6 +6699,7 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34394873" target="_blank">PMID:34394873</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5906,16 +6733,20 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011675</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiac arrhythmia, annotated with Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.">
-                        Arrhythmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp">HP:0011675</a>
-
-
+This clinical feature is Cardiac arrhythmia, annotated with Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5935,6 +6766,7 @@ This clinical feature is Cardiac arrhythmia, annotated with Arrhythmia (HP:00116
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23797415" target="_blank">PMID:23797415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5979,16 +6811,20 @@ This clinical feature is Cardiac arrhythmia, annotated with Arrhythmia (HP:00116
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000554</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from the Human Phenotype Ontology.">
-                        Uveitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp">HP:0000554</a>
-
-
+This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6010,6 +6846,7 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23999006" target="_blank">PMID:23999006</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6041,16 +6878,20 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0100532</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from the Human Phenotype Ontology.">
-                        Scleritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100532" target="_blank" class="curie-chip curie-chip-hp">HP:0100532</a>
-
-
+This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6070,6 +6911,7 @@ This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34394873" target="_blank">PMID:34394873</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6114,16 +6956,20 @@ This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
-                        Arthritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
-
-
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6145,6 +6991,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38371049" target="_blank">PMID:38371049</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6178,16 +7025,22 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Spinal rigidity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003306</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limited Spinal Mobility, annotated with Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.">
-                        Spinal rigidity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp">HP:0003306</a>
-
-
+This clinical feature is Limited Spinal Mobility, annotated with Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6207,6 +7060,7 @@ This clinical feature is Limited Spinal Mobility, annotated with Spinal rigidity
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38371049" target="_blank">PMID:38371049</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6238,16 +7092,20 @@ This clinical feature is Limited Spinal Mobility, annotated with Spinal rigidity
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100686" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0100686</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from the Human Phenotype Ontology.">
-                        Enthesitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100686" target="_blank" class="curie-chip curie-chip-hp">HP:0100686</a>
-
-
+This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6267,6 +7125,7 @@ This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33105312" target="_blank">PMID:33105312</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6300,16 +7159,20 @@ This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0033631</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype from the Human Phenotype Ontology.">
-                        Spondylitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033631" target="_blank" class="curie-chip curie-chip-hp">HP:0033631</a>
-
-
+This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6329,6 +7192,7 @@ This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33105312" target="_blank">PMID:33105312</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6373,16 +7237,20 @@ This clinical feature is Spondylitis (HP:0033631). HP:0033631 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003418</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Back Pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.">
-                        Back pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp">HP:0003418</a>
-
-
+This clinical feature is Back Pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6404,6 +7272,7 @@ This clinical feature is Back Pain (HP:0003418). HP:0003418 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6446,16 +7315,20 @@ This clinical feature is Back Pain (HP:0003418). HP:0003418 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0012122</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotype from the Human Phenotype Ontology.">
-                        Anterior uveitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp">HP:0012122</a>
-
-
+This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6475,6 +7348,7 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34394873" target="_blank">PMID:34394873</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6572,6 +7446,7 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6602,6 +7477,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ERAP1
+
+
+    <a href="https://bioregistry.io/hgnc:18173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:18173</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ERAP1 (hgnc:18173). hgnc:18173 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6616,6 +7513,7 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6647,6 +7545,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL23R
+
+
+    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:19100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL23R (hgnc:19100). hgnc:19100 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6661,6 +7581,7 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6692,6 +7613,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BACH2
+
+
+    <a href="https://bioregistry.io/hgnc:14078" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:14078</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6704,6 +7647,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     TNFAIP3
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TNFAIP3
+
+
+    <a href="https://bioregistry.io/hgnc:11896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:11896</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6722,6 +7687,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: STAT3
+
+
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:11364</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6734,6 +7721,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     IL10
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL10
+
+
+    <a href="https://bioregistry.io/hgnc:5962" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:5962</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL10 (hgnc:5962). hgnc:5962 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6752,6 +7761,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CD28
+
+
+    <a href="https://bioregistry.io/hgnc:1653" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:1653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CD28 (hgnc:1653). hgnc:1653 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6764,6 +7795,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     EGR2
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: EGR2
+
+
+    <a href="https://bioregistry.io/hgnc:3239" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:3239</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EGR2 (hgnc:3239). hgnc:3239 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6782,6 +7835,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ETS1
+
+
+    <a href="https://bioregistry.io/hgnc:3488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:3488</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ETS1 (hgnc:3488). hgnc:3488 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6794,6 +7869,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     IRF8
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IRF8
+
+
+    <a href="https://bioregistry.io/hgnc:5358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:5358</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6812,6 +7909,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SATB1
+
+
+    <a href="https://bioregistry.io/hgnc:10541" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:10541</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SATB1 (hgnc:10541). hgnc:10541 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6824,6 +7943,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     IKZF1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IKZF1
+
+
+    <a href="https://bioregistry.io/hgnc:13176" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:13176</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6842,6 +7983,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SMAD3
+
+
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:6769</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6854,6 +8017,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                     PRDM1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PRDM1
+
+
+    <a href="https://bioregistry.io/hgnc:9346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:9346</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRDM1 (hgnc:9346). hgnc:9346 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6872,6 +8057,28 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PTPN22
+
+
+    <a href="https://bioregistry.io/hgnc:9652" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:9652</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6883,6 +8090,9 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6901,17 +8111,17 @@ This clinical feature is Anterior uveitis (HP:0012122). HP:0012122 is a phenotyp
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6936,18 +8146,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Nonsteroidal Antiinflammatory Drug
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C257</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6971,17 +8183,17 @@ This treatment uses Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7006,18 +8218,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         monoclonal antibody
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-64">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7041,17 +8255,17 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7076,18 +8290,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Secukinumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C152315</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7112,6 +8328,7 @@ This treatment uses Secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33692806" target="_blank">PMID:33692806</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7141,17 +8358,17 @@ This treatment uses Secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7176,18 +8393,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Upadacitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152802" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152802</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152802" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-68">NCIT:C152802</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7213,6 +8432,7 @@ This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic a
                         <a href="https://bioregistry.io/DOI:10.1186/s13075-023-03128-1" target="_blank">DOI:10.1186/s13075-023-03128-1</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7234,6 +8454,7 @@ This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04169373" target="_blank">clinicaltrials:NCT04169373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7265,17 +8486,17 @@ This treatment uses Upadacitinib (NCIT:C152802). NCIT:C152802 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">Physical Therapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Physical Therapy</span>
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -7372,7 +8593,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse266295">
                 <div class="item-name">
                     A novel immunosenescent CD8+ T cell subset in patients with Ankylosing Spondylitis and Psoriatic Arthritis links spontaneous motility to telomere shortening and dysfunction
 
@@ -7415,7 +8636,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse243689">
                 <div class="item-name">
                     Ankylosing spondylitis patients present a distinct CD8 T-cell subset with osteogenic and cytotoxic potential
 
@@ -7458,7 +8679,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse205812">
                 <div class="item-name">
                     RNA Sequencing and Bioinformatics Analysis of Differentially Expressed Genes in the Peripheral Serum of Ankylosing Spondylitis patients
 
@@ -7501,7 +8722,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000018">
                 <div class="item-name">
                     WTCCC case-control study for Ankylosing Spondylitis
 
@@ -7536,7 +8757,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000019">
                 <div class="item-name">
                     WTCCC case-control study for Ankylosing Spondylitis - Combined Controls
 
@@ -7571,7 +8792,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000104">
                 <div class="item-name">
                     Genomewide association studies in ankylosing spondylitis
 
@@ -7634,7 +8855,6 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ankylosing Spondylitis
 creation_date: &#39;2025-12-19T01:12:52Z&#39;
-updated_date: &#39;2026-05-05T01:23:32Z&#39;
 category: Autoimmune
 parents:
 - Autoimmune Disease
@@ -8461,6 +9681,11 @@ genetic:
       Evidence confirming HLA-B27 as the strongest genetic risk factor for
       ankylosing spondylitis.
 - name: ERAP1
+  gene_term:
+    preferred_term: ERAP1
+    term:
+      id: hgnc:18173
+      label: ERAP1
   association: Risk Factor
   evidence:
   - reference: PMID:33692806
@@ -8476,6 +9701,11 @@ genetic:
       Evidence that ERAP1 genetic variants are associated with ankylosing
       spondylitis through effects on antigen processing and MHC-I presentation.
 - name: IL23R
+  gene_term:
+    preferred_term: IL23R
+    term:
+      id: hgnc:19100
+      label: IL23R
   association: Risk Factor
   evidence:
   - reference: PMID:33692806
@@ -8490,42 +9720,107 @@ genetic:
       Evidence that IL23R variants are associated with ankylosing spondylitis,
       highlighting the importance of the IL-23/IL-17 pathway.
 - name: BACH2
+  gene_term:
+    preferred_term: BACH2
+    term:
+      id: hgnc:14078
+      label: BACH2
   association: GWAS
   notes: Transcription factor regulating Treg/effector T cell balance and B cell class switching
 - name: TNFAIP3
+  gene_term:
+    preferred_term: TNFAIP3
+    term:
+      id: hgnc:11896
+      label: TNFAIP3
   association: GWAS
   notes: Encodes A20, a ubiquitin-editing enzyme that negatively regulates NF-kB signaling
 - name: STAT3
+  gene_term:
+    preferred_term: STAT3
+    term:
+      id: hgnc:11364
+      label: STAT3
   association: GWAS
   notes: Signal transducer mediating Th17 differentiation via JAK-STAT pathway
 - name: IL10
+  gene_term:
+    preferred_term: IL10
+    term:
+      id: hgnc:5962
+      label: IL10
   association: GWAS
   notes: Anti-inflammatory cytokine critical for immune tolerance
 - name: CD28
+  gene_term:
+    preferred_term: CD28
+    term:
+      id: hgnc:1653
+      label: CD28
   association: GWAS
   notes: T cell co-stimulatory receptor required for T cell activation
 - name: EGR2
+  gene_term:
+    preferred_term: EGR2
+    term:
+      id: hgnc:3239
+      label: EGR2
   association: GWAS
   notes: Transcription factor involved in T cell anergy and peripheral tolerance
 - name: ETS1
+  gene_term:
+    preferred_term: ETS1
+    term:
+      id: hgnc:3488
+      label: ETS1
   association: GWAS
   notes: Transcription factor regulating T and B cell development and immune cell differentiation
 - name: IRF8
+  gene_term:
+    preferred_term: IRF8
+    term:
+      id: hgnc:5358
+      label: IRF8
   association: GWAS
   notes: Interferon regulatory factor controlling myeloid cell development and type I interferon response
 - name: SATB1
+  gene_term:
+    preferred_term: SATB1
+    term:
+      id: hgnc:10541
+      label: SATB1
   association: GWAS
   notes: Chromatin organizer regulating T cell development and lineage commitment
 - name: IKZF1
+  gene_term:
+    preferred_term: IKZF1
+    term:
+      id: hgnc:13176
+      label: IKZF1
   association: GWAS
   notes: Ikaros transcription factor essential for lymphocyte development and differentiation
 - name: SMAD3
+  gene_term:
+    preferred_term: SMAD3
+    term:
+      id: hgnc:6769
+      label: SMAD3
   association: GWAS
   notes: TGF-beta signaling mediator regulating T cell differentiation and immune tolerance
 - name: PRDM1
+  gene_term:
+    preferred_term: PRDM1
+    term:
+      id: hgnc:9346
+      label: PRDM1
   association: GWAS
   notes: Blimp-1 transcription factor regulating T cell and B cell terminal differentiation
 - name: PTPN22
+  gene_term:
+    preferred_term: PTPN22
+    term:
+      id: hgnc:9652
+      label: PTPN22
   association: GWAS
   notes: Protein tyrosine phosphatase modulating T cell receptor signaling threshold
 diagnosis:
@@ -8633,6 +9928,148 @@ treatments:
     term:
       id: NCIT:C15302
       label: Physical Therapy
+discussions:
+- discussion_id: gap_as_cuproptosis_evidence_hierarchy
+  prompt: &gt;-
+    Is the copper-associated mitochondrial and redox stress reported in
+    ankylosing spondylitis a distinct canonical cuproptosis mechanism -
+    copper-dependent, FDX1-lipoylation-driven, with lipoylated-protein
+    aggregation and Fe-S cluster destabilization - or is it subsumed by the
+    oxidative stress this entry already models downstream of HLA-B27 misfolding?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Oxidative Stress
+  - pathophysiology#HLA-B27 Misfolding and ER Stress
+  rationale: &gt;-
+    Ankylosing spondylitis is one of the organ-specific autoimmune diseases named
+    in the cuproptosis-in-autoimmunity literature, and this entry already carries
+    an oxidative stress node fed by HLA-B27 misfolding and ER stress - the exact
+    place a copper-dependent mitochondrial mechanism would have to be
+    distinguished from what is already modeled. The source review sets a
+    five-part bar for calling something canonical cuproptosis and reports that
+    the AS-relevant findings do not clear it, amounting to copper-associated
+    metabolic stress or susceptibility markers. No cuproptosis node is added
+    here; the gap is recorded so the question survives as a curation target and
+    so a future transcriptomic association is not mistaken for a resolved
+    mechanism. Copper-modulating therapy is likewise not curated as a treatment,
+    since the review classes chelators and ionophores as hypothesis-generating.
+  evidence:
+  - reference: PMID:42435071
+    reference_title: &#34;From copper imbalance to immunometabolic remodeling: cuproptosis-related vulnerability and therapeutic hypotheses in autoimmune diseases.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      direct in vivo evidence of canonical cuproptosis in autoimmune lesions
+      remains scarce, and most relevant studies rely on transcriptomic
+      associations, public dataset mining, or model-dependent experiments
+    explanation: &gt;-
+      States the evidence-hierarchy gap directly - the reason this entry records
+      cuproptosis as an open question rather than as a pathophysiology node.
+  - reference: PMID:42435071
+    reference_title: &#34;From copper imbalance to immunometabolic remodeling: cuproptosis-related vulnerability and therapeutic hypotheses in autoimmune diseases.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      systemic AIDs (e.g., systemic lupus erythematosus, rheumatoid arthritis)
+      and organ-specific AIDs (e.g., inflammatory bowel disease, ankylosing
+      spondylitis) were summarized. Findings mostly reflected copper-associated
+      metabolic stress or susceptibility markers rather than definitive
+      functional activation.
+    explanation: &gt;-
+      Names ankylosing spondylitis specifically, and characterizes what the
+      AS-relevant findings actually show - metabolic stress or susceptibility
+      markers, not demonstrated functional activation.
+  - reference: PMID:42435071
+    reference_title: &#34;From copper imbalance to immunometabolic remodeling: cuproptosis-related vulnerability and therapeutic hypotheses in autoimmune diseases.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      canonical cuproptosis can only be confirmed when copper dependence,
+      involvement of the Ferredoxin 1 (FDX1)-lipoylation axis, aggregation of
+      lipoylated proteins, destabilization of Fe-S clusters, and functional
+      rescue are demonstrated
+    explanation: &gt;-
+      Gives the explicit five-part confirmation bar that the proposed experiment&#39;s
+      decision criterion is written against.
+  - reference: PMID:42435071
+    reference_title: &#34;From copper imbalance to immunometabolic remodeling: cuproptosis-related vulnerability and therapeutic hypotheses in autoimmune diseases.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      copper chelators and copper ionophores, were evaluated, emphasizing that
+      these currently represent hypothesis-generating approaches
+    explanation: &gt;-
+      Supports withholding copper-modulating agents from this entry&#39;s treatments
+      while the underlying mechanism remains unconfirmed.
+  proposed_experiments:
+  - experiment_id: exp_as_canonical_cuproptosis_criteria_at_the_enthesis
+    name: Canonical-cuproptosis criteria applied to entheseal and sacroiliac tissue in spondyloarthritis
+    description: &gt;-
+      Apply the five canonical cuproptosis criteria to spondyloarthritis-relevant
+      material rather than to transcriptomic surrogates: quantify copper in
+      entheseal, sacroiliac, and bone-marrow biopsy tissue and in sorted
+      peripheral immune subsets from HLA-B27-positive patients, assay FDX1
+      protein with lipoylated DLAT/DLST aggregation, measure Fe-S cluster protein
+      destabilization, and test chelation and ionophore rescue in an HLA-B27
+      transgenic model with the same panel read out at the enthesis. Model every
+      readout against matched markers of HLA-B27 misfolding, ER stress, and
+      general oxidative stress so a copper-specific program can be separated from
+      the stress response this entry already curates.
+    experiment_type:
+      preferred_term: mechanism validation study with biochemical and in vivo arms
+    assays:
+    - preferred_term: tissue and intracellular copper quantification
+    - preferred_term: FDX1 immunoblot and in situ protein detection
+    - preferred_term: lipoylated protein aggregation assay
+    - preferred_term: Fe-S cluster protein stability assay
+    - preferred_term: unfolded protein response and oxidative stress marker profiling
+    readouts:
+    - name: Copper specificity against the existing oxidative stress node
+      target: pathophysiology#Oxidative Stress
+      description: &gt;-
+        FDX1-lipoylation and Fe-S destabilization readouts modeled against matched
+        general oxidative-stress markers in the same entheseal tissue.
+      direction: ALTERED
+      interpretation: &gt;-
+        A copper-dependent signal that persists after adjusting for general
+        oxidative stress would justify a distinct mechanism node; one that
+        collapses would confirm it is already captured by the oxidative stress
+        node.
+    - name: Relationship to HLA-B27 misfolding
+      target: pathophysiology#HLA-B27 Misfolding and ER Stress
+      description: &gt;-
+        Copper handling and FDX1-lipoylation readouts compared between
+        HLA-B27-positive and HLA-B27-negative spondyloarthritis and healthy
+        tissue.
+      direction: ALTERED
+      interpretation: &gt;-
+        A copper phenotype restricted to HLA-B27-positive tissue would place it
+        downstream of misfolding and ER stress; an HLA-B27-independent phenotype
+        would argue for a parallel mechanism.
+    controls:
+    - name: HLA-B27-negative spondyloarthritis
+      description: &gt;-
+        Separates copper biology attributable to HLA-B27 misfolding from
+        inflammation-associated copper handling.
+    - name: Mechanical enthesopathy without inflammatory disease
+      description: &gt;-
+        Non-autoimmune entheseal injury, to test whether any copper signal is
+        specific to inflammatory spondyloarthritis.
+    decision_criterion: &gt;-
+      Add a cuproptosis pathophysiology node to this entry only if all five
+      canonical criteria are met in entheseal or sacroiliac material and the
+      signal survives adjustment for general oxidative stress; otherwise record
+      copper dysregulation as a susceptibility or metabolic-stress marker on the
+      existing oxidative stress node.
+    would_support:
+    - pathophysiology#Oxidative Stress
+    - pathophysiology#HLA-B27 Misfolding and ER Stress
+  posed_date: &#34;2026-08-11T00:00:00Z&#34;
+  notes: &gt;-
+    Filed from monarch-initiative/dismech#6381. The parallel gap is recorded on
+    Systemic_Lupus_Erythematosus and Rheumatoid_Arthritis, the other dismech
+    entries named in the source review.
 classifications:
   harrisons_chapter:
   - classification_value: IMMUNE_RHEUMATOLOGIC
@@ -9872,7 +11309,7 @@ The guideline also notes HLA-B27 may relate to progression from nr-axSpA to radi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ankylosing Spondylitis", "mondoId": "MONDO:0005306", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ankylosing_Spondylitis", "yamlRevision": "034590f52d9b"};
+        const OS_CONFIG = {"diseaseName": "Ankylosing Spondylitis", "mondoId": "MONDO:0005306", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ankylosing_Spondylitis", "yamlRevision": "5360b0350014"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10291,5 +11728,73 @@ The guideline also notes HLA-B27 may relate to progression from nr-axSpA to radi
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

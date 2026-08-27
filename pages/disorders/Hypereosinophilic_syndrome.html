@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hypereosinophilic syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hypereosinophilic syndrome</h1>
             <div class="header-meta">
 
@@ -3940,7 +4062,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-primary-hes">
 
                     <div class="item-name">
                         Primary HES
@@ -3970,7 +4092,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lymphocytic-hes">
 
                     <div class="item-name">
                         Lymphocytic HES
@@ -4000,7 +4122,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-idiopathic-hes">
 
                     <div class="item-name">
                         Idiopathic HES
@@ -4059,18 +4181,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4098,18 +4222,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4126,18 +4252,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4207,6 +4335,7 @@ This pathophysiological event involves immune response (GO:0006955). GO:0006955 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42431861" target="_blank">PMID:42431861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4228,6 +4357,7 @@ This pathophysiological event involves immune response (GO:0006955). GO:0006955 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42431861" target="_blank">PMID:42431861</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4262,18 +4392,20 @@ This pathophysiological event involves immune response (GO:0006955). GO:0006955 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4301,17 +4433,21 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8803</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4340,18 +4476,20 @@ This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves positive regulation of granulocyte differentiation (GO:0030854). GO:0030854 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of granulocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go">GO:0030854</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030854</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves positive regulation of granulocyte differentiation (GO:0030854). GO:0030854 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4405,6 +4543,7 @@ This pathophysiological event involves positive regulation of granulocyte differ
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4438,18 +4577,20 @@ This pathophysiological event involves positive regulation of granulocyte differ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive helper T cell (CL:0000492). CL:0000492 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive helper T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl">CL:0000492</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000492</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive helper T cell (CL:0000492). CL:0000492 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4466,18 +4607,20 @@ This pathophysiological event involves CD4-positive helper T cell (CL:0000492). 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4505,17 +4648,21 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves IL5 (hgnc:6016). hgnc:6016 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         IL5
 
 
-    <a href="https://bioregistry.io/hgnc:6016" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6016</a>
+    <a href="https://bioregistry.io/hgnc:6016" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:6016</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL5 (hgnc:6016). hgnc:6016 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4544,18 +4691,20 @@ This pathophysiological event involves IL5 (hgnc:6016). hgnc:6016 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4609,6 +4758,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4642,18 +4792,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4681,18 +4833,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves positive regulation of granulocyte differentiation (GO:0030854). GO:0030854 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of granulocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go">GO:0030854</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030854" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030854</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves positive regulation of granulocyte differentiation (GO:0030854). GO:0030854 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4762,6 +4916,7 @@ This pathophysiological event involves positive regulation of granulocyte differ
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4795,18 +4950,20 @@ This pathophysiological event involves positive regulation of granulocyte differ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4834,18 +4991,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves eosinophil chemotaxis (GO:0048245). GO:0048245 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         eosinophil chemotaxis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048245" target="_blank" class="curie-chip curie-chip-go">GO:0048245</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048245" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0048245</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves eosinophil chemotaxis (GO:0048245). GO:0048245 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4862,18 +5021,20 @@ This pathophysiological event involves eosinophil chemotaxis (GO:0048245). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4897,33 +5058,37 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin of body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4985,6 +5150,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5006,6 +5172,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5040,18 +5207,20 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5079,18 +5248,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5114,18 +5285,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5163,6 +5336,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5196,18 +5370,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5235,18 +5411,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5300,6 +5478,7 @@ This pathophysiological event involves blood coagulation (GO:0007596). GO:000759
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5321,6 +5500,7 @@ This pathophysiological event involves blood coagulation (GO:0007596). GO:000759
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5355,18 +5535,20 @@ This pathophysiological event involves blood coagulation (GO:0007596). GO:000759
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5394,18 +5576,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5429,18 +5613,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin of body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5486,6 +5672,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5519,18 +5706,20 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5558,18 +5747,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5623,6 +5814,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5656,18 +5848,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5695,18 +5889,20 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5730,18 +5926,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5778,6 +5976,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5873,16 +6072,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001880</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.">
-                        Increased total eosinophil count
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
-
-
+This clinical feature is Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5902,6 +6105,7 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5935,16 +6139,20 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001907</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype from the Human Phenotype Ontology.">
-                        Thromboembolism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp">HP:0001907</a>
-
-
+This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5964,6 +6172,7 @@ This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6006,16 +6215,20 @@ This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001025</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from the Human Phenotype Ontology.">
-                        Urticaria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp">HP:0001025</a>
-
-
+This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6035,6 +6248,7 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6070,16 +6284,20 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001701</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype from the Human Phenotype Ontology.">
-                        Pericarditis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp">HP:0001701</a>
-
-
+This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6101,6 +6319,7 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6143,16 +6362,20 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
-                        Diarrhea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
-
-
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6172,6 +6395,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6214,16 +6438,20 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000964</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.">
-                        Eczematoid dermatitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp">HP:0000964</a>
-
-
+This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6243,6 +6471,7 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6285,16 +6514,20 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.">
-                        Asthma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp">HP:0002099</a>
-
-
+This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6314,6 +6547,7 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6393,15 +6627,17 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:8803</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6422,6 +6658,7 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6453,6 +6690,9 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6469,17 +6709,17 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6504,18 +6744,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6530,18 +6772,20 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6560,6 +6804,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30512017" target="_blank">PMID:30512017</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6582,6 +6827,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6613,17 +6859,17 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6648,18 +6894,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         tyrosine kinase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1967" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1967</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1967" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C1967</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6703,6 +6951,7 @@ This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6733,17 +6982,17 @@ This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a ther
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6768,18 +7017,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Monoclonal Antibody
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6812,18 +7063,20 @@ This treatment uses Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeu
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6842,6 +7095,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02836496" target="_blank">clinicaltrials:NCT02836496</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6864,6 +7118,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04191304" target="_blank">clinicaltrials:NCT04191304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6911,7 +7166,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-eosinophilic-granulomatosis-with-polyangiitis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Eosinophilic_granulomatosis_with_polyangiitis.html">Eosinophilic granulomatosis with polyangiitis</a>
@@ -6960,6 +7215,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39156600" target="_blank">PMID:39156600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6985,7 +7241,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-chronic-eosinophilic-leukemia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Chronic eosinophilic leukemia</span>
@@ -7035,6 +7291,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32184691" target="_blank">PMID:32184691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7060,7 +7317,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-helminthiasis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Soil-transmitted_helminthiases.html">Helminthiasis</a>
@@ -7109,6 +7366,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31367340" target="_blank">PMID:31367340</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7144,7 +7402,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse111789">
                 <div class="item-name">
                     Transcript- and protein-level analyses of the response of human eosinophils to glucocorticoids
 
@@ -7203,6 +7461,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30512017" target="_blank">PMID:30512017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7238,7 +7497,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02836496">
                 <div class="item-name">
                     NCT02836496
 
@@ -7256,18 +7515,20 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7285,6 +7546,7 @@ This clinical trial targets Increased total eosinophil count (HP:0001880). HP:00
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02836496" target="_blank">clinicaltrials:NCT02836496</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7309,7 +7571,7 @@ This clinical trial targets Increased total eosinophil count (HP:0001880). HP:00
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04191304">
                 <div class="item-name">
                     NCT04191304
 
@@ -7327,18 +7589,20 @@ This clinical trial targets Increased total eosinophil count (HP:0001880). HP:00
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased total eosinophil count
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001880</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7356,6 +7620,7 @@ This clinical trial targets Increased total eosinophil count (HP:0001880). HP:00
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04191304" target="_blank">clinicaltrials:NCT04191304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7405,7 +7670,6 @@ This clinical trial targets Increased total eosinophil count (HP:0001880). HP:00
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hypereosinophilic syndrome
 creation_date: &#34;2026-04-21T14:07:20Z&#34;
-updated_date: &#34;2026-04-21T21:38:56Z&#34;
 category: Complex
 description: &gt;-
   Hypereosinophilic syndrome (HES) is a heterogeneous syndrome defined by
@@ -7475,6 +7739,7 @@ pathophysiology:
       label: immune response
   evidence:
   - reference: PMID:42431861
+    reference_title: &#34;Eosinophil diversity and function: emerging insights into subtypes and therapeutic targets.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -7486,6 +7751,7 @@ pathophysiology:
       This review identifies eosinophil diversity as relevant to disease
       progression and subset-selective therapeutic strategies.
   - reference: PMID:42431861
+    reference_title: &#34;Eosinophil diversity and function: emerging insights into subtypes and therapeutic targets.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8118,6 +8384,7 @@ treatments:
       signaling.
   evidence:
   - reference: clinicaltrials:NCT02836496
+    reference_title: &#34;Study 200622: A Randomized, Double-blind, Placebo-controlled Study to Investigate the Efficacy and Safety of Mepolizumab in the Treatment of Adolescent and Adult Subjects With Severe Hypereosinophilic Syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8131,6 +8398,7 @@ treatments:
       Trial registration directly supports targeted anti-IL-5 therapy in severe
       HES.
   - reference: clinicaltrials:NCT04191304
+    reference_title: &#34;A Multicentre, Randomised, Double-blind, Parallel-group, Placebo-controlled, 24-Week Phase III Study With an Open-label Extension to Evaluate the Efficacy and Safety of Benralizumab in Patients With Hypereosinophilic Syndrome (HES)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8377,6 +8645,7 @@ clinical_trials:
       label: Increased total eosinophil count
   evidence:
   - reference: clinicaltrials:NCT02836496
+    reference_title: &#34;Study 200622: A Randomized, Double-blind, Placebo-controlled Study to Investigate the Efficacy and Safety of Mepolizumab in the Treatment of Adolescent and Adult Subjects With Severe Hypereosinophilic Syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8400,6 +8669,7 @@ clinical_trials:
       label: Increased total eosinophil count
   evidence:
   - reference: clinicaltrials:NCT04191304
+    reference_title: &#34;A Multicentre, Randomised, Double-blind, Parallel-group, Placebo-controlled, 24-Week Phase III Study With an Open-label Extension to Evaluate the Efficacy and Safety of Benralizumab in Patients With Hypereosinophilic Syndrome (HES)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8881,7 +9151,7 @@ references: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypereosinophilic syndrome", "mondoId": "MONDO:0015691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypereosinophilic_syndrome", "yamlRevision": "b24456179f5c"};
+        const OS_CONFIG = {"diseaseName": "Hypereosinophilic syndrome", "mondoId": "MONDO:0015691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypereosinophilic_syndrome", "yamlRevision": "ee1e895818ff"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9300,5 +9570,73 @@ references: []
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

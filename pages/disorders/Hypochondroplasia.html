@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hypochondroplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hypochondroplasia</h1>
             <div class="header-meta">
 
@@ -3818,12 +3940,20 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
 
 
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#pathograph">
@@ -3906,6 +4036,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3915,9 +4115,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 1 &#34;FGFR3 chondrodysplasia group&#34;; listed as &#34;Hypochondroplasia&#34;.">fgfr3 chondrodysplasia</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3935,7 +4151,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3962,6 +4178,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41184854" target="_blank">PMID:41184854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4001,6 +4218,371 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_infigratinib_potency_against_n540k">
+                <div class="item-name">Is infigratinib actually a potent inhibitor of the FGFR3 p.Asn540Lys receptor that causes ~70% of hypochondroplasia, and does the answer depend on the cell system and receptor construct used to measure it?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_infigratinib_potency_against_n540k</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-fgfr3-constitutive-activation">pathophysiology#FGFR3 constitutive activation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-mapk-erk-cascade-hyperactivation">pathophysiology#MAPK/ERK cascade hyperactivation</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">This is a live, unresolved disagreement in the 2026 literature with direct consequences for a drug already in phase 2/3 trials in hypochondroplasia, so it must not be curated as settled in either direction. Ursachi et al. (J Bone Miner Res 2026) reported that infigratinib inhibits FGFR3-N540K only weakly (IC50 ~514 nM) relative to wild type and to the achondroplasia p.Gly380Arg allele, consistent with earlier oncology-derived evidence that N540K is a gatekeeper-adjacent resistance substitution. The original authors replied that the discrepancy is methodological — that the weak-inhibition result was obtained with C-terminally V5-tagged FGFR3 in rat L6 myoblasts, a non-cartilage system, whereas their own work used untagged full-length FGFR3 in ATDC5 chondrogenic cells and the Fgfr3-N534K mouse, and that C-terminal tagging is known to perturb FGFR3 signaling, particularly for N540K. Both positions are internally coherent, and the disagreement is about which in vitro system is the valid proxy for a chondrocyte, not about the data. Crucially, the achondroplasia result cannot be transferred: the phase 3 infigratinib evidence (PMID:42370681) is entirely in p.Gly380Arg achondroplasia, a different allele in a different position in the receptor. Until the hypochondroplasia trial reads out, dismech should not curate infigratinib as an effective hypochondroplasia treatment, and should not curate it as ineffective either. Note also that TYRA-300, an FGFR3-selective inhibitor, has separate preclinical activity in the same Fgfr3-N534K hypochondroplasia mouse model, so a negative result for infigratinib against N540K would not close the receptor-directed strategy.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Head-to-head potency assay against untagged FGFR3-N540K in chondrogenic cells</div>
+
+            </div>
+
+            <div class="experiment-id">exp_infigratinib_n540k_head_to_head</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Measure infigratinib IC50 against untagged full-length FGFR3-N540K and against C-terminally tagged FGFR3-N540K side by side, in both ATDC5 chondrogenic cells and a non-cartilage line, in one laboratory with one readout. This directly tests the tagging/cell-system explanation the two groups disagree about instead of comparing across papers.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Readout of the hypochondroplasia infigratinib trial by genotype</div>
+
+            </div>
+
+            <div class="experiment-id">exp_hch_infigratinib_trial_by_genotype</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Report growth-velocity response in the phase 2/3 hypochondroplasia trial stratified by FGFR3 allele (N540K versus the non-N540K minority), which is the only measurement that settles whether the in vitro disagreement matters clinically.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41593746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41593746" target="_blank">PMID:41593746</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ursachi et al. evaluated in vitro potency of infigratinib against N540K variant by expressing C-terminally V5-tagged FGFR3 in rat L6 cells (non-disease relevant cell) and concluded that FGFR3-N540K is weakly inhibited by infigratinib (IC50"</div>
+
+
+                <div class="evidence-explanation">States the opposing finding and the methodological objection to it, in the original authors&#39; own words.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41593746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41593746" target="_blank">PMID:41593746</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In these condition-relevant models, our findings markedly differ from those reported by Ursachi et al. The poor sensitivity of infigratinib to the N540K variant of FGFR3 observed in these other studies is likely due to the specific cell system and receptor construct employed."</div>
+
+
+                <div class="evidence-explanation">Confirms the dispute is unresolved and turns on model choice.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41593746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41593746" target="_blank">PMID:41593746</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently, infigratinib is being evaluated in a phase 2/3 clinical trial in children with HCH."</div>
+
+
+                <div class="evidence-explanation">Establishes that the question is expected to be settled clinically, which is why no mechanism claim should be curated ahead of it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_hch_growth_plate_drug_delivery">
+                <div class="item-name">Can cartilage-targeted delivery overcome the fact that the growth plate is avascular and alymphatic, and does that change which molecular targets are reachable in hypochondroplasia?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_hch_growth_plate_drug_delivery</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-endochondral-ossification">pathophysiology#Impaired endochondral ossification</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Every systemic therapy for FGFR3 chondrodysplasia has to reach a tissue with no blood supply and no lymphatic drainage, which caps achievable growth-plate drug concentration and is a plausible contributor to the modest effect sizes seen with CNP analogues. A 2026 study addressed this with chondrocyte-membrane-coated nanoparticles bearing a collagen-II-binding peptide, using them to deliver the Hedgehog agonist purmorphamine to the growth plate of a hypochondroplasia mouse and reporting restored ciliogenesis and increased bone and body length. This is a mouse result with an engineered delivery vehicle and a Hedgehog-pathway payload that bypasses FGFR3 altogether, so its translational validity is the open question, not its internal validity: nanoparticle biodistribution, immunogenicity on repeat dosing, and growth-plate penetration all differ substantially between mouse and child, and no human data exist.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Cross-species growth-plate pharmacokinetics of the targeted carrier</div>
+
+            </div>
+
+            <div class="experiment-id">exp_growth_plate_carrier_pk_large_animal</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Measure growth-plate tissue concentration and residence time of the collagen-II-targeted carrier in a large-animal model with a growth plate closer to human scale, since diffusion distance into avascular cartilage does not scale linearly from mouse.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42338508" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42338508" target="_blank">PMID:42338508</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vivo, CT-CM-NPs effectively delivered the Hedgehog pathway agonist Purmorphamine to the growth plate cartilage in an HCH mouse model, resulting in upregulated Hedgehog signaling, restored impaired ciliogenesis, improved chondrocyte phenotypes, and ultimately increased bone and body length."</div>
+
+
+                <div class="evidence-explanation">The mouse result whose human relevance is unestablished.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42338508" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42338508" target="_blank">PMID:42338508</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pharmacological therapy remains the primary treatment but provides only partial symptomatic relief, as the avascular and alymphatic nature of growth plate cartilage severely limits drug delivery and accumulation."</div>
+
+
+                <div class="evidence-explanation">States the delivery barrier that motivates the approach.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -4022,18 +4604,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Growth plate chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4059,17 +4643,21 @@ This pathophysiological event involves Growth plate chondrocyte, annotated with 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves increased FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3690</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4102,18 +4690,20 @@ This pathophysiological event involves increased FGFR3 (hgnc:3690). hgnc:3690 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased FGFR signaling pathway, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         FGFR signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased FGFR signaling pathway, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4149,17 +4739,23 @@ This pathophysiological event involves increased FGFR signaling pathway, annotat
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">MAPK/ERK cascade hyperactivation</span>
 
+	                            <span class="crosslink-desc">The constitutively active receptor engages the Ras-MAPK/ERK cascade as its principal effector arm in growth-plate chondrocytes.</span>
+
 
 	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Defective bone mineralization</span>
 
+	                            <span class="crosslink-desc">Beyond the growth plate, the same allele alters osteoblast and osteocyte function, producing the mineralization defect that gives the entry its bone-quality arm.</span>
+
 
 	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cranial base synchondrosis dysfunction</span>
+
+	                            <span class="crosslink-desc">A separate consequence arm acting on the cranial base rather than the limb growth plate, and the origin of the foramen magnum and macrocephaly features.</span>
 
 
 	                        </div>
@@ -4180,6 +4776,7 @@ This pathophysiological event involves increased FGFR signaling pathway, annotat
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29063142" target="_blank">PMID:29063142</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4203,6 +4800,7 @@ This pathophysiological event involves increased FGFR signaling pathway, annotat
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4239,18 +4837,20 @@ This pathophysiological event involves increased FGFR signaling pathway, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Growth plate chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4278,18 +4878,20 @@ This pathophysiological event involves Growth plate chondrocyte, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4325,6 +4927,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired endochondral ossification</span>
 
+	                            <span class="crosslink-desc">Sustained MAPK/ERK signalling suppresses chondrocyte proliferation and differentiation in the growth plate, which is what impairs endochondral bone formation and shortens the long bones.</span>
+
 
 	                        </div>
 
@@ -4344,6 +4948,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29063142" target="_blank">PMID:29063142</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4367,6 +4972,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4403,18 +5009,20 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Growth plate chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4442,18 +5050,20 @@ This pathophysiological event involves Growth plate chondrocyte, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endochondral ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4629,6 +5239,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4651,6 +5262,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4687,18 +5299,20 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4715,18 +5329,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl">CL:0000137</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4754,18 +5370,20 @@ This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Bone mineralization (GO:0030282). GO:0030282 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Bone mineralization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="curie-chip curie-chip-go">GO:0030282</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030282</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Bone mineralization (GO:0030282). GO:0030282 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4808,6 +5426,7 @@ This pathophysiological event involves decreased Bone mineralization (GO:0030282
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4831,6 +5450,7 @@ This pathophysiological event involves decreased Bone mineralization (GO:0030282
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4853,6 +5473,7 @@ This pathophysiological event involves decreased Bone mineralization (GO:0030282
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4889,18 +5510,20 @@ This pathophysiological event involves decreased Bone mineralization (GO:0030282
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Growth plate chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4928,18 +5551,20 @@ This pathophysiological event involves Growth plate chondrocyte, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endochondral ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5013,6 +5638,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5062,7 +5688,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Broad femoral neck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A short, broad femoral neck is part of the characteristic pelvic-femoral radiographic pattern of hypochondroplasia, and broad femora were among the strongest distinguishing neonatal radiographic features.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006429\"}}, {\"id\": \"Cranial base synchondrosis dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3 activation impairs the synchondroses of the cranial base, leading to premature closure and defective formation of the foramen magnum. This contributes to relative macrocephaly and potential foramen magnum stenosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Endochondral ossification\"]}}, {\"id\": \"Defective bone mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3 activation alters osteoblast and osteocyte function, leading to decreased trabecular bone mineral density in long bones and vertebrae, with a paradoxical age-related increase in cortical BMD accompanied by reduced toughness. These changes produce bone with osteoporosis-like characteristics.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoblast\", \"Osteocyte\"], \"biological_processes\": [\"Bone mineralization\"]}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed carpal bone age has been documented on hand radiographs in children with FGFR3 N540K hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002750\"}}, {\"id\": \"FGFR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FGFR3 N540K mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"association\": \"Causative\", \"variant_count\": 2}}, {\"id\": \"FGFR3 constitutive activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The FGFR3 N540K mutation causes constitutive activation of the receptor tyrosine kinase, resulting in ligand-independent FGFR3 signaling in growth plate chondrocytes, osteoblasts, and other skeletal cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"FGFR signaling pathway\"], \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Flat acetabular roof\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontally oriented acetabular roofs are part of the pelvic radiographic pattern and were included in proposed neonatal radiologic criteria.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003180\"}}, {\"id\": \"Foramen magnum stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foramen magnum narrowing can occur in hypochondroplasia, though it is reported less often than in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002677\"}}, {\"id\": \"Genu varum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bowing of the legs is one of the most frequently observed skeletal features, reported in over half of patients with confirmed N540K mutations.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002970\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive hydrocephalus requiring neurosurgical treatment has been reported in a small subset of affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired endochondral ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Suppressed chondrocyte proliferation and altered hypertrophic differentiation downstream of MAPK/ERK hyperactivation impair endochondral ossification, reducing longitudinal bone growth and causing short stature.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Endochondral ossification\"]}}, {\"id\": \"MAPK/ERK cascade hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively activated FGFR3 drives hyperactivation of the Ras-MAPK/ERK signaling cascade in growth plate chondrocytes, suppressing chondrocyte proliferation and differentiation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"MAPK cascade\"]}}, {\"id\": \"Metaphyseal widening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild metaphyseal widening/flaring of long bones is part of the characteristic radiographic pattern.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003016\"}}, {\"id\": \"Mild joint laxity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild ligamentous laxity can accompany the skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Narrow vertebral interpedicular distance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lack of the normal caudal widening or frank narrowing of the lumbar/lumbosacral interpedicular distance is a classic radiographic clue to hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008450\"}}, {\"id\": \"Posterior scalloping of vertebral bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior vertebral body scalloping is a recurrent spinal radiographic finding in hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005121\"}}, {\"id\": \"Relative macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is often relatively large for height, with measurable head-height disproportion even when absolute macrocephaly is not striking.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0004482\"}}, {\"id\": \"Rhizomelic limb shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild proximal limb shortening and body disproportion may emerge after infancy and can be subtle in the neonatal period.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Short femur\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short femora are part of the early radiographic pattern and contributed to the proposed neonatal diagnostic criteria.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003097\"}}, {\"id\": \"Short foot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short feet accompany the short-limbed skeletal phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001773\"}}, {\"id\": \"Short greater sciatic notch\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A short greater sciatic notch was one of the strongest pelvic radiographic discriminators in proposed neonatal diagnostic criteria.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003185\"}}, {\"id\": \"Short iliac bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortened, often squared ilia are diagnostically useful pelvic radiographic findings.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100866\"}}, {\"id\": \"Short middle phalanx of finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hand radiographs can show short, broad middle phalanges in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005819\"}}, {\"id\": \"Short proximal phalanx of finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hand radiographs can show short, broad proximal phalanges in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010241\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature is the defining growth phenotype of hypochondroplasia. In many children it becomes more obvious in toddlerhood or early school age as growth velocity falls relative to peers.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Small hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hands are often short as part of the appendicular skeletal phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200055\"}}, {\"id\": \"Spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal canal stenosis occurs less often than in achondroplasia but remains a clinically important complication in hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003416\"}}, {\"id\": \"Squared iliac bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Squared ilia are part of the pelvic radiographic pattern in hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003177\"}}, {\"id\": \"Thoracolumbar kyphosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thoracolumbar kyphosis may require orthopedic or neurosurgical monitoring in the same general management framework used for achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005619\"}}, {\"id\": \"Tibial bowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tibial bowing or bending is a recognized lower-limb manifestation, overlapping clinically with the broader genu varum/leg-bowing phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002982\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally shaped lateral ventricles have been observed in HCH patients on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"c.1620C\u003eA (p.Asn540Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common causative mutation.\"}, {\"id\": \"c.1620C\u003eG (p.Asn540Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Alternative nucleotide change resulting in the same amino acid substitution.\"}], \"edges\": [{\"source\": \"FGFR3 constitutive activation\", \"target\": \"MAPK/ERK cascade hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 constitutive activation\", \"target\": \"Defective bone mineralization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 constitutive activation\", \"target\": \"Cranial base synchondrosis dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MAPK/ERK cascade hyperactivation\", \"target\": \"Impaired endochondral ossification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Rhizomelic limb shortening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Mild joint laxity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Genu varum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Spinal canal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Narrow vertebral interpedicular distance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Posterior scalloping of vertebral bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Metaphyseal widening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Small hand\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short foot\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short middle phalanx of finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short proximal phalanx of finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Tibial bowing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Thoracolumbar kyphosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short iliac bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Squared iliac bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Flat acetabular roof\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short greater sciatic notch\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short femur\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Broad femoral neck\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Relative macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Foramen magnum stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 N540K mutation\", \"target\": \"FGFR3 constitutive activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGFR3\", \"target\": \"FGFR3 constitutive activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1620C\u003eA (p.Asn540Lys)\", \"target\": \"FGFR3 N540K mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1620C\u003eG (p.Asn540Lys)\", \"target\": \"FGFR3 N540K mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Broad femoral neck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A short, broad femoral neck is part of the characteristic pelvic-femoral radiographic pattern of hypochondroplasia, and broad femora were among the strongest distinguishing neonatal radiographic features.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0006429\"}}, {\"id\": \"Cranial base synchondrosis dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3 activation impairs the synchondroses of the cranial base, leading to premature closure and defective formation of the foramen magnum. This contributes to relative macrocephaly and potential foramen magnum stenosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Endochondral ossification\"]}}, {\"id\": \"Defective bone mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3 activation alters osteoblast and osteocyte function, leading to decreased trabecular bone mineral density in long bones and vertebrae, with a paradoxical age-related increase in cortical BMD accompanied by reduced toughness. These changes produce bone with osteoporosis-like characteristics.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoblast\", \"Osteocyte\"], \"biological_processes\": [\"Bone mineralization\"]}}, {\"id\": \"Delayed skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed carpal bone age has been documented on hand radiographs in children with FGFR3 N540K hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002750\"}}, {\"id\": \"FGFR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FGFR3 N540K mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"association\": \"Causative\", \"variant_count\": 2}}, {\"id\": \"FGFR3 constitutive activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The FGFR3 N540K mutation causes constitutive activation of the receptor tyrosine kinase, resulting in ligand-independent FGFR3 signaling in growth plate chondrocytes, osteoblasts, and other skeletal cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"FGFR signaling pathway\"], \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Flat acetabular roof\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontally oriented acetabular roofs are part of the pelvic radiographic pattern and were included in proposed neonatal radiologic criteria.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003180\"}}, {\"id\": \"Foramen magnum stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foramen magnum narrowing can occur in hypochondroplasia, though it is reported less often than in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002677\"}}, {\"id\": \"Genu varum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bowing of the legs is one of the most frequently observed skeletal features, reported in over half of patients with confirmed N540K mutations.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002970\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive hydrocephalus requiring neurosurgical treatment has been reported in a small subset of affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired endochondral ossification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Suppressed chondrocyte proliferation and altered hypertrophic differentiation downstream of MAPK/ERK hyperactivation impair endochondral ossification, reducing longitudinal bone growth and causing short stature.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"Endochondral ossification\"]}}, {\"id\": \"MAPK/ERK cascade hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively activated FGFR3 drives hyperactivation of the Ras-MAPK/ERK signaling cascade in growth plate chondrocytes, suppressing chondrocyte proliferation and differentiation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth plate chondrocyte\"], \"biological_processes\": [\"MAPK cascade\"]}}, {\"id\": \"Metaphyseal widening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild metaphyseal widening/flaring of long bones is part of the characteristic radiographic pattern.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003016\"}}, {\"id\": \"Mild joint laxity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild ligamentous laxity can accompany the skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Narrow vertebral interpedicular distance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lack of the normal caudal widening or frank narrowing of the lumbar/lumbosacral interpedicular distance is a classic radiographic clue to hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008450\"}}, {\"id\": \"Posterior scalloping of vertebral bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior vertebral body scalloping is a recurrent spinal radiographic finding in hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005121\"}}, {\"id\": \"Relative macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head circumference is often relatively large for height, with measurable head-height disproportion even when absolute macrocephaly is not striking.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0004482\"}}, {\"id\": \"Rhizomelic limb shortening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild proximal limb shortening and body disproportion may emerge after infancy and can be subtle in the neonatal period.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Short femur\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short femora are part of the early radiographic pattern and contributed to the proposed neonatal diagnostic criteria.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003097\"}}, {\"id\": \"Short foot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short feet accompany the short-limbed skeletal phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001773\"}}, {\"id\": \"Short greater sciatic notch\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A short greater sciatic notch was one of the strongest pelvic radiographic discriminators in proposed neonatal diagnostic criteria.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003185\"}}, {\"id\": \"Short iliac bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortened, often squared ilia are diagnostically useful pelvic radiographic findings.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100866\"}}, {\"id\": \"Short middle phalanx of finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hand radiographs can show short, broad middle phalanges in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005819\"}}, {\"id\": \"Short proximal phalanx of finger\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hand radiographs can show short, broad proximal phalanges in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010241\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature is the defining growth phenotype of hypochondroplasia. In many children it becomes more obvious in toddlerhood or early school age as growth velocity falls relative to peers.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Small hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hands are often short as part of the appendicular skeletal phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200055\"}}, {\"id\": \"Spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal canal stenosis occurs less often than in achondroplasia but remains a clinically important complication in hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003416\"}}, {\"id\": \"Squared iliac bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Squared ilia are part of the pelvic radiographic pattern in hypochondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003177\"}}, {\"id\": \"Thoracolumbar kyphosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thoracolumbar kyphosis may require orthopedic or neurosurgical monitoring in the same general management framework used for achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005619\"}}, {\"id\": \"Tibial bowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tibial bowing or bending is a recognized lower-limb manifestation, overlapping clinically with the broader genu varum/leg-bowing phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002982\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally shaped lateral ventricles have been observed in HCH patients on neuroimaging.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"c.1620C\u003eA (p.Asn540Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common causative mutation.\"}, {\"id\": \"c.1620C\u003eG (p.Asn540Lys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Alternative nucleotide change resulting in the same amino acid substitution.\"}], \"edges\": [{\"source\": \"FGFR3 constitutive activation\", \"target\": \"MAPK/ERK cascade hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The constitutively active receptor engages the Ras-MAPK/ERK cascade as its principal effector arm in growth-plate chondrocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR3 constitutive activation\", \"target\": \"Defective bone mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond the growth plate, the same allele alters osteoblast and osteocyte function, producing the mineralization defect that gives the entry its bone-quality arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR3 constitutive activation\", \"target\": \"Cranial base synchondrosis dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A separate consequence arm acting on the cranial base rather than the limb growth plate, and the origin of the foramen magnum and macrocephaly features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAPK/ERK cascade hyperactivation\", \"target\": \"Impaired endochondral ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained MAPK/ERK signalling suppresses chondrocyte proliferation and differentiation in the growth plate, which is what impairs endochondral bone formation and shortens the long bones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Rhizomelic limb shortening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Mild joint laxity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Genu varum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Spinal canal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Narrow vertebral interpedicular distance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Posterior scalloping of vertebral bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Metaphyseal widening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Small hand\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short foot\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short middle phalanx of finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short proximal phalanx of finger\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Delayed skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Tibial bowing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Thoracolumbar kyphosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short iliac bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Squared iliac bones\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Flat acetabular roof\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short greater sciatic notch\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Short femur\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired endochondral ossification\", \"target\": \"Broad femoral neck\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Relative macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Foramen magnum stenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cranial base synchondrosis dysfunction\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FGFR3 N540K mutation\", \"target\": \"FGFR3 constitutive activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGFR3\", \"target\": \"FGFR3 constitutive activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1620C\u003eA (p.Asn540Lys)\", \"target\": \"FGFR3 N540K mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1620C\u003eG (p.Asn540Lys)\", \"target\": \"FGFR3 N540K mutation\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5075,7 +5701,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">29</span>
+                <span class="card-count">31</span>
             </div>
 
 
@@ -5091,7 +5717,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(10)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5112,16 +5738,20 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0004482</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.">
-                        Relative macrocephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp">HP:0004482</a>
-
-
+This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5141,6 +5771,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41040055" target="_blank">PMID:41040055</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5165,6 +5796,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5187,6 +5819,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41762373" target="_blank">PMID:41762373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5221,16 +5854,22 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Small foramen magnum</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002677</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Small foramen magnum (HP:0002677). HP:0002677 is a phenotype from the Human Phenotype Ontology.">
-                        Small foramen magnum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank" class="curie-chip curie-chip-hp">HP:0002677</a>
-
-
+This clinical feature is Small foramen magnum (HP:0002677). HP:0002677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5250,6 +5889,7 @@ This clinical feature is Small foramen magnum (HP:0002677). HP:0002677 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5273,6 +5913,7 @@ This clinical feature is Small foramen magnum (HP:0002677). HP:0002677 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5316,16 +5957,20 @@ This clinical feature is Small foramen magnum (HP:0002677). HP:0002677 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200055" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0200055</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from the Human Phenotype Ontology.">
-                        Small hand
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200055" target="_blank" class="curie-chip curie-chip-hp">HP:0200055</a>
-
-
+This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5345,6 +5990,7 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5379,16 +6025,20 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001773</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from the Human Phenotype Ontology.">
-                        Short foot
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp">HP:0001773</a>
-
-
+This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5408,6 +6058,7 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5442,16 +6093,20 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819 is a phenotype from the Human Phenotype Ontology.">
-                        Short middle phalanx of finger
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005819" target="_blank" class="curie-chip curie-chip-hp">HP:0005819</a>
-
-
+This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5471,6 +6126,7 @@ This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5507,16 +6163,20 @@ This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002970</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from the Human Phenotype Ontology.">
-                        Genu varum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002970" target="_blank" class="curie-chip curie-chip-hp">HP:0002970</a>
-
-
+This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5536,6 +6196,7 @@ This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5570,16 +6231,20 @@ This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002982</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype from the Human Phenotype Ontology.">
-                        Tibial bowing
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002982" target="_blank" class="curie-chip curie-chip-hp">HP:0002982</a>
-
-
+This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5599,6 +6264,7 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5622,6 +6288,7 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5656,16 +6323,20 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003016</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Metaphyseal flaring, annotated with Metaphyseal widening (HP:0003016). HP:0003016 is a phenotype from the Human Phenotype Ontology.">
-                        Metaphyseal widening
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003016" target="_blank" class="curie-chip curie-chip-hp">HP:0003016</a>
-
-
+This clinical feature is Metaphyseal flaring, annotated with Metaphyseal widening (HP:0003016). HP:0003016 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5685,6 +6356,7 @@ This clinical feature is Metaphyseal flaring, annotated with Metaphyseal widenin
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5708,6 +6380,7 @@ This clinical feature is Metaphyseal flaring, annotated with Metaphyseal widenin
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11475794" target="_blank">PMID:11475794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5742,16 +6415,20 @@ This clinical feature is Metaphyseal flaring, annotated with Metaphyseal widenin
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype from the Human Phenotype Ontology.">
-                        Short femur
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003097" target="_blank" class="curie-chip curie-chip-hp">HP:0003097</a>
-
-
+This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5771,6 +6448,7 @@ This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26867606" target="_blank">PMID:26867606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5794,6 +6472,7 @@ This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14755409" target="_blank">PMID:14755409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5837,16 +6516,20 @@ This clinical feature is Short femur (HP:0003097). HP:0003097 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed skeletal maturation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp">HP:0002750</a>
-
-
+This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5866,6 +6549,7 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5900,16 +6584,22 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Joint hypermobility</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001382</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mild joint laxity, annotated with Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.">
-                        Joint hypermobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp">HP:0001382</a>
-
-
+This clinical feature is Mild joint laxity, annotated with Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5929,6 +6619,7 @@ This clinical feature is Mild joint laxity, annotated with Joint hypermobility (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5963,16 +6654,20 @@ This clinical feature is Mild joint laxity, annotated with Joint hypermobility (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003416</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spinal canal stenosis (HP:0003416). HP:0003416 is a phenotype from the Human Phenotype Ontology.">
-                        Spinal canal stenosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003416" target="_blank" class="curie-chip curie-chip-hp">HP:0003416</a>
-
-
+This clinical feature is Spinal canal stenosis (HP:0003416). HP:0003416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5992,6 +6687,7 @@ This clinical feature is Spinal canal stenosis (HP:0003416). HP:0003416 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6026,16 +6722,20 @@ This clinical feature is Spinal canal stenosis (HP:0003416). HP:0003416 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005619</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a phenotype from the Human Phenotype Ontology.">
-                        Thoracolumbar kyphosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005619" target="_blank" class="curie-chip curie-chip-hp">HP:0005619</a>
-
-
+This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6055,6 +6755,7 @@ This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6100,16 +6801,20 @@ This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012758</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a phenotype from the Human Phenotype Ontology.">
-                        Neurodevelopmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp">HP:0012758</a>
-
-
+This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6129,6 +6834,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6153,6 +6859,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23165795" target="_blank">PMID:23165795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6175,6 +6882,7 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41762373" target="_blank">PMID:41762373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6209,16 +6917,20 @@ This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6238,6 +6950,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23165795" target="_blank">PMID:23165795</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6261,6 +6974,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6295,16 +7009,20 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0034222</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Temporal lobe dysplasia (HP:0034222). HP:0034222 is a phenotype from the Human Phenotype Ontology.">
-                        Temporal lobe dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034222" target="_blank" class="curie-chip curie-chip-hp">HP:0034222</a>
-
-
+This clinical feature is Temporal lobe dysplasia (HP:0034222). HP:0034222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6324,6 +7042,7 @@ This clinical feature is Temporal lobe dysplasia (HP:0034222). HP:0034222 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23165795" target="_blank">PMID:23165795</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6358,16 +7077,20 @@ This clinical feature is Temporal lobe dysplasia (HP:0034222). HP:0034222 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.">
-                        Ventriculomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp">HP:0002119</a>
-
-
+This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6387,6 +7110,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23165795" target="_blank">PMID:23165795</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6421,16 +7145,20 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000238</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.">
-                        Hydrocephalus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp">HP:0000238</a>
-
-
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6450,6 +7178,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6484,16 +7213,20 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002870</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.">
-                        Obstructive sleep apnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp">HP:0002870</a>
-
-
+This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6513,6 +7246,7 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6556,16 +7290,20 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6585,6 +7323,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6609,6 +7348,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6631,6 +7371,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41762373" target="_blank">PMID:41762373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6665,16 +7406,22 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Rhizomelia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0008905</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Rhizomelic limb shortening, annotated with Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.">
-                        Rhizomelia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp">HP:0008905</a>
-
-
+This clinical feature is Rhizomelic limb shortening, annotated with Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6694,6 +7441,7 @@ This clinical feature is Rhizomelic limb shortening, annotated with Rhizomelia (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14755409" target="_blank">PMID:14755409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6717,6 +7465,7 @@ This clinical feature is Rhizomelic limb shortening, annotated with Rhizomelia (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41762373" target="_blank">PMID:41762373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6751,7 +7500,7 @@ This clinical feature is Rhizomelic limb shortening, annotated with Rhizomelia (
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-short-proximal-phalanx-of-finger" data-dismech-node="Short proximal phalanx of finger" data-dismech-type="phenotype">
@@ -6760,16 +7509,20 @@ This clinical feature is Rhizomelic limb shortening, annotated with Rhizomelia (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0010241</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short proximal phalanx of finger (HP:0010241). HP:0010241 is a phenotype from the Human Phenotype Ontology.">
-                        Short proximal phalanx of finger
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010241" target="_blank" class="curie-chip curie-chip-hp">HP:0010241</a>
-
-
+This clinical feature is Short proximal phalanx of finger (HP:0010241). HP:0010241 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6789,6 +7542,7 @@ This clinical feature is Short proximal phalanx of finger (HP:0010241). HP:00102
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6817,22 +7571,209 @@ This clinical feature is Short proximal phalanx of finger (HP:0010241). HP:00102
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hippocampal-malrotation" data-dismech-node="Hippocampal malrotation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hippocampal malrotation
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0034396</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hippocampal malrotation (HP:0034396). HP:0034396 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42566751" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42566751" target="_blank">PMID:42566751</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twenty-five had received brain imaging with hippocampal malrotation (HIMAL) identified in 23 (92%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies HIMAL among imaged children and supports the VERY_FREQUENT band within the imaged subgroup.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42566751" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42566751" target="_blank">PMID:42566751</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypochondroplasia is associated with a substantial burden of neurodevelopmental and neurological abnormalities, including a high prevalence of HIMAL, which exceeds previous estimates."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own statement that this exceeds prior estimates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-specific-learning-disability" data-dismech-node="Specific learning disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Specific learning disability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001328</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42566751" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42566751" target="_blank">PMID:42566751</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Specific learning disorders remained significantly more common than UK population prevalence estimates after Bonferroni correction, with higher observed autism and attention-deficit/hyperactivity disorder rates also identified."</div>
+
+
+                <div class="evidence-explanation">Establishes the excess over population prevalence with multiple-testing correction.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42566751" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42566751" target="_blank">PMID:42566751</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among school-aged children, 71% required special educational support and 29% had formal education, health, and care plans (EHCPs), statistically higher than both UK population prevalence and previously reported hypochondroplasia prevalence."</div>
+
+
+                <div class="evidence-explanation">Quantifies the educational-support burden.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-narrow-vertebral-interpedicular-distance" data-dismech-node="Narrow vertebral interpedicular distance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Narrow vertebral interpedicular distance
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008450" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0008450</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Narrow vertebral interpedicular distance (HP:0008450). HP:0008450 is a phenotype from the Human Phenotype Ontology.">
-                        Narrow vertebral interpedicular distance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008450" target="_blank" class="curie-chip curie-chip-hp">HP:0008450</a>
-
-
+This clinical feature is Narrow vertebral interpedicular distance (HP:0008450). HP:0008450 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6852,6 +7793,7 @@ This clinical feature is Narrow vertebral interpedicular distance (HP:0008450). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6875,6 +7817,7 @@ This clinical feature is Narrow vertebral interpedicular distance (HP:0008450). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11475794" target="_blank">PMID:11475794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6909,16 +7852,20 @@ This clinical feature is Narrow vertebral interpedicular distance (HP:0008450). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0005121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Posterior scalloping of vertebral bodies (HP:0005121). HP:0005121 is a phenotype from the Human Phenotype Ontology.">
-                        Posterior scalloping of vertebral bodies
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005121" target="_blank" class="curie-chip curie-chip-hp">HP:0005121</a>
-
-
+This clinical feature is Posterior scalloping of vertebral bodies (HP:0005121). HP:0005121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6938,6 +7885,7 @@ This clinical feature is Posterior scalloping of vertebral bodies (HP:0005121). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6961,6 +7909,7 @@ This clinical feature is Posterior scalloping of vertebral bodies (HP:0005121). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11475794" target="_blank">PMID:11475794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6995,16 +7944,20 @@ This clinical feature is Posterior scalloping of vertebral bodies (HP:0005121). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100866" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0100866</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short iliac bones (HP:0100866). HP:0100866 is a phenotype from the Human Phenotype Ontology.">
-                        Short iliac bones
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100866" target="_blank" class="curie-chip curie-chip-hp">HP:0100866</a>
-
-
+This clinical feature is Short iliac bones (HP:0100866). HP:0100866 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7024,6 +7977,7 @@ This clinical feature is Short iliac bones (HP:0100866). HP:0100866 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7047,6 +8001,7 @@ This clinical feature is Short iliac bones (HP:0100866). HP:0100866 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26867606" target="_blank">PMID:26867606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7081,16 +8036,20 @@ This clinical feature is Short iliac bones (HP:0100866). HP:0100866 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003177</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Squared iliac bones (HP:0003177). HP:0003177 is a phenotype from the Human Phenotype Ontology.">
-                        Squared iliac bones
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003177" target="_blank" class="curie-chip curie-chip-hp">HP:0003177</a>
-
-
+This clinical feature is Squared iliac bones (HP:0003177). HP:0003177 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7110,6 +8069,7 @@ This clinical feature is Squared iliac bones (HP:0003177). HP:0003177 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7133,6 +8093,7 @@ This clinical feature is Squared iliac bones (HP:0003177). HP:0003177 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7167,16 +8128,20 @@ This clinical feature is Squared iliac bones (HP:0003177). HP:0003177 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003180</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phenotype from the Human Phenotype Ontology.">
-                        Flat acetabular roof
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003180" target="_blank" class="curie-chip curie-chip-hp">HP:0003180</a>
-
-
+This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7196,6 +8161,7 @@ This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26867606" target="_blank">PMID:26867606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7219,6 +8185,7 @@ This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7253,16 +8220,20 @@ This clinical feature is Flat acetabular roof (HP:0003180). HP:0003180 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003185</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short greater sciatic notch (HP:0003185). HP:0003185 is a phenotype from the Human Phenotype Ontology.">
-                        Short greater sciatic notch
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003185" target="_blank" class="curie-chip curie-chip-hp">HP:0003185</a>
-
-
+This clinical feature is Short greater sciatic notch (HP:0003185). HP:0003185 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7282,6 +8253,7 @@ This clinical feature is Short greater sciatic notch (HP:0003185). HP:0003185 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26867606" target="_blank">PMID:26867606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7316,16 +8288,20 @@ This clinical feature is Short greater sciatic notch (HP:0003185). HP:0003185 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0006429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Broad femoral neck (HP:0006429). HP:0006429 is a phenotype from the Human Phenotype Ontology.">
-                        Broad femoral neck
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006429" target="_blank" class="curie-chip curie-chip-hp">HP:0006429</a>
-
-
+This clinical feature is Broad femoral neck (HP:0006429). HP:0006429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7345,6 +8321,7 @@ This clinical feature is Broad femoral neck (HP:0006429). HP:0006429 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301650" target="_blank">PMID:20301650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7368,6 +8345,7 @@ This clinical feature is Broad femoral neck (HP:0006429). HP:0006429 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26867606" target="_blank">PMID:26867606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7448,15 +8426,17 @@ This clinical feature is Broad femoral neck (HP:0006429). HP:0006429 is a phenot
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:3690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7477,6 +8457,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7670477" target="_blank">PMID:7670477</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7501,6 +8482,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7523,6 +8505,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41184854" target="_blank">PMID:41184854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7569,6 +8552,8 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
 
+
+
     </div>
 
 
@@ -7582,6 +8567,8 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
     <div class="item-desc">Alternative nucleotide change resulting in the same amino acid substitution.</div>
+
+
 
 
 
@@ -7611,15 +8598,17 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:3690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7640,6 +8629,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_518a0eb2-f7ea-40e8-acad-afc34f5b188e-2023-09-28T040000.000Z" target="_blank">CGGV:assertion_518a0eb2-f7ea-40e8-acad-afc34f5b188e-2023-09-28T040000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7671,6 +8661,9 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7687,18 +8680,18 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">CNP analog therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is CNP analog therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">CNP analog therapy</span>
+This treatment is CNP analog therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is CNP analog therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7723,18 +8716,20 @@ This treatment is CNP analog therapy, annotated with Pharmacotherapy (NCIT:C1598
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         vosoritide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152918" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152918</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152918" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C152918</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7760,6 +8755,7 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38813446" target="_blank">PMID:38813446</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7792,18 +8788,18 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Growth hormone therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Growth hormone therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">Growth hormone therapy</span>
+This treatment is Growth hormone therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Growth hormone therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">NCIT:C15599</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15599">NCIT:C15599</a>
 
 
 
@@ -7846,6 +8842,7 @@ This treatment is Growth hormone therapy, annotated with Hormone Replacement The
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7877,18 +8874,18 @@ This treatment is Growth hormone therapy, annotated with Hormone Replacement The
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Orthopedic surgery<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Orthopedic surgery</span>
+This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7930,6 +8927,7 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36442838" target="_blank">PMID:36442838</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7979,7 +8977,7 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04219007">
                 <div class="item-name">
                     NCT04219007
 
@@ -7998,18 +8996,20 @@ This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C1
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Short stature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0004322</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8027,6 +9027,7 @@ This clinical trial targets Short stature (HP:0004322). HP:0004322 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38813446" target="_blank">PMID:38813446</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8124,17 +9125,21 @@ This clinical trial targets Short stature (HP:0004322). HP:0004322 is a phenotyp
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:3690</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8178,6 +9183,7 @@ This experimental model concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37345656" target="_blank">PMID:37345656</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8224,7 +9230,6 @@ This experimental model concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the
 synonyms:
 - Hypochondroplasia, FGFR3-related
 creation_date: &#39;2026-02-02T00:16:36Z&#39;
-updated_date: &#39;2026-04-19T00:33:11Z&#39;
 category: Mendelian
 description: &gt;
   Hypochondroplasia is a milder FGFR3-related skeletal dysplasia characterized by
@@ -8307,8 +9312,49 @@ pathophysiology:
     modifier: INCREASED
   downstream:
   - target: MAPK/ERK cascade hyperactivation
+    description: &gt;-
+      The constitutively active receptor engages the Ras-MAPK/ERK cascade as its principal
+      effector arm in growth-plate chondrocytes.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:29063142
+      reference_title: &#34;Molecular therapeutic strategies for FGFR3 gene-related skeletal dysplasia.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Gain-of-function mutations result in constitutively activated FGFR3, leading to aberrant signal transduction&#34;
+      explanation: Links the activating variant to downstream aberrant signal transduction.
   - target: Defective bone mineralization
+    description: &gt;-
+      Beyond the growth plate, the same allele alters osteoblast and osteocyte function,
+      producing the mineralization defect that gives the entry its bone-quality arm.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37345656
+      reference_title: &#34;Hypochondroplasia gain-of-function mutation in FGFR3 causes defective bone mineralization in mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Trabecular bone mineral density (BMD) of long bones and vertebral bodies was decreased, but cortical BMD increased with age in both tibiae and femurs. These results demonstrate that bones in Fgfr3Asn534Lys/+ mice, due to FGFR3 activation, exhibit some characteristics of osteoporosis.&#34;
+      explanation: &gt;-
+        The measured bone-quality defect in a mouse carrying the HCH-specific Fgfr3
+        p.Asn534Lys allele. The second sentence carries the attribution to FGFR3
+        activation that this causal edge asserts, which the measurement alone does not.
+        Note the deficit is compartment-specific rather than uniform hypomineralization:
+        trabecular BMD falls while cortical BMD rises with age. Marked MODEL_ORGANISM:
+        this arm has not been demonstrated in human hypochondroplasia bone.
   - target: Cranial base synchondrosis dysfunction
+    description: &gt;-
+      A separate consequence arm acting on the cranial base rather than the limb growth
+      plate, and the origin of the foramen magnum and macrocephaly features.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37345656
+      reference_title: &#34;Hypochondroplasia gain-of-function mutation in FGFR3 causes defective bone mineralization in mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Fgfr3Asn534Lys/+ mice exhibited progressive dwarfism and impairment of the synchondroses of the cranial base, resulting in defective formation of the foramen magnum.&#34;
+      explanation: &gt;-
+        Establishes the cranial-base arm and its consequence for the foramen magnum in
+        the HCH-allele mouse.
   evidence:
   - reference: PMID:29063142
     reference_title: &#34;Molecular therapeutic strategies for FGFR3 gene-related skeletal dysplasia.&#34;
@@ -8346,6 +9392,20 @@ pathophysiology:
     modifier: INCREASED
   downstream:
   - target: Impaired endochondral ossification
+    description: &gt;-
+      Sustained MAPK/ERK signalling suppresses chondrocyte proliferation and
+      differentiation in the growth plate, which is what impairs endochondral bone
+      formation and shortens the long bones.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37345656
+      reference_title: &#34;Hypochondroplasia gain-of-function mutation in FGFR3 causes defective bone mineralization in mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;FGF2 treatment of primary chondrocyte cultures from Fgfr3Asn534Lys/+ mice resulted in increased and sustained&#34;
+      explanation: &gt;-
+        Demonstrates sustained downstream signalling in chondrocytes carrying the HCH
+        allele, the cellular step between receptor activation and growth-plate failure.
   evidence:
   - reference: PMID:29063142
     reference_title: &#34;Molecular therapeutic strategies for FGFR3 gene-related skeletal dysplasia.&#34;
@@ -8843,6 +9903,66 @@ phenotypes:
       All eight imaged patients in this neurologically selected FGFR3 N540K cohort had
       temporal lobe dysgenesis on MRI, establishing the association but not an
       unbiased population frequency.
+- name: Hippocampal malrotation
+  category: Neurological
+  description: &gt;
+    Incomplete inversion of the hippocampus (HIMAL) is the single most consistent
+    neuroimaging finding in molecularly confirmed hypochondroplasia — present in
+    23 of 25 imaged children (92%) in a 2026 UK skeletal-dysplasia service cohort,
+    far above previous estimates. Because the same cohort found the majority of
+    school-aged children needed special educational support, HIMAL is best read as
+    a structural marker of FGFR3-related brain maldevelopment rather than an
+    incidental variant. Note the cohort was assembled from a specialist service and
+    only 25 of 44 children were imaged, so this is a high-yield-in-imaged-patients
+    figure, not a population frequency.
+  frequency: VERY_FREQUENT
+  phenotype_term:
+    preferred_term: Hippocampal malrotation
+    term:
+      id: HP:0034396
+      label: Hippocampal malrotation
+  evidence:
+  - reference: PMID:42566751
+    reference_title: &#34;Neurodevelopmental and neurological features in children with hypochondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Twenty-five had received brain imaging with hippocampal malrotation (HIMAL) identified in 23 (92%).&#34;
+    explanation: &gt;
+      Quantifies HIMAL among imaged children and supports the VERY_FREQUENT band
+      within the imaged subgroup.
+  - reference: PMID:42566751
+    reference_title: &#34;Neurodevelopmental and neurological features in children with hypochondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Hypochondroplasia is associated with a substantial burden of neurodevelopmental and neurological abnormalities, including a high prevalence of HIMAL, which exceeds previous estimates.&#34;
+    explanation: The authors&#39; own statement that this exceeds prior estimates.
+- name: Specific learning disability
+  category: Neurological
+  description: &gt;
+    Specific learning disorders were significantly more common than UK population
+    prevalence after Bonferroni correction in a 2026 cohort of molecularly
+    confirmed hypochondroplasia, with higher observed autism and ADHD rates
+    alongside. 71% of school-aged children required special educational support.
+    This reframes hypochondroplasia&#39;s neurocognitive involvement from an
+    occasional association into an expected surveillance need.
+  phenotype_term:
+    preferred_term: Specific learning disability
+    term:
+      id: HP:0001328
+      label: Specific learning disability
+  evidence:
+  - reference: PMID:42566751
+    reference_title: &#34;Neurodevelopmental and neurological features in children with hypochondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Specific learning disorders remained significantly more common than UK population prevalence estimates after Bonferroni correction, with higher observed autism and attention-deficit/hyperactivity disorder rates also identified.&#34;
+    explanation: Establishes the excess over population prevalence with multiple-testing correction.
+  - reference: PMID:42566751
+    reference_title: &#34;Neurodevelopmental and neurological features in children with hypochondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Among school-aged children, 71% required special educational support and 29% had formal education, health, and care plans (EHCPs), statistically higher than both UK population prevalence and previously reported hypochondroplasia prevalence.&#34;
+    explanation: Quantifies the educational-support burden.
 - name: Ventriculomegaly
   category: Neurological
   description: &gt;
@@ -9384,6 +10504,124 @@ clinical_trials:
     explanation: &gt;
       This trial established efficacy of vosoritide for growth velocity improvement in
       HCH children, similar to results in achondroplasia.
+discussions:
+- discussion_id: gap_infigratinib_potency_against_n540k
+  prompt: &gt;-
+    Is infigratinib actually a potent inhibitor of the FGFR3 p.Asn540Lys receptor
+    that causes ~70% of hypochondroplasia, and does the answer depend on the cell
+    system and receptor construct used to measure it?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#FGFR3 constitutive activation
+  - pathophysiology#MAPK/ERK cascade hyperactivation
+  rationale: &gt;-
+    This is a live, unresolved disagreement in the 2026 literature with direct
+    consequences for a drug already in phase 2/3 trials in hypochondroplasia, so
+    it must not be curated as settled in either direction. Ursachi et al.
+    (J Bone Miner Res 2026) reported that infigratinib inhibits FGFR3-N540K only
+    weakly (IC50 ~514 nM) relative to wild type and to the achondroplasia
+    p.Gly380Arg allele, consistent with earlier oncology-derived evidence that
+    N540K is a gatekeeper-adjacent resistance substitution. The original authors
+    replied that the discrepancy is methodological — that the weak-inhibition
+    result was obtained with C-terminally V5-tagged FGFR3 in rat L6 myoblasts,
+    a non-cartilage system, whereas their own work used untagged full-length
+    FGFR3 in ATDC5 chondrogenic cells and the Fgfr3-N534K mouse, and that
+    C-terminal tagging is known to perturb FGFR3 signaling, particularly for
+    N540K. Both positions are internally coherent, and the disagreement is about
+    which in vitro system is the valid proxy for a chondrocyte, not about the
+    data. Crucially, the achondroplasia result cannot be transferred: the phase 3
+    infigratinib evidence (PMID:42370681) is entirely in p.Gly380Arg
+    achondroplasia, a different allele in a different position in the receptor.
+    Until the hypochondroplasia trial reads out, dismech should not curate
+    infigratinib as an effective hypochondroplasia treatment, and should not
+    curate it as ineffective either. Note also that TYRA-300, an FGFR3-selective
+    inhibitor, has separate preclinical activity in the same Fgfr3-N534K
+    hypochondroplasia mouse model, so a negative result for infigratinib against
+    N540K would not close the receptor-directed strategy.
+  evidence:
+  - reference: PMID:41593746
+    reference_title: &#39;Response to letter to the editor for &#34;Infigratinib low dose therapy is an effective strategy to treat hypochondroplasia&#34;.&#39;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Ursachi et al. evaluated in vitro potency of infigratinib against N540K variant by expressing C-terminally V5-tagged FGFR3 in rat L6 cells (non-disease relevant cell) and concluded that FGFR3-N540K is weakly inhibited by infigratinib (IC50&#34;
+    explanation: &gt;-
+      States the opposing finding and the methodological objection to it, in the
+      original authors&#39; own words.
+  - reference: PMID:41593746
+    reference_title: &#39;Response to letter to the editor for &#34;Infigratinib low dose therapy is an effective strategy to treat hypochondroplasia&#34;.&#39;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;In these condition-relevant models, our findings markedly differ from those reported by Ursachi et al. The poor sensitivity of infigratinib to the N540K variant of FGFR3 observed in these other studies is likely due to the specific cell system and receptor construct employed.&#34;
+    explanation: Confirms the dispute is unresolved and turns on model choice.
+  - reference: PMID:41593746
+    reference_title: &#39;Response to letter to the editor for &#34;Infigratinib low dose therapy is an effective strategy to treat hypochondroplasia&#34;.&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Currently, infigratinib is being evaluated in a phase 2/3 clinical trial in children with HCH.&#34;
+    explanation: &gt;-
+      Establishes that the question is expected to be settled clinically, which
+      is why no mechanism claim should be curated ahead of it.
+  proposed_experiments:
+  - experiment_id: exp_infigratinib_n540k_head_to_head
+    name: Head-to-head potency assay against untagged FGFR3-N540K in chondrogenic cells
+    description: &gt;-
+      Measure infigratinib IC50 against untagged full-length FGFR3-N540K and
+      against C-terminally tagged FGFR3-N540K side by side, in both ATDC5
+      chondrogenic cells and a non-cartilage line, in one laboratory with one
+      readout. This directly tests the tagging/cell-system explanation the two
+      groups disagree about instead of comparing across papers.
+  - experiment_id: exp_hch_infigratinib_trial_by_genotype
+    name: Readout of the hypochondroplasia infigratinib trial by genotype
+    description: &gt;-
+      Report growth-velocity response in the phase 2/3 hypochondroplasia trial
+      stratified by FGFR3 allele (N540K versus the non-N540K minority), which is
+      the only measurement that settles whether the in vitro disagreement matters
+      clinically.
+- discussion_id: gap_hch_growth_plate_drug_delivery
+  prompt: &gt;-
+    Can cartilage-targeted delivery overcome the fact that the growth plate is
+    avascular and alymphatic, and does that change which molecular targets are
+    reachable in hypochondroplasia?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Impaired endochondral ossification
+  rationale: &gt;-
+    Every systemic therapy for FGFR3 chondrodysplasia has to reach a tissue with
+    no blood supply and no lymphatic drainage, which caps achievable
+    growth-plate drug concentration and is a plausible contributor to the modest
+    effect sizes seen with CNP analogues. A 2026 study addressed this with
+    chondrocyte-membrane-coated nanoparticles bearing a collagen-II-binding
+    peptide, using them to deliver the Hedgehog agonist purmorphamine to the
+    growth plate of a hypochondroplasia mouse and reporting restored ciliogenesis
+    and increased bone and body length. This is a mouse result with an engineered
+    delivery vehicle and a Hedgehog-pathway payload that bypasses FGFR3
+    altogether, so its translational validity is the open question, not its
+    internal validity: nanoparticle biodistribution, immunogenicity on repeat
+    dosing, and growth-plate penetration all differ substantially between mouse
+    and child, and no human data exist.
+  evidence:
+  - reference: PMID:42338508
+    reference_title: &#34;Growth plate cartilage-targeting nanoparticles for pharmacological treatment of hypochondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In vivo, CT-CM-NPs effectively delivered the Hedgehog pathway agonist Purmorphamine to the growth plate cartilage in an HCH mouse model, resulting in upregulated Hedgehog signaling, restored impaired ciliogenesis, improved chondrocyte phenotypes, and ultimately increased bone and body length.&#34;
+    explanation: The mouse result whose human relevance is unestablished.
+  - reference: PMID:42338508
+    reference_title: &#34;Growth plate cartilage-targeting nanoparticles for pharmacological treatment of hypochondroplasia.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Pharmacological therapy remains the primary treatment but provides only partial symptomatic relief, as the avascular and alymphatic nature of growth plate cartilage severely limits drug delivery and accumulation.&#34;
+    explanation: States the delivery barrier that motivates the approach.
+  proposed_experiments:
+  - experiment_id: exp_growth_plate_carrier_pk_large_animal
+    name: Cross-species growth-plate pharmacokinetics of the targeted carrier
+    description: &gt;-
+      Measure growth-plate tissue concentration and residence time of the
+      collagen-II-targeted carrier in a large-animal model with a growth plate
+      closer to human scale, since diffusion distance into avascular cartilage
+      does not scale linearly from mouse.
 notes: &gt;
   Hypochondroplasia represents the mild end of the FGFR3-related skeletal dysplasia
   spectrum. The phenotype can be subtle, and many cases may go undiagnosed. Neurological
@@ -9695,7 +10933,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypochondroplasia", "mondoId": "MONDO:0007793", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypochondroplasia", "yamlRevision": "6dd6f1199a57"};
+        const OS_CONFIG = {"diseaseName": "Hypochondroplasia", "mondoId": "MONDO:0007793", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypochondroplasia", "yamlRevision": "2030ed305b2d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10114,5 +11352,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

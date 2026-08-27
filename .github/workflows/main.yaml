@@ -73,6 +73,13 @@ jobs:
             schema:
               - 'src/dismech/schema/**'
               - 'src/dismech/groupings.py'
+              # SECTION_KEYS is the vocabulary every entity reference in kb/ is
+              # resolved against, so removing an alias from it can invalidate KB
+              # files exactly as a schema edit can (#9473). It matches `src/**`
+              # and so already fires the `python` filter today -- listing it here
+              # keeps the whole-KB sweep running if the entity-ref tests are ever
+              # moved under the `kb_data` marker.
+              - 'src/dismech/entity_refs.py'
               - 'tests/test_data.py'
             schema_generation:
               - 'src/dismech/schema/**'
@@ -130,9 +137,16 @@ jobs:
             "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
             --jq '.[].filename')
 
+          # `stubs/` is curation scope, not infra: the curation queue is one YAML
+          # file per uncurated disease, and a curation PR is *supposed* to delete
+          # the stub it curates (see CLAUDE.md, "Curation Stub Queue"). Omitting it
+          # from this allowlist failed the textbook curation PR shape -- new
+          # kb/disorders entry + history record + caches + `- stubs/<Disease>.yaml`
+          # -- and demanded a scope-override label for doing exactly the right
+          # thing (PR #9027).
           if echo "$CHANGED" | grep -q '^kb/'; then
             INFRA=$(echo "$CHANGED" \
-              | grep -vE '^(kb/|history/|cache/|references_cache/|research/|pages/|dashboard/)' \
+              | grep -vE '^(kb/|stubs/|history/|cache/|references_cache/|research/|pages/|dashboard/)' \
               || true)
 
             if [ -n "$INFRA" ]; then
@@ -270,6 +284,16 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: uv run python scripts/check_title_snippets.py --against-ref "origin/$BASE_REF"
 
+      # Ungated for the same reason as the two ratchets above: an evidence-free
+      # `environmental:` exposure is added by curation PRs touching only kb/,
+      # which no src/tests path filter would catch. Same live grandfathering
+      # against the base branch, so the pre-existing backlog is not inherited
+      # and only exposures this PR adds can fail (issue #8296).
+      - name: Check for new evidence-free environmental exposures
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: uv run python scripts/check_environmental_evidence.py --against-ref "origin/$BASE_REF"
+
       # Also ungated: there is no `cache/**` path filter, so a curation PR that
       # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
       # shape that can introduce the #7682 concatenation corruption -- would
@@ -277,6 +301,78 @@ jobs:
       # src/tests changes). Deterministic, offline, and sub-second.
       - name: Check term cache structural integrity
         run: uv run python -m dismech.term_cache_integrity cache
+
+      # Ungated and whole-KB on purpose, for the same reason as the cache check
+      # above: this fires on kb/-only curation PRs, which no src/tests path
+      # filter would catch. An RGD `Not4Curation` term exists, matches its
+      # label, and is reachable from its enum roots, so `just validate-terms`
+      # passes it -- three reached the #8430 tranches that way (issue #8472).
+      # Checks only prefixes with a local sqlite adapter, whose databases the
+      # oak-cache step above already persists across runs; OLS-served prefixes
+      # are reported as skipped rather than silently dropped. On a cold cache
+      # this is where ecto/hgnc/icd10cm/icd11f (~220 MB) get pulled, ~23s
+      # end-to-end; the accumulating cache absorbs it from the second run on.
+      #
+      # Deliberately WITHOUT --require-adapters: a bbop-sqlite outage makes this
+      # step skip the affected prefix and pass, rather than turning every open
+      # curation PR red for a reason none of them can fix. The audit still says
+      # which prefixes it could not check, and the term validation this backstops
+      # would be failing on the same outage anyway. Run it with
+      # --require-adapters (exit 2 on any unbuildable adapter) when you need a
+      # verified-clean answer rather than a gate.
+      - name: Check for Not4Curation ontology bindings
+        run: uv run python scripts/not4curation_audit.py
+
+      # Ungated and whole-KB on purpose. A duplicated mapping key arrives by
+      # MERGE, not by authoring: two concurrent curation PRs adding the same
+      # block at different points in one file merge without a git conflict, so
+      # each PR stays green against its own base and only the post-merge push
+      # build goes red. Checking only the changed files would therefore have
+      # missed Ulcerative_Colitis.yaml, which sat broken until this sweep found
+      # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
+      - name: Check for duplicate YAML keys
+        run: uv run python scripts/check_duplicate_yaml_keys.py
+
+      # Ungated and whole-KB on purpose, and for a sharper reason than the
+      # checks around it: the entity-ref rules ARE covered by pytest
+      # (`test_entity_ref_foreign_keys`), but that test is selected by the
+      # `python`/`schema` path filters and so never runs on a curation PR --
+      # which touches only `kb/`, and is the only kind of PR that can break a
+      # reference. Two entries reached `main` that way (#9473), and the
+      # reference-only gate added in #9224 would have been unenforceable on
+      # exactly the PRs it was written for.
+      #
+      # Whole-KB rather than changed-files because a PR that renames or deletes
+      # a node need not touch the file holding the reference to it. ~13s over
+      # 2,532 files, offline. The pytest sweep stays as-is; this is a second
+      # lane, not a replacement.
+      - name: Check entity references resolve
+        run: uv run python scripts/check_entity_refs.py
+
+      # Ungated and whole-KB on purpose, and REPORT-ONLY: every other gate here
+      # checks a snippet against the cache, so a false claim in *prose* that a
+      # cited source is defective ("the cached abstract is truncated mid-word",
+      # "that record has no abstract") validated cleanly indefinitely -- it
+      # survived two fix rounds across three sites on #9207, and four sites in
+      # Tetralogy_of_Fallot.yaml before that. Whole-KB because the PRs that add
+      # such claims are curation PRs touching only kb/, which no src/tests path
+      # filter would catch.
+      #
+      # This step never fails the build. Claims of this shape are usually TRUE
+      # and load-bearing (three evidence items in Acute_Annular_Outer_Retinopathy
+      # are downgraded because PMID:18195232 really has no abstract), so the
+      # check adjudicates each claim against the cache and stays silent on the
+      # ones the cache confirms. Only a claim the cache demonstrably contradicts
+      # is printed, for a human to read. ~19s over kb/, offline (issue #9226).
+      - name: Report prose claims contradicted by the reference cache
+        run: uv run python scripts/check_source_defect_claims.py
+
+      # Ungated and whole-directory on purpose. The check that matters here is
+      # "a curated disease must not still have a stub", and the PR that breaks
+      # it is a curation PR touching only kb/ -- no stubs/ path filter would
+      # fire on it. ~20s, offline. See docs/curation-stubs.md.
+      - name: Check the curation stub queue
+        run: uv run dismech-stubs check
 
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
@@ -323,6 +419,10 @@ jobs:
           # live content, not the committed baseline snapshot (see the fetch
           # step above).
           SNIPPET_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
+          # Same live grandfathering for the environmental-evidence ratchet, so
+          # tests/environmental_evidence_baseline.txt stays a local fallback
+          # rather than something parallel curation PRs race to update (#8296).
+          ENVIRONMENTAL_EVIDENCE_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
         run: just test-python-code
 
       - name: Run LinkML example tests

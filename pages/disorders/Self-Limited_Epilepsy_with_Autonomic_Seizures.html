@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Self-Limited Epilepsy with Autonomic Seizures</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Self-Limited Epilepsy with Autonomic Seizures</h1>
             <div class="header-meta">
 
@@ -4057,6 +4179,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4096,6 +4224,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4119,6 +4253,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4141,6 +4276,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4162,6 +4298,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4258,6 +4395,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4297,6 +4440,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4320,6 +4469,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4342,6 +4492,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4363,6 +4514,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4468,6 +4620,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4507,6 +4665,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4530,6 +4694,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20528983" target="_blank">PMID:20528983</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4552,6 +4717,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32608507" target="_blank">PMID:32608507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4573,6 +4739,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32608507" target="_blank">PMID:32608507</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4678,6 +4845,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4717,6 +4890,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4740,6 +4919,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32020894" target="_blank">PMID:32020894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4762,6 +4942,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32020894" target="_blank">PMID:32020894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4783,6 +4964,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32020894" target="_blank">PMID:32020894</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4875,6 +5057,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4948,6 +5131,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4969,6 +5153,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5041,6 +5226,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5062,6 +5248,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5134,6 +5321,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5155,6 +5343,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5227,6 +5416,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5248,6 +5438,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5307,6 +5498,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5328,6 +5520,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5417,16 +5610,22 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Excessive salivation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-1">HP:0003781</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ictal hypersalivation, annotated with Excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.">
-                        Excessive salivation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp">HP:0003781</a>
-
-
+This clinical feature is Ictal hypersalivation, annotated with Excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5446,6 +5645,7 @@ This clinical feature is Ictal hypersalivation, annotated with Excessive salivat
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5490,16 +5690,22 @@ This clinical feature is Ictal hypersalivation, annotated with Excessive salivat
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with epigastric sensation/nausea/vomiting/other gastrointestinal phenomena</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0011159</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal autonomic seizure with epigastric sensation/nausea/vomiting/other gastrointestinal phenomena (HP:0011159), qualified as childhood onset. HP:0011159 is a phenotype from the Human Phenotype Ontology.">
-                        Focal autonomic seizure with epigastric sensation/nausea/vomiting/other gastrointestinal phenomena
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011159" target="_blank" class="curie-chip curie-chip-hp">HP:0011159</a>
-
-
+This clinical feature is Focal autonomic seizure with epigastric sensation/nausea/vomiting/other gastrointestinal phenomena (HP:0011159), qualified as childhood onset. HP:0011159 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5549,6 +5755,7 @@ This clinical feature is Focal autonomic seizure with epigastric sensation/nause
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5581,16 +5788,22 @@ This clinical feature is Focal autonomic seizure with epigastric sensation/nause
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with pallor/flushing</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0032762</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal autonomic seizure with pallor/flushing (HP:0032762). HP:0032762 is a phenotype from the Human Phenotype Ontology.">
-                        Focal autonomic seizure with pallor/flushing
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032762" target="_blank" class="curie-chip curie-chip-hp">HP:0032762</a>
-
-
+This clinical feature is Focal autonomic seizure with pallor/flushing (HP:0032762). HP:0032762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5610,6 +5823,7 @@ This clinical feature is Focal autonomic seizure with pallor/flushing (HP:003276
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5643,16 +5857,22 @@ This clinical feature is Focal autonomic seizure with pallor/flushing (HP:003276
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with pupillary dilation/constriction</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0032763</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal autonomic seizure with pupillary dilation/constriction (HP:0032763). HP:0032763 is a phenotype from the Human Phenotype Ontology.">
-                        Focal autonomic seizure with pupillary dilation/constriction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032763" target="_blank" class="curie-chip curie-chip-hp">HP:0032763</a>
-
-
+This clinical feature is Focal autonomic seizure with pupillary dilation/constriction (HP:0032763). HP:0032763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5672,6 +5892,7 @@ This clinical feature is Focal autonomic seizure with pupillary dilation/constri
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5707,16 +5928,22 @@ This clinical feature is Focal autonomic seizure with pupillary dilation/constri
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal impaired awareness autonomic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032755" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0032755</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ictal syncope, annotated with Focal impaired awareness autonomic seizure (HP:0032755). HP:0032755 is a phenotype from the Human Phenotype Ontology.">
-                        Focal impaired awareness autonomic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032755" target="_blank" class="curie-chip curie-chip-hp">HP:0032755</a>
-
-
+This clinical feature is Ictal syncope, annotated with Focal impaired awareness autonomic seizure (HP:0032755). HP:0032755 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5736,6 +5963,7 @@ This clinical feature is Ictal syncope, annotated with Focal impaired awareness 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5771,16 +5999,20 @@ This clinical feature is Ictal syncope, annotated with Focal impaired awareness 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.">
-                        Status epilepticus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp">HP:0002133</a>
-
-
+This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5800,6 +6032,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5835,16 +6068,22 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure with focal onset</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0007334</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:0007334). HP:0007334 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral tonic-clonic seizure with focal onset
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp">HP:0007334</a>
-
-
+This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:0007334). HP:0007334 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5864,6 +6103,7 @@ This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5897,16 +6137,22 @@ This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with urge to urinate/defecate</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0032765</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ictal incontinence, annotated with Focal autonomic seizure with urge to urinate/defecate (HP:0032765). HP:0032765 is a phenotype from the Human Phenotype Ontology.">
-                        Focal autonomic seizure with urge to urinate/defecate
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032765" target="_blank" class="curie-chip curie-chip-hp">HP:0032765</a>
-
-
+This clinical feature is Ictal incontinence, annotated with Focal autonomic seizure with urge to urinate/defecate (HP:0032765). HP:0032765 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5926,6 +6172,7 @@ This clinical feature is Ictal incontinence, annotated with Focal autonomic seiz
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5976,6 +6223,7 @@ This clinical feature is Ictal incontinence, annotated with Focal autonomic seiz
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6008,16 +6256,22 @@ This clinical feature is Ictal incontinence, annotated with Focal autonomic seiz
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal impaired awareness seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002384</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:0002384 is a phenotype from the Human Phenotype Ontology.">
-                        Focal impaired awareness seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp">HP:0002384</a>
-
-
+This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:0002384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6037,6 +6291,7 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:00023
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6100,6 +6355,9 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:00023
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6116,17 +6374,17 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:00023
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6168,6 +6426,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6190,6 +6449,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6211,6 +6471,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6242,17 +6503,17 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6277,18 +6538,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses midazolam (CHEBI:6931). CHEBI:6931 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         midazolam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6931" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6931</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6931" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:6931</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses midazolam (CHEBI:6931). CHEBI:6931 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6333,6 +6596,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35153087" target="_blank">PMID:35153087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6363,17 +6627,17 @@ This does not contradict the conservative posture of this entry. Most seizures n
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6415,6 +6679,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6436,6 +6701,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6483,7 +6749,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-encephalopathy-or-encephalitis">
                 <div class="item-name">
 
                     Acute Encephalopathy or Encephalitis
@@ -6526,6 +6792,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35153087" target="_blank">PMID:35153087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6547,6 +6814,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35153087" target="_blank">PMID:35153087</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6573,7 +6841,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cyclic-vomiting-syndrome">
                 <div class="item-name">
 
                     Cyclic Vomiting Syndrome
@@ -6618,6 +6886,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6643,7 +6912,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-gastroenteritis-migraine-syncope-and-motion-sickness">
                 <div class="item-name">
 
                     Gastroenteritis, Migraine, Syncope, and Motion Sickness
@@ -6686,6 +6955,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6711,7 +6981,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-self-limited-epilepsy-with-centrotemporal-spikes">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Self-Limited_Epilepsy_with_Centrotemporal_Spikes.html">Self-Limited Epilepsy with Centrotemporal Spikes</a>
@@ -6753,6 +7023,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10320,5 +10591,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Carotid Stenosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Carotid Stenosis</h1>
             <div class="header-meta">
 
@@ -3934,18 +4056,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3973,18 +4097,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cholesterol homeostasis (GO:0042632). GO:0042632 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cholesterol homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042632" target="_blank" class="curie-chip curie-chip-go">GO:0042632</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042632" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cholesterol homeostasis (GO:0042632). GO:0042632 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4012,18 +4138,20 @@ This pathophysiological event involves dysregulated cholesterol homeostasis (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         internal carotid artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001532</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001532</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4061,6 +4189,7 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4094,18 +4223,20 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4122,18 +4253,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves foam cell (CL:0000891). CL:0000891 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         foam cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl">CL:0000891</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000891</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves foam cell (CL:0000891). CL:0000891 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4161,18 +4294,20 @@ This pathophysiological event involves foam cell (CL:0000891). CL:0000891 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased foam cell differentiation (GO:0090077). GO:0090077 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         foam cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090077" target="_blank" class="curie-chip curie-chip-go">GO:0090077</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090077" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0090077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased foam cell differentiation (GO:0090077). GO:0090077 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4193,18 +4328,20 @@ This pathophysiological event involves increased foam cell differentiation (GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4232,18 +4369,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         internal carotid artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001532</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001532</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4281,6 +4420,7 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4302,6 +4442,7 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4336,18 +4477,20 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4375,18 +4518,20 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased smooth muscle cell proliferation, annotated with positive regulation of smooth muscle cell proliferation (GO:0048661). GO:0048661 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         smooth muscle cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go">GO:0048661</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0048661</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased smooth muscle cell proliferation, annotated with positive regulation of smooth muscle cell proliferation (GO:0048661). GO:0048661 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4407,18 +4552,20 @@ This pathophysiological event involves increased smooth muscle cell proliferatio
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4484,6 +4631,7 @@ This pathophysiological event involves increased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4505,6 +4653,7 @@ This pathophysiological event involves increased extracellular matrix organizati
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4546,18 +4695,20 @@ This pathophysiological event involves increased extracellular matrix organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood vessel remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go">GO:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4585,18 +4736,20 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         internal carotid artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001532</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001532</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4642,6 +4795,7 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                         <a href="https://bioregistry.io/DOI:10.1136/jnis-2022-018732" target="_blank">DOI:10.1136/jnis-2022-018732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4675,18 +4829,20 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4703,18 +4859,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4731,18 +4889,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4770,18 +4930,20 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4802,18 +4964,20 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         leukocyte migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0050900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4834,18 +4998,20 @@ This pathophysiological event involves increased leukocyte migration (GO:0050900
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix disassembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go">GO:0022617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0022617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4866,18 +5032,20 @@ This pathophysiological event involves increased extracellular matrix disassembl
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4905,18 +5073,20 @@ This pathophysiological event involves increased response to oxidative stress (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         internal carotid artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001532</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0001532</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4954,6 +5124,7 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25084351" target="_blank">DOI:10.3390/ijms25084351</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4975,6 +5146,7 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25084351" target="_blank">DOI:10.3390/ijms25084351</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5009,18 +5181,20 @@ This pathophysiological event occurs in internal carotid artery (UBERON:0001532)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5048,18 +5222,20 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5080,18 +5256,20 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         platelet activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0030168</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5134,6 +5312,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25084351" target="_blank">DOI:10.3390/ijms25084351</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5155,6 +5334,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5196,18 +5376,20 @@ This pathophysiological event involves increased platelet activation (GO:0030168
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5250,6 +5432,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                         <a href="https://clinicaltrials.gov/study/NCT03121209" target="_blank">clinicaltrials:NCT03121209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5285,7 +5468,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-vulnerable-carotid-atherosclerotic-plaque">
                 <div class="item-name">
                     Vulnerable carotid atherosclerotic plaque
 
@@ -5306,6 +5489,7 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25084351" target="_blank">DOI:10.3390/ijms25084351</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5394,16 +5578,20 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002140</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
-                        Ischemic stroke
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
-
-
+This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5423,6 +5611,7 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38896635" target="_blank">PMID:38896635</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5465,16 +5654,20 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
-                        Cognitive impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
-
-
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5494,6 +5687,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03121209" target="_blank">clinicaltrials:NCT03121209</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5536,16 +5730,20 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100546</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Carotid artery stenosis (HP:0100546). HP:0100546 is a phenotype from the Human Phenotype Ontology.">
-                        Carotid artery stenosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100546" target="_blank" class="curie-chip curie-chip-hp">HP:0100546</a>
-
-
+This clinical feature is Carotid artery stenosis (HP:0100546). HP:0100546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5565,6 +5763,7 @@ This clinical feature is Carotid artery stenosis (HP:0100546). HP:0100546 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5598,16 +5797,20 @@ This clinical feature is Carotid artery stenosis (HP:0100546). HP:0100546 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.">
-                        Transient ischemic attack
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp">HP:0002326</a>
-
-
+This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5627,6 +5830,7 @@ This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1852179" target="_blank">PMID:1852179</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5660,16 +5864,20 @@ This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100576" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100576</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Amaurosis fugax (HP:0100576). HP:0100576 is a phenotype from the Human Phenotype Ontology.">
-                        Amaurosis fugax
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100576" target="_blank" class="curie-chip curie-chip-hp">HP:0100576</a>
-
-
+This clinical feature is Amaurosis fugax (HP:0100576). HP:0100576 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5689,6 +5897,7 @@ This clinical feature is Amaurosis fugax (HP:0100576). HP:0100576 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1852179" target="_blank">PMID:1852179</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5752,6 +5961,9 @@ This clinical feature is Amaurosis fugax (HP:0100576). HP:0100576 is a phenotype
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5768,17 +5980,17 @@ This clinical feature is Amaurosis fugax (HP:0100576). HP:0100576 is a phenotype
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5809,18 +6021,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5839,6 +6053,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1093/cvr/cvad135" target="_blank">DOI:10.1093/cvr/cvad135</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5861,6 +6076,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5892,17 +6108,17 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Carotid Endarterectomy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Carotid Endarterectomy (NCIT:C157807). NCIT:C157807 is a clinical intervention from the NCI Thesaurus.">Carotid Endarterectomy</span>
+This treatment is Carotid Endarterectomy (NCIT:C157807). NCIT:C157807 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157807" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Carotid Endarterectomy (NCIT:C157807). NCIT:C157807 is a clinical intervention from the NCI Thesaurus.">NCIT:C157807</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157807" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157807">NCIT:C157807</a>
 
 
 
@@ -5933,33 +6149,37 @@ This treatment is Carotid Endarterectomy (NCIT:C157807). NCIT:C157807 is a clini
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Transient ischemic attack
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp">HP:0002326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5978,6 +6198,7 @@ This treatment targets Transient ischemic attack (HP:0002326). HP:0002326 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1852179" target="_blank">PMID:1852179</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6000,6 +6221,7 @@ This treatment targets Transient ischemic attack (HP:0002326). HP:0002326 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7723155" target="_blank">PMID:7723155</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6031,18 +6253,18 @@ This treatment targets Transient ischemic attack (HP:0002326). HP:0002326 is a p
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">angioplasty<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is angioplasty (NCIT:C51999). NCIT:C51999 is a clinical intervention from the NCI Thesaurus.">angioplasty</span>
+This treatment is angioplasty (NCIT:C51999). NCIT:C51999 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Angioplasty</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C51999" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is angioplasty (NCIT:C51999). NCIT:C51999 is a clinical intervention from the NCI Thesaurus.">NCIT:C51999</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51999" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C51999">NCIT:C51999</a>
 
 
 
@@ -6073,18 +6295,20 @@ This treatment is angioplasty (NCIT:C51999). NCIT:C51999 is a clinical intervent
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6103,6 +6327,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38683353" target="_blank">PMID:38683353</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6125,6 +6350,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20505173" target="_blank">PMID:20505173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6166,6 +6392,10 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
+
+
+
                 <div class="item-desc">Hypertension, diabetes, and chronic kidney disease contribute to carotid plaque development and overlap with broader atherosclerotic cardiovascular risk.</div>
 
 
@@ -6181,6 +6411,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6211,6 +6442,10 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
 
 
+
+
+
+
                 <div class="item-desc">Smoking and diet are modifiable lifestyle risk factors that contribute to carotid plaque development and are targets of medical prevention.</div>
 
 
@@ -6226,6 +6461,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6269,7 +6505,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse308470">
                 <div class="item-name">
                     Possible association between the microbiota in subgingival and atherosclerotic plaque in patients with carotid stenosis.
 
@@ -6310,7 +6546,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse311535">
                 <div class="item-name">
                     RNA-seq of human atherosclerotic carotid plaque tissue from diabetic patients
 
@@ -6365,7 +6601,7 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00004732">
                 <div class="item-name">
                     NCT00004732
 
@@ -6383,18 +6619,20 @@ This treatment targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype f
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6412,6 +6650,7 @@ This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenot
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00004732" target="_blank">clinicaltrials:NCT00004732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6436,7 +6675,7 @@ This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenot
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02089217">
                 <div class="item-name">
                     NCT02089217
 
@@ -6454,18 +6693,20 @@ This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenot
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6483,6 +6724,7 @@ This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenot
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02089217" target="_blank">clinicaltrials:NCT02089217</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6507,7 +6749,7 @@ This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenot
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03121209">
                 <div class="item-name">
                     NCT03121209
 
@@ -6525,18 +6767,20 @@ This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenot
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cognitive impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0100543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6554,6 +6798,7 @@ This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a p
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03121209" target="_blank">clinicaltrials:NCT03121209</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6603,7 +6848,6 @@ This clinical trial targets Cognitive impairment (HP:0100543). HP:0100543 is a p
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Carotid Stenosis
 creation_date: &#34;2026-05-06T18:58:50Z&#34;
-updated_date: &#34;2026-05-06T19:46:27Z&#34;
 description: &gt;-
   Carotid stenosis is narrowing of the extracranial carotid arterial lumen,
   most often involving the carotid bifurcation or internal carotid artery and
@@ -7402,6 +7646,7 @@ clinical_trials:
       label: Ischemic stroke
   evidence:
   - reference: clinicaltrials:NCT00004732
+    reference_title: &#34;Carotid Revascularization Endarterectomy Versus Stenting Trial (CREST)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7421,6 +7666,7 @@ clinical_trials:
       label: Ischemic stroke
   evidence:
   - reference: clinicaltrials:NCT02089217
+    reference_title: &#34;Carotid Revascularization and Medical Management for Asymptomatic Carotid Stenosis Trial&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7440,6 +7686,7 @@ clinical_trials:
       label: Cognitive impairment
   evidence:
   - reference: clinicaltrials:NCT03121209
+    reference_title: &#34;Carotid Revascularization and Medical Management for Asymptomatic Carotid Stenosis Trial - Hemodynamics&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8339,7 +8586,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Carotid Stenosis", "mondoId": "MONDO:0001612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carotid_Stenosis", "yamlRevision": "55a086288f7b"};
+        const OS_CONFIG = {"diseaseName": "Carotid Stenosis", "mondoId": "MONDO:0001612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carotid_Stenosis", "yamlRevision": "959ee03d94c0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8758,5 +9005,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

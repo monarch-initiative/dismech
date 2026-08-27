@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Lissencephaly Spectrum Disorders</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Lissencephaly Spectrum Disorders</h1>
             <div class="header-meta">
 
@@ -3946,7 +4068,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-classic-lis1">
 
                     <div class="item-name">
                         Classic lissencephaly (PAFAH1B1/LIS1-related)
@@ -3961,18 +4083,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PAFAH1B1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8574</a>
+    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8574</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3998,6 +4122,7 @@ This subtype is caused by variation in PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4025,7 +4150,7 @@ This subtype is caused by variation in PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-x-linked-dcx">
 
                     <div class="item-name">
                         X-linked lissencephaly / SBH (DCX-related)
@@ -4038,18 +4163,20 @@ This subtype is caused by variation in PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DCX (hgnc:2714). hgnc:2714 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DCX
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2714" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2714</a>
+    <a href="https://bioregistry.io/hgnc:2714" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2714</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DCX (hgnc:2714). hgnc:2714 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4080,6 +4207,7 @@ This subtype is caused by variation in DCX (hgnc:2714). hgnc:2714 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4106,7 +4234,7 @@ This subtype is caused by variation in DCX (hgnc:2714). hgnc:2714 is a gene from
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-tubulinopathy-tuba1a">
 
                     <div class="item-name">
                         Tubulinopathy-associated lissencephaly (TUBA1A and related tubulins)
@@ -4119,33 +4247,37 @@ This subtype is caused by variation in DCX (hgnc:2714). hgnc:2714 is a gene from
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TUBA1A (hgnc:20766). hgnc:20766 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TUBA1A
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:20766" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20766</a>
+    <a href="https://bioregistry.io/hgnc:20766" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:20766</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TUBA1A (hgnc:20766). hgnc:20766 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TUBG1 (hgnc:12417). hgnc:12417 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TUBG1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12417" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12417</a>
+    <a href="https://bioregistry.io/hgnc:12417" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:12417</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TUBG1 (hgnc:12417). hgnc:12417 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4171,6 +4303,7 @@ This subtype is caused by variation in TUBG1 (hgnc:12417). hgnc:12417 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4198,7 +4331,7 @@ This subtype is caused by variation in TUBG1 (hgnc:12417). hgnc:12417 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-arx-related">
 
                     <div class="item-name">
                         ARX-related lissencephaly (XLAG spectrum)
@@ -4213,18 +4346,20 @@ This subtype is caused by variation in TUBG1 (hgnc:12417). hgnc:12417 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ARX
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18060" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18060</a>
+    <a href="https://bioregistry.io/hgnc:18060" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:18060</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4250,6 +4385,7 @@ This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4277,7 +4413,7 @@ This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-reln-related">
 
                     <div class="item-name">
                         RELN-related lissencephaly with cerebellar hypoplasia
@@ -4292,18 +4428,20 @@ This subtype is caused by variation in ARX (hgnc:18060). hgnc:18060 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in RELN (hgnc:9957). hgnc:9957 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 RELN
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9957</a>
+    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:9957</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RELN (hgnc:9957). hgnc:9957 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4329,6 +4467,7 @@ This subtype is caused by variation in RELN (hgnc:9957). hgnc:9957 is a gene fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973257" target="_blank">PMID:10973257</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4356,7 +4495,7 @@ This subtype is caused by variation in RELN (hgnc:9957). hgnc:9957 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cobblestone">
 
                     <div class="item-name">
                         Cobblestone lissencephaly (dystroglycanopathy)
@@ -4371,48 +4510,54 @@ This subtype is caused by variation in RELN (hgnc:9957). hgnc:9957 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in POMGNT1 (hgnc:19139). hgnc:19139 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 POMGNT1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:19139" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19139</a>
+    <a href="https://bioregistry.io/hgnc:19139" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:19139</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POMGNT1 (hgnc:19139). hgnc:19139 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in POMT1 (hgnc:9202). hgnc:9202 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 POMT1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9202" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9202</a>
+    <a href="https://bioregistry.io/hgnc:9202" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:9202</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POMT1 (hgnc:9202). hgnc:9202 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in POMT2 (hgnc:19743). hgnc:19743 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 POMT2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:19743" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19743</a>
+    <a href="https://bioregistry.io/hgnc:19743" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:19743</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POMT2 (hgnc:19743). hgnc:19743 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4511,11 +4656,15 @@ This subtype is caused by variation in POMT2 (hgnc:19743). hgnc:19743 is a gene 
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type isogenic cerebral organoid migration and progenitor assay.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-10">
 
         isogenic cerebral organoid migration and progenitor assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this experiment is of type this experiment type
+This experiment is of type isogenic cerebral organoid migration and progenitor assay.</span>
     </span>
 
 
@@ -4562,6 +4711,7 @@ This experiment is of type isogenic cerebral organoid migration and progenitor a
             </span>
 
 
+
         </div>
 
         <div class="item-meta">
@@ -4570,17 +4720,21 @@ This experiment is of type isogenic cerebral organoid migration and progenitor a
 
 
 
-    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+
+
+    <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-11">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4606,17 +4760,21 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this experimental model uses this anatomical location
-This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+
+
+    <span class="tag tag-location">
 
         cerebral cortex
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000956</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
     </span>
 
 
@@ -4645,17 +4803,21 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
 
-    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.">
+
+
+
+    <span class="tag tag-cell">
 
         radial glial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl">CL:0000681</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000681</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4680,17 +4842,21 @@ This experimental model uses radial glial cell (CL:0000681). CL:0000681 is a cel
 
 
 
-    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+
+
+    <span class="tag tag-cell">
 
         neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4862,6 +5028,12 @@ This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4885,6 +5057,7 @@ This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11163259" target="_blank">PMID:11163259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4907,6 +5080,7 @@ This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18267077" target="_blank">PMID:18267077</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4928,6 +5102,7 @@ This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5007,11 +5182,15 @@ This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type in vivo rodent neuronal-migration perturbation study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-15">
 
         in vivo rodent neuronal-migration perturbation study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Relation: this experiment is of type this experiment type
+This experiment is of type in vivo rodent neuronal-migration perturbation study.</span>
     </span>
 
 
@@ -5054,6 +5233,7 @@ This experiment is of type in vivo rodent neuronal-migration perturbation study.
 
 
 
+
         </div>
 
 
@@ -5065,6 +5245,12 @@ This experiment is of type in vivo rodent neuronal-migration perturbation study.
 
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -5097,11 +5283,15 @@ This experiment is of type in vivo rodent neuronal-migration perturbation study.
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type iPSC cortical organoid migration assay.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-16">
 
         iPSC cortical organoid migration assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Relation: this experiment is of type this experiment type
+This experiment is of type iPSC cortical organoid migration assay.</span>
     </span>
 
 
@@ -5144,6 +5334,7 @@ This experiment is of type iPSC cortical organoid migration assay.">
 
 
 
+
         </div>
 
 
@@ -5155,6 +5346,12 @@ This experiment is of type iPSC cortical organoid migration assay.">
 
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -5195,6 +5392,7 @@ This experiment is of type iPSC cortical organoid migration assay.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12196578" target="_blank">PMID:12196578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5217,6 +5415,7 @@ This experiment is of type iPSC cortical organoid migration assay.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14625554" target="_blank">PMID:14625554</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5238,6 +5437,7 @@ This experiment is of type iPSC cortical organoid migration assay.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16292002" target="_blank">PMID:16292002</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5286,18 +5486,20 @@ This experiment is of type iPSC cortical organoid migration assay.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migrating cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5314,18 +5516,20 @@ This pathophysiological event involves migrating cortical neuron, annotated with
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves radial glial progenitor, annotated with radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         radial glial progenitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl">CL:0000681</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000681</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves radial glial progenitor, annotated with radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5353,18 +5557,20 @@ This pathophysiological event involves radial glial progenitor, annotated with r
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased radial neuronal migration in cerebral cortex, annotated with cerebral cortex radially oriented cell migration (GO:0021799). GO:0021799 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         radial neuronal migration in cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021799" target="_blank" class="curie-chip curie-chip-go">GO:0021799</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021799" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0021799</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased radial neuronal migration in cerebral cortex, annotated with cerebral cortex radially oriented cell migration (GO:0021799). GO:0021799 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5385,18 +5591,20 @@ This pathophysiological event involves decreased radial neuronal migration in ce
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go">GO:0001764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0001764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5439,6 +5647,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973257" target="_blank">PMID:10973257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5460,6 +5669,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23495356" target="_blank">PMID:23495356</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5494,18 +5704,20 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migrating cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5533,18 +5745,20 @@ This pathophysiological event involves migrating cortical neuron, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal microtubule-based movement (GO:0007018). GO:0007018 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         microtubule-based movement
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007018" target="_blank" class="curie-chip curie-chip-go">GO:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007018" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0007018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal microtubule-based movement (GO:0007018). GO:0007018 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5565,18 +5779,20 @@ This pathophysiological event involves abnormal microtubule-based movement (GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal nucleokinesis during radial migration, annotated with nucleokinesis involved in cell motility in cerebral cortex radial glia guided migration (GO:0021817). GO:0021817 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nucleokinesis during radial migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021817" target="_blank" class="curie-chip curie-chip-go">GO:0021817</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0021817</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nucleokinesis during radial migration, annotated with nucleokinesis involved in cell motility in cerebral cortex radial glia guided migration (GO:0021817). GO:0021817 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5634,6 +5850,7 @@ This pathophysiological event involves abnormal nucleokinesis during radial migr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23495356" target="_blank">PMID:23495356</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5655,6 +5872,7 @@ This pathophysiological event involves abnormal nucleokinesis during radial migr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23495356" target="_blank">PMID:23495356</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5689,18 +5907,20 @@ This pathophysiological event involves abnormal nucleokinesis during radial migr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migrating cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5728,17 +5948,21 @@ This pathophysiological event involves migrating cortical neuron, annotated with
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PAFAH1B1
 
 
-    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8574</a>
+    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8574</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5763,17 +5987,21 @@ This pathophysiological event involves PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NDEL1 (hgnc:17620). hgnc:17620 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NDEL1
 
 
-    <a href="https://bioregistry.io/hgnc:17620" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17620</a>
+    <a href="https://bioregistry.io/hgnc:17620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:17620</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NDEL1 (hgnc:17620). hgnc:17620 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5802,18 +6030,20 @@ This pathophysiological event involves NDEL1 (hgnc:17620). hgnc:17620 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal nucleokinesis during radial migration, annotated with nucleokinesis involved in cell motility in cerebral cortex radial glia guided migration (GO:0021817). GO:0021817 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nucleokinesis during radial migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021817" target="_blank" class="curie-chip curie-chip-go">GO:0021817</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0021817</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nucleokinesis during radial migration, annotated with nucleokinesis involved in cell motility in cerebral cortex radial glia guided migration (GO:0021817). GO:0021817 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5834,18 +6064,20 @@ This pathophysiological event involves abnormal nucleokinesis during radial migr
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated microtubule-based movement (GO:0007018). GO:0007018 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         microtubule-based movement
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007018" target="_blank" class="curie-chip curie-chip-go">GO:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007018" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0007018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated microtubule-based movement (GO:0007018). GO:0007018 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5903,6 +6135,7 @@ This pathophysiological event involves dysregulated microtubule-based movement (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11163259" target="_blank">PMID:11163259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5925,6 +6158,7 @@ This pathophysiological event involves dysregulated microtubule-based movement (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16481446" target="_blank">PMID:16481446</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5946,6 +6180,7 @@ This pathophysiological event involves dysregulated microtubule-based movement (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9697693" target="_blank">PMID:9697693</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5980,18 +6215,20 @@ This pathophysiological event involves dysregulated microtubule-based movement (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migrating cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6019,17 +6256,21 @@ This pathophysiological event involves migrating cortical neuron, annotated with
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DCX (hgnc:2714). hgnc:2714 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DCX
 
 
-    <a href="https://bioregistry.io/hgnc:2714" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2714</a>
+    <a href="https://bioregistry.io/hgnc:2714" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:2714</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DCX (hgnc:2714). hgnc:2714 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6058,18 +6299,20 @@ This pathophysiological event involves DCX (hgnc:2714). hgnc:2714 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated microtubule cytoskeleton organization (GO:0000226). GO:0000226 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         microtubule cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000226" target="_blank" class="curie-chip curie-chip-go">GO:0000226</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000226" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0000226</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated microtubule cytoskeleton organization (GO:0000226). GO:0000226 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6090,18 +6333,20 @@ This pathophysiological event involves dysregulated microtubule cytoskeleton org
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cytoplasmic microtubule organization (GO:0031122). GO:0031122 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cytoplasmic microtubule organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031122" target="_blank" class="curie-chip curie-chip-go">GO:0031122</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031122" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0031122</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cytoplasmic microtubule organization (GO:0031122). GO:0031122 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6159,6 +6404,7 @@ This pathophysiological event involves decreased cytoplasmic microtubule organiz
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9489700" target="_blank">PMID:9489700</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6181,6 +6427,7 @@ This pathophysiological event involves decreased cytoplasmic microtubule organiz
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10399933" target="_blank">PMID:10399933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6202,6 +6449,7 @@ This pathophysiological event involves decreased cytoplasmic microtubule organiz
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10399933" target="_blank">PMID:10399933</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6236,18 +6484,20 @@ This pathophysiological event involves decreased cytoplasmic microtubule organiz
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuroepithelial stem cell, annotated with neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuroepithelial stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuroepithelial stem cell, annotated with neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6264,18 +6514,20 @@ This pathophysiological event involves neuroepithelial stem cell, annotated with
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves radial glial progenitor, annotated with radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         radial glial progenitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl">CL:0000681</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000681</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves radial glial progenitor, annotated with radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6303,17 +6555,21 @@ This pathophysiological event involves radial glial progenitor, annotated with r
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PAFAH1B1
 
 
-    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8574</a>
+    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:8574</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6338,17 +6594,21 @@ This pathophysiological event involves PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NDEL1 (hgnc:17620). hgnc:17620 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NDEL1
 
 
-    <a href="https://bioregistry.io/hgnc:17620" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17620</a>
+    <a href="https://bioregistry.io/hgnc:17620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:17620</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NDEL1 (hgnc:17620). hgnc:17620 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6377,18 +6637,20 @@ This pathophysiological event involves NDEL1 (hgnc:17620). hgnc:17620 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated mitotic spindle organization (GO:0007052). GO:0007052 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitotic spindle organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007052" target="_blank" class="curie-chip curie-chip-go">GO:0007052</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007052" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0007052</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated mitotic spindle organization (GO:0007052). GO:0007052 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6409,18 +6671,20 @@ This pathophysiological event involves dysregulated mitotic spindle organization
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cell division (GO:0051301). GO:0051301 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell division
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051301" target="_blank" class="curie-chip curie-chip-go">GO:0051301</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051301" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0051301</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cell division (GO:0051301). GO:0051301 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6478,6 +6742,7 @@ This pathophysiological event involves dysregulated cell division (GO:0051301). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18267077" target="_blank">PMID:18267077</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6499,6 +6764,7 @@ This pathophysiological event involves dysregulated cell division (GO:0051301). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18267077" target="_blank">PMID:18267077</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6533,18 +6799,20 @@ This pathophysiological event involves dysregulated cell division (GO:0051301). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migrating cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migrating cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6572,18 +6840,20 @@ This pathophysiological event involves migrating cortical neuron, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go">GO:0001764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0001764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6641,6 +6911,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973257" target="_blank">PMID:10973257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6662,6 +6933,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973257" target="_blank">PMID:10973257</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6759,16 +7031,20 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0011968</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
-                        Feeding difficulties
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
-
-
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6788,6 +7064,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6830,16 +7107,20 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Poor visual tracking, annotated with Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.">
-                        Visual impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp">HP:0000505</a>
-
-
+This clinical feature is Poor visual tracking, annotated with Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6859,6 +7140,7 @@ This clinical feature is Poor visual tracking, annotated with Visual impairment 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6901,16 +7183,20 @@ This clinical feature is Poor visual tracking, annotated with Visual impairment 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly, annotated with Microcephaly (HP:0000252), qualified as course progressive. HP:0000252 is a phenotype from the Human Phenotype Ontology.">
-                        Microcephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
-
-
+This clinical feature is Progressive microcephaly, annotated with Microcephaly (HP:0000252), qualified as course progressive. HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6948,6 +7234,7 @@ This clinical feature is Progressive microcephaly, annotated with Microcephaly (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6990,16 +7277,20 @@ This clinical feature is Progressive microcephaly, annotated with Microcephaly (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7019,6 +7310,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7052,16 +7344,20 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001257</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spasticity (HP:0001257), qualified as course progressive. HP:0001257 is a phenotype from the Human Phenotype Ontology.">
-                        Spasticity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
-
-
+This clinical feature is Spasticity (HP:0001257), qualified as course progressive. HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7099,6 +7395,7 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7143,16 +7440,20 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7172,6 +7473,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7205,16 +7507,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7234,6 +7540,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7267,16 +7574,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001321</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebellar hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp">HP:0001321</a>
-
-
+This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7296,6 +7607,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973257" target="_blank">PMID:10973257</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7338,16 +7650,20 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001339</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype from the Human Phenotype Ontology.">
-                        Lissencephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001339" target="_blank" class="curie-chip curie-chip-hp">HP:0001339</a>
-
-
+This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7367,6 +7683,7 @@ This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23495356" target="_blank">PMID:23495356</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7400,16 +7717,20 @@ This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001302</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.">
-                        Pachygyria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp">HP:0001302</a>
-
-
+This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7429,6 +7750,7 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7462,16 +7784,20 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0032409</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Subcortical band heterotopia (HP:0032409). HP:0032409 is a phenotype from the Human Phenotype Ontology.">
-                        Subcortical band heterotopia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032409" target="_blank" class="curie-chip curie-chip-hp">HP:0032409</a>
-
-
+This clinical feature is Subcortical band heterotopia (HP:0032409). HP:0032409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7491,6 +7817,7 @@ This clinical feature is Subcortical band heterotopia (HP:0032409). HP:0032409 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7524,16 +7851,20 @@ This clinical feature is Subcortical band heterotopia (HP:0032409). HP:0032409 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0012469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.">
-                        Infantile spasms
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp">HP:0012469</a>
-
-
+This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7553,6 +7884,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7632,15 +7964,17 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAFAH1B1
 
 
-    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8574</a>
+    <a href="https://bioregistry.io/hgnc:8574" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:8574</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7661,6 +7995,7 @@ This disease-associated gene is PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7683,6 +8018,7 @@ This disease-associated gene is PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7721,15 +8057,17 @@ This disease-associated gene is PAFAH1B1 (hgnc:8574). hgnc:8574 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DCX (hgnc:2714). hgnc:2714 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DCX
 
 
-    <a href="https://bioregistry.io/hgnc:2714" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2714</a>
+    <a href="https://bioregistry.io/hgnc:2714" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:2714</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DCX (hgnc:2714). hgnc:2714 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7750,6 +8088,7 @@ This disease-associated gene is DCX (hgnc:2714). hgnc:2714 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7772,6 +8111,7 @@ This disease-associated gene is DCX (hgnc:2714). hgnc:2714 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7810,15 +8150,17 @@ This disease-associated gene is DCX (hgnc:2714). hgnc:2714 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TUBA1A (hgnc:20766). hgnc:20766 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TUBA1A
 
 
-    <a href="https://bioregistry.io/hgnc:20766" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20766</a>
+    <a href="https://bioregistry.io/hgnc:20766" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:20766</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TUBA1A (hgnc:20766). hgnc:20766 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7839,6 +8181,7 @@ This disease-associated gene is TUBA1A (hgnc:20766). hgnc:20766 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7877,15 +8220,17 @@ This disease-associated gene is TUBA1A (hgnc:20766). hgnc:20766 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DYNC1H1 (hgnc:2961). hgnc:2961 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DYNC1H1
 
 
-    <a href="https://bioregistry.io/hgnc:2961" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2961</a>
+    <a href="https://bioregistry.io/hgnc:2961" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:2961</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DYNC1H1 (hgnc:2961). hgnc:2961 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7906,6 +8251,7 @@ This disease-associated gene is DYNC1H1 (hgnc:2961). hgnc:2961 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7944,15 +8290,17 @@ This disease-associated gene is DYNC1H1 (hgnc:2961). hgnc:2961 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RELN (hgnc:9957). hgnc:9957 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RELN
 
 
-    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9957</a>
+    <a href="https://bioregistry.io/hgnc:9957" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:9957</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RELN (hgnc:9957). hgnc:9957 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7973,6 +8321,7 @@ This disease-associated gene is RELN (hgnc:9957). hgnc:9957 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10973257" target="_blank">PMID:10973257</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8011,15 +8360,17 @@ This disease-associated gene is RELN (hgnc:9957). hgnc:9957 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ARX (hgnc:18060). hgnc:18060 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ARX
 
 
-    <a href="https://bioregistry.io/hgnc:18060" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18060</a>
+    <a href="https://bioregistry.io/hgnc:18060" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:18060</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARX (hgnc:18060). hgnc:18060 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8040,6 +8391,7 @@ This disease-associated gene is ARX (hgnc:18060). hgnc:18060 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29671837" target="_blank">PMID:29671837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8071,6 +8423,9 @@ This disease-associated gene is ARX (hgnc:18060). hgnc:18060 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8087,18 +8442,18 @@ This disease-associated gene is ARX (hgnc:18060). hgnc:18060 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">pharmacotherapy</span>
+This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8123,33 +8478,37 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         valproic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:39867</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-60">CHEBI:39867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         lamotrigine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6367</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-61">CHEBI:6367</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8174,6 +8533,7 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8205,18 +8565,18 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.">gastrostomy</span>
+This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gastrostomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C52006" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.">NCIT:C52006</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C52006" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C52006">NCIT:C52006</a>
 
 
 
@@ -8258,6 +8618,7 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301752" target="_blank">PMID:20301752</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8288,17 +8649,17 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Physical Therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Physical Therapy</span>
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -8340,6 +8701,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8370,18 +8732,18 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">occupational therapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.">occupational therapy</span>
+This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Occupational Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121351" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.">NCIT:C121351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121351">NCIT:C121351</a>
 
 
 
@@ -8423,6 +8785,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8453,18 +8816,18 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">speech therapy</span>
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">NCIT:C159273</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
 
 
 
@@ -8506,6 +8869,7 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8536,17 +8900,17 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -8587,6 +8951,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301364" target="_blank">PMID:20301364</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11024,5 +11389,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

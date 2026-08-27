@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Osteoarthritis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Osteoarthritis</h1>
             <div class="header-meta">
 
@@ -3899,27 +4021,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">NIH Highlighted Topic</div>
+
+
+
+                <div class="tag-list">
 
 
 
 
+
+                    <span class="tag tag-classification" title="Osteoarthritis models chondrocyte senescence (senescent chondrocyte accumulation with SASP driving cartilage degradation), making it a relevant model for NIH Highlighted Topic 89 (cellular quiescence, senescence, and cell death in aging and disease).">NIH HT 89 cellular quiescence senescence cell death in</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3962,7 +4178,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-primary-osteoarthritis">
 
                     <div class="item-name">
                         Primary Osteoarthritis
@@ -3990,7 +4206,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-secondary-osteoarthritis">
 
                     <div class="item-name">
                         Secondary Osteoarthritis
@@ -4018,7 +4234,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-erosive-hand-osteoarthritis">
 
                     <div class="item-name">
                         Erosive Hand Osteoarthritis
@@ -4131,11 +4347,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type spatial single-cell multi-omics with conditional perturbation.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         spatial single-cell multi-omics with conditional perturbation
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type spatial single-cell multi-omics with conditional perturbation.</span>
     </span>
 
 
@@ -4199,11 +4419,15 @@ This experiment is of type spatial single-cell multi-omics with conditional pert
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by phospho-EGFR immunohistochemistry.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         phospho-EGFR immunohistochemistry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by phospho-EGFR immunohistochemistry.</span>
     </span>
 
 
@@ -4228,11 +4452,15 @@ This readout is measured by phospho-EGFR immunohistochemistry.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by single-cell RNA sequencing.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         single-cell RNA sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by single-cell RNA sequencing.</span>
     </span>
 
 
@@ -4294,11 +4522,15 @@ This readout is measured by single-cell RNA sequencing.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by TUNEL apoptosis assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         TUNEL apoptosis assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
+This readout is measured by TUNEL apoptosis assay.</span>
     </span>
 
 
@@ -4323,11 +4555,15 @@ This readout is measured by TUNEL apoptosis assay.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by senescence-associated beta-galactosidase staining.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         senescence-associated beta-galactosidase staining
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by senescence-associated beta-galactosidase staining.</span>
     </span>
 
 
@@ -4389,11 +4625,15 @@ This readout is measured by senescence-associated beta-galactosidase staining.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by spatial transcriptomics.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         spatial transcriptomics
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by spatial transcriptomics.</span>
     </span>
 
 
@@ -4455,11 +4695,15 @@ This readout is measured by spatial transcriptomics.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by micro-computed tomography.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         micro-computed tomography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by micro-computed tomography.</span>
     </span>
 
 
@@ -4539,6 +4783,12 @@ This readout is measured by micro-computed tomography.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4562,6 +4812,7 @@ This readout is measured by micro-computed tomography.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26120493" target="_blank">PMID:26120493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4584,6 +4835,7 @@ This readout is measured by micro-computed tomography.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35191092" target="_blank">PMID:35191092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4605,6 +4857,7 @@ This readout is measured by micro-computed tomography.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42218983" target="_blank">PMID:42218983</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4677,11 +4930,15 @@ This readout is measured by micro-computed tomography.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type allosteric EGFR pathway-selectivity assay.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-8">
 
         allosteric EGFR pathway-selectivity assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this experiment is of type this experiment type
+This experiment is of type allosteric EGFR pathway-selectivity assay.</span>
     </span>
 
 
@@ -4724,6 +4981,7 @@ This experiment is of type allosteric EGFR pathway-selectivity assay.">
 
 
 
+
         </div>
 
 
@@ -4735,6 +4993,12 @@ This experiment is of type allosteric EGFR pathway-selectivity assay.">
 
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -4767,11 +5031,15 @@ This experiment is of type allosteric EGFR pathway-selectivity assay.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type tissue-targeted drug-delivery assay.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-9">
 
         tissue-targeted drug-delivery assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this experiment is of type this experiment type
+This experiment is of type tissue-targeted drug-delivery assay.</span>
     </span>
 
 
@@ -4814,6 +5082,7 @@ This experiment is of type tissue-targeted drug-delivery assay.">
 
 
 
+
         </div>
 
 
@@ -4825,6 +5094,12 @@ This experiment is of type tissue-targeted drug-delivery assay.">
 
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -4880,18 +5155,20 @@ This experiment is of type tissue-targeted drug-delivery assay.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4919,18 +5196,20 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased collagen catabolic process (GO:0030574). GO:0030574 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         collagen catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="curie-chip curie-chip-go">GO:0030574</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030574</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased collagen catabolic process (GO:0030574). GO:0030574 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4951,18 +5230,20 @@ This pathophysiological event involves increased collagen catabolic process (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased proteoglycan catabolic process (GO:0030167). GO:0030167 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         proteoglycan catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030167" target="_blank" class="curie-chip curie-chip-go">GO:0030167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030167</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased proteoglycan catabolic process (GO:0030167). GO:0030167 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4989,18 +5270,20 @@ This pathophysiological event involves increased proteoglycan catabolic process 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves extracellular matrix (GO:0031012). GO:0031012 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         extracellular matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go">GO:0031012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0031012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves extracellular matrix (GO:0031012). GO:0031012 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5009,18 +5292,20 @@ This pathophysiological event involves extracellular matrix (GO:0031012). GO:003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in articular cartilage, annotated with articular cartilage of joint (UBERON:0010996). UBERON:0010996 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         articular cartilage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0010996</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0010996</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in articular cartilage, annotated with articular cartilage of joint (UBERON:0010996). UBERON:0010996 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5043,6 +5328,7 @@ This pathophysiological event occurs in articular cartilage, annotated with arti
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092928" target="_blank">PMID:26092928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5064,6 +5350,7 @@ This pathophysiological event occurs in articular cartilage, annotated with arti
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092928" target="_blank">PMID:26092928</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5098,18 +5385,20 @@ This pathophysiological event occurs in articular cartilage, annotated with arti
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5137,18 +5426,20 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cellular senescence (GO:0090398). GO:0090398 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular senescence
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go">GO:0090398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0090398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular senescence (GO:0090398). GO:0090398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5176,18 +5467,20 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in articular cartilage, annotated with articular cartilage of joint (UBERON:0010996). UBERON:0010996 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         articular cartilage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0010996</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0010996</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in articular cartilage, annotated with articular cartilage of joint (UBERON:0010996). UBERON:0010996 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5225,6 +5518,7 @@ This pathophysiological event occurs in articular cartilage, annotated with arti
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36496445" target="_blank">PMID:36496445</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5258,18 +5552,20 @@ This pathophysiological event occurs in articular cartilage, annotated with arti
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5286,18 +5582,20 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast-like synovial cell, annotated with type B synovial cell (CL:0002301). CL:0002301 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast-like synovial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002301" target="_blank" class="curie-chip curie-chip-cl">CL:0002301</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002301" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002301</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast-like synovial cell, annotated with type B synovial cell (CL:0002301). CL:0002301 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5325,18 +5623,20 @@ This pathophysiological event involves fibroblast-like synovial cell, annotated 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5364,18 +5664,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in synovial membrane, annotated with synovial membrane of synovial joint (UBERON:0002018). UBERON:0002018 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         synovial membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in synovial membrane, annotated with synovial membrane of synovial joint (UBERON:0002018). UBERON:0002018 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5413,6 +5715,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40621694" target="_blank">PMID:40621694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5434,6 +5737,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40621694" target="_blank">PMID:40621694</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5468,18 +5772,20 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoclast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5496,18 +5802,20 @@ This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5535,18 +5843,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5574,18 +5884,20 @@ This pathophysiological event involves increased bone remodeling (GO:0046849). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in subchondral bone, annotated with subchondral region of epiphysis (UBERON:0035878). UBERON:0035878 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         subchondral bone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0035878" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0035878</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0035878" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0035878</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in subchondral bone, annotated with subchondral region of epiphysis (UBERON:0035878). UBERON:0035878 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5608,6 +5920,7 @@ This pathophysiological event occurs in subchondral bone, annotated with subchon
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15077302" target="_blank">PMID:15077302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5629,6 +5942,7 @@ This pathophysiological event occurs in subchondral bone, annotated with subchon
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15077302" target="_blank">PMID:15077302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5720,16 +6034,20 @@ This pathophysiological event occurs in subchondral bone, annotated with subchon
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.">
-                        Joint stiffness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp">HP:0001387</a>
-
-
+This clinical feature is joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5749,6 +6067,7 @@ This clinical feature is joint stiffness (HP:0001387). HP:0001387 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5784,16 +6103,20 @@ This clinical feature is joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is limited joint mobility, annotated with Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
-                        Limitation of joint mobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
-
-
+This clinical feature is limited joint mobility, annotated with Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5813,6 +6136,7 @@ This clinical feature is limited joint mobility, annotated with Limitation of jo
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5857,16 +6181,22 @@ This clinical feature is limited joint mobility, annotated with Limitation of jo
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Arthralgia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is joint pain, annotated with Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.">
-                        Arthralgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp">HP:0002829</a>
-
-
+This clinical feature is joint pain, annotated with Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5886,6 +6216,7 @@ This clinical feature is joint pain, annotated with Arthralgia (HP:0002829). HP:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5975,6 +6306,7 @@ This clinical feature is joint pain, annotated with Arthralgia (HP:0002829). HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17384641" target="_blank">PMID:17384641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5996,6 +6328,7 @@ This clinical feature is joint pain, annotated with Arthralgia (HP:0002829). HP:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17384641" target="_blank">PMID:17384641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6027,6 +6360,9 @@ This clinical feature is joint pain, annotated with Arthralgia (HP:0002829). HP:
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6043,18 +6379,18 @@ This clinical feature is joint pain, annotated with Arthralgia (HP:0002829). HP:
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -6096,6 +6432,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6126,18 +6463,18 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -6179,6 +6516,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6209,18 +6547,18 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">NSAID therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NSAID therapy</span>
+This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6245,18 +6583,20 @@ This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). N
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         NSAID
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C257</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6281,6 +6621,7 @@ This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NC
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6312,18 +6653,18 @@ This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NC
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">intraarticular corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is intraarticular corticosteroid therapy (NCIT:C121366). NCIT:C121366 is a clinical intervention from the NCI Thesaurus.">intraarticular corticosteroid therapy</span>
+This treatment is intraarticular corticosteroid therapy (NCIT:C121366). NCIT:C121366 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Intraarticular Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121366" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is intraarticular corticosteroid therapy (NCIT:C121366). NCIT:C121366 is a clinical intervention from the NCI Thesaurus.">NCIT:C121366</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121366" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121366">NCIT:C121366</a>
 
 
 
@@ -6348,18 +6689,20 @@ This treatment is intraarticular corticosteroid therapy (NCIT:C121366). NCIT:C12
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         glucocorticoid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:24261</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:24261</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6384,6 +6727,7 @@ This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6415,18 +6759,18 @@ This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6468,6 +6812,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6498,17 +6843,17 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6533,18 +6878,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         duloxetine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:36796</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:36796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6569,6 +6916,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31908149" target="_blank">PMID:31908149</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6609,6 +6957,10 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                 <div class="item-name">Age</div>
 
 
+
+
+
+
                 <div class="item-desc">Osteoarthritis prevalence rises sharply after age 40 years.</div>
 
 
@@ -6625,6 +6977,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37675071" target="_blank">PMID:37675071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6675,6 +7028,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37675071" target="_blank">PMID:37675071</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6706,6 +7060,10 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                 <div class="item-name">High BMI</div>
 
 
+
+
+
+
                 <div class="item-desc">High BMI contributes substantially to osteoarthritis burden through both biomechanical and metabolic mechanisms.</div>
 
 
@@ -6722,6 +7080,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37675071" target="_blank">PMID:37675071</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6744,6 +7103,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15354794" target="_blank">PMID:15354794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6794,6 +7154,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37675071" target="_blank">PMID:37675071</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6815,6 +7176,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15354794" target="_blank">PMID:15354794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6847,6 +7209,10 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                 <div class="item-name">Major Joint Injury</div>
 
 
+
+
+
+
                 <div class="item-desc">Prior major injury is a recognized risk factor for secondary and post-traumatic osteoarthritis.</div>
 
 
@@ -6863,6 +7229,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6913,6 +7280,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33560326" target="_blank">PMID:33560326</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6958,7 +7326,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse336316">
                 <div class="item-name">
                     Synovial Fluid and Serum MicroRNA Signatures in Equine Osteoarthritis
 
@@ -6999,7 +7367,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse328136">
                 <div class="item-name">
                     YKL-40 alleviates the TNF-α-Induced chondrocyte injury in osteoarthritis in vitro
 
@@ -7040,7 +7408,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse314612">
                 <div class="item-name">
                     Synovial transcriptomic response to intra-articular 2.5% polyacrylamide hydrogel in equine experimental osteoarthritis [RNAseq_SF]
 
@@ -7077,7 +7445,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004476">
                 <div class="item-name">
                     RNA sequencing of subchondral bone from patients that underwent a joint replacement surgery due to osteoarthritis.
 
@@ -7110,7 +7478,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001006242">
                 <div class="item-name">
                     RNA-sequencing of mechanical stress induced osteoarthritis-like damage in aged human cartilage explants treated with the anti-deiodinase iopanoic acid
 
@@ -7145,7 +7513,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000020">
                 <div class="item-name">
                     Biomarker Discovery in Knee Osteoarthritis (I)
 
@@ -7176,7 +7544,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st001914">
                 <div class="item-name">
                     Fecal Metabolomics Reveals Products of Dysregulated Proteolysis and Altered Microbial Metabolism in Obesity-Related Osteoarthritis
 
@@ -7207,7 +7575,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000096636">
                 <div class="item-name">
                     Comprehensive Metabolomic Profiling of Osteoarthritis Unraveling Sexually Dimorphic Patterns
 
@@ -7268,7 +7636,6 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Osteoarthritis
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
 category: Complex
 description: &gt;-
   Osteoarthritis is a common, heterogeneous degenerative disorder of mobile joints
@@ -8825,7 +9192,7 @@ Osteoarthritis (OA) is a whole‑joint, multifactorial disease characterized by 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Osteoarthritis", "mondoId": "MONDO:0005178", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteoarthritis", "yamlRevision": "8b10f5d1ac5e"};
+        const OS_CONFIG = {"diseaseName": "Osteoarthritis", "mondoId": "MONDO:0005178", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteoarthritis", "yamlRevision": "8ff9f71fd9d2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9244,5 +9611,73 @@ Osteoarthritis (OA) is a whole‑joint, multifactorial disease characterized by 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Q Fever</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Q Fever</h1>
             <div class="header-meta">
 
@@ -3908,18 +4030,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3947,18 +4071,20 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves symbiont entry into host cell (GO:0046718). GO:0046718 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         symbiont entry into host cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go">GO:0046718</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0046718</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves symbiont entry into host cell (GO:0046718). GO:0046718 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3975,18 +4101,20 @@ This pathophysiological event involves symbiont entry into host cell (GO:0046718
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves biological process involved in interaction with host (GO:0051701). GO:0051701 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         biological process involved in interaction with host
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051701" target="_blank" class="curie-chip curie-chip-go">GO:0051701</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051701" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0051701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves biological process involved in interaction with host (GO:0051701). GO:0051701 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4056,6 +4184,7 @@ This pathophysiological event involves biological process involved in interactio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42075771" target="_blank">PMID:42075771</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4077,6 +4206,7 @@ This pathophysiological event involves biological process involved in interactio
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12762362" target="_blank">PMID:12762362</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4112,18 +4242,20 @@ This pathophysiological event involves biological process involved in interactio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4192,6 +4324,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38725096" target="_blank">PMID:38725096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4213,6 +4346,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38725096" target="_blank">PMID:38725096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4255,18 +4389,20 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4294,18 +4430,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4328,6 +4466,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37679410" target="_blank">PMID:37679410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4349,6 +4488,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27856520" target="_blank">PMID:27856520</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4391,18 +4531,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4430,18 +4572,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4463,6 +4607,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12762362" target="_blank">PMID:12762362</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4505,18 +4650,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4554,6 +4701,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24336183" target="_blank">PMID:24336183</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4647,16 +4795,20 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012115</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012115" target="_blank" class="curie-chip curie-chip-hp">HP:0012115</a>
-
-
+This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4676,6 +4828,7 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12762362" target="_blank">PMID:12762362</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4718,16 +4871,20 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002090</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.">
-                        Pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp">HP:0002090</a>
-
-
+This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4747,6 +4904,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12762362" target="_blank">PMID:12762362</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4789,16 +4947,20 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4818,6 +4980,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12762362" target="_blank">PMID:12762362</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4860,16 +5023,22 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bacterial endocarditis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0006689</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Q fever (Coxiella) endocarditis, annotated with Bacterial endocarditis (HP:0006689), qualified as temporality chronic. HP:0006689 is a phenotype from the Human Phenotype Ontology.">
-                        Bacterial endocarditis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006689" target="_blank" class="curie-chip curie-chip-hp">HP:0006689</a>
-
-
+This clinical feature is Q fever (Coxiella) endocarditis, annotated with Bacterial endocarditis (HP:0006689), qualified as temporality chronic. HP:0006689 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4908,6 +5077,7 @@ This clinical feature is Q fever (Coxiella) endocarditis, annotated with Bacteri
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37679410" target="_blank">PMID:37679410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4929,6 +5099,7 @@ This clinical feature is Q fever (Coxiella) endocarditis, annotated with Bacteri
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9927100" target="_blank">PMID:9927100</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4964,16 +5135,22 @@ This clinical feature is Q fever (Coxiella) endocarditis, annotated with Bacteri
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Chronic fatigue</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012432" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012432</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Q fever fatigue syndrome, annotated with Chronic fatigue (HP:0012432). HP:0012432 is a phenotype from the Human Phenotype Ontology.">
-                        Chronic fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012432" target="_blank" class="curie-chip curie-chip-hp">HP:0012432</a>
-
-
+This clinical feature is Q fever fatigue syndrome, annotated with Chronic fatigue (HP:0012432). HP:0012432 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4993,6 +5170,7 @@ This clinical feature is Q fever fatigue syndrome, annotated with Chronic fatigu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28329131" target="_blank">PMID:28329131</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5056,6 +5234,9 @@ This clinical feature is Q fever fatigue syndrome, annotated with Chronic fatigu
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5072,17 +5253,17 @@ This clinical feature is Q fever fatigue syndrome, annotated with Chronic fatigu
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5107,18 +5288,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5176,6 +5359,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12762362" target="_blank">PMID:12762362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5206,17 +5390,17 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5241,33 +5425,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         hydroxychloroquine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5801</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:5801</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5325,6 +5513,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9927100" target="_blank">PMID:9927100</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5355,18 +5544,18 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">vaccination</span>
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">NCIT:C15346</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15346">NCIT:C15346</a>
 
 
 
@@ -5408,6 +5597,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37679410" target="_blank">PMID:37679410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5453,7 +5643,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse112086">
                 <div class="item-name">
                     A transcriptional signature associated with non-Hodgkin lymphoma in the blood of patients with Q fever
 
@@ -5496,7 +5686,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse37666">
                 <div class="item-name">
                     Granulomatous response to Coxiella burnetii, the agent of Q fever: Activation of type I interferon-related genes
 
@@ -5539,7 +5729,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse66476">
                 <div class="item-name">
                     Interferon-γ response against C. burnetii of peripheral blood mononuclear cells in the development of chronic Q fever
 
@@ -5707,6 +5897,7 @@ pathophysiology:
       label: alveolar macrophage
   evidence:
   - reference: PMID:38725096
+    reference_title: &#34;Coxiella burnetii effector CvpE maintains biogenesis of Coxiella-containing vacuoles by suppressing lysosome tubulation through binding PI(3)P and perturbing PIKfyve activity on lysosomes.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -5718,6 +5909,7 @@ pathophysiology:
       required intracellular replicative niche. Evidence source is IN_VITRO
       (cell-based effector study).
   - reference: PMID:38725096
+    reference_title: &#34;Coxiella burnetii effector CvpE maintains biogenesis of Coxiella-containing vacuoles by suppressing lysosome tubulation through binding PI(3)P and perturbing PIKfyve activity on lysosomes.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -5758,6 +5950,7 @@ pathophysiology:
       label: heart
   evidence:
   - reference: PMID:37679410
+    reference_title: &#34;Q fever immunology: the quest for a safe and effective vaccine.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -5767,6 +5960,7 @@ pathophysiology:
       Documents the chronic arm of Q fever with vasculitis and endocarditis as
       complications. Evidence source is OTHER (review article).
   - reference: PMID:27856520
+    reference_title: &#34;From Q Fever to Coxiella burnetii Infection: a Paradigm Change.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;no persistent infection can exist without a focus of infection&#34;
@@ -5906,6 +6100,7 @@ phenotypes:
     temporality: CHRONIC
   evidence:
   - reference: PMID:37679410
+    reference_title: &#34;Q fever immunology: the quest for a safe and effective vaccine.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -5915,6 +6110,7 @@ phenotypes:
       Identifies endocarditis as a complication of chronic Q fever. Evidence
       source is OTHER (review article).
   - reference: PMID:9927100
+    reference_title: &#34;Treatment of Q fever endocarditis: comparison of 2 regimens containing doxycycline and ofloxacin or hydroxychloroquine.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5937,6 +6133,7 @@ phenotypes:
   frequency: OCCASIONAL
   evidence:
   - reference: PMID:28329131
+    reference_title: &#34;Effectiveness of Long-term Doxycycline Treatment and Cognitive-Behavioral Therapy on Fatigue Severity in Patients with Q Fever Fatigue Syndrome (Qure Study): A Randomized Controlled Trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6020,6 +6217,7 @@ treatments:
       the intracellular niche in which the organism persists.
   evidence:
   - reference: PMID:9927100
+    reference_title: &#34;Treatment of Q fever endocarditis: comparison of 2 regimens containing doxycycline and ofloxacin or hydroxychloroquine.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6044,6 +6242,7 @@ treatments:
       label: Vaccination
   evidence:
   - reference: PMID:37679410
+    reference_title: &#34;Q fever immunology: the quest for a safe and effective vaccine.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6645,7 +6844,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Q Fever", "mondoId": "MONDO:0019186", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Q_Fever", "yamlRevision": "fe4b14a353f4"};
+        const OS_CONFIG = {"diseaseName": "Q Fever", "mondoId": "MONDO:0019186", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Q_Fever", "yamlRevision": "a004529dce42"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7064,5 +7263,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

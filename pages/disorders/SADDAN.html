@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>SADDAN</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>SADDAN</h1>
             <div class="header-meta">
 
@@ -3890,6 +4012,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3899,9 +4091,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 1 &#34;FGFR3 chondrodysplasia group&#34;; listed as &#34;Severe achondroplasia with developmental delay and acanthosis nigricans (SADDAN)&#34;.">fgfr3 chondrodysplasia</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3919,7 +4127,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-de-novo">
                 <div class="item-name">
                     Autosomal dominant (de novo)
 
@@ -3946,6 +4154,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4008,17 +4217,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3690</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4080,6 +4293,7 @@ This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4117,17 +4331,21 @@ This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3690</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4156,18 +4374,20 @@ This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         fibroblast growth factor receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4193,18 +4413,20 @@ This pathophysiological event involves increased fibroblast growth factor recept
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased protein tyrosine kinase activity (GO:0004713). GO:0004713 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein tyrosine kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004713" target="_blank" class="curie-chip curie-chip-go">GO:0004713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004713" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0004713</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased protein tyrosine kinase activity (GO:0004713). GO:0004713 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4261,6 +4483,7 @@ This pathophysiological event involves increased protein tyrosine kinase activit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10053006" target="_blank">PMID:10053006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4293,18 +4516,20 @@ This pathophysiological event involves increased protein tyrosine kinase activit
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Growth plate chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4349,6 +4574,7 @@ This pathophysiological event involves Growth plate chondrocyte, annotated with 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377013" target="_blank">PMID:10377013</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4444,16 +4670,22 @@ This pathophysiological event involves Growth plate chondrocyte, annotated with 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hearing loss, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
-                        Hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
-
-
+This clinical feature is Hearing loss, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4473,6 +4705,7 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4515,16 +4748,20 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000956</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.">
-                        Acanthosis nigricans
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp">HP:0000956</a>
-
-
+This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4545,6 +4782,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4564,6 +4802,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377013" target="_blank">PMID:10377013</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4606,16 +4845,20 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002980</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Femoral bowing (HP:0002980). HP:0002980 is a phenotype from the Human Phenotype Ontology.">
-                        Femoral bowing
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002980" target="_blank" class="curie-chip curie-chip-hp">HP:0002980</a>
-
-
+This clinical feature is Femoral bowing (HP:0002980). HP:0002980 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4635,6 +4878,7 @@ This clinical feature is Femoral bowing (HP:0002980). HP:0002980 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377013" target="_blank">PMID:10377013</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4668,16 +4912,20 @@ This clinical feature is Femoral bowing (HP:0002980). HP:0002980 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002982</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype from the Human Phenotype Ontology.">
-                        Tibial bowing
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002982" target="_blank" class="curie-chip curie-chip-hp">HP:0002982</a>
-
-
+This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4697,6 +4945,7 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377013" target="_blank">PMID:10377013</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4730,16 +4979,20 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0010502</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fibular bowing (HP:0010502). HP:0010502 is a phenotype from the Human Phenotype Ontology.">
-                        Fibular bowing
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010502" target="_blank" class="curie-chip curie-chip-hp">HP:0010502</a>
-
-
+This clinical feature is Fibular bowing (HP:0010502). HP:0010502 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4759,6 +5012,7 @@ This clinical feature is Fibular bowing (HP:0010502). HP:0010502 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377013" target="_blank">PMID:10377013</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4801,16 +5055,22 @@ This clinical feature is Fibular bowing (HP:0010502). HP:0010502 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4830,6 +5090,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4863,16 +5124,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4892,6 +5157,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377013" target="_blank">PMID:10377013</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4925,16 +5191,20 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype from the Human Phenotype Ontology.">
-                        Hydranencephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002324" target="_blank" class="curie-chip curie-chip-hp">HP:0002324</a>
-
-
+This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4954,6 +5224,7 @@ This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19039991" target="_blank">PMID:19039991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4987,16 +5258,20 @@ This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.">
-                        Ventriculomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp">HP:0002119</a>
-
-
+This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5016,6 +5291,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19039991" target="_blank">PMID:19039991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5058,16 +5334,20 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.">
-                        Severe short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp">HP:0003510</a>
-
-
+This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5087,6 +5367,7 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38993719" target="_blank">PMID:38993719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5164,15 +5445,17 @@ This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phen
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:3690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5194,6 +5477,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5213,6 +5497,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_a7daa910-8226-46cc-8a65-034c0833d9cc-2022-05-09T040000.000Z" target="_blank">CGGV:assertion_a7daa910-8226-46cc-8a65-034c0833d9cc-2022-05-09T040000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5258,6 +5543,8 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
 
+
+
     </div>
 
 
@@ -5269,6 +5556,9 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5287,17 +5577,17 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5338,6 +5628,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38993719" target="_blank">PMID:38993719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5402,7 +5693,6 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 synonyms:
 - Severe achondroplasia with developmental delay and acanthosis nigricans (SADDAN), FGFR3-related
 creation_date: &#39;2026-02-02T00:16:36Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Mendelian
 description: &gt;
   SADDAN (Severe Achondroplasia with Developmental Delay and Acanthosis Nigricans)
@@ -5448,11 +5738,13 @@ prevalence:
     report, only seven genetically confirmed individuals had been described.
   evidence:
   - reference: PMID:19039991
+    reference_title: &#34;[Case of a Japanese female presenting severe achondroplasia with developmental delay and acanthosis nigricans (SADDAN) syndrome with a K650M mutation in the fibroblast growth factor receptor 3 gene].&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The medical history of the present case includes severe skeletal dysplasia at birth, progressive acanthosis nigricans in infancy, and severe central nervous system structural abnormalities, consisting of the absence of right cerebral hemisphere (hydranencephaly), ventricular dilatation, both indicating congenital brain malformation, and porencephaly indicating destructive brain damages. The patient is severely retarded and has suffered from intractable seizures. This is the first report of a Japanese patient and the seventh case of SADDAN syndrome confirmed genetically.&#34;
     explanation: This case report explicitly states that the patient represented the seventh genetically confirmed SADDAN case.
   - reference: PMID:24352917
+    reference_title: &#34;Suppression of severe achondroplasia with developmental delay and acanthosis nigricans by the p.Thr651Pro mutation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Severe achondroplasia with developmental delay and acanthosis nigricans (SADDAN) is an extremely rare severe skeletal dysplasia characterized by significant developmental delay, brain structural abnormalities, hearing loss, and acanthosis nigricans.&#34;
@@ -6062,7 +6354,7 @@ SADDAN pathophysiology is driven by a highly activating FGFR3 K650M mutation tha
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SADDAN", "mondoId": "MONDO:0014658", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SADDAN", "yamlRevision": "9087605763c3"};
+        const OS_CONFIG = {"diseaseName": "SADDAN", "mondoId": "MONDO:0014658", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SADDAN", "yamlRevision": "ecb9e221e07b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6481,5 +6773,73 @@ SADDAN pathophysiology is driven by a highly activating FGFR3 K650M mutation tha
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

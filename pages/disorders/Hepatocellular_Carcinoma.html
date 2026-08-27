@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hepatocellular Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hepatocellular Carcinoma</h1>
             <div class="header-meta">
 
@@ -3658,7 +3780,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hepatocellular%20Carcinoma"
@@ -3817,7 +3939,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3853,7 +3975,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3862,7 +3984,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3939,36 +4061,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                    <span class="tag tag-classification">GASTROINTESTINAL</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Carcinoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+
+                    <span class="tag tag-classification">GASTROINTESTINAL</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4242,7 +4452,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-viral-hepatitis-associated-hcc">
 
                     <div class="item-name">
                         Viral Hepatitis-Associated HCC
@@ -4270,7 +4480,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-alcohol-related-hcc">
 
                     <div class="item-name">
                         Alcohol-Related HCC
@@ -4298,7 +4508,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-masld-associated-hcc">
 
                     <div class="item-name">
                         MASLD-Associated HCC
@@ -4326,7 +4536,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fibrolamellar-hcc">
 
                     <div class="item-name">
                         Fibrolamellar HCC
@@ -4479,6 +4689,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42424930" target="_blank">PMID:42424930</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4501,6 +4712,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42424930" target="_blank">PMID:42424930</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4522,6 +4734,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42424930" target="_blank">PMID:42424930</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4557,7 +4770,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_rpp40_trna_processing_mtor_myc_causality">
@@ -4581,7 +4794,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#rpp40_rnase_p_pretrna_mtor_myc_bridge</span>
+    <a class="entity-ref-chip" href="#hypothesis-rpp40-rnase-p-pretrna-mtor-myc-bridge">mechanistic_hypotheses#rpp40_rnase_p_pretrna_mtor_myc_bridge</a>
 
 
 
@@ -4622,11 +4835,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type time-resolved complex-specific perturbation study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         time-resolved complex-specific perturbation study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type time-resolved complex-specific perturbation study.</span>
     </span>
 
 
@@ -4667,6 +4884,7 @@ This experiment is of type time-resolved complex-specific perturbation study.">
 
 
 
+
         </div>
 
 
@@ -4684,6 +4902,7 @@ This experiment is of type time-resolved complex-specific perturbation study.">
         <div>Retain HepG2 only as a secondary replication context because it was used in the cited study; label it correctly as hepatoblastoma-derived rather than as an HCC-derived line.</div>
 
         <div class="item-meta">
+
 
 
 
@@ -4724,17 +4943,21 @@ This experiment is of type time-resolved complex-specific perturbation study.">
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets RPP40 (hgnc:20992). hgnc:20992 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RPP40
 
 
-    <a href="https://bioregistry.io/hgnc:20992" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20992</a>
+    <a href="https://bioregistry.io/hgnc:20992" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:20992</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets RPP40 (hgnc:20992). hgnc:20992 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4795,17 +5018,21 @@ This perturbation targets RPP40 (hgnc:20992). hgnc:20992 is a gene from the HUGO
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets RPP21 (hgnc:21300). hgnc:21300 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RPP21
 
 
-    <a href="https://bioregistry.io/hgnc:21300" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21300</a>
+    <a href="https://bioregistry.io/hgnc:21300" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:21300</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets RPP21 (hgnc:21300). hgnc:21300 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4866,17 +5093,21 @@ This perturbation targets RPP21 (hgnc:21300). hgnc:21300 is a gene from the HUGO
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets C18orf21 (hgnc:28802). hgnc:28802 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         C18orf21
 
 
-    <a href="https://bioregistry.io/hgnc:28802" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28802</a>
+    <a href="https://bioregistry.io/hgnc:28802" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:28802</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets C18orf21 (hgnc:28802). hgnc:28802 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4941,17 +5172,21 @@ This perturbation targets C18orf21 (hgnc:28802). hgnc:28802 is a gene from the H
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets RPP21 (hgnc:21300). hgnc:21300 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RPP21
 
 
-    <a href="https://bioregistry.io/hgnc:21300" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21300</a>
+    <a href="https://bioregistry.io/hgnc:21300" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:21300</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets RPP21 (hgnc:21300). hgnc:21300 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4976,17 +5211,21 @@ This perturbation targets RPP21 (hgnc:21300). hgnc:21300 is a gene from the HUGO
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets C18orf21 (hgnc:28802). hgnc:28802 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         C18orf21
 
 
-    <a href="https://bioregistry.io/hgnc:28802" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28802</a>
+    <a href="https://bioregistry.io/hgnc:28802" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:28802</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets C18orf21 (hgnc:28802). hgnc:28802 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5051,17 +5290,21 @@ This perturbation targets C18orf21 (hgnc:28802). hgnc:28802 is a gene from the H
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MTOR
 
 
-    <a href="https://bioregistry.io/hgnc:3942" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3942</a>
+    <a href="https://bioregistry.io/hgnc:3942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:3942</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5086,17 +5329,21 @@ This perturbation targets MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Ge
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MYC
 
 
-    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7553</a>
+    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7553</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5161,17 +5408,21 @@ This perturbation targets MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gen
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MTOR
 
 
-    <a href="https://bioregistry.io/hgnc:3942" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3942</a>
+    <a href="https://bioregistry.io/hgnc:3942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:3942</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5196,17 +5447,21 @@ This perturbation targets MTOR (hgnc:3942). hgnc:3942 is a gene from the HUGO Ge
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MYC
 
 
-    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7553</a>
+    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:7553</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5279,17 +5534,21 @@ This perturbation targets MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gen
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on tRNA processing (GO:0008033). GO:0008033 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         tRNA processing
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008033" target="_blank" class="curie-chip curie-chip-go">GO:0008033</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008033" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0008033</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on tRNA processing (GO:0008033). GO:0008033 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5321,11 +5580,15 @@ This readout reports on tRNA processing (GO:0008033). GO:0008033 is a biological
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by precursor-specific RT-qPCR.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-12">
 
         precursor-specific RT-qPCR
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Relation: this readout is measured by this assay
+This readout is measured by precursor-specific RT-qPCR.</span>
     </span>
 
 
@@ -5350,11 +5613,15 @@ This readout is measured by precursor-specific RT-qPCR.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by northern blot.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-13">
 
         northern blot
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Relation: this readout is measured by this assay
+This readout is measured by northern blot.</span>
     </span>
 
 
@@ -5410,17 +5677,21 @@ This readout is measured by northern blot.">
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on rRNA processing (GO:0006364). GO:0006364 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         rRNA processing
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006364" target="_blank" class="curie-chip curie-chip-go">GO:0006364</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006364" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on rRNA processing (GO:0006364). GO:0006364 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5452,11 +5723,15 @@ This readout reports on rRNA processing (GO:0006364). GO:0006364 is a biological
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by ITS1-specific RT-qPCR and northern blot.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-15">
 
         ITS1-specific RT-qPCR and northern blot
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Relation: this readout is measured by this assay
+This readout is measured by ITS1-specific RT-qPCR and northern blot.</span>
     </span>
 
 
@@ -5481,11 +5756,15 @@ This readout is measured by ITS1-specific RT-qPCR and northern blot.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by sucrose-gradient polysome profiling.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-16">
 
         sucrose-gradient polysome profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Relation: this readout is measured by this assay
+This readout is measured by sucrose-gradient polysome profiling.</span>
     </span>
 
 
@@ -5544,11 +5823,15 @@ This readout is measured by sucrose-gradient polysome profiling.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by immunoblot time course.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-17">
 
         immunoblot time course
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Relation: this readout is measured by this assay
+This readout is measured by immunoblot time course.</span>
     </span>
 
 
@@ -5573,11 +5856,15 @@ This readout is measured by immunoblot time course.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by nascent-protein-synthesis assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-18">
 
         nascent-protein-synthesis assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Relation: this readout is measured by this assay
+This readout is measured by nascent-protein-synthesis assay.</span>
     </span>
 
 
@@ -5636,11 +5923,15 @@ This readout is measured by nascent-protein-synthesis assay.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by EdU incorporation assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-19">
 
         EdU incorporation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Relation: this readout is measured by this assay
+This readout is measured by EdU incorporation assay.</span>
     </span>
 
 
@@ -5665,11 +5956,15 @@ This readout is measured by EdU incorporation assay.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by live-cell viability assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-20">
 
         live-cell viability assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">Relation: this readout is measured by this assay
+This readout is measured by live-cell viability assay.</span>
     </span>
 
 
@@ -5764,7 +6059,7 @@ This readout is measured by live-cell viability assay.">
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#rpp40_rnase_p_pretrna_mtor_myc_bridge</span>
+    <a class="entity-ref-chip" href="#hypothesis-rpp40-rnase-p-pretrna-mtor-myc-bridge">mechanistic_hypotheses#rpp40_rnase_p_pretrna_mtor_myc_bridge</a>
 
 
 
@@ -5781,12 +6076,18 @@ This readout is measured by live-cell viability assay.">
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#rpp40_rnase_p_pretrna_mtor_myc_bridge</span>
+    <a class="entity-ref-chip" href="#hypothesis-rpp40-rnase-p-pretrna-mtor-myc-bridge">mechanistic_hypotheses#rpp40_rnase_p_pretrna_mtor_myc_bridge</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5803,6 +6104,7 @@ This readout is measured by live-cell viability assay.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41136609" target="_blank">PMID:41136609</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5825,6 +6127,7 @@ This readout is measured by live-cell viability assay.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533478" target="_blank">PMID:40533478</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5871,6 +6174,7 @@ This readout is measured by live-cell viability assay.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42424930" target="_blank">PMID:42424930</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5893,6 +6197,7 @@ This readout is measured by live-cell viability assay.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40517827" target="_blank">PMID:40517827</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5914,6 +6219,7 @@ This readout is measured by live-cell viability assay.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41933259" target="_blank">PMID:41933259</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5940,6 +6246,208 @@ This readout is measured by live-cell viability assay.">
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="gap_acaa2_mpc1_acetylation_pyruvate_transport">
+                <div class="item-name">Does ACAA2-dependent mitochondrial acetyl-CoA homeostasis regulate metabolic switching from oxidative phosphorylation to aerobic glycolysis in HCC specifically through MPC1 protein acetylation and proteasomal stability, or do alternative mechanisms of acetyl-CoA-dependent regulation (histone acetylation, other protein targets, non-acetylation sensing) dominate?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_acaa2_mpc1_acetylation_pyruvate_transport</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-aerobic-glycolysis-and-metabolic-reprogramming">pathophysiology#Aerobic Glycolysis and Metabolic Reprogramming</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">PMID:42520527 demonstrates that ACAA2 downregulation reduces mitochondrial acetyl-CoA, leading to MPC1 acetylation loss, MPC1 proteasomal degradation, and impaired pyruvate transport with consequent glycolytic shift. However, the paper does not directly measure acetyl-CoA-dependent protein acetylation stoichiometry, does not use acetylation-site-specific MPC1 mutations to establish acetylation as mechanistically sufficient, and does not test proteasomal inhibitors or direct acetyl-CoA supplementation. Alternative explanations remain open: direct allosteric effects of acetyl-CoA on MPC1, ACAA2-FAO support for histone acetylation and epigenetic reprogramming upstream of MPC1, acetylation of autophagy or mitochondrial chaperone machinery affecting MPC1 indirectly, and competing acetyl-CoA sources (glutaminolysis, pyruvate carboxylase) that may bypass this pathway.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Acetyl-CoA and MPC1 acetylation-site mechanism</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-21">
+
+        protein acetylation and metabolic switching mechanism study
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">Relation: this experiment is of type this experiment type
+This experiment is of type protein acetylation and metabolic switching mechanism study.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_acaa2_acetyl_coa_mpc1_acetylation_causality</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Test acetylation-site sufficiency by combining acute ACAA2 depletion, direct acetyl-CoA pathway manipulation (ACS2 inhibition, pyruvate carboxylase inhibition), and MPC1 acetylation-site mutation (K99R or identified sites) in HCC-derived lines (Huh-7, Hep3B). Measure MPC1 acetylation stoichiometry via mass-spec or acetyl-lysine blots, MPC1 protein stability (pulse-chase or proteasomal inhibition), pyruvate oxidation (13C-pyruvate tracing), and glycolytic flux (ATP, ECAR, lactate) to validate the proposed chain. Use catalytically defective ACAA2 variants to distinguish FAO-dependent acetyl-CoA from other ACAA2 functions.</div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Model systems</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">HCC-derived cell lines with metabolic tracing</div>
+
+        <div>Huh-7 and Hep3B lines with 13C-pyruvate tracing to distinguish pyruvate oxidation, glycolytic lactate, alanine synthesis, and anaplerosis under perturbation.</div>
+
+        <div class="item-meta">
+
+
+
+
+        </div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42520527" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42520527" target="_blank">PMID:42520527</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While acetyl-CoA acts as a pivotal metabolic molecule involved in protein acetylation, whether ACAA2 regulates metabolic reprogramming through acetyl-CoA-mediated mitochondrial protein acetylation remains unclear."</div>
+
+
+                <div class="evidence-explanation">Authors explicitly identify the unresolved role of acetyl-CoA-mediated protein acetylation in ACAA2-dependent metabolic switching, the core of this gap.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42520527" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42520527" target="_blank">PMID:42520527</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mounting evidence indicates that metabolic reprogramming contributes substantially to tumor development by promoting cancer cell proliferation and metastasis. However, the underlying mechanisms remain incompletely understood."</div>
+
+
+                <div class="evidence-explanation">Establishes the broader mechanistic gap in HCC metabolic reprogramming that this ACAA2-acetyl-CoA-MPC1-pyruvate axis helps address.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -5949,7 +6457,7 @@ This readout is measured by live-cell viability assay.">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-liver-injury-and-cirrhosis" data-dismech-node="Chronic Liver Injury and Cirrhosis" data-dismech-type="pathophysiology">
@@ -5962,18 +6470,20 @@ This readout is measured by live-cell viability assay.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6004,18 +6514,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6061,6 +6573,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41567639" target="_blank">PMID:41567639</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6099,18 +6612,20 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal telomere maintenance (GO:0000723). GO:0000723 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         telomere maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="curie-chip curie-chip-go">GO:0000723</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0000723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal telomere maintenance (GO:0000723). GO:0000723 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6176,18 +6691,20 @@ This pathophysiological event involves abnormal telomere maintenance (GO:0000723
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6253,18 +6770,20 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0016055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6330,18 +6849,20 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         TOR signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0031929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6362,18 +6883,20 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased phosphatidylinositol-mediated signaling (GO:0048015). GO:0048015 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phosphatidylinositol-mediated signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go">GO:0048015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0048015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phosphatidylinositol-mediated signaling (GO:0048015). GO:0048015 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6422,6 +6945,14 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aerobic Glycolysis and Metabolic Reprogramming</span>
+
+	                            <span class="crosslink-desc">Oncogenic PI3K/AKT/mTOR signaling drives the anabolic, glycolytic reprogramming modeled by the deregulated-cellular-energetics module.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -6438,6 +6969,7 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984212" target="_blank">PMID:29984212</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6460,6 +6992,7 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35592706" target="_blank">PMID:35592706</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6501,18 +7034,20 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6563,18 +7098,20 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6625,18 +7162,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6694,6 +7233,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19637355" target="_blank">PMID:19637355</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6725,18 +7265,20 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD8-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6764,18 +7306,20 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Negative Regulation of T Cell Mediated Immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6818,6 +7362,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32158599" target="_blank">PMID:32158599</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6829,6 +7374,141 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
                 <div class="evidence-explanation">Review specifically describes HCC&#39;s immunosuppressive microenvironment including Treg and MDSC recruitment, T cell exhaustion, and checkpoint ligand-receptor interactions — directly supporting all claims in this node about HCC immune evasion mechanisms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aerobic-glycolysis-and-metabolic-reprogramming" data-dismech-node="Aerobic Glycolysis and Metabolic Reprogramming" data-dismech-type="pathophysiology">
+                <div class="item-name">Aerobic Glycolysis and Metabolic Reprogramming</div>
+
+                <div class="item-desc">HCC cells reprogram metabolism from oxidative phosphorylation to aerobic glycolysis (Warburg effect), enabling rapid ATP regeneration and providing carbon intermediates for biosynthesis. This metabolic shift is driven by oncogenic signaling (PI3K/AKT, MYC) and supports the high proliferative rate of hepatocellular carcinomas. The mechanism linking mitochondrial acetyl-CoA homeostasis to pyruvate transport and glycolytic switching remains incompletely characterized.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Glycolytic Process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0006096</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Glycolytic Process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Enhanced Hepatocyte Proliferation</span>
+
+	                            <span class="crosslink-desc">The glycolytic shift supplies the ATP and biosynthetic carbon that sustain the high proliferative rate; PMID:42520527 reports impaired mitochondrial pyruvate transport promoting glycolysis and cell proliferation together.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19460998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19460998" target="_blank">PMID:19460998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"most cancer cells produce large amounts of lactate regardless of the availability of oxygen"</div>
+
+
+                <div class="evidence-explanation">Directly states the Warburg phenotype this node models — lactate production despite adequate oxygen. This is the same on-claim evidence the module&#39;s central-effector node carries. Evidence source is OTHER because this is a review article.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42520527" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42520527" target="_blank">PMID:42520527</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mechanistically, ACAA2 downregulation reduces mitochondrial acetyl-CoA levels, thereby decreasing mitochondrial pyruvate carrier 1 (MPC1) acetylation and accelerating its proteasomal degradation, which ultimately impairs mitochondrial pyruvate transport to promote glycolysis and cell proliferation."</div>
+
+
+                <div class="evidence-explanation">HCC-specific specialization of the generic module claim: work in HCC-derived lines shows loss of mitochondrial pyruvate transport driving the glycolytic shift, and links that shift directly to proliferation.</div>
 
 
 
@@ -6853,7 +7533,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-hepatocellular-carcinoma">
                 <div class="item-name">
                     Hepatocellular Carcinoma
 
@@ -6876,6 +7556,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27785449" target="_blank">PMID:27785449</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6920,7 +7601,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Angiogenesis and VEGF Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Atezolizumab plus Bevacizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices. Immunotherapy trials in HCC require careful interpretation due to delayed treatment effects and potential violations of proportional hazard assumptions, which may affect the apparent magnitude of benefit from surrogate endpoints like PFS.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"atezolizumab\", \"bevacizumab\"]}}, {\"id\": \"Chronic Liver Injury and Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Durvalumab plus Tremelimumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab. Like other HCC immunotherapy trials, trial interpretation requires careful consideration of delayed treatment effects and proportional hazards violations when assessing surrogate endpoints.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"durvalumab\", \"tremelimumab\"]}}, {\"id\": \"Enhanced Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Lenvatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor with activity against VEGFR, FGFR, PDGFR, RET, and KIT. Non-inferior to sorafenib in first line. Alternative when immunotherapy not appropriate.\", \"meta\": {\"therapeutic_agents\": [\"lenvatinib\"]}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol-mediated signaling\"]}}, {\"id\": \"Sorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor targeting RAF, VEGFR, and PDGFR. Was first systemic therapy to improve survival in HCC. Now used in second line or when immunotherapy is contraindicated.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sorafenib\"]}}, {\"id\": \"Telomere Dysfunction and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.\", \"meta\": {\"biological_processes\": [\"telomere maintenance\"]}}, {\"id\": \"WNT/Beta-Catenin Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.\", \"meta\": {\"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Telomere Dysfunction and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated hepatocyte division leads to telomere shortening\"}, {\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Accumulation of Driver Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic regeneration promotes mutation accumulation\"}, {\"source\": \"Telomere Dysfunction and Genomic Instability\", \"target\": \"WNT/Beta-Catenin Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic instability promotes acquisition of pathway-activating mutations\"}, {\"source\": \"Accumulation of Driver Mutations\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic and expression-level pathway changes select for oncogenic growth signaling.\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT signaling drives cell proliferation and stemness\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathway-associated signatures correlate with immune infiltration and checkpoint expression.\"}, {\"source\": \"Angiogenesis and VEGF Signaling\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF-mediated immunosuppression contributes to T cell exclusion and checkpoint upregulation\"}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Durvalumab plus Tremelimumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sorafenib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenvatinib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC cells reprogram metabolism from oxidative phosphorylation to aerobic glycolysis (Warburg effect), enabling rapid ATP regeneration and providing carbon intermediates for biosynthesis. This metabolic shift is driven by oncogenic signaling (PI3K/AKT, MYC) and supports the high proliferative rate of hepatocellular carcinomas. The mechanism linking mitochondrial acetyl-CoA homeostasis to pyruvate transport and glycolytic switching remains incompletely characterized.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Glycolytic Process\"]}}, {\"id\": \"Angiogenesis and VEGF Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Atezolizumab plus Bevacizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices. Immunotherapy trials in HCC require careful interpretation due to delayed treatment effects and potential violations of proportional hazard assumptions, which may affect the apparent magnitude of benefit from surrogate endpoints like PFS.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"atezolizumab\", \"bevacizumab\"]}}, {\"id\": \"Chronic Liver Injury and Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Durvalumab plus Tremelimumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab. Like other HCC immunotherapy trials, trial interpretation requires careful consideration of delayed treatment effects and proportional hazards violations when assessing surrogate endpoints.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"durvalumab\", \"tremelimumab\"]}}, {\"id\": \"Enhanced Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Lenvatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor with activity against VEGFR, FGFR, PDGFR, RET, and KIT. Non-inferior to sorafenib in first line. Alternative when immunotherapy not appropriate.\", \"meta\": {\"therapeutic_agents\": [\"lenvatinib\"]}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol-mediated signaling\"]}}, {\"id\": \"Sorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor targeting RAF, VEGFR, and PDGFR. Was first systemic therapy to improve survival in HCC. Now used in second line or when immunotherapy is contraindicated.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sorafenib\"]}}, {\"id\": \"Telomere Dysfunction and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.\", \"meta\": {\"biological_processes\": [\"telomere maintenance\"]}}, {\"id\": \"WNT/Beta-Catenin Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.\", \"meta\": {\"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Telomere Dysfunction and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated hepatocyte division leads to telomere shortening\"}, {\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Accumulation of Driver Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic regeneration promotes mutation accumulation\"}, {\"source\": \"Telomere Dysfunction and Genomic Instability\", \"target\": \"WNT/Beta-Catenin Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic instability promotes acquisition of pathway-activating mutations\"}, {\"source\": \"Accumulation of Driver Mutations\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic and expression-level pathway changes select for oncogenic growth signaling.\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT signaling drives cell proliferation and stemness\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathway-associated signatures correlate with immune infiltration and checkpoint expression.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic PI3K/AKT/mTOR signaling drives the anabolic, glycolytic reprogramming modeled by the deregulated-cellular-energetics module.\"}, {\"source\": \"Angiogenesis and VEGF Signaling\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF-mediated immunosuppression contributes to T cell exclusion and checkpoint upregulation\"}, {\"source\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The glycolytic shift supplies the ATP and biosynthetic carbon that sustain the high proliferative rate; PMID:42520527 reports impaired mitochondrial pyruvate transport promoting glycolysis and cell proliferation together.\"}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Durvalumab plus Tremelimumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sorafenib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenvatinib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6964,16 +7645,20 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6996,16 +7681,20 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001541</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.">
-                        Ascites
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp">HP:0001541</a>
-
-
+This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7028,16 +7717,20 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000952</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.">
-                        Jaundice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp">HP:0000952</a>
-
-
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7060,16 +7753,20 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.">
-                        Nausea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp">HP:0002018</a>
-
-
+This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7101,16 +7798,20 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7133,16 +7834,20 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7174,16 +7879,20 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7260,6 +7969,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:11998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7272,6 +8003,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     CTNNB1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Activating Mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CTNNB1
+
+
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:2514</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -7290,6 +8043,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: AXIN1
+
+
+    <a href="https://bioregistry.io/hgnc:903" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:903</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AXIN1 (hgnc:903). hgnc:903 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7305,6 +8080,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ARID1A
+
+
+    <a href="https://bioregistry.io/hgnc:11110" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:11110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7316,6 +8113,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7334,18 +8134,18 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -7370,33 +8170,37 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         atezolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C106250</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C106250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         bevacizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C2039</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C2039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7430,6 +8234,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39687036" target="_blank">PMID:39687036</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7476,6 +8281,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32402160" target="_blank">PMID:32402160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7517,6 +8323,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39687036" target="_blank">PMID:39687036</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7539,6 +8346,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42184925" target="_blank">PMID:42184925</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7560,6 +8368,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38502889" target="_blank">PMID:38502889</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7591,18 +8400,18 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -7627,33 +8436,37 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses durvalumab (NCIT:C103194). NCIT:C103194 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         durvalumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C103194</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C103194</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses durvalumab (NCIT:C103194). NCIT:C103194 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         tremelimumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49085" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C49085</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49085" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C49085</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7687,6 +8500,7 @@ This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38382875" target="_blank">PMID:38382875</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7729,6 +8543,7 @@ This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38382875" target="_blank">PMID:38382875</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7750,6 +8565,7 @@ This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42184925" target="_blank">PMID:42184925</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7781,18 +8597,18 @@ This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
 
 
 
@@ -7817,18 +8633,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         sorafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50924</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:50924</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7872,6 +8690,7 @@ This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38502889" target="_blank">PMID:38502889</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7902,18 +8721,18 @@ This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
 
 
 
@@ -7938,18 +8757,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses lenvatinib (CHEBI:85994). CHEBI:85994 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         lenvatinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:85994</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:85994</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lenvatinib (CHEBI:85994). CHEBI:85994 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7991,18 +8812,18 @@ This treatment uses lenvatinib (CHEBI:85994). CHEBI:85994 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">hepatic resection<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hepatic resection, annotated with Hepatectomy (NCIT:C15249). NCIT:C15249 is a clinical intervention from the NCI Thesaurus.">hepatic resection</span>
+This treatment is hepatic resection, annotated with Hepatectomy (NCIT:C15249). NCIT:C15249 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hepatectomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15249" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hepatic resection, annotated with Hepatectomy (NCIT:C15249). NCIT:C15249 is a clinical intervention from the NCI Thesaurus.">NCIT:C15249</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15249" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15249">NCIT:C15249</a>
 
 
 
@@ -8042,18 +8863,18 @@ This treatment is hepatic resection, annotated with Hepatectomy (NCIT:C15249). N
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">organ transplantation</span>
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">NCIT:C15289</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15289">NCIT:C15289</a>
 
 
 
@@ -8093,18 +8914,18 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -8144,18 +8965,18 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">ablation therapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical intervention from the NCI Thesaurus.">ablation therapy</span>
+This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Ablation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20985" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical intervention from the NCI Thesaurus.">NCIT:C20985</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20985" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C20985">NCIT:C20985</a>
 
 
 
@@ -8257,7 +9078,7 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000217">
                 <div class="item-name">
                     Exome-sequencing identifies new oncogenes and tumor suppressor genes recurrently altered in hepatocellular carcinoma
 
@@ -8298,7 +9119,7 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000325">
                 <div class="item-name">
                     Whole genome sequencing of hepatocellular carcinoma tumors and their matched noncancerous liver tissues and the background germline
 
@@ -8335,7 +9156,7 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000372">
                 <div class="item-name">
                     Poly(A) RNA sequencing of hepatocellular carcinoma tumors and their matched noncancerous liver tissues
 
@@ -8372,7 +9193,7 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000230">
                 <div class="item-name">
                     Comprehensive analysis of transcriptome and metabolome in Intrahepatic Cholangiocarcinoma and Hepatocellular Carcinoma
 
@@ -8403,7 +9224,7 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000865">
                 <div class="item-name">
                     Identification of Race-Associated Metabolite Biomarkers for Hepatocellular Carcinoma
 
@@ -8434,7 +9255,7 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st001152">
                 <div class="item-name">
                     Metabolomic Analysis of Liver Tissues for Characterization of Hepatocellular Carcinoma
 
@@ -8493,7 +9314,6 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hepatocellular Carcinoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-05-09T04:09:52Z&#39;
 description: &gt;-
   Hepatocellular carcinoma (HCC) is the most common primary liver malignancy, typically
   arising
@@ -8729,6 +9549,10 @@ pathophysiology:
     description: PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.
   - target: Immune Evasion and Immunosuppressive Microenvironment
     description: Pathway-associated signatures correlate with immune infiltration and checkpoint expression.
+  - target: Aerobic Glycolysis and Metabolic Reprogramming
+    description: &gt;-
+      Oncogenic PI3K/AKT/mTOR signaling drives the anabolic, glycolytic
+      reprogramming modeled by the deregulated-cellular-energetics module.
 - name: TP53 Pathway Inactivation
   conforms_to: &#34;evading_growth_suppressors#Tumor Suppressor Inactivation&#34;
   description: &gt;-
@@ -8798,6 +9622,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:32158599
+    reference_title: &#34;Current Status and Future Direction of Immunotherapy in Hepatocellular Carcinoma: What Do the Data Suggest?&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8812,6 +9637,49 @@ pathophysiology:
       including Treg and MDSC recruitment, T cell exhaustion, and checkpoint
       ligand-receptor interactions — directly supporting all claims in this
       node about HCC immune evasion mechanisms.
+- name: Aerobic Glycolysis and Metabolic Reprogramming
+  conforms_to: &#34;deregulated_cellular_energetics#Aerobic Glycolysis (Warburg Effect)&#34;
+  biological_scale: CELLULAR
+  description: &gt;-
+    HCC cells reprogram metabolism from oxidative phosphorylation to aerobic glycolysis
+    (Warburg effect), enabling rapid ATP regeneration and providing carbon intermediates
+    for biosynthesis. This metabolic shift is driven by oncogenic signaling (PI3K/AKT,
+    MYC) and supports the high proliferative rate of hepatocellular carcinomas. The
+    mechanism linking mitochondrial acetyl-CoA homeostasis to pyruvate transport and
+    glycolytic switching remains incompletely characterized.
+  biological_processes:
+  - preferred_term: Glycolytic Process
+    modifier: INCREASED
+    term:
+      id: GO:0006096
+      label: glycolytic process
+  evidence:
+  - reference: PMID:19460998
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      most cancer cells produce large amounts of lactate regardless of the
+      availability of oxygen
+    explanation: &gt;-
+      Directly states the Warburg phenotype this node models — lactate production
+      despite adequate oxygen. This is the same on-claim evidence the module&#39;s
+      central-effector node carries. Evidence source is OTHER because this is a
+      review article.
+  - reference: PMID:42520527
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Mechanistically, ACAA2 downregulation reduces mitochondrial acetyl-CoA levels, thereby decreasing mitochondrial pyruvate carrier 1 (MPC1) acetylation and accelerating its proteasomal degradation, which ultimately impairs mitochondrial pyruvate transport to promote glycolysis and cell proliferation.
+    explanation: &gt;-
+      HCC-specific specialization of the generic module claim: work in HCC-derived
+      lines shows loss of mitochondrial pyruvate transport driving the glycolytic
+      shift, and links that shift directly to proliferation.
+  downstream:
+  - target: Enhanced Hepatocyte Proliferation
+    description: &gt;-
+      The glycolytic shift supplies the ATP and biosynthetic carbon that sustain
+      the high proliferative rate; PMID:42520527 reports impaired mitochondrial
+      pyruvate transport promoting glycolysis and cell proliferation together.
 histopathology:
 - name: Hepatocellular Carcinoma
   finding_term:
@@ -8999,23 +9867,43 @@ genetic:
     transcription factors, reactivating telomerase expression and enabling unlimited
     cell division.
 - name: TP53
+  gene_term:
+    preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
   association: Somatic Loss of Function
   notes: &gt;-
     TP53 mutations occur in approximately 30% of HCC, enriched in HBV-associated and
     aflatoxin-associated tumors. The R249S hotspot mutation is specifically associated
     with aflatoxin B1 exposure.
 - name: CTNNB1
+  gene_term:
+    preferred_term: CTNNB1
+    term:
+      id: hgnc:2514
+      label: CTNNB1
   association: Somatic Activating Mutation
   notes: &gt;-
     CTNNB1 (beta-catenin) mutations occur in approximately 30% of HCC, causing constitutive
     WNT pathway activation. Associated with distinct clinical features including
     cholestasis and immune exclusion, potentially affecting immunotherapy response.
 - name: AXIN1
+  gene_term:
+    preferred_term: AXIN1
+    term:
+      id: hgnc:903
+      label: AXIN1
   association: Somatic Loss of Function
   notes: &gt;-
     AXIN1 inactivating mutations occur in approximately 10% of HCC, also activating
     WNT signaling. AXIN1 and CTNNB1 mutations are typically mutually exclusive.
 - name: ARID1A
+  gene_term:
+    preferred_term: ARID1A
+    term:
+      id: hgnc:11110
+      label: ARID1A
   association: Somatic Loss of Function
   notes: &gt;-
     ARID1A mutations affect chromatin remodeling and occur in approximately 10% of
@@ -9289,6 +10177,7 @@ classifications:
   - classification_value: ONCOLOGY_HEMATOLOGY
     evidence:
     - reference: DOI:10.1007/s00330-024-10606-w
+      reference_title: &#34;ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.&#34;
@@ -9296,6 +10185,7 @@ classifications:
   - classification_value: GASTROINTESTINAL
     evidence:
     - reference: DOI:10.1007/s00330-024-10606-w
+      reference_title: &#34;ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.&#34;
@@ -9311,7 +10201,7 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - mechanistic_hypothesis#rpp40_rnase_p_pretrna_mtor_myc_bridge
+  - mechanistic_hypotheses#rpp40_rnase_p_pretrna_mtor_myc_bridge
   - pathophysiology#PI3K/AKT/mTOR Pathway Activation
   - pathophysiology#Enhanced Hepatocyte Proliferation
   rationale: &gt;-
@@ -9516,9 +10406,9 @@ discussions:
       rescue and bidirectional mTOR/MYC epistasis should be attempted only after
       this primary discriminator is met.
     would_support:
-    - mechanistic_hypothesis#rpp40_rnase_p_pretrna_mtor_myc_bridge
+    - mechanistic_hypotheses#rpp40_rnase_p_pretrna_mtor_myc_bridge
     would_refute:
-    - mechanistic_hypothesis#rpp40_rnase_p_pretrna_mtor_myc_bridge
+    - mechanistic_hypotheses#rpp40_rnase_p_pretrna_mtor_myc_bridge
     evidence:
     - reference: PMID:41136609
       reference_title: RNase MRP subunit composition and role in 40S ribosome biogenesis.
@@ -9618,6 +10508,66 @@ discussions:
       This independent HCC-cell result places mTORC1 upstream of a
       ribosome-biogenesis effector and therefore supports the experiment&#39;s
       reverse-direction test. It does not test RPP40, RNase P, or RNase MRP.
+- discussion_id: gap_acaa2_mpc1_acetylation_pyruvate_transport
+  prompt: &gt;-
+    Does ACAA2-dependent mitochondrial acetyl-CoA homeostasis regulate metabolic
+    switching from oxidative phosphorylation to aerobic glycolysis in HCC specifically
+    through MPC1 protein acetylation and proteasomal stability, or do alternative
+    mechanisms of acetyl-CoA-dependent regulation (histone acetylation, other protein
+    targets, non-acetylation sensing) dominate?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Aerobic Glycolysis and Metabolic Reprogramming
+  rationale: &gt;-
+    PMID:42520527 demonstrates that ACAA2 downregulation reduces mitochondrial acetyl-CoA,
+    leading to MPC1 acetylation loss, MPC1 proteasomal degradation, and impaired pyruvate
+    transport with consequent glycolytic shift. However, the paper does not directly
+    measure acetyl-CoA-dependent protein acetylation stoichiometry, does not use
+    acetylation-site-specific MPC1 mutations to establish acetylation as mechanistically
+    sufficient, and does not test proteasomal inhibitors or direct acetyl-CoA supplementation.
+    Alternative explanations remain open: direct allosteric effects of acetyl-CoA on MPC1,
+    ACAA2-FAO support for histone acetylation and epigenetic reprogramming upstream of
+    MPC1, acetylation of autophagy or mitochondrial chaperone machinery affecting MPC1
+    indirectly, and competing acetyl-CoA sources (glutaminolysis, pyruvate carboxylase)
+    that may bypass this pathway.
+  proposed_experiments:
+  - experiment_id: exp_acaa2_acetyl_coa_mpc1_acetylation_causality
+    name: Acetyl-CoA and MPC1 acetylation-site mechanism
+    description: &gt;-
+      Test acetylation-site sufficiency by combining acute ACAA2 depletion, direct
+      acetyl-CoA pathway manipulation (ACS2 inhibition, pyruvate carboxylase inhibition),
+      and MPC1 acetylation-site mutation (K99R or identified sites) in HCC-derived lines
+      (Huh-7, Hep3B). Measure MPC1 acetylation stoichiometry via mass-spec or
+      acetyl-lysine blots, MPC1 protein stability (pulse-chase or proteasomal inhibition),
+      pyruvate oxidation (13C-pyruvate tracing), and glycolytic flux (ATP, ECAR, lactate)
+      to validate the proposed chain. Use catalytically defective ACAA2 variants to
+      distinguish FAO-dependent acetyl-CoA from other ACAA2 functions.
+    experiment_type:
+      preferred_term: protein acetylation and metabolic switching mechanism study
+    model_systems:
+    - name: HCC-derived cell lines with metabolic tracing
+      description: &gt;-
+        Huh-7 and Hep3B lines with 13C-pyruvate tracing to distinguish pyruvate
+        oxidation, glycolytic lactate, alanine synthesis, and anaplerosis under
+        perturbation.
+  evidence:
+  - reference: PMID:42520527
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      While acetyl-CoA acts as a pivotal metabolic molecule involved in protein acetylation, whether ACAA2 regulates metabolic reprogramming through acetyl-CoA-mediated mitochondrial protein acetylation remains unclear.
+    explanation: &gt;-
+      Authors explicitly identify the unresolved role of acetyl-CoA-mediated protein
+      acetylation in ACAA2-dependent metabolic switching, the core of this gap.
+  - reference: PMID:42520527
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      Mounting evidence indicates that metabolic reprogramming contributes substantially to tumor development by promoting cancer cell proliferation and metastasis. However, the underlying mechanisms remain incompletely understood.
+    explanation: &gt;-
+      Establishes the broader mechanistic gap in HCC metabolic reprogramming that
+      this ACAA2-acetyl-CoA-MPC1-pyruvate axis helps address.
 references:
 - reference: DOI:10.1007/s00330-024-10606-w
   title: &#39;ESR Essentials: diagnosis of hepatocellular carcinoma—practice recommendations by ESGAR&#39;
@@ -9989,6 +10939,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1007/s00330-024-10606-w" target="_blank">DOI:10.1007/s00330-024-10606-w</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10057,6 +11008,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s12029-023-00961-0" target="_blank">DOI:10.1007/s12029-023-00961-0</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10127,6 +11079,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1159/000539371" target="_blank">DOI:10.1159/000539371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10196,6 +11149,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1186/s12885-023-11112-w" target="_blank">DOI:10.1186/s12885-023-11112-w</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10264,6 +11218,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12885-024-12407-2" target="_blank">DOI:10.1186/s12885-024-12407-2</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10371,6 +11326,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1186/s12943-024-02062-3" target="_blank">DOI:10.1186/s12943-024-02062-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10439,6 +11395,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1200/jco.23.02745" target="_blank">DOI:10.1200/jco.23.02745</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10657,6 +11614,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3350/cmh.2024.0824" target="_blank">DOI:10.3350/cmh.2024.0824</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10725,6 +11683,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1416295" target="_blank">DOI:10.3389/fphar.2024.1416295</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10795,6 +11754,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/biom14060656" target="_blank">DOI:10.3390/biom14060656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10863,6 +11823,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines12071624" target="_blank">DOI:10.3390/biomedicines12071624</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10933,6 +11894,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16030666" target="_blank">DOI:10.3390/cancers16030666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11001,6 +11963,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16050901" target="_blank">DOI:10.3390/cancers16050901</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11071,6 +12034,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16233933" target="_blank">DOI:10.3390/cancers16233933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11140,6 +12104,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3748/wjg.v30.i19.2488" target="_blank">DOI:10.3748/wjg.v30.i19.2488</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11208,6 +12173,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.4254/wjh.v16.i5.716" target="_blank">DOI:10.4254/wjh.v16.i5.716</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12816,7 +13782,7 @@ Dysplastic nodule ──► Hepatocellular carcinoma ──► vascular invasion
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatocellular_Carcinoma", "yamlRevision": "84fe007fc405"};
+        const OS_CONFIG = {"diseaseName": "Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatocellular_Carcinoma", "yamlRevision": "86ff488ceb1f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13235,5 +14201,73 @@ Dysplastic nodule ──► Hepatocellular carcinoma ──► vascular invasion
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

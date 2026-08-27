@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Acne Vulgaris</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acne Vulgaris</h1>
             <div class="header-meta">
 
@@ -3923,7 +4045,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-polygenic-inheritance">
                 <div class="item-name">
                     Polygenic inheritance
 
@@ -3968,6 +4090,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37662507" target="_blank">PMID:37662507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3989,6 +4112,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23210645" target="_blank">PMID:23210645</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4254,6 +4378,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s13555-023-01079-8" target="_blank">DOI:10.1007/s13555-023-01079-8</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4409,6 +4534,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40689430" target="_blank">PMID:40689430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4430,6 +4556,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/GEO:GSE301280" target="_blank">GEO:GSE301280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4536,6 +4663,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40689430" target="_blank">PMID:40689430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4558,6 +4686,7 @@
                         <a href="https://bioregistry.io/GEO:GSE301280" target="_blank">GEO:GSE301280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4579,6 +4708,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24062871" target="_blank">PMID:24062871</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4636,18 +4766,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4664,18 +4796,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         sebocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000317" target="_blank" class="curie-chip curie-chip-cl">CL:0000317</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000317" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000317</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4706,18 +4840,20 @@ This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pilosebaceous unit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0011932</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0011932</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4785,6 +4921,7 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                         <a href="https://bioregistry.io/GEO:GSE301280" target="_blank">GEO:GSE301280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4806,6 +4943,7 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40689430" target="_blank">PMID:40689430</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4858,18 +4996,20 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         sebocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000317" target="_blank" class="curie-chip curie-chip-cl">CL:0000317</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000317" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000317</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4897,18 +5037,20 @@ This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4932,18 +5074,20 @@ This pathophysiological event involves lipid metabolic process (GO:0006629). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in sebaceous gland (UBERON:0001821). UBERON:0001821 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         sebaceous gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001821" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001821</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001821" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001821</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in sebaceous gland (UBERON:0001821). UBERON:0001821 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4999,6 +5143,7 @@ This pathophysiological event occurs in sebaceous gland (UBERON:0001821). UBERON
                         <a href="https://bioregistry.io/GEO:GSE301280" target="_blank">GEO:GSE301280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5020,6 +5165,7 @@ This pathophysiological event occurs in sebaceous gland (UBERON:0001821). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32748305" target="_blank">PMID:32748305</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5072,18 +5218,20 @@ This pathophysiological event occurs in sebaceous gland (UBERON:0001821). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5111,18 +5259,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         keratinization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go">GO:0031424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0031424</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5146,18 +5296,20 @@ This pathophysiological event involves keratinization (GO:0031424). GO:0031424 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pilosebaceous unit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0011932</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0011932</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5213,6 +5365,7 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32748305" target="_blank">PMID:32748305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5267,18 +5420,20 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pilosebaceous unit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0011932</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0011932</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5327,6 +5482,7 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                         <a href="https://bioregistry.io/DOI:10.1007/s13555-023-01079-8" target="_blank">DOI:10.1007/s13555-023-01079-8</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5348,6 +5504,7 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s13555-023-01079-8" target="_blank">DOI:10.1007/s13555-023-01079-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5400,18 +5557,20 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5428,18 +5587,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         sebocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000317" target="_blank" class="curie-chip curie-chip-cl">CL:0000317</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000317" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000317</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5456,18 +5617,20 @@ This pathophysiological event involves sebocyte (CL:0000317). CL:0000317 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5495,18 +5658,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5530,18 +5695,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pilosebaceous unit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0011932</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0011932" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0011932</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBERON:0011932 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5673,6 +5840,7 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24820890" target="_blank">PMID:24820890</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5694,6 +5862,7 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24062871" target="_blank">PMID:24062871</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5746,18 +5915,20 @@ This pathophysiological event occurs in pilosebaceous unit (UBERON:0011932). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5781,18 +5952,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         dermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002067</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002067</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5859,6 +6032,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16092795" target="_blank">PMID:16092795</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5948,16 +6122,22 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Comedonal acne</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040137" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0040137</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is comedonal acne (HP:0040137). HP:0040137 is a phenotype from the Human Phenotype Ontology.">
-                        Comedonal acne
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040137" target="_blank" class="curie-chip curie-chip-hp">HP:0040137</a>
-
-
+This clinical feature is comedonal acne (HP:0040137). HP:0040137 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5977,6 +6157,7 @@ This clinical feature is comedonal acne (HP:0040137). HP:0040137 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40689430" target="_blank">PMID:40689430</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6010,16 +6191,20 @@ This clinical feature is comedonal acne (HP:0040137). HP:0040137 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0200039</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.">
-                        Pustule
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp">HP:0200039</a>
-
-
+This clinical feature is pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6039,6 +6224,7 @@ This clinical feature is pustule (HP:0200039). HP:0200039 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40689430" target="_blank">PMID:40689430</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6072,16 +6258,22 @@ This clinical feature is pustule (HP:0200039). HP:0200039 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Cystic acne</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033188" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0033188</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is cystic acne (HP:0033188). HP:0033188 is a phenotype from the Human Phenotype Ontology.">
-                        Cystic acne
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033188" target="_blank" class="curie-chip curie-chip-hp">HP:0033188</a>
-
-
+This clinical feature is cystic acne (HP:0033188). HP:0033188 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6101,6 +6293,7 @@ This clinical feature is cystic acne (HP:0033188). HP:0033188 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21062102" target="_blank">PMID:21062102</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6143,16 +6336,22 @@ This clinical feature is cystic acne (HP:0033188). HP:0033188 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Erythematous papule</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030350</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is erythematous papule (HP:0030350). HP:0030350 is a phenotype from the Human Phenotype Ontology.">
-                        Erythematous papule
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp">HP:0030350</a>
-
-
+This clinical feature is erythematous papule (HP:0030350). HP:0030350 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6172,6 +6371,7 @@ This clinical feature is erythematous papule (HP:0030350). HP:0030350 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40689430" target="_blank">PMID:40689430</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6205,16 +6405,22 @@ This clinical feature is erythematous papule (HP:0030350). HP:0030350 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperpigmentation of the skin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000953</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperpigmentation of the skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp">HP:0000953</a>
-
-
+This clinical feature is hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6234,6 +6440,7 @@ This clinical feature is hyperpigmentation of the skin (HP:0000953). HP:0000953 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34468934" target="_blank">PMID:34468934</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6267,16 +6474,22 @@ This clinical feature is hyperpigmentation of the skin (HP:0000953). HP:0000953 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Atrophic scars</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001075</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is atrophic scars (HP:0001075). HP:0001075 is a phenotype from the Human Phenotype Ontology.">
-                        Atrophic scars
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp">HP:0001075</a>
-
-
+This clinical feature is atrophic scars (HP:0001075). HP:0001075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6296,6 +6509,7 @@ This clinical feature is atrophic scars (HP:0001075). HP:0001075 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29344322" target="_blank">PMID:29344322</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6359,6 +6573,9 @@ This clinical feature is atrophic scars (HP:0001075). HP:0001075 is a phenotype 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6375,18 +6592,18 @@ This clinical feature is atrophic scars (HP:0001075). HP:0001075 is a phenotype 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">retinoid agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">retinoid agent therapy</span>
+This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6411,18 +6628,20 @@ This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses retinoid (CHEBI:26537). CHEBI:26537 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         retinoid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_26537" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:26537</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_26537" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:26537</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses retinoid (CHEBI:26537). CHEBI:26537 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6456,6 +6675,7 @@ This treatment uses retinoid (CHEBI:26537). CHEBI:26537 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36927117" target="_blank">PMID:36927117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6498,6 +6718,7 @@ This treatment uses retinoid (CHEBI:26537). CHEBI:26537 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6528,18 +6749,18 @@ This treatment uses retinoid (CHEBI:26537). CHEBI:26537 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">antimicrobial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">antimicrobial agent therapy</span>
+This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6564,18 +6785,20 @@ This treatment is antimicrobial agent therapy, annotated with Pharmacotherapy (N
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses benzoyl peroxide (NCIT:C47411). NCIT:C47411 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         benzoyl peroxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47411" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C47411</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47411" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C47411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses benzoyl peroxide (NCIT:C47411). NCIT:C47411 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6609,6 +6832,7 @@ This treatment uses benzoyl peroxide (NCIT:C47411). NCIT:C47411 is a therapeutic
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s13555-023-01079-8" target="_blank">DOI:10.1007/s13555-023-01079-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6651,6 +6875,7 @@ This treatment uses benzoyl peroxide (NCIT:C47411). NCIT:C47411 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6681,17 +6906,17 @@ This treatment uses benzoyl peroxide (NCIT:C47411). NCIT:C47411 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Antibiotic Therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">Antibiotic Therapy</span>
+This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -6716,18 +6941,20 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         antibiotic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C258" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C258</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C258" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C258</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6753,6 +6980,7 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6774,6 +7002,7 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6805,17 +7034,17 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Antibiotic Therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">Antibiotic Therapy</span>
+This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -6840,18 +7069,20 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6877,6 +7108,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6898,6 +7130,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36568833" target="_blank">PMID:36568833</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6929,18 +7162,18 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">retinoid agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">retinoid agent therapy</span>
+This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6965,18 +7198,20 @@ This treatment is retinoid agent therapy, annotated with Pharmacotherapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         isotretinoin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C603" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C603</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C603" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7010,6 +7245,7 @@ This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20482692" target="_blank">PMID:20482692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7056,6 +7292,7 @@ This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20482692" target="_blank">PMID:20482692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7097,6 +7334,7 @@ This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7127,18 +7365,18 @@ This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">combined oral contraceptive therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is combined oral contraceptive therapy, annotated with Hormonal Contraception (NCIT:C92808). NCIT:C92808 is a clinical intervention from the NCI Thesaurus.">combined oral contraceptive therapy</span>
+This treatment is combined oral contraceptive therapy, annotated with Hormonal Contraception (NCIT:C92808). NCIT:C92808 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormonal Contraception</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C92808" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is combined oral contraceptive therapy, annotated with Hormonal Contraception (NCIT:C92808). NCIT:C92808 is a clinical intervention from the NCI Thesaurus.">NCIT:C92808</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92808" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C92808">NCIT:C92808</a>
 
 
 
@@ -7163,18 +7401,20 @@ This treatment is combined oral contraceptive therapy, annotated with Hormonal C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         oral contraceptive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C389" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C389</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C389" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7208,6 +7448,7 @@ This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28492054" target="_blank">PMID:28492054</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7250,6 +7491,7 @@ This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7280,17 +7522,17 @@ This treatment uses oral contraceptive (NCIT:C389). NCIT:C389 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7315,18 +7557,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         spironolactone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:9241</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7360,6 +7604,7 @@ This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28492054" target="_blank">PMID:28492054</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7402,6 +7647,7 @@ This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7432,17 +7678,17 @@ This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7467,18 +7713,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         azelaic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47407" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C47407</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47407" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C47407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7503,6 +7751,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300170" target="_blank">PMID:38300170</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7542,6 +7791,33 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
             <div class="item-box environmental-box anchor-target" id="environmental-high-glycemic-load-diet" data-dismech-node="High-Glycemic-Load Diet" data-dismech-type="environmental">
                 <div class="item-name">High-Glycemic-Load Diet</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        high dietary glycemic load
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000162" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-40">ECTO:9000162</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is increased high dietary glycemic load, annotated with exposure to carbohydrate (ECTO:9000162). ECTO:9000162 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">High glycemic load may modify acne severity through insulin/IGF-1-related signaling, but intervention evidence is limited and diet is not a necessary cause of acne.</div>
@@ -7559,6 +7835,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32748305" target="_blank">PMID:32748305</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7581,6 +7858,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23210645" target="_blank">PMID:23210645</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7631,6 +7909,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32748305" target="_blank">PMID:32748305</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7652,6 +7931,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23210645" target="_blank">PMID:23210645</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7685,6 +7965,10 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
 
 
 
+
+
+
+
                 <div class="item-desc">Dairy intake has observational associations with acne, and insulinotropic whey proteins are a proposed mechanism; heterogeneity and confounding leave the magnitude and causality uncertain.</div>
 
 
@@ -7700,6 +7984,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32748305" target="_blank">PMID:32748305</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7722,6 +8007,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23210645" target="_blank">PMID:23210645</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7772,6 +8058,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32748305" target="_blank">PMID:32748305</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7793,6 +8080,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23210645" target="_blank">PMID:23210645</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7824,6 +8112,33 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
             <div class="item-box environmental-box anchor-target" id="environmental-psychological-stress" data-dismech-node="Psychological Stress" data-dismech-type="environmental">
                 <div class="item-name">Psychological Stress</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-41">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Psychological stress is associated with onset or exacerbation through incompletely resolved cutaneous neuroimmune pathways.</div>
@@ -7841,6 +8156,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28871928" target="_blank">PMID:28871928</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7891,6 +8207,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28871928" target="_blank">PMID:28871928</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7938,7 +8255,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-rosacea">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Rosacea.html">Rosacea</a>
@@ -7985,6 +8302,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8010,7 +8328,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-folliculitis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Folliculitis.html">Folliculitis</a>
@@ -8057,6 +8375,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12113648" target="_blank">PMID:12113648</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8092,7 +8411,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse301280">
                 <div class="item-name">
                     Spatial transcriptomics reveals dysfunctional lipid metabolism and abnormal pilosebaceous differentiation in acne vulgaris
 
@@ -8153,6 +8472,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="https://bioregistry.io/GEO:GSE301280" target="_blank">GEO:GSE301280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8176,7 +8496,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse315350">
                 <div class="item-name">
                     Microbiome-Derived Indole-3-lactic Acid Attenuates Cutibacterium acnes-Induced Inflammation via the Aryl Hydrocarbon Receptor Pathway
 
@@ -8235,6 +8555,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="https://bioregistry.io/GEO:GSE315350" target="_blank">GEO:GSE315350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8258,7 +8579,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse292394">
                 <div class="item-name">
                     High-Resolution Spatial Map of the Human Facial Sebaceous Gland Reveals Marker Genes and Decodes Sebocyte Differentiation [MERFISH]
 
@@ -8311,6 +8632,7 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
                         <a href="https://bioregistry.io/GEO:GSE292394" target="_blank">GEO:GSE292394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8362,7 +8684,6 @@ This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic age
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acne Vulgaris
 creation_date: &#39;2026-01-23T23:13:39Z&#39;
-updated_date: &#39;2026-07-19T00:00:00Z&#39;
 description: &gt;-
   Acne vulgaris is a chronic inflammatory disorder of the pilosebaceous unit,
   usually affecting the face and trunk, that produces comedones with variable
@@ -8933,6 +9254,12 @@ phenotypes:
     explanation: The review identifies atrophic scars as the predominant acne-scar morphology.
 environmental:
 - name: High-Glycemic-Load Diet
+  exposure_term:
+    preferred_term: high dietary glycemic load
+    modifier: INCREASED
+    term:
+      id: ECTO:9000162
+      label: exposure to carbohydrate
   influences_mechanisms:
   - target: Lesion-Context-Dependent Sebaceous Lipid Dysregulation
     environmental_effect: EXACERBATES
@@ -9031,6 +9358,11 @@ environmental:
     snippet: &#34;A possible association between dairy food intake and acne requires closer scrutiny.&#34;
     explanation: The epidemiology review explicitly qualifies the dairy association as unresolved.
 - name: Psychological Stress
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   influences_mechanisms:
   - target: Early and Sustained Pilosebaceous Inflammation
     environmental_effect: EXACERBATES
@@ -10313,7 +10645,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acne Vulgaris", "mondoId": "MONDO:0011438", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acne_Vulgaris", "yamlRevision": "0d0abdf663da"};
+        const OS_CONFIG = {"diseaseName": "Acne Vulgaris", "mondoId": "MONDO:0011438", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acne_Vulgaris", "yamlRevision": "d7b762063e95"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10732,5 +11064,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

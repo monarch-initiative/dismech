@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>NAGA Deficiency Type 3</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>NAGA Deficiency Type 3</h1>
             <div class="header-meta">
 
@@ -3894,6 +4016,142 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="An inborn error of metabolism (lysosomal storage disorder) arising from alpha-N-acetylgalactosaminidase deficiency.">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification" title="The intermediate (type 3) phenotype is dominated by neurological features - epilepsy, behavioural difficulties and psychomotor retardation.">NEUROLOGIC</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Lysosomal Storage</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-mechanistic" title="Schindler disease is a glycoproteinosis (oligosaccharidosis): loss of alpha-N-acetylgalactosaminidase blocks the terminal step of glycoconjugate catabolism, so incompletely degraded oligosaccharides and glycopeptides accumulate.">glycoproteinosis</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of glycoprotein degradation&#34; under category &#34;Disorders of complex molecule degradation&#34;. NAGA deficiency (Schindler/Kanzaki disease) is one of the oligosaccharidoses/glycoproteinoses - the block is in removal of terminal alpha-N-acetylgalactosamine from glycoconjugates.">glycoprotein degradation</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
         <div class="card" id="mappings">
@@ -3962,7 +4220,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4004,6 +4262,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31890708" target="_blank">PMID:31890708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4067,17 +4326,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NAGA (hgnc:7631). hgnc:7631 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NAGA
 
 
-    <a href="https://bioregistry.io/hgnc:7631" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7631</a>
+    <a href="https://bioregistry.io/hgnc:7631" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7631</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NAGA (hgnc:7631). hgnc:7631 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4106,18 +4369,20 @@ This pathophysiological event involves NAGA (hgnc:7631). hgnc:7631 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycoprotein catabolic process (GO:0006516). GO:0006516 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycoprotein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006516" target="_blank" class="curie-chip curie-chip-go">GO:0006516</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006516" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycoprotein catabolic process (GO:0006516). GO:0006516 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4175,6 +4440,7 @@ This pathophysiological event involves decreased glycoprotein catabolic process 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14685826" target="_blank">PMID:14685826</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4208,18 +4474,20 @@ This pathophysiological event involves decreased glycoprotein catabolic process 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4352,6 +4620,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11313741" target="_blank">PMID:11313741</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4446,16 +4715,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0001639</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertrophic cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp">HP:0001639</a>
-
-
+This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4475,6 +4748,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79281" target="_blank">ORPHA:79281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4517,16 +4791,20 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4546,6 +4824,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79281" target="_blank">ORPHA:79281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4588,16 +4867,22 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Developmental cataract</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000519</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congenital cataract, annotated with Developmental cataract (HP:0000519). HP:0000519 is a phenotype from the Human Phenotype Ontology.">
-                        Developmental cataract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp">HP:0000519</a>
-
-
+This clinical feature is Congenital cataract, annotated with Developmental cataract (HP:0000519). HP:0000519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4617,6 +4902,7 @@ This clinical feature is Congenital cataract, annotated with Developmental catar
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11313741" target="_blank">PMID:11313741</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4650,16 +4936,20 @@ This clinical feature is Congenital cataract, annotated with Developmental catar
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.">
-                        Strabismus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp">HP:0000486</a>
-
-
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4679,6 +4969,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79281" target="_blank">ORPHA:79281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4721,16 +5012,20 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4750,6 +5045,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11313741" target="_blank">PMID:11313741</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4783,16 +5079,22 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4812,6 +5114,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11313741" target="_blank">PMID:11313741</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4845,16 +5148,20 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000717</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.">
-                        Autism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp">HP:0000717</a>
-
-
+This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4874,6 +5181,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79281" target="_blank">ORPHA:79281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4907,16 +5215,22 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4936,6 +5250,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11313741" target="_blank">PMID:11313741</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4969,16 +5284,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4998,6 +5317,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79281" target="_blank">ORPHA:79281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5040,16 +5360,22 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal nervous system physiology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012638</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal nervous system physiology (HP:0012638). HP:0012638 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal nervous system physiology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012638" target="_blank" class="curie-chip curie-chip-hp">HP:0012638</a>
-
-
+This clinical feature is Abnormal nervous system physiology (HP:0012638). HP:0012638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5069,6 +5395,7 @@ This clinical feature is Abnormal nervous system physiology (HP:0012638). HP:001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31890708" target="_blank">PMID:31890708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5148,15 +5475,17 @@ This clinical feature is Abnormal nervous system physiology (HP:0012638). HP:001
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NAGA
 
 
-    <a href="https://bioregistry.io/hgnc:7631" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7631</a>
+    <a href="https://bioregistry.io/hgnc:7631" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:7631</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5177,6 +5506,7 @@ This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11313741" target="_blank">PMID:11313741</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5215,15 +5545,17 @@ This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NAGA
 
 
-    <a href="https://bioregistry.io/hgnc:7631" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7631</a>
+    <a href="https://bioregistry.io/hgnc:7631" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:7631</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5244,6 +5576,7 @@ This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11313741" target="_blank">PMID:11313741</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5275,6 +5608,9 @@ This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5291,18 +5627,18 @@ This disease-associated gene is NAGA (hgnc:7631). hgnc:7631 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5343,6 +5679,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31890708" target="_blank">PMID:31890708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5407,6 +5744,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31890708" target="_blank">PMID:31890708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5495,6 +5833,43 @@ mappings:
     mapping_source: MONDO
 parents:
 - Lysosomal Storage Disorder
+classifications:
+  harrisons_chapter:
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+    notes: &gt;-
+      An inborn error of metabolism (lysosomal storage disorder) arising from
+      alpha-N-acetylgalactosaminidase deficiency.
+  - classification_value: NEUROLOGIC
+    notes: &gt;-
+      The intermediate (type 3) phenotype is dominated by neurological
+      features - epilepsy, behavioural difficulties and psychomotor
+      retardation.
+  icimd_category:
+  - classification_value: glycoprotein_degradation
+    notes: &gt;-
+      ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of
+      glycoprotein degradation&#34; under category &#34;Disorders of complex molecule
+      degradation&#34;. NAGA deficiency (Schindler/Kanzaki disease) is one of the
+      oligosaccharidoses/glycoproteinoses - the block is in removal of terminal
+      alpha-N-acetylgalactosamine from glycoconjugates.
+  lysosomal_storage_category:
+    classification_value: glycoproteinosis
+    notes: &gt;-
+      Schindler disease is a glycoproteinosis (oligosaccharidosis): loss of
+      alpha-N-acetylgalactosaminidase blocks the terminal step of
+      glycoconjugate catabolism, so incompletely degraded oligosaccharides and
+      glycopeptides accumulate.
+    evidence:
+    - reference: PMID:31890708
+      reference_title: &#34;A New Case of Schindler Disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In addition, urine tests can identify glycopeptiduria, as in Fabry disease.&#34;
+      explanation: &gt;-
+        Glycopeptiduria identifies the accumulating and excreted material as
+        glycopeptides, supporting classification with the
+        glycoproteinoses/oligosaccharidoses rather than with the
+        sphingolipidoses or mucopolysaccharidoses.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -5640,6 +6015,7 @@ phenotypes:
       label: Autism
   evidence:
   - reference: ORPHA:79281
+    reference_title: &#34;Alpha-N-acetylgalactosaminidase deficiency type 3&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0000717 | Autism | Very frequent (99-80%)&#34;
@@ -5667,6 +6043,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:79281
+    reference_title: &#34;Alpha-N-acetylgalactosaminidase deficiency type 3&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001249 | Intellectual disability | Very frequent (99-80%)&#34;
@@ -5694,6 +6071,7 @@ phenotypes:
       label: Strabismus
   evidence:
   - reference: ORPHA:79281
+    reference_title: &#34;Alpha-N-acetylgalactosaminidase deficiency type 3&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0000486 | Strabismus | Very frequent (99-80%)&#34;
@@ -5707,6 +6085,7 @@ phenotypes:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: ORPHA:79281
+    reference_title: &#34;Alpha-N-acetylgalactosaminidase deficiency type 3&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001639 | Hypertrophic cardiomyopathy | Frequent (79-30%)&#34;
@@ -5720,6 +6099,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: ORPHA:79281
+    reference_title: &#34;Alpha-N-acetylgalactosaminidase deficiency type 3&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0002240 | Hepatomegaly | Frequent (79-30%)&#34;
@@ -5762,6 +6142,11 @@ genetic:
     explanation: Supports a modifier contribution to the variable type 3 phenotype.
 biochemical:
 - name: Glycopeptiduria and oligosacchariduria
+  biomarker_term:
+    preferred_term: urinary glycopeptides
+    term:
+      id: CHEBI:24396
+      label: glycopeptide
   presence: INCREASED
   context: &gt;-
     Urinary excretion of incompletely degraded glycopeptides / oligosaccharides reflecting
@@ -6893,7 +7278,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "NAGA Deficiency Type 3", "mondoId": "MONDO:0019264", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "NAGA_Deficiency_Type_3", "yamlRevision": "65e8cd245ad8"};
+        const OS_CONFIG = {"diseaseName": "NAGA Deficiency Type 3", "mondoId": "MONDO:0019264", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "NAGA_Deficiency_Type_3", "yamlRevision": "cb640f3ebf64"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7312,5 +7697,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

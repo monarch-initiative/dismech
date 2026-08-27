@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Hand-Foot-Genital Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hand-Foot-Genital Syndrome</h1>
             <div class="header-meta">
 
@@ -3882,6 +4004,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3891,9 +4083,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 38 &#34;Brachydactylies (with extraskeletal manifestations)&#34;; listed as &#34;Hand-foot-genital syndrome&#34;.">brachydactyly with extraskeletal manifestations</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3911,7 +4119,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3938,6 +4146,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4002,18 +4211,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326). GO:0030326 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Embryonic Limb Morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go">GO:0030326</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0030326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326). GO:0030326 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4030,18 +4241,20 @@ This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326)
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Regionalization (GO:0003002). GO:0003002 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Regionalization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003002" target="_blank" class="curie-chip curie-chip-go">GO:0003002</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003002" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Regionalization (GO:0003002). GO:0003002 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4111,6 +4324,7 @@ This pathophysiological event involves Regionalization (GO:0003002). GO:0003002 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4131,6 +4345,7 @@ This pathophysiological event involves Regionalization (GO:0003002). GO:0003002 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10839976" target="_blank">PMID:10839976</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4150,6 +4365,7 @@ This pathophysiological event involves Regionalization (GO:0003002). GO:0003002 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10839976" target="_blank">PMID:10839976</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4190,18 +4406,20 @@ This pathophysiological event involves Regionalization (GO:0003002). GO:0003002 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Uterus Development (GO:0060065). GO:0060065 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Uterus Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060065" target="_blank" class="curie-chip curie-chip-go">GO:0060065</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060065" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0060065</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Uterus Development (GO:0060065). GO:0060065 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4262,6 +4480,7 @@ This pathophysiological event involves Uterus Development (GO:0060065). GO:00600
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4349,16 +4568,20 @@ This pathophysiological event involves Uterus Development (GO:0060065). GO:00600
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000813" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000813</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bicornuate uterus (HP:0000813). HP:0000813 is a phenotype from the Human Phenotype Ontology.">
-                        Bicornuate uterus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000813" target="_blank" class="curie-chip curie-chip-hp">HP:0000813</a>
-
-
+This clinical feature is Bicornuate uterus (HP:0000813). HP:0000813 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4378,6 +4601,7 @@ This clinical feature is Bicornuate uterus (HP:0000813). HP:0000813 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4409,16 +4633,20 @@ This clinical feature is Bicornuate uterus (HP:0000813). HP:0000813 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000047</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype from the Human Phenotype Ontology.">
-                        Hypospadias
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp">HP:0000047</a>
-
-
+This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4438,6 +4666,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4478,16 +4707,22 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Short metacarpal</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0010049</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotype from the Human Phenotype Ontology.">
-                        Short metacarpal
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp">HP:0010049</a>
-
-
+This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4507,6 +4742,7 @@ This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4538,16 +4774,20 @@ This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009778" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0009778</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype from the Human Phenotype Ontology.">
-                        Short thumb
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009778" target="_blank" class="curie-chip curie-chip-hp">HP:0009778</a>
-
-
+This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4567,6 +4807,7 @@ This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4598,16 +4839,20 @@ This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010109" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0010109</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short hallux (HP:0010109). HP:0010109 is a phenotype from the Human Phenotype Ontology.">
-                        Short hallux
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010109" target="_blank" class="curie-chip curie-chip-hp">HP:0010109</a>
-
-
+This clinical feature is Short hallux (HP:0010109). HP:0010109 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4627,6 +4872,7 @@ This clinical feature is Short hallux (HP:0010109). HP:0010109 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4714,6 +4960,7 @@ This clinical feature is Short hallux (HP:0010109). HP:0010109 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9020844" target="_blank">PMID:9020844</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4734,6 +4981,7 @@ This clinical feature is Short hallux (HP:0010109). HP:0010109 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10839976" target="_blank">PMID:10839976</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4753,6 +5001,7 @@ This clinical feature is Short hallux (HP:0010109). HP:0010109 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19591980" target="_blank">PMID:19591980</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4791,15 +5040,17 @@ This clinical feature is Short hallux (HP:0010109). HP:0010109 is a phenotype fr
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HOXA13 (hgnc:5102). hgnc:5102 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HOXA13
 
 
-    <a href="https://bioregistry.io/hgnc:5102" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5102</a>
+    <a href="https://bioregistry.io/hgnc:5102" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:5102</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HOXA13 (hgnc:5102). hgnc:5102 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4820,6 +5071,7 @@ This disease-associated gene is HOXA13 (hgnc:5102). hgnc:5102 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_a138effd-f406-4791-b0eb-1f7f89c381d7-2025-07-22T160000.000Z" target="_blank">CGGV:assertion_a138effd-f406-4791-b0eb-1f7f89c381d7-2025-07-22T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4851,6 +5103,9 @@ This disease-associated gene is HOXA13 (hgnc:5102). hgnc:5102 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4867,18 +5122,18 @@ This disease-associated gene is HOXA13 (hgnc:5102). hgnc:5102 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -4919,17 +5174,17 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5005,7 +5260,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 synonyms:
 - Hand-foot-genital syndrome, HOXA13-related
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-05-09T04:07:20Z&#39;
 category: Mendelian
 description: &gt;
   Hand-foot-genital syndrome (HFGS) is an autosomal dominant, fully penetrant
@@ -5052,6 +5306,7 @@ prevalence:
     autosomal dominant syndrome.
   evidence:
   - reference: PMID:36702441
+    reference_title: &#34;Hand-foot-genital syndrome due to a duplication variant in the GC-rich region of HOXA13.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;BACKGROUND: Hand-Foot-Genital Syndrome (HFGS) is an autosomal dominant disorder characterized by a broad phenotypic spectrum. Variants in HOXA13 gene were associated with HFGS. To date, only twenty families with HFGS have been reported.&#34;
@@ -5417,6 +5672,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.10776" target="_blank">DOI:10.1002/ajmg.10776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5485,6 +5741,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.35843" target="_blank">DOI:10.1002/ajmg.a.35843</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5555,6 +5812,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.36648" target="_blank">DOI:10.1002/ajmg.a.36648</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5623,6 +5881,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.37478" target="_blank">DOI:10.1002/ajmg.a.37478</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6301,7 +6560,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hand-Foot-Genital Syndrome", "mondoId": "MONDO:0007698", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hand-Foot-Genital_Syndrome", "yamlRevision": "34189b405eaf"};
+        const OS_CONFIG = {"diseaseName": "Hand-Foot-Genital Syndrome", "mondoId": "MONDO:0007698", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hand-Foot-Genital_Syndrome", "yamlRevision": "a6e589980c83"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6720,5 +6979,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

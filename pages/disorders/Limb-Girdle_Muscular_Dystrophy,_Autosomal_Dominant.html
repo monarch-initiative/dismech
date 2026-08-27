@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Limb-Girdle Muscular Dystrophy, Autosomal Dominant</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Limb-Girdle Muscular Dystrophy, Autosomal Dominant</h1>
             <div class="header-meta">
 
@@ -3905,7 +4027,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3949,6 +4071,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39215466" target="_blank">PMID:39215466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4011,7 +4134,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lgmd-d1">
 
                     <div class="item-name">
                         LGMD-D1 (DNAJB6-related)
@@ -4047,6 +4170,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31034989" target="_blank">PMID:31034989</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4073,7 +4197,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lgmd-d2">
 
                     <div class="item-name">
                         LGMD-D2 (TNPO3-related)
@@ -4109,6 +4233,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32690349" target="_blank">PMID:32690349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4135,7 +4260,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lgmd-d3">
 
                     <div class="item-name">
                         LGMD-D3 (HNRNPDL-related)
@@ -4171,6 +4296,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30604053" target="_blank">PMID:30604053</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4197,7 +4323,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lgmd-d4">
 
                     <div class="item-name">
                         LGMD-D4 (CAPN3-related, dominant)
@@ -4232,6 +4358,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4288,18 +4415,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4327,17 +4456,21 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DNAJB6 (hgnc:14888). hgnc:14888 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DNAJB6
 
 
-    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14888</a>
+    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:14888</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAJB6 (hgnc:14888). hgnc:14888 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4366,18 +4499,20 @@ This pathophysiological event involves DNAJB6 (hgnc:14888). hgnc:14888 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein quality control for misfolded or incompletely synthesized proteins (GO:0006515). GO:0006515 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein quality control for misfolded or incompletely synthesized proteins
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006515" target="_blank" class="curie-chip curie-chip-go">GO:0006515</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006515" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein quality control for misfolded or incompletely synthesized proteins (GO:0006515). GO:0006515 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4398,18 +4533,20 @@ This pathophysiological event involves decreased protein quality control for mis
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sarcomere organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sarcomere organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0045214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sarcomere organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4467,6 +4604,7 @@ This pathophysiological event involves decreased sarcomere organization (GO:0045
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26362252" target="_blank">PMID:26362252</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4488,6 +4626,7 @@ This pathophysiological event involves decreased sarcomere organization (GO:0045
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37346979" target="_blank">PMID:37346979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4522,18 +4661,20 @@ This pathophysiological event involves decreased sarcomere organization (GO:0045
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4561,17 +4702,21 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TNPO3 (hgnc:17103). hgnc:17103 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TNPO3
 
 
-    <a href="https://bioregistry.io/hgnc:17103" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17103</a>
+    <a href="https://bioregistry.io/hgnc:17103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:17103</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNPO3 (hgnc:17103). hgnc:17103 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4600,18 +4745,20 @@ This pathophysiological event involves TNPO3 (hgnc:17103). hgnc:17103 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein import into nucleus (GO:0006606). GO:0006606 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein import into nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006606" target="_blank" class="curie-chip curie-chip-go">GO:0006606</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006606" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006606</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein import into nucleus (GO:0006606). GO:0006606 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4632,18 +4779,20 @@ This pathophysiological event involves decreased protein import into nucleus (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mRNA processing (GO:0006397). GO:0006397 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mRNA processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006397" target="_blank" class="curie-chip curie-chip-go">GO:0006397</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006397" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006397</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mRNA processing (GO:0006397). GO:0006397 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4701,6 +4850,7 @@ This pathophysiological event involves decreased mRNA processing (GO:0006397). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32690349" target="_blank">PMID:32690349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4734,18 +4884,20 @@ This pathophysiological event involves decreased mRNA processing (GO:0006397). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4773,17 +4925,21 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HNRNPDL (hgnc:5037). hgnc:5037 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HNRNPDL
 
 
-    <a href="https://bioregistry.io/hgnc:5037" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5037</a>
+    <a href="https://bioregistry.io/hgnc:5037" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:5037</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HNRNPDL (hgnc:5037). hgnc:5037 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4812,18 +4968,20 @@ This pathophysiological event involves HNRNPDL (hgnc:5037). hgnc:5037 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mRNA processing (GO:0006397). GO:0006397 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mRNA processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006397" target="_blank" class="curie-chip curie-chip-go">GO:0006397</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006397" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006397</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mRNA processing (GO:0006397). GO:0006397 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4881,6 +5039,7 @@ This pathophysiological event involves decreased mRNA processing (GO:0006397). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36646699" target="_blank">PMID:36646699</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4903,6 +5062,7 @@ This pathophysiological event involves decreased mRNA processing (GO:0006397). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36646699" target="_blank">PMID:36646699</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4924,6 +5084,7 @@ This pathophysiological event involves decreased mRNA processing (GO:0006397). G
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30604053" target="_blank">PMID:30604053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4958,18 +5119,20 @@ This pathophysiological event involves decreased mRNA processing (GO:0006397). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4997,17 +5160,21 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CAPN3 (hgnc:1480). hgnc:1480 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CAPN3
 
 
-    <a href="https://bioregistry.io/hgnc:1480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1480</a>
+    <a href="https://bioregistry.io/hgnc:1480" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:1480</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CAPN3 (hgnc:1480). hgnc:1480 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5036,18 +5203,20 @@ This pathophysiological event involves CAPN3 (hgnc:1480). hgnc:1480 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sarcomere organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sarcomere organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0045214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sarcomere organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5105,6 +5274,7 @@ This pathophysiological event involves decreased sarcomere organization (GO:0045
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5126,6 +5296,7 @@ This pathophysiological event involves decreased sarcomere organization (GO:0045
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39215466" target="_blank">PMID:39215466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5160,18 +5331,20 @@ This pathophysiological event involves decreased sarcomere organization (GO:0045
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5188,18 +5361,20 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle satellite cell (CL:0000594). CL:0000594 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle satellite cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000594" target="_blank" class="curie-chip curie-chip-cl">CL:0000594</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000594" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000594</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle satellite cell (CL:0000594). CL:0000594 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5227,18 +5402,20 @@ This pathophysiological event involves skeletal muscle satellite cell (CL:000059
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased skeletal muscle tissue regeneration (GO:0043403). GO:0043403 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         skeletal muscle tissue regeneration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043403" target="_blank" class="curie-chip curie-chip-go">GO:0043403</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043403" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0043403</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased skeletal muscle tissue regeneration (GO:0043403). GO:0043403 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5280,6 +5457,7 @@ This pathophysiological event involves decreased skeletal muscle tissue regenera
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39215466" target="_blank">PMID:39215466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5371,16 +5549,22 @@ This pathophysiological event involves decreased skeletal muscle tissue regenera
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003236</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated serum creatine kinase, annotated with Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating creatine kinase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp">HP:0003236</a>
-
-
+This clinical feature is Elevated serum creatine kinase, annotated with Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5400,6 +5584,7 @@ This clinical feature is Elevated serum creatine kinase, annotated with Elevated
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39215466" target="_blank">PMID:39215466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5442,16 +5627,20 @@ This clinical feature is Elevated serum creatine kinase, annotated with Elevated
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002515</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype from the Human Phenotype Ontology.">
-                        Waddling gait
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp">HP:0002515</a>
-
-
+This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5471,6 +5660,7 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5513,16 +5703,20 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003325</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limb-girdle muscle weakness (HP:0003325), qualified as course progressive. HP:0003325 is a phenotype from the Human Phenotype Ontology.">
-                        Limb-girdle muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp">HP:0003325</a>
-
-
+This clinical feature is Limb-girdle muscle weakness (HP:0003325), qualified as course progressive. HP:0003325 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5561,6 +5755,7 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325), qualified as 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39215466" target="_blank">PMID:39215466</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5593,16 +5788,20 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325), qualified as 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003691</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotype from the Human Phenotype Ontology.">
-                        Scapular winging
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" class="curie-chip curie-chip-hp">HP:0003691</a>
-
-
+This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5622,6 +5821,7 @@ This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5655,16 +5855,20 @@ This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0009073</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive proximal muscle weakness (HP:0009073), qualified as course progressive. HP:0009073 is a phenotype from the Human Phenotype Ontology.">
-                        Progressive proximal muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009073" target="_blank" class="curie-chip curie-chip-hp">HP:0009073</a>
-
-
+This clinical feature is Progressive proximal muscle weakness (HP:0009073), qualified as course progressive. HP:0009073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5703,6 +5907,7 @@ This clinical feature is Progressive proximal muscle weakness (HP:0009073), qual
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31034989" target="_blank">PMID:31034989</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5735,16 +5940,20 @@ This clinical feature is Progressive proximal muscle weakness (HP:0009073), qual
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004303" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004303</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:0004303 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal muscle fiber morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004303" target="_blank" class="curie-chip curie-chip-hp">HP:0004303</a>
-
-
+This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:0004303 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5764,6 +5973,7 @@ This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:00043
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39215466" target="_blank">PMID:39215466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5843,15 +6053,17 @@ This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:00043
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DNAJB6 (hgnc:14888). hgnc:14888 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNAJB6
 
 
-    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14888</a>
+    <a href="https://bioregistry.io/hgnc:14888" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:14888</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAJB6 (hgnc:14888). hgnc:14888 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5874,6 +6086,7 @@ This disease-associated gene is DNAJB6 (hgnc:14888). hgnc:14888 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37346979" target="_blank">PMID:37346979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5912,15 +6125,17 @@ This disease-associated gene is DNAJB6 (hgnc:14888). hgnc:14888 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TNPO3 (hgnc:17103). hgnc:17103 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNPO3
 
 
-    <a href="https://bioregistry.io/hgnc:17103" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17103</a>
+    <a href="https://bioregistry.io/hgnc:17103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:17103</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNPO3 (hgnc:17103). hgnc:17103 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5943,6 +6158,7 @@ This disease-associated gene is TNPO3 (hgnc:17103). hgnc:17103 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32690349" target="_blank">PMID:32690349</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5981,15 +6197,17 @@ This disease-associated gene is TNPO3 (hgnc:17103). hgnc:17103 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HNRNPDL (hgnc:5037). hgnc:5037 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HNRNPDL
 
 
-    <a href="https://bioregistry.io/hgnc:5037" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5037</a>
+    <a href="https://bioregistry.io/hgnc:5037" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:5037</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HNRNPDL (hgnc:5037). hgnc:5037 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6012,6 +6230,7 @@ This disease-associated gene is HNRNPDL (hgnc:5037). hgnc:5037 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30604053" target="_blank">PMID:30604053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6050,15 +6269,17 @@ This disease-associated gene is HNRNPDL (hgnc:5037). hgnc:5037 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CAPN3 (hgnc:1480). hgnc:1480 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CAPN3
 
 
-    <a href="https://bioregistry.io/hgnc:1480" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1480</a>
+    <a href="https://bioregistry.io/hgnc:1480" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:1480</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAPN3 (hgnc:1480). hgnc:1480 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6081,6 +6302,7 @@ This disease-associated gene is CAPN3 (hgnc:1480). hgnc:1480 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6112,6 +6334,9 @@ This disease-associated gene is CAPN3 (hgnc:1480). hgnc:1480 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6128,18 +6353,18 @@ This disease-associated gene is CAPN3 (hgnc:1480). hgnc:1480 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -6181,6 +6406,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6211,18 +6437,18 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6264,6 +6490,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6294,18 +6521,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6347,6 +6574,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301490" target="_blank">PMID:20301490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6377,17 +6605,17 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6428,6 +6656,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37346979" target="_blank">PMID:37346979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8390,5 +8619,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

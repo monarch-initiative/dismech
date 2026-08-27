@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Konzo</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Konzo</h1>
             <div class="header-meta">
 
@@ -3955,7 +4077,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-case-definition-of-konzo">
                 <div class="item-name">Clinical case definition of konzo</div>
 
                 <div class="item-desc">Konzo is defined as an upper motor neuron disease presenting with abrupt-onset, symmetric, permanent spastic paraparesis of the lower limbs with sensory and genitourinary sparing, caused by chronic dietary cyanide exposure from insufficiently processed bitter cassava combined with protein/sulfur-amino-acid malnutrition.</div>
@@ -4000,6 +4122,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33964344" target="_blank">PMID:33964344</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4069,18 +4192,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cyanide metabolic process (GO:0019499). GO:0019499 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cyanide metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019499" target="_blank" class="curie-chip curie-chip-go">GO:0019499</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019499" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0019499</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cyanide metabolic process (GO:0019499). GO:0019499 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4138,6 +4263,7 @@ This pathophysiological event involves increased cyanide metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20510334" target="_blank">PMID:20510334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4159,6 +4285,7 @@ This pathophysiological event involves increased cyanide metabolic process (GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9438470" target="_blank">PMID:9438470</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4200,18 +4327,20 @@ This pathophysiological event involves increased cyanide metabolic process (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sulfur amino acid metabolic process (GO:0000096). GO:0000096 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sulfur amino acid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000096" target="_blank" class="curie-chip curie-chip-go">GO:0000096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0000096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sulfur amino acid metabolic process (GO:0000096). GO:0000096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4232,18 +4361,20 @@ This pathophysiological event involves decreased sulfur amino acid metabolic pro
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased detoxification (GO:0098754). GO:0098754 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         detoxification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098754" target="_blank" class="curie-chip curie-chip-go">GO:0098754</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098754" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0098754</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased detoxification (GO:0098754). GO:0098754 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4301,6 +4432,7 @@ This pathophysiological event involves decreased detoxification (GO:0098754). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20619859" target="_blank">PMID:20619859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4323,6 +4455,7 @@ This pathophysiological event involves decreased detoxification (GO:0098754). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27246648" target="_blank">PMID:27246648</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4344,6 +4477,7 @@ This pathophysiological event involves decreased detoxification (GO:0098754). GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34444788" target="_blank">PMID:34444788</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4378,18 +4512,20 @@ This pathophysiological event involves decreased detoxification (GO:0098754). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         upper motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4417,18 +4553,20 @@ This pathophysiological event involves upper motor neuron (CL:0008048). CL:00080
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glutamate receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007215</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4449,18 +4587,20 @@ This pathophysiological event involves increased glutamate receptor signaling pa
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4488,18 +4628,20 @@ This pathophysiological event involves increased response to oxidative stress (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         corticospinal tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002707</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002707</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4537,6 +4679,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33964344" target="_blank">PMID:33964344</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4559,6 +4702,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39608576" target="_blank">PMID:39608576</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4580,6 +4724,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39608576" target="_blank">PMID:39608576</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4614,18 +4759,20 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         upper motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4653,18 +4800,20 @@ This pathophysiological event involves upper motor neuron (CL:0008048). CL:00080
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4707,6 +4856,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4728,6 +4878,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12376882" target="_blank">PMID:12376882</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4819,16 +4970,20 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001258</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenotype from the Human Phenotype Ontology.">
-                        Spastic paraplegia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp">HP:0001258</a>
-
-
+This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4848,6 +5003,7 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4870,6 +5026,7 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12376882" target="_blank">PMID:12376882</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4912,16 +5069,20 @@ This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
-                        Cognitive impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
-
-
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4941,6 +5102,7 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4983,16 +5145,22 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal upper motor neuron morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002127</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP:0002127 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal upper motor neuron morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002127" target="_blank" class="curie-chip curie-chip-hp">HP:0002127</a>
-
-
+This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP:0002127 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5012,6 +5180,7 @@ This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39608576" target="_blank">PMID:39608576</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5034,6 +5203,7 @@ This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33964344" target="_blank">PMID:33964344</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5067,16 +5237,20 @@ This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002061</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lower limb spasticity (HP:0002061), qualified as course stable. HP:0002061 is a phenotype from the Human Phenotype Ontology.">
-                        Lower limb spasticity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp">HP:0002061</a>
-
-
+This clinical feature is Lower limb spasticity (HP:0002061), qualified as course stable. HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5115,6 +5289,7 @@ This clinical feature is Lower limb spasticity (HP:0002061), qualified as course
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12376882" target="_blank">PMID:12376882</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5147,16 +5322,20 @@ This clinical feature is Lower limb spasticity (HP:0002061), qualified as course
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002064</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spastic gait (HP:0002064). HP:0002064 is a phenotype from the Human Phenotype Ontology.">
-                        Spastic gait
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002064" target="_blank" class="curie-chip curie-chip-hp">HP:0002064</a>
-
-
+This clinical feature is Spastic gait (HP:0002064). HP:0002064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5176,6 +5355,7 @@ This clinical feature is Spastic gait (HP:0002064). HP:0002064 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20510334" target="_blank">PMID:20510334</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5209,16 +5389,20 @@ This clinical feature is Spastic gait (HP:0002064). HP:0002064 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002493</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493 is a phenotype from the Human Phenotype Ontology.">
-                        Upper motor neuron dysfunction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002493" target="_blank" class="curie-chip curie-chip-hp">HP:0002493</a>
-
-
+This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5238,6 +5422,7 @@ This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12376882" target="_blank">PMID:12376882</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5301,6 +5486,9 @@ This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5317,18 +5505,18 @@ This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -5370,6 +5558,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22342647" target="_blank">PMID:22342647</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5391,6 +5580,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20510334" target="_blank">PMID:20510334</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5422,18 +5612,18 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -5484,6 +5674,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20619859" target="_blank">PMID:20619859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5514,18 +5705,18 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5567,6 +5758,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5597,18 +5789,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -5650,6 +5842,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5690,6 +5883,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
                 <div class="item-desc">A monotonous diet dominated by insufficiently processed bitter cassava (Manihot esculenta) is the cause of konzo. Short or shortcut processing leaves large amounts of the cyanogen linamarin in the consumed cassava, delivering a high dietary cyanide load. Outbreaks occur in cassava-dependent regions of sub-Saharan Africa (Democratic Republic of the Congo, Mozambique, Tanzania, Central African Republic, Angola, Cameroon, Zambia), chiefly among children and women of childbearing age.</div>
 
 
@@ -5705,6 +5902,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20619859" target="_blank">PMID:20619859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5727,6 +5925,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5777,6 +5976,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20619859" target="_blank">PMID:20619859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5798,6 +5998,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5831,6 +6032,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
                 <div class="item-desc">A protein-poor diet deficient in sulfur-containing amino acids accompanies the bitter-cassava diet and limits the substrate available for cyanide detoxification. Worse nutritional status (wasting and stunting) is the factor that distinguishes konzo patients from equally cyanide-exposed healthy controls.</div>
 
 
@@ -5846,6 +6051,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34444788" target="_blank">PMID:34444788</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5868,6 +6074,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34444788" target="_blank">PMID:34444788</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5918,6 +6125,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34444788" target="_blank">PMID:34444788</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5939,6 +6147,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34444788" target="_blank">PMID:34444788</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5972,6 +6181,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
                 <div class="item-desc">Epidemic outbreaks cluster during drought-provoked agricultural and social crises that force populations onto a diet of insufficiently processed bitter cassava, with shortcuts in processing that increase dietary cyanide exposure.</div>
 
 
@@ -5987,6 +6200,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12376882" target="_blank">PMID:12376882</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6037,6 +6251,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12376882" target="_blank">PMID:12376882</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6084,7 +6299,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-neurolathyrism">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Lathyrism.html">Neurolathyrism</a>
@@ -6131,6 +6346,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37620067" target="_blank">PMID:37620067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6156,7 +6372,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-tropical-ataxic-neuropathy">
                 <div class="item-name">
 
                     Tropical ataxic neuropathy
@@ -6197,6 +6413,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21327546" target="_blank">PMID:21327546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6222,7 +6439,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-tropical-spastic-paraparesis-htlv-1-myelopathy">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Tropical spastic paraparesis (HTLV-1 myelopathy)</span>
@@ -6270,6 +6487,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37620067" target="_blank">PMID:37620067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6305,7 +6523,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse180119">
                 <div class="item-name">
                     DNA methylation patterns associated with cyanogenic cassava exposure and konzo in Sub-Saharan Africa
 
@@ -7523,5 +7741,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

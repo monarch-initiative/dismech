@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>SMAD6-related craniosynostosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>SMAD6-related craniosynostosis</h1>
             <div class="header-meta">
 
@@ -3969,7 +4091,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-disease-framing-for-smad6-related-craniosynostosis">
                 <div class="item-name">Clinical disease framing for SMAD6-related craniosynostosis</div>
 
                 <div class="item-desc">SMAD6-related craniosynostosis is a craniofacial developmental disorder in which pathogenic SMAD6 variants increase risk of premature cranial suture fusion, especially metopic and sagittal synostosis.</div>
@@ -4015,6 +4137,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4039,7 +4162,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-molecular-definition-for-smad6-related-craniosynostosis">
                 <div class="item-name">Molecular definition for SMAD6-related craniosynostosis</div>
 
                 <div class="item-desc">Molecularly, this entry captures heterozygous deleterious SMAD6 variants that impair inhibitory control of BMP-driven osteoblast differentiation in cranial suture development.</div>
@@ -4085,6 +4208,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27606499" target="_blank">PMID:27606499</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4121,7 +4245,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4170,6 +4294,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27606499" target="_blank">PMID:27606499</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4191,6 +4316,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4254,17 +4380,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6772</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4330,6 +4460,7 @@ This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36414630" target="_blank">PMID:36414630</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4351,6 +4482,7 @@ This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21681813" target="_blank">PMID:21681813</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4392,18 +4524,20 @@ This pathophysiological event involves decreased SMAD6 (hgnc:6772). hgnc:6772 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4431,18 +4565,20 @@ This pathophysiological event involves increased BMP signaling pathway (GO:00305
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial suture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0003685</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4480,6 +4616,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36414630" target="_blank">PMID:36414630</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4513,18 +4650,20 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4552,18 +4691,20 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4591,18 +4732,20 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial suture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0003685</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4639,6 +4782,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4680,18 +4824,20 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cranial suture morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go">GO:0060363</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0060363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4712,18 +4858,20 @@ This pathophysiological event involves dysregulated cranial suture morphogenesis
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4751,18 +4899,20 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial suture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0003685</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4842,6 +4992,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27606499" target="_blank">PMID:27606499</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4864,6 +5015,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4885,6 +5037,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27606499" target="_blank">PMID:27606499</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4945,6 +5098,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5034,16 +5188,20 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011330" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011330</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenotype from the Human Phenotype Ontology.">
-                        Metopic synostosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011330" target="_blank" class="curie-chip curie-chip-hp">HP:0011330</a>
-
-
+This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5063,6 +5221,7 @@ This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5096,16 +5255,20 @@ This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004442" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0004442</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sagittal craniosynostosis (HP:0004442). HP:0004442 is a phenotype from the Human Phenotype Ontology.">
-                        Sagittal craniosynostosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004442" target="_blank" class="curie-chip curie-chip-hp">HP:0004442</a>
-
-
+This clinical feature is Sagittal craniosynostosis (HP:0004442). HP:0004442 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5125,6 +5288,7 @@ This clinical feature is Sagittal craniosynostosis (HP:0004442). HP:0004442 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27606499" target="_blank">PMID:27606499</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5158,16 +5322,20 @@ This clinical feature is Sagittal craniosynostosis (HP:0004442). HP:0004442 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004440" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0004440</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a phenotype from the Human Phenotype Ontology.">
-                        Coronal craniosynostosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004440" target="_blank" class="curie-chip curie-chip-hp">HP:0004440</a>
-
-
+This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5187,6 +5355,7 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5229,16 +5398,22 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Intellectual disability</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Developmental or intellectual delay, annotated with Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Developmental or intellectual delay, annotated with Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5258,6 +5433,7 @@ This clinical feature is Developmental or intellectual delay, annotated with Int
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5291,16 +5467,22 @@ This clinical feature is Developmental or intellectual delay, annotated with Int
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased intracranial pressure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002516</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Raised intracranial pressure, annotated with Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.">
-                        Increased intracranial pressure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp">HP:0002516</a>
-
-
+This clinical feature is Raised intracranial pressure, annotated with Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5320,6 +5502,7 @@ This clinical feature is Raised intracranial pressure, annotated with Increased 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5399,15 +5582,17 @@ This clinical feature is Raised intracranial pressure, annotated with Increased 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:6772</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5428,6 +5613,7 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27606499" target="_blank">PMID:27606499</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5450,6 +5636,7 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5489,15 +5676,17 @@ This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the 
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6772</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -5514,29 +5703,35 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
 
 
 
+
     <div class="crosslink-block">
         <div class="crosslink-title">External assertions</div>
 
         <div class="variant-effect">
 
-            <div class="item-name">ClinGen Allele Registry record</div>
 
-            <div class="item-meta">
+    <div class="item-name">ClinGen Allele Registry record</div>
 
-                <span class="tag" style="background: #e0f2fe; color: #0369a1;">ClinGen Allele Registry</span>
+    <div class="item-meta">
 
-
-                <span class="tag" style="background: #f1f5f9; color: #475569;">allele registry record</span>
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">ClinGen Allele Registry</span>
 
 
+        <span class="tag" style="background: #f1f5f9; color: #475569;">allele registry record</span>
 
 
-                <span class="tag" style="background: #f1f5f9; color: #475569;">CA2573049045</span>
 
 
-            </div>
 
-            <div class="item-desc">Allele Registry identifier for a representative sagittal craniosynostosis-associated SMAD6 variant.</div>
+        <span class="tag" style="background: #f1f5f9; color: #475569;">CA2573049045</span>
+
+
+    </div>
+
+    <div class="item-desc">Allele Registry identifier for a representative sagittal craniosynostosis-associated SMAD6 variant.</div>
+
+
+
 
 
 
@@ -5544,6 +5739,7 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
         </div>
 
     </div>
+
 
 
 
@@ -5565,15 +5761,17 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: SMAD6
 
 
-    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6772</a>
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:6772</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -5590,29 +5788,35 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
 
 
 
+
     <div class="crosslink-block">
         <div class="crosslink-title">External assertions</div>
 
         <div class="variant-effect">
 
-            <div class="item-name">ClinGen Allele Registry record</div>
 
-            <div class="item-meta">
+    <div class="item-name">ClinGen Allele Registry record</div>
 
-                <span class="tag" style="background: #e0f2fe; color: #0369a1;">ClinGen Allele Registry</span>
+    <div class="item-meta">
 
-
-                <span class="tag" style="background: #f1f5f9; color: #475569;">allele registry record</span>
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">ClinGen Allele Registry</span>
 
 
+        <span class="tag" style="background: #f1f5f9; color: #475569;">allele registry record</span>
 
 
-                <span class="tag" style="background: #f1f5f9; color: #475569;">CA7626756</span>
 
 
-            </div>
 
-            <div class="item-desc">Allele Registry identifier for a representative metopic synostosis-associated SMAD6 variant.</div>
+        <span class="tag" style="background: #f1f5f9; color: #475569;">CA7626756</span>
+
+
+    </div>
+
+    <div class="item-desc">Allele Registry identifier for a representative metopic synostosis-associated SMAD6 variant.</div>
+
+
+
 
 
 
@@ -5620,6 +5824,7 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
         </div>
 
     </div>
+
 
 
 
@@ -5638,6 +5843,51 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-clingen-smad6-gene-disease-validity-assertion">
+
+
+    <div class="item-name">ClinGen SMAD6 gene-disease validity assertion</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">ClinGen</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">gene disease validity lumped assertion</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://search.clinicalgenome.org/CCID:009009" target="_blank" rel="noopener noreferrer" title="Open CCID:009009">CCID:009009</a>
+
+
+    </div>
+
+    <div class="item-desc">ClinGen curated SMAD6 under a lumped disease entity anchored to syndromic craniosynostosis, incorporating aortic valve disease 2, craniosynostosis 7, and radioulnar synostosis.</div>
+
+
+
+    <div class="mapping-notes">This external assertion is broader than the present entry, which intentionally isolates the craniosynostosis mechanism branch for dismech.</div>
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5654,18 +5904,18 @@ This variant is in SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nom
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5707,6 +5957,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27606499" target="_blank">PMID:27606499</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5737,18 +5988,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5790,6 +6041,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5820,18 +6072,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5873,6 +6125,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5903,18 +6156,18 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5955,6 +6208,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32499606" target="_blank">PMID:32499606</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6019,7 +6273,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: SMAD6-related craniosynostosis
 creation_date: &#34;2026-03-26T20:45:00Z&#34;
-updated_date: &#34;2026-05-31T11:20:00Z&#34;
 category: Mendelian
 description: &gt;-
   SMAD6-related craniosynostosis is an autosomal dominant, incompletely
@@ -6997,7 +7250,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SMAD6-related craniosynostosis", "mondoId": "MONDO:0044315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SMAD6-related_craniosynostosis", "yamlRevision": "4e0688efeadf"};
+        const OS_CONFIG = {"diseaseName": "SMAD6-related craniosynostosis", "mondoId": "MONDO:0044315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SMAD6-related_craniosynostosis", "yamlRevision": "4deefbb5ca5b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7416,5 +7669,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

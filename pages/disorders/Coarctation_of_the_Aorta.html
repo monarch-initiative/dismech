@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Coarctation of the Aorta</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Coarctation of the Aorta</h1>
             <div class="header-meta">
 
@@ -3912,7 +4034,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-multifactorial-polygenic-inheritance">
                 <div class="item-name">
                     Multifactorial (polygenic) inheritance
 
@@ -3958,6 +4080,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33432820" target="_blank">PMID:33432820</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3980,6 +4103,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33432820" target="_blank">PMID:33432820</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4001,6 +4125,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33432820" target="_blank">PMID:33432820</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4129,6 +4254,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4150,6 +4276,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38071433" target="_blank">PMID:38071433</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4256,6 +4383,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4278,6 +4406,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418111" target="_blank">PMID:24418111</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4299,6 +4428,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33432820" target="_blank">PMID:33432820</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4409,6 +4539,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4425,6 +4561,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Characterize resected coarctation segments for ductal-type smooth muscle markers and compare across genotype strata (PRDM6, MYH6, NOTCH1 variant carriers versus non-carriers). Enrichment of ductal-type tissue in PRDM6 carriers specifically would connect the genetic and morphogenetic accounts rather than leaving them as parallel narratives.</div>
+
+
+
+
+
+
 
 
 
@@ -4465,6 +4607,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4538,6 +4681,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Measure proximal arterial stiffness and endothelium-dependent and -independent function in neonates with prenatally diagnosed coarctation before repair and before prolonged hypertensive exposure, comparing with matched controls. Abnormality already present at this point would establish the arteriopathy as intrinsic rather than acquired.</div>
+
+
+
+
+
+
 
 
 
@@ -4644,18 +4793,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves aortic smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         aortic smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves aortic smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4686,33 +4837,37 @@ This pathophysiological event involves aortic smooth muscle cell, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         thoracic aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001515</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0001515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBERON:0005440 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         ductus arteriosus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005440" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005440</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005440" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0005440</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBERON:0005440 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4761,6 +4916,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4783,6 +4939,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4804,6 +4961,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4857,18 +5015,20 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal aorta development (GO:0035904). GO:0035904 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         aorta development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035904" target="_blank" class="curie-chip curie-chip-go">GO:0035904</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035904" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0035904</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal aorta development (GO:0035904). GO:0035904 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4896,18 +5056,20 @@ This pathophysiological event involves abnormal aorta development (GO:0035904). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         thoracic aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001515</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0001515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4956,6 +5118,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418111" target="_blank">PMID:24418111</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4978,6 +5141,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4999,6 +5163,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7057615" target="_blank">PMID:7057615</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5059,17 +5224,21 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7881</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5094,17 +5263,21 @@ This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:7576</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5129,17 +5302,21 @@ This pathophysiological event involves MYH6 (hgnc:7576). hgnc:7576 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PRDM6
 
 
-    <a href="https://bioregistry.io/hgnc:9350" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9350</a>
+    <a href="https://bioregistry.io/hgnc:9350" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:9350</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5239,6 +5416,7 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29590334" target="_blank">PMID:29590334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5261,6 +5439,7 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29590334" target="_blank">PMID:29590334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5282,6 +5461,7 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418111" target="_blank">PMID:24418111</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5326,18 +5506,20 @@ This pathophysiological event involves PRDM6 (hgnc:9350). hgnc:9350 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of blood pressure (GO:0008217). GO:0008217 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of blood pressure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008217" target="_blank" class="curie-chip curie-chip-go">GO:0008217</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008217" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0008217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of blood pressure (GO:0008217). GO:0008217 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5365,18 +5547,20 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         thoracic aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001515</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5458,6 +5642,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5499,18 +5684,20 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased renin-angiotensin regulation of aldosterone production (GO:0002018). GO:0002018 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         renin-angiotensin regulation of aldosterone production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002018" target="_blank" class="curie-chip curie-chip-go">GO:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002018" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased renin-angiotensin regulation of aldosterone production (GO:0002018). GO:0002018 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5531,18 +5718,20 @@ This pathophysiological event involves increased renin-angiotensin regulation of
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of vasoconstriction (GO:0045907). GO:0045907 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of vasoconstriction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045907" target="_blank" class="curie-chip curie-chip-go">GO:0045907</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045907" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0045907</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of vasoconstriction (GO:0045907). GO:0045907 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5570,18 +5759,20 @@ This pathophysiological event involves increased positive regulation of vasocons
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000947</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5639,6 +5830,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5660,6 +5852,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5695,18 +5888,20 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves arterial endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         arterial endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves arterial endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5737,18 +5932,20 @@ This pathophysiological event involves arterial endothelial cell, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         thoracic aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001515</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0001515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:0001515 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5786,6 +5983,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40671984" target="_blank">PMID:40671984</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5808,6 +6006,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40671984" target="_blank">PMID:40671984</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5829,6 +6028,7 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40671984" target="_blank">PMID:40671984</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5874,18 +6074,20 @@ This pathophysiological event occurs in thoracic aorta (UBERON:0001515). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBERON:0005440 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         ductus arteriosus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005440" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005440</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005440" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0005440</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBERON:0005440 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5907,6 +6109,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10771966" target="_blank">PMID:10771966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5942,18 +6145,20 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5984,18 +6189,20 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6018,6 +6225,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12821257" target="_blank">PMID:12821257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6039,6 +6247,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12821257" target="_blank">PMID:12821257</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6074,18 +6283,20 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves arterial endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         arterial endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves arterial endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6102,18 +6313,20 @@ This pathophysiological event involves arterial endothelial cell, annotated with
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves arterial smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         arterial smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves arterial smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6144,18 +6357,20 @@ This pathophysiological event involves arterial smooth muscle cell, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000947</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6221,6 +6436,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12821257" target="_blank">PMID:12821257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6242,6 +6458,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28545853" target="_blank">PMID:28545853</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6317,6 +6534,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28545853" target="_blank">PMID:28545853</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6338,6 +6556,7 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28545853" target="_blank">PMID:28545853</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6380,18 +6599,20 @@ This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of blood pressure (GO:0008217). GO:0008217 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of blood pressure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008217" target="_blank" class="curie-chip curie-chip-go">GO:0008217</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008217" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0008217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of blood pressure (GO:0008217). GO:0008217 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6457,6 +6678,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6479,6 +6701,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12821257" target="_blank">PMID:12821257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6500,6 +6723,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39926128" target="_blank">PMID:39926128</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6560,6 +6784,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39926128" target="_blank">PMID:39926128</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6582,6 +6807,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39926128" target="_blank">PMID:39926128</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6603,6 +6829,7 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6692,16 +6919,20 @@ This pathophysiological event involves abnormal regulation of blood pressure (GO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001680</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phenotype from the Human Phenotype Ontology.">
-                        Coarctation of aorta
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" class="curie-chip curie-chip-hp">HP:0001680</a>
-
-
+This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6721,6 +6952,7 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29590334" target="_blank">PMID:29590334</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6756,16 +6988,20 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
-
-
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6785,6 +7021,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6820,16 +7057,20 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001647</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phenotype from the Human Phenotype Ontology.">
-                        Bicuspid aortic valve
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" class="curie-chip curie-chip-hp">HP:0001647</a>
-
-
+This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6849,6 +7090,7 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418111" target="_blank">PMID:24418111</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6882,16 +7124,20 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001712</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.">
-                        Left ventricular hypertrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp">HP:0001712</a>
-
-
+This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6911,6 +7157,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12821257" target="_blank">PMID:12821257</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6944,16 +7191,20 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001629</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.">
-                        Ventricular septal defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp">HP:0001629</a>
-
-
+This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6974,16 +7225,20 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0007029</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebral berry aneurysm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007029" target="_blank" class="curie-chip curie-chip-hp">HP:0007029</a>
-
-
+This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7016,16 +7271,20 @@ This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030149</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiogenic shock (HP:0030149), qualified as temporality acute. HP:0030149 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiogenic shock
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030149" target="_blank" class="curie-chip curie-chip-hp">HP:0030149</a>
-
-
+This clinical feature is Cardiogenic shock (HP:0030149), qualified as temporality acute. HP:0030149 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7063,6 +7322,7 @@ This clinical feature is Cardiogenic shock (HP:0030149), qualified as temporalit
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10771966" target="_blank">PMID:10771966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7140,15 +7400,17 @@ This clinical feature is Cardiogenic shock (HP:0030149), qualified as temporalit
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:7576</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7171,6 +7433,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29590334" target="_blank">PMID:29590334</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7207,15 +7470,17 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7238,6 +7503,7 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418111" target="_blank">PMID:24418111</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7274,15 +7540,17 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRDM6
 
 
-    <a href="https://bioregistry.io/hgnc:9350" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9350</a>
+    <a href="https://bioregistry.io/hgnc:9350" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:9350</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7305,6 +7573,7 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38071433" target="_blank">PMID:38071433</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7336,6 +7605,9 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7352,18 +7624,18 @@ This disease-associated gene is PRDM6 (hgnc:9350). hgnc:9350 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7424,6 +7696,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7445,6 +7718,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7476,18 +7750,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">balloon angioplasty<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical intervention from the NCI Thesaurus.">balloon angioplasty</span>
+This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Balloon Angioplasty</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93007" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical intervention from the NCI Thesaurus.">NCIT:C93007</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93007" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93007">NCIT:C93007</a>
 
 
 
@@ -7548,6 +7822,7 @@ This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40283210" target="_blank">PMID:40283210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7578,17 +7853,17 @@ This treatment is balloon angioplasty (NCIT:C93007). NCIT:C93007 is a clinical i
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7613,18 +7888,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         prostaglandin E1
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15544" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15544</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15544" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:15544</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7669,6 +7946,7 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10771966" target="_blank">PMID:10771966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7690,6 +7968,7 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10771966" target="_blank">PMID:10771966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7721,18 +8000,18 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">antihypertensive therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a clinical intervention from the NCI Thesaurus.">antihypertensive therapy</span>
+This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antihypertensive Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C172184" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a clinical intervention from the NCI Thesaurus.">NCIT:C172184</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C172184" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C172184">NCIT:C172184</a>
 
 
 
@@ -7792,6 +8071,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39926128" target="_blank">PMID:39926128</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7925,6 +8205,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16280280" target="_blank">PMID:16280280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7976,6 +8257,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16280280" target="_blank">PMID:16280280</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8029,6 +8311,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16280280" target="_blank">PMID:16280280</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
@@ -8070,6 +8353,7 @@ This treatment is antihypertensive therapy (NCIT:C172184). NCIT:C172184 is a cli
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16280280" target="_blank">PMID:16280280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8201,6 +8485,7 @@ pathophysiology:
       label: vascular associated smooth muscle cell
   evidence:
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8211,6 +8496,7 @@ pathophysiology:
       States the ductal-tissue account as the authors&#39; working hypothesis for the
       localized stenosis component, derived from angiographic morphology.
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8220,6 +8506,7 @@ pathophysiology:
       Direct angiographic observation of the constricted ductus obstructing the
       descending aortic ostium, the anatomic event this node asserts.
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8261,6 +8548,7 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:24418111
+    reference_title: &#34;Variants in the NOTCH1 gene in patients with aortic coarctation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8271,6 +8559,7 @@ pathophysiology:
       Documents the co-occurrence with bicuspid valve and arch hypoplasia that
       the reduced-flow account predicts, in a consecutive clinical series.
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8281,6 +8570,7 @@ pathophysiology:
       for the hypoplastic component, in the same angiographic study that proposes
       the ductal-tissue account for the localized stenosis.
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8326,6 +8616,7 @@ pathophysiology:
       label: PRDM6
   evidence:
   - reference: PMID:29590334
+    reference_title: &#34;A rare missense mutation in MYH6 associates with non-syndromic coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8336,6 +8627,7 @@ pathophysiology:
       Quantifies a single MYH6 variant&#39;s contribution to coarctation in a
       population-based genome-wide study and links it to the bicuspid valve.
   - reference: PMID:29590334
+    reference_title: &#34;A rare missense mutation in MYH6 associates with non-syndromic coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8344,6 +8636,7 @@ pathophysiology:
       Supports the heritability claim underpinning a developmental-genetic
       trigger node.
   - reference: PMID:24418111
+    reference_title: &#34;Variants in the NOTCH1 gene in patients with aortic coarctation.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8354,6 +8647,7 @@ pathophysiology:
       targeted-screening study of 51 children reporting overrepresentation of one
       substitution, not an established causal assignment.
   - reference: PMID:38071433
+    reference_title: &#34;Patent ductus arteriosus and coarctation of the aorta in association with PRDM6 variants.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8366,6 +8660,7 @@ pathophysiology:
       report describes three patients with both lesions rather than an
       established coarctation gene.
   - reference: PMID:23825392
+    reference_title: &#34;Bicuspid aortic valve and aortic coarctation are linked to deletion of the X chromosome short arm in Turner syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8417,6 +8712,7 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8478,6 +8774,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8489,6 +8786,7 @@ pathophysiology:
       hypertension, the claim that makes this node upstream of persistent rather
       than merely acute hypertension.
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8525,6 +8823,7 @@ pathophysiology:
       label: endothelial cell
   evidence:
   - reference: PMID:40671984
+    reference_title: &#34;Hypertension Secondary to Severe Aortic Coarctation in an Adult Patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8536,6 +8835,7 @@ pathophysiology:
       Documents the intercostal and internal mammary collateral network in a
       severe coarctation, the vessels this node asserts enlarge.
   - reference: PMID:40671984
+    reference_title: &#34;Hypertension Secondary to Severe Aortic Coarctation in an Adult Patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8545,6 +8845,7 @@ pathophysiology:
       Supports the radiographic rib notching produced by enlarged intercostal
       arteries.
   - reference: PMID:40671984
+    reference_title: &#34;Hypertension Secondary to Severe Aortic Coarctation in an Adult Patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8578,6 +8879,7 @@ pathophysiology:
       label: ductus arteriosus
   evidence:
   - reference: PMID:10771966
+    reference_title: &#34;Prostaglandin E1: first stage palliation in neonates with congenital cardiac defects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8607,6 +8909,7 @@ pathophysiology:
       label: cardiac muscle cell
   evidence:
   - reference: PMID:12821257
+    reference_title: &#34;Ambulatory blood pressure, left ventricular mass, and conduit artery function late after successful repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8616,6 +8919,7 @@ pathophysiology:
       Supports both the pressure-mass relationship and its accentuation specific
       to coarctation.
   - reference: PMID:12821257
+    reference_title: &#34;Ambulatory blood pressure, left ventricular mass, and conduit artery function late after successful repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8651,6 +8955,7 @@ pathophysiology:
       label: vascular associated smooth muscle cell
   evidence:
   - reference: PMID:12821257
+    reference_title: &#34;Ambulatory blood pressure, left ventricular mass, and conduit artery function late after successful repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8660,6 +8965,7 @@ pathophysiology:
       The core evidence that the abnormality is not confined to the endothelium:
       the endothelium-independent nitrate response is impaired too.
   - reference: PMID:28545853
+    reference_title: &#34;Elevated sympathetic activity, endothelial dysfunction, and late hypertension after repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8692,6 +8998,7 @@ pathophysiology:
     itself through the autonomic nervous system rather than a separate lesion.
   evidence:
   - reference: PMID:28545853
+    reference_title: &#34;Elevated sympathetic activity, endothelial dysfunction, and late hypertension after repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8701,6 +9008,7 @@ pathophysiology:
       Direct measurement of elevated sympathetic outflow rather than an inference
       from blood pressure.
   - reference: PMID:28545853
+    reference_title: &#34;Elevated sympathetic activity, endothelial dysfunction, and late hypertension after repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8736,6 +9044,7 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8744,6 +9053,7 @@ pathophysiology:
       Quantifies persistent hypertension after early repair, the central claim of
       this node.
   - reference: PMID:12821257
+    reference_title: &#34;Ambulatory blood pressure, left ventricular mass, and conduit artery function late after successful repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8753,6 +9063,7 @@ pathophysiology:
       Supports systematic under-detection of the hypertensive phenotype by clinic
       measurement.
   - reference: PMID:39926128
+    reference_title: &#34;Coarctation of the aorta and accelerated atherosclerosis: A contemporary review on the burden of atherosclerotic cardiovascular disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8784,6 +9095,7 @@ pathophysiology:
     adult congenital heart disease population expands and ages.
   evidence:
   - reference: PMID:39926128
+    reference_title: &#34;Coarctation of the aorta and accelerated atherosclerosis: A contemporary review on the burden of atherosclerotic cardiovascular disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8794,6 +9106,7 @@ pathophysiology:
       Enumerates the atherosclerotic sequelae asserted by this node. Evidence
       source is OTHER because this is a contemporary review.
   - reference: PMID:39926128
+    reference_title: &#34;Coarctation of the aorta and accelerated atherosclerosis: A contemporary review on the burden of atherosclerotic cardiovascular disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8803,6 +9116,7 @@ pathophysiology:
     explanation: &gt;-
       Supports the growing absolute burden claim.
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8825,6 +9139,7 @@ phenotypes:
       label: Coarctation of aorta
   evidence:
   - reference: PMID:29590334
+    reference_title: &#34;A rare missense mutation in MYH6 associates with non-syndromic coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8846,6 +9161,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8866,6 +9182,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: PMID:24418111
+    reference_title: &#34;Variants in the NOTCH1 gene in patients with aortic coarctation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8886,6 +9203,7 @@ phenotypes:
       label: Left ventricular hypertrophy
   evidence:
   - reference: PMID:12821257
+    reference_title: &#34;Ambulatory blood pressure, left ventricular mass, and conduit artery function late after successful repair of coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8916,6 +9234,7 @@ phenotypes:
     temporality: ACUTE
   evidence:
   - reference: PMID:10771966
+    reference_title: &#34;Prostaglandin E1: first stage palliation in neonates with congenital cardiac defects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8959,6 +9278,7 @@ mechanistic_hypotheses:
     tissue itself.
   evidence:
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8969,6 +9289,7 @@ mechanistic_hypotheses:
       States this hypothesis in the terms curated here, as the account of the
       localized stenosis component specifically.
   - reference: PMID:38071433
+    reference_title: &#34;Patent ductus arteriosus and coarctation of the aorta in association with PRDM6 variants.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8994,6 +9315,7 @@ mechanistic_hypotheses:
     hypoplasia and with a shared developmental lesion causing both.
   evidence:
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9003,6 +9325,7 @@ mechanistic_hypotheses:
       States this hypothesis in the terms curated here, as the account of the
       hypoplastic component specifically.
   - reference: PMID:24418111
+    reference_title: &#34;Variants in the NOTCH1 gene in patients with aortic coarctation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9012,6 +9335,7 @@ mechanistic_hypotheses:
       Documents the coexisting arch and descending aortic hypoplasia that the
       flow account predicts.
   - reference: PMID:33432820
+    reference_title: &#34;Genetic Etiology of Left-Sided Obstructive Heart Lesions: A Story in Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9042,6 +9366,7 @@ treatments:
       proximal-to-distal pressure gradient.
   evidence:
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9050,6 +9375,7 @@ treatments:
       Documents end-to-end anastomosis as the operative technique in the cited
       early-repair cohort.
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9079,6 +9405,7 @@ treatments:
       Mechanical dilation enlarges the stenotic lumen and relieves the gradient.
   evidence:
   - reference: PMID:40283210
+    reference_title: &#34;Association of Plasma Renin Activity with Risk of Late Hypertension in Pediatric Patients with Early Aortic Coarctation Repair: A Retrospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9111,6 +9438,7 @@ treatments:
       below the coarctation.
   evidence:
   - reference: PMID:10771966
+    reference_title: &#34;Prostaglandin E1: first stage palliation in neonates with congenital cardiac defects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9119,6 +9447,7 @@ treatments:
     explanation: &gt;-
       Establishes the pharmacologic mechanism this treatment relies on.
   - reference: PMID:10771966
+    reference_title: &#34;Prostaglandin E1: first stage palliation in neonates with congenital cardiac defects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9146,6 +9475,7 @@ treatments:
       phenotype that repair leaves behind.
   evidence:
   - reference: PMID:39926128
+    reference_title: &#34;Coarctation of the aorta and accelerated atherosclerosis: A contemporary review on the burden of atherosclerotic cardiovascular disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9181,6 +9511,7 @@ discussions:
     outflow-tract program that the flow account invokes.
   evidence:
   - reference: PMID:7057615
+    reference_title: &#34;Angiocardiographic study of coarctation of the aorta--morphology and morphogenesis.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9275,6 +9606,7 @@ inheritance:
     well-replicated associations.
   evidence:
   - reference: PMID:33432820
+    reference_title: &#34;Genetic Etiology of Left-Sided Obstructive Heart Lesions: A Story in Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9285,6 +9617,7 @@ inheritance:
       Establishes familial recurrence and a heritable basis for the left-sided
       obstructive lesion spectrum that includes coarctation.
   - reference: PMID:33432820
+    reference_title: &#34;Genetic Etiology of Left-Sided Obstructive Heart Lesions: A Story in Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9297,6 +9630,7 @@ inheritance:
       Evidence source is OTHER because this is a narrative review, matching how
       the other review cited in this entry is classified.
   - reference: PMID:33432820
+    reference_title: &#34;Genetic Etiology of Left-Sided Obstructive Heart Lesions: A Story in Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9314,6 +9648,7 @@ inheritance:
       number suggests. Evidence source is OTHER because this is a narrative
       review.
   - reference: PMID:33432820
+    reference_title: &#34;Genetic Etiology of Left-Sided Obstructive Heart Lesions: A Story in Development.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9343,6 +9678,7 @@ diagnosis:
       label: Blood Pressure Measurement
   evidence:
   - reference: PMID:40671984
+    reference_title: &#34;Hypertension Secondary to Severe Aortic Coarctation in an Adult Patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9367,6 +9703,7 @@ diagnosis:
       label: Echocardiography Test
   evidence:
   - reference: PMID:40671984
+    reference_title: &#34;Hypertension Secondary to Severe Aortic Coarctation in an Adult Patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9388,6 +9725,7 @@ diagnosis:
       label: Computed Tomography Angiography
   evidence:
   - reference: PMID:40671984
+    reference_title: &#34;Hypertension Secondary to Severe Aortic Coarctation in an Adult Patient.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9409,6 +9747,7 @@ prevalence:
     and aortic hypoplasia (0.58) per 10,000.
   evidence:
   - reference: PMID:2274893
+    reference_title: &#34;Descriptive epidemiology of selected malformations of the aorta, Atlanta, 1970-1983.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9433,6 +9772,7 @@ animal_models:
       in human coarctation. This is the mechanism the model exists to isolate.
     evidence:
     - reference: PMID:16280280
+      reference_title: &#34;Hypertension induced by aortic coarctation above the renal arteries is associated with immune cell infiltration of the kidneys.&#34;
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
@@ -9457,6 +9797,7 @@ animal_models:
       human pressure distribution.
     evidence:
     - reference: PMID:16280280
+      reference_title: &#34;Hypertension induced by aortic coarctation above the renal arteries is associated with immune cell infiltration of the kidneys.&#34;
       supports: PARTIAL
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
@@ -9482,6 +9823,7 @@ animal_models:
       systemic-arteriopathy arm of this entry.
     evidence:
     - reference: PMID:16280280
+      reference_title: &#34;Hypertension induced by aortic coarctation above the renal arteries is associated with immune cell infiltration of the kidneys.&#34;
       supports: NO_EVIDENCE
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
@@ -9508,6 +9850,7 @@ animal_models:
     coarctation morphogenesis and should not be cited as one.
   evidence:
   - reference: PMID:16280280
+    reference_title: &#34;Hypertension induced by aortic coarctation above the renal arteries is associated with immune cell infiltration of the kidneys.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -9533,6 +9876,7 @@ genetic:
     associates with bicuspid aortic valve.
   evidence:
   - reference: PMID:29590334
+    reference_title: &#34;A rare missense mutation in MYH6 associates with non-syndromic coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9553,6 +9897,7 @@ genetic:
     overrepresented in coarctation patients relative to controls.
   evidence:
   - reference: PMID:24418111
+    reference_title: &#34;Variants in the NOTCH1 gene in patients with aortic coarctation.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9575,6 +9920,7 @@ genetic:
     coarctation.
   evidence:
   - reference: PMID:38071433
+    reference_title: &#34;Patent ductus arteriosus and coarctation of the aorta in association with PRDM6 variants.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9589,6 +9935,7 @@ epidemiology:
     Coarctation accounts for roughly 4-8% of congenital heart defects.
   evidence:
   - reference: PMID:29590334
+    reference_title: &#34;A rare missense mutation in MYH6 associates with non-syndromic coarctation of the aorta.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9602,6 +9949,7 @@ epidemiology:
     coarctation was present in 12.5% and bicuspid aortic valve in 34%.
   evidence:
   - reference: PMID:23825392
+    reference_title: &#34;Bicuspid aortic valve and aortic coarctation are linked to deletion of the X chromosome short arm in Turner syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -10248,7 +10596,7 @@ epidemiology:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Coarctation of the Aorta", "mondoId": "MONDO:0007345", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coarctation_of_the_Aorta", "yamlRevision": "66be0a1d153d"};
+        const OS_CONFIG = {"diseaseName": "Coarctation of the Aorta", "mondoId": "MONDO:0007345", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coarctation_of_the_Aorta", "yamlRevision": "aad4b00196ad"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10667,5 +11015,73 @@ epidemiology:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

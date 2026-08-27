@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Schwannomatosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Schwannomatosis</h1>
             <div class="header-meta">
 
@@ -3940,7 +4062,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-smarcb1-related">
 
                     <div class="item-name">
                         SMARCB1-related Schwannomatosis
@@ -3955,18 +4077,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SMARCB1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11103</a>
+    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11103</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3997,6 +4121,7 @@ This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4018,6 +4143,7 @@ This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24362817" target="_blank">PMID:24362817</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4045,7 +4171,7 @@ This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gen
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lztr1-related">
 
                     <div class="item-name">
                         LZTR1-related Schwannomatosis
@@ -4060,18 +4186,20 @@ This subtype is caused by variation in SMARCB1 (hgnc:11103). hgnc:11103 is a gen
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 LZTR1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6742</a>
+    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6742</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4102,6 +4230,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24362817" target="_blank">PMID:24362817</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4128,7 +4257,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-22q-related-unknown-gene">
 
                     <div class="item-name">
                         22q-related / Unknown-gene Schwannomatosis
@@ -4162,6 +4291,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39209702" target="_blank">PMID:39209702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4183,6 +4313,7 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39209702" target="_blank">PMID:39209702</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4239,18 +4370,20 @@ This subtype is caused by variation in LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4278,17 +4411,21 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMARCB1
 
 
-    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11103</a>
+    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11103</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4313,17 +4450,21 @@ This pathophysiological event involves SMARCB1 (hgnc:11103). hgnc:11103 is a gen
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         LZTR1
 
 
-    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6742</a>
+    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:6742</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4402,18 +4543,20 @@ This pathophysiological event involves LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4441,17 +4584,21 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:7773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4480,18 +4627,20 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased negative regulation of cell population proliferation (GO:0008285). GO:0008285 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008285" target="_blank" class="curie-chip curie-chip-go">GO:0008285</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008285" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008285</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of cell population proliferation (GO:0008285). GO:0008285 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4549,6 +4698,7 @@ This pathophysiological event involves decreased negative regulation of cell pop
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18072270" target="_blank">PMID:18072270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4571,6 +4721,7 @@ This pathophysiological event involves decreased negative regulation of cell pop
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18072270" target="_blank">PMID:18072270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4592,6 +4743,7 @@ This pathophysiological event involves decreased negative regulation of cell pop
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24362817" target="_blank">PMID:24362817</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4626,18 +4778,20 @@ This pathophysiological event involves decreased negative regulation of cell pop
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4665,17 +4819,21 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMARCB1
 
 
-    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11103</a>
+    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11103</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4704,18 +4862,20 @@ This pathophysiological event involves SMARCB1 (hgnc:11103). hgnc:11103 is a gen
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006338</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4782,18 +4942,20 @@ This pathophysiological event involves decreased chromatin remodeling (GO:000633
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4821,17 +4983,21 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         LZTR1
 
 
-    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6742</a>
+    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:6742</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4860,18 +5026,20 @@ This pathophysiological event involves LZTR1 (hgnc:6742). hgnc:6742 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein ubiquitination (GO:0016567). GO:0016567 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein ubiquitination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016567" target="_blank" class="curie-chip curie-chip-go">GO:0016567</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016567" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0016567</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein ubiquitination (GO:0016567). GO:0016567 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4892,18 +5060,20 @@ This pathophysiological event involves decreased protein ubiquitination (GO:0016
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Ras protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go">GO:0007265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007265</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4961,6 +5131,7 @@ This pathophysiological event involves increased Ras protein signal transduction
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24362817" target="_blank">PMID:24362817</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4994,18 +5165,20 @@ This pathophysiological event involves increased Ras protein signal transduction
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5033,17 +5206,21 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:7773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5072,18 +5249,20 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Schwann cell proliferation (GO:0014010). GO:0014010 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Schwann cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014010" target="_blank" class="curie-chip curie-chip-go">GO:0014010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0014010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Schwann cell proliferation (GO:0014010). GO:0014010 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5111,18 +5290,20 @@ This pathophysiological event involves increased Schwann cell proliferation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in peripheral nervous system (UBERON:0000010). UBERON:0000010 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         peripheral nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in peripheral nervous system (UBERON:0000010). UBERON:0000010 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5168,6 +5349,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36944680" target="_blank">PMID:36944680</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5189,6 +5371,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36944680" target="_blank">PMID:36944680</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5223,18 +5406,20 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5265,18 +5450,20 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in peripheral nervous system (UBERON:0000010). UBERON:0000010 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         peripheral nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in peripheral nervous system (UBERON:0000010). UBERON:0000010 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5372,16 +5559,20 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012532</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chronic pain (HP:0012532), qualified as temporality chronic. HP:0012532 is a phenotype from the Human Phenotype Ontology.">
-                        Chronic pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp">HP:0012532</a>
-
-
+This clinical feature is Chronic pain (HP:0012532), qualified as temporality chronic. HP:0012532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5419,6 +5610,7 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5461,16 +5653,20 @@ This clinical feature is Chronic pain (HP:0012532), qualified as temporality chr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002858" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002858</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Meningioma (HP:0002858). HP:0002858 is a phenotype from the Human Phenotype Ontology.">
-                        Meningioma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002858" target="_blank" class="curie-chip curie-chip-hp">HP:0002858</a>
-
-
+This clinical feature is Meningioma (HP:0002858). HP:0002858 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5490,6 +5686,7 @@ This clinical feature is Meningioma (HP:0002858). HP:0002858 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5532,16 +5729,20 @@ This clinical feature is Meningioma (HP:0002858). HP:0002858 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100008" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100008</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from the Human Phenotype Ontology.">
-                        Schwannoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100008" target="_blank" class="curie-chip curie-chip-hp">HP:0100008</a>
-
-
+This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5561,6 +5762,7 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5583,6 +5785,7 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5654,6 +5857,7 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5735,15 +5939,17 @@ This clinical feature is Schwannoma (HP:0100008). HP:0100008 is a phenotype from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMARCB1
 
 
-    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11103</a>
+    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11103</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5773,6 +5979,7 @@ This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5794,6 +6001,7 @@ This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39209702" target="_blank">PMID:39209702</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5832,15 +6040,17 @@ This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LZTR1
 
 
-    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6742</a>
+    <a href="https://bioregistry.io/hgnc:6742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6742</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5870,6 +6080,7 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5891,6 +6102,7 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24362817" target="_blank">PMID:24362817</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5922,6 +6134,9 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5938,18 +6153,18 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5991,6 +6206,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6021,18 +6237,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">surveillance for malignancies<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">surveillance for malignancies</span>
+This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">NCIT:C15406</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15406">NCIT:C15406</a>
 
 
 
@@ -6074,6 +6290,7 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6104,18 +6321,18 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">therapeutic procedure</span>
+This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
 
 
 
@@ -6157,6 +6374,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6187,18 +6405,18 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">therapeutic procedure</span>
+This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
 
 
 
@@ -6229,18 +6447,20 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Chronic pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp">HP:0012532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012532</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6259,6 +6479,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29517885" target="_blank">PMID:29517885</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6304,7 +6525,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse239715">
                 <div class="item-name">
                     Epigenome analysis of schwannomas arising as part of segmental schwannomatosis due to somatic mosaic SOX10 indel mutations
 
@@ -6347,7 +6568,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse292071">
                 <div class="item-name">
                     A Single-cell Atlas of Schwannoma Across Genetic Backgrounds and Anatomic Locations
 
@@ -6390,7 +6611,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse292315">
                 <div class="item-name">
                     Effect of Fak1/Ptk2 knockout in a mouse model of NF2-related schwannomatosis
 
@@ -6433,7 +6654,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000767">
                 <div class="item-name">
                     Next generation sequencing of sporadic schwannomatosis samples
 
@@ -6472,7 +6693,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004038">
                 <div class="item-name">
                     Familial multinodular goitre and schwannomatosis
 
@@ -6507,7 +6728,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001005665">
                 <div class="item-name">
                     DGCR8 and the six hit, three-step model of schwannomatosis
 
@@ -6554,7 +6775,7 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04163419">
                 <div class="item-name">
                     NCT04163419
 
@@ -6572,18 +6793,20 @@ This treatment targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Chronic pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp">HP:0012532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012532</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6601,6 +6824,7 @@ This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04163419" target="_blank">clinicaltrials:NCT04163419</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6623,7 +6847,7 @@ This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05684692">
                 <div class="item-name">
                     NCT05684692
 
@@ -6641,18 +6865,20 @@ This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Chronic pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp">HP:0012532</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012532</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6670,6 +6896,7 @@ This clinical trial targets Chronic pain (HP:0012532). HP:0012532 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05684692" target="_blank">clinicaltrials:NCT05684692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6844,6 +7071,7 @@ has_subtypes:
     explanation: Supports that a large fraction of clinically diagnosed schwannomatosis lacks an identifiable germline variant on blood testing.
 pathophysiology:
 - name: Germline SMARCB1 or LZTR1 Loss of Function (First Hit)
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Constitutional First-Hit Tumor Suppressor Inactivation&#34;
   description: &gt;-
     The predisposing event is a germline loss-of-function variant in SMARCB1
     (a core SWI/SNF chromatin-remodeling subunit) or LZTR1 (a CUL3 ubiquitin-ligase
@@ -6872,6 +7100,7 @@ pathophysiology:
   - target: LZTR1-CUL3 Substrate Adaptor Dysfunction
     description: Germline LZTR1 loss of function impairs CUL3-mediated substrate ubiquitination, dysregulating RAS-MAPK signaling.
 - name: Composite 4-Hit/3-Event 22q Inactivation
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Somatic Second-Hit Inactivation of the Wild-Type Allele&#34;
   description: &gt;-
     Schwannomas in SMARCB1/LZTR1-related schwannomatosis arise through a
     characteristic composite mechanism involving four mutational hits across three
@@ -7278,6 +7507,7 @@ clinical_trials:
       label: Chronic pain
   evidence:
   - reference: clinicaltrials:NCT04163419
+    reference_title: &#34;A Phase 2 Randomized, Double-blind, Placebo-Controlled Study of the Analgesic Efficacy and Safety of the Subcutaneous Administration of the Anti-NGF Antibody Tanezumab in Subjects With Moderate to Severe Pain Due to Schwannomatosis&#34;
     supports: SUPPORT
     snippet: &#34;improves pain relief in schwannomatosis patients receiving background non-NSAID therapy&#34;
     explanation: A registered interventional trial targeting schwannomatosis-associated chronic pain, the syndrome&#39;s dominant symptom.
@@ -7296,6 +7526,7 @@ clinical_trials:
       label: Chronic pain
   evidence:
   - reference: clinicaltrials:NCT05684692
+    reference_title: &#34;Screening Trial for Pain Relief in Schwannomatosis (STARFISH)&#34;
     supports: SUPPORT
     snippet: &#34;phase II platform screening trial designed to test the safety, pain responses, and pharmacodynamic activity of multiple experimental therapies simultaneously in participants with moderate-to-severe pain due to schwannomatosis&#34;
     explanation: A registered phase II platform trial screening multiple agents for schwannomatosis-associated chronic pain, the syndrome&#39;s dominant symptom.
@@ -8580,7 +8811,7 @@ NF2 alterations can include truncating variants, copy-number changes (whole-gene
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Schwannomatosis", "mondoId": "MONDO:0008075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Schwannomatosis", "yamlRevision": "c5eeda418ddf"};
+        const OS_CONFIG = {"diseaseName": "Schwannomatosis", "mondoId": "MONDO:0008075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Schwannomatosis", "yamlRevision": "f5772f58a0c7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8999,5 +9230,73 @@ NF2 alterations can include truncating variants, copy-number changes (whole-gene
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

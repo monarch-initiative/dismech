@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Clear Cell Renal Cell Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Clear Cell Renal Cell Carcinoma</h1>
             <div class="header-meta">
 
@@ -3895,34 +4017,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Carcinoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3961,7 +4170,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vhl-associated-ccrcc">
 
                     <div class="item-name">
                         VHL-associated ccRCC
@@ -3989,7 +4198,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sporadic-ccrcc">
 
                     <div class="item-name">
                         Sporadic ccRCC
@@ -4046,18 +4255,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002518</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4085,18 +4296,20 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cellular response to hypoxia (GO:0071456). GO:0071456 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go">GO:0071456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0071456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular response to hypoxia (GO:0071456). GO:0071456 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4117,18 +4330,20 @@ This pathophysiological event involves increased cellular response to hypoxia (G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         proteasome-mediated ubiquitin-dependent protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go">GO:0043161</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0043161</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4156,18 +4371,20 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4204,6 +4421,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37085424" target="_blank">PMID:37085424</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4243,18 +4461,20 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased protein stabilization (GO:0050821). GO:0050821 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein stabilization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050821" target="_blank" class="curie-chip curie-chip-go">GO:0050821</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050821" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0050821</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein stabilization (GO:0050821). GO:0050821 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4336,18 +4556,20 @@ This pathophysiological event involves increased protein stabilization (GO:00508
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4368,18 +4590,20 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased vascular endothelial growth factor receptor signaling pathway (GO:0048010). GO:0048010 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         vascular endothelial growth factor receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048010" target="_blank" class="curie-chip curie-chip-go">GO:0048010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0048010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vascular endothelial growth factor receptor signaling pathway (GO:0048010). GO:0048010 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4430,18 +4654,20 @@ This pathophysiological event involves increased vascular endothelial growth fac
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4485,18 +4711,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002518</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4524,18 +4752,20 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycolytic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4556,18 +4786,20 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased tricarboxylic acid cycle (GO:0006099). GO:0006099 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         tricarboxylic acid cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go">GO:0006099</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tricarboxylic acid cycle (GO:0006099). GO:0006099 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4610,6 +4842,7 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23792563" target="_blank">PMID:23792563</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4631,6 +4864,7 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12967-024-04848-x" target="_blank">DOI:10.1186/s12967-024-04848-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4672,18 +4906,20 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006338</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4741,6 +4977,7 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37085424" target="_blank">PMID:37085424</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4772,18 +5009,20 @@ This pathophysiological event involves abnormal chromatin remodeling (GO:0006338
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD8-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4811,18 +5050,20 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Negative Regulation of T Cell Mediated Immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4865,6 +5106,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38762484" target="_blank">PMID:38762484</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4900,7 +5142,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-clear-cell-renal-cell-carcinoma">
                 <div class="item-name">
                     Clear Cell Renal Cell Carcinoma
 
@@ -4924,6 +5166,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39196544" target="_blank">PMID:39196544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4945,7 +5188,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-sarcomatoid-differentiation">
                 <div class="item-name">
                     Sarcomatoid Differentiation
 
@@ -4968,6 +5211,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11224597" target="_blank">PMID:11224597</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4992,7 +5236,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-coagulative-tumor-necrosis">
                 <div class="item-name">
                     Coagulative Tumor Necrosis
 
@@ -5015,6 +5259,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17594714" target="_blank">PMID:17594714</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5039,7 +5284,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-fuhrman-nuclear-grade">
                 <div class="item-name">
                     Fuhrman Nuclear Grade
 
@@ -5062,6 +5307,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20804473" target="_blank">PMID:20804473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5154,16 +5400,22 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Renal neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0009726</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Renal neoplasm (HP:0009726). HP:0009726 is a phenotype from the Human Phenotype Ontology.">
-                        Renal neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009726" target="_blank" class="curie-chip curie-chip-hp">HP:0009726</a>
-
-
+This clinical feature is Renal neoplasm (HP:0009726). HP:0009726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5186,16 +5438,20 @@ This clinical feature is Renal neoplasm (HP:0009726). HP:0009726 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000790</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.">
-                        Hematuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp">HP:0000790</a>
-
-
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5227,16 +5483,20 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5268,16 +5528,20 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5309,16 +5573,22 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002664</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp">HP:0002664</a>
-
-
+This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5338,6 +5608,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39196544" target="_blank">PMID:39196544</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5412,6 +5683,28 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: VHL
+
+
+    <a href="https://bioregistry.io/hgnc:12687" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:12687</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -5432,6 +5725,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23792563" target="_blank">PMID:23792563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5465,6 +5759,28 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PBRM1
+
+
+    <a href="https://bioregistry.io/hgnc:30064" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:30064</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PBRM1 (hgnc:30064). hgnc:30064 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5479,6 +5795,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23792563" target="_blank">PMID:23792563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5512,6 +5829,28 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BAP1
+
+
+    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:950</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAP1 (hgnc:950). hgnc:950 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5526,6 +5865,7 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37085424" target="_blank">PMID:37085424</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5557,6 +5897,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5573,18 +5916,18 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5626,6 +5969,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39196544" target="_blank">PMID:39196544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5656,17 +6000,17 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5691,63 +6035,71 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         sunitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_38940" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:38940</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_38940" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:38940</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pazopanib (CHEBI:71219). CHEBI:71219 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         pazopanib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71219" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:71219</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71219" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:71219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pazopanib (CHEBI:71219). CHEBI:71219 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses axitinib (CHEBI:66910). CHEBI:66910 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         axitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_66910" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:66910</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66910" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:66910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses axitinib (CHEBI:66910). CHEBI:66910 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cabozantinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_72317" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:72317</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_72317" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:72317</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5791,6 +6143,7 @@ This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39196544" target="_blank">PMID:39196544</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5821,18 +6174,18 @@ This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
 
 
 
@@ -5857,18 +6210,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         belzutifan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C135627" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C135627</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C135627" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C135627</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5910,18 +6265,18 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">immunotherapy procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy procedure</span>
+This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -5972,6 +6327,7 @@ This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39014460" target="_blank">PMID:39014460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5993,6 +6349,7 @@ This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C1
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37175653" target="_blank">PMID:37175653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6069,7 +6426,7 @@ This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C1
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000509">
                 <div class="item-name">
                     an integrated molecular study of clear cell renal cell carcinoma (ccRCC) including whole-genome/exome and RNA sequencing as well as array-based gene expression/copy-number/methylation analyses
 
@@ -6104,7 +6461,7 @@ This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C1
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001661">
                 <div class="item-name">
                     Transcriptome Sequencing (RNAseq) enables utilization of Formalin-Fixed, Paraffin-Embedded Biopsies with Clear Cell Renal Cell Carcinoma for Exploration of Disease Biology and Biomarker Development
 
@@ -6139,7 +6496,7 @@ This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C1
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st002241">
                 <div class="item-name">
                     ACSS2 Regulates HIF-2α Degradation through the E3-Ubiquitin Ligase MUL1 in Clear Cell Renal Cell Carcinoma
 
@@ -6170,7 +6527,7 @@ This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C1
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000079972">
                 <div class="item-name">
                     Proteomic analysis of clear cell renal cell carcinoma tissue versus matched normal kidney tissue
 
@@ -6231,7 +6588,6 @@ This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C1
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Clear Cell Renal Cell Carcinoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
 description: &gt;-
   Clear cell renal cell carcinoma (ccRCC) is the most common subtype of kidney
   cancer, characterized by biallelic inactivation of the VHL tumor suppressor
@@ -6600,6 +6956,11 @@ biochemical:
     downstream targets including VEGF, PDGF, TGF-α, and cyclin D1.
 genetic:
 - name: VHL
+  gene_term:
+    preferred_term: VHL
+    term:
+      id: hgnc:12687
+      label: VHL
   association: Germline and Somatic Inactivating Mutations
   inheritance:
   - name: Autosomal Dominant
@@ -6616,6 +6977,11 @@ genetic:
     snippet: &#34;Genetic changes underlying clear cell renal cell carcinoma (ccRCC) include alterations in genes controlling cellular oxygen sensing (for example, VHL) and the maintenance of chromatin states (for example, PBRM1).&#34;
     explanation: The TCGA molecular characterization identifies VHL (cellular oxygen sensing) as a core altered gene underlying ccRCC.
 - name: PBRM1
+  gene_term:
+    preferred_term: PBRM1
+    term:
+      id: hgnc:30064
+      label: PBRM1
   association: Somatic Inactivating Mutations
   notes: &gt;-
     PBRM1 (chromatin remodeling SWI/SNF complex) mutations occur in 40% of
@@ -6628,6 +6994,11 @@ genetic:
     snippet: &#34;mutations involving the SWI/SNF chromatin remodelling complex (PBRM1, ARID1A, SMARCA4) could have far-reaching effects on other pathways&#34;
     explanation: The TCGA analysis identifies PBRM1 as part of the recurrently mutated SWI/SNF chromatin-remodelling complex in ccRCC.
 - name: BAP1
+  gene_term:
+    preferred_term: BAP1
+    term:
+      id: hgnc:950
+      label: BAP1
   association: Somatic Inactivating Mutations
   notes: &gt;-
     BAP1 (deubiquitinase) mutations occur in 15% of ccRCC. Associated with
@@ -7271,7 +7642,7 @@ Clear cell renal cell carcinoma is driven in the vast majority of cases by loss 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Clear Cell Renal Cell Carcinoma", "mondoId": "MONDO:0005005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Clear_Cell_Renal_Cell_Carcinoma", "yamlRevision": "95ed1f738284"};
+        const OS_CONFIG = {"diseaseName": "Clear Cell Renal Cell Carcinoma", "mondoId": "MONDO:0005005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Clear_Cell_Renal_Cell_Carcinoma", "yamlRevision": "da34f03dc144"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7690,5 +8061,73 @@ Clear cell renal cell carcinoma is driven in the vast majority of cases by loss 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

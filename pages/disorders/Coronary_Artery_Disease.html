@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Coronary Artery Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Coronary Artery Disease</h1>
             <div class="header-meta">
 
@@ -3915,27 +4037,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">CARDIOVASCULAR</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4004,6 +4203,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42443528" target="_blank">PMID:42443528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4025,6 +4225,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37228747" target="_blank">PMID:37228747</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4111,6 +4312,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32860032" target="_blank">PMID:32860032</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4133,6 +4335,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32860032" target="_blank">PMID:32860032</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4154,6 +4357,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32860032" target="_blank">PMID:32860032</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4222,6 +4426,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26073397" target="_blank">PMID:26073397</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4285,21 +4490,21 @@
 
 
 
-    <span class="entity-ref-chip">biochemical#LDL Cholesterol</span>
+    <a class="entity-ref-chip" href="#biochemical-ldl-cholesterol">biochemical#LDL Cholesterol</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">biochemical#C-Reactive Protein</span>
+    <a class="entity-ref-chip" href="#biochemical-c-reactive-protein">biochemical#C-Reactive Protein</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">environmental#Smoking</span>
+    <a class="entity-ref-chip" href="#environmental-smoking">environmental#Smoking</a>
 
 
 
@@ -4338,6 +4543,12 @@
             <div class="experiment-section-title">Decision criterion</div>
             <div class="experiment-decision">A context is retained as a causal amplifier if MR supports exposure-to-disease directionality and the exposure-attributable risk difference increases across increasing PGS strata; it is flagged as a reverse-causation suspect otherwise.</div>
         </div>
+
+
+
+
+
+
 
 
 
@@ -4389,6 +4600,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4424,21 +4641,21 @@
 
 
 
-    <span class="entity-ref-chip">treatment#Icosapent Ethyl</span>
+    <a class="entity-ref-chip" href="#treatment-icosapent-ethyl">treatments#Icosapent Ethyl</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-coronary-plaque-remodeling-model">mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-atherogenic-particle-lowering-model">mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model</a>
 
 
 
@@ -4466,7 +4683,7 @@
 
 
 
-    <span class="entity-ref-chip">biochemical#C-Reactive Protein</span>
+    <a class="entity-ref-chip" href="#biochemical-c-reactive-protein">biochemical#C-Reactive Protein</a>
 
 
 
@@ -4493,11 +4710,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type randomized temporal causal-mediation trial.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         randomized temporal causal-mediation trial
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type randomized temporal causal-mediation trial.</span>
     </span>
 
 
@@ -4536,7 +4757,7 @@ This experiment is of type randomized temporal causal-mediation trial.">
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">treatment#Icosapent Ethyl</span>
+    <a class="entity-ref-chip" href="#treatment-icosapent-ethyl">treatments#Icosapent Ethyl</a>
 
     </div>
 
@@ -4579,7 +4800,7 @@ This experiment is of type randomized temporal causal-mediation trial.">
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-atherogenic-particle-lowering-model">mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model</a>
 
     </div>
 
@@ -4601,11 +4822,15 @@ This experiment is of type randomized temporal causal-mediation trial.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by longitudinal lipoprotein particle and remnant profiling.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         longitudinal lipoprotein particle and remnant profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by longitudinal lipoprotein particle and remnant profiling.</span>
     </span>
 
 
@@ -4644,7 +4869,7 @@ This readout is measured by longitudinal lipoprotein particle and remnant profil
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-coronary-plaque-remodeling-model">mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model</a>
 
     </div>
 
@@ -4666,11 +4891,15 @@ This readout is measured by longitudinal lipoprotein particle and remnant profil
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by longitudinal lipidomic, lipoprotein, and membrane-biophysics profiling.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         longitudinal lipidomic, lipoprotein, and membrane-biophysics profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by longitudinal lipidomic, lipoprotein, and membrane-biophysics profiling.</span>
     </span>
 
 
@@ -4695,11 +4924,15 @@ This readout is measured by longitudinal lipidomic, lipoprotein, and membrane-bi
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by inflammatory-resolution and platelet functional assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         inflammatory-resolution and platelet functional assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
+This readout is measured by inflammatory-resolution and platelet functional assay.</span>
     </span>
 
 
@@ -4760,11 +4993,15 @@ This readout is measured by inflammatory-resolution and platelet functional assa
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by serial coronary computed tomographic angiography.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         serial coronary computed tomographic angiography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by serial coronary computed tomographic angiography.</span>
     </span>
 
 
@@ -4789,11 +5026,15 @@ This readout is measured by serial coronary computed tomographic angiography.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by intravascular plaque imaging.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         intravascular plaque imaging
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by intravascular plaque imaging.</span>
     </span>
 
 
@@ -4832,7 +5073,7 @@ This readout is measured by intravascular plaque imaging.">
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">treatment#Icosapent Ethyl</span>
+    <a class="entity-ref-chip" href="#treatment-icosapent-ethyl">treatments#Icosapent Ethyl</a>
 
     </div>
 
@@ -4854,11 +5095,15 @@ This readout is measured by intravascular plaque imaging.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by blinded cardiovascular event adjudication.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         blinded cardiovascular event adjudication
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by blinded cardiovascular event adjudication.</span>
     </span>
 
 
@@ -4983,14 +5228,14 @@ This readout is measured by blinded cardiovascular event adjudication.">
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-coronary-plaque-remodeling-model">mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-atherogenic-particle-lowering-model">mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model</a>
 
 
 
@@ -5007,19 +5252,25 @@ This readout is measured by blinded cardiovascular event adjudication.">
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-coronary-plaque-remodeling-model">mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-icosapent-ethyl-atherogenic-particle-lowering-model">mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5050,6 +5301,7 @@ This readout is measured by blinded cardiovascular event adjudication.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42397965" target="_blank">PMID:42397965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5072,6 +5324,7 @@ This readout is measured by blinded cardiovascular event adjudication.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35762321" target="_blank">PMID:35762321</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5093,6 +5346,7 @@ This readout is measured by blinded cardiovascular event adjudication.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35762321" target="_blank">PMID:35762321</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5141,18 +5395,20 @@ This readout is measured by blinded cardiovascular event adjudication.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5180,18 +5436,20 @@ This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Nitric Oxide Production, annotated with nitric oxide biosynthetic process (GO:0006809). GO:0006809 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Nitric Oxide Production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go">GO:0006809</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006809</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Nitric Oxide Production, annotated with nitric oxide biosynthetic process (GO:0006809). GO:0006809 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5249,6 +5507,7 @@ This pathophysiological event involves decreased Nitric Oxide Production, annota
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5270,6 +5529,7 @@ This pathophysiological event involves decreased Nitric Oxide Production, annota
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5304,18 +5564,20 @@ This pathophysiological event involves decreased Nitric Oxide Production, annota
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5343,18 +5605,20 @@ This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated Cholesterol Homeostasis (GO:0042632). GO:0042632 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cholesterol Homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042632" target="_blank" class="curie-chip curie-chip-go">GO:0042632</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042632" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Cholesterol Homeostasis (GO:0042632). GO:0042632 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5410,6 +5674,7 @@ This pathophysiological event involves dysregulated Cholesterol Homeostasis (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5443,18 +5708,20 @@ This pathophysiological event involves dysregulated Cholesterol Homeostasis (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5471,18 +5738,20 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Foam Cell (CL:0000891). CL:0000891 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Foam Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl">CL:0000891</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000891</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Foam Cell (CL:0000891). CL:0000891 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5510,18 +5779,20 @@ This pathophysiological event involves Foam Cell (CL:0000891). CL:0000891 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Foam Cell Differentiation (GO:0090077). GO:0090077 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Foam Cell Differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090077" target="_blank" class="curie-chip curie-chip-go">GO:0090077</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090077" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0090077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Foam Cell Differentiation (GO:0090077). GO:0090077 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5542,18 +5813,20 @@ This pathophysiological event involves increased Foam Cell Differentiation (GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Arterial Wall Lipid Accumulation, annotated with lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Arterial Wall Lipid Accumulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go">GO:0019915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0019915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Arterial Wall Lipid Accumulation, annotated with lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5574,18 +5847,20 @@ This pathophysiological event involves increased Arterial Wall Lipid Accumulatio
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5641,6 +5916,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5662,6 +5938,7 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5696,18 +5973,20 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Vascular Smooth Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5735,18 +6014,20 @@ This pathophysiological event involves Vascular Smooth Muscle Cell, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Smooth Muscle Cell Proliferation, annotated with positive regulation of smooth muscle cell proliferation (GO:0048661). GO:0048661 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Smooth Muscle Cell Proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go">GO:0048661</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0048661</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Smooth Muscle Cell Proliferation, annotated with positive regulation of smooth muscle cell proliferation (GO:0048661). GO:0048661 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5767,18 +6048,20 @@ This pathophysiological event involves increased Smooth Muscle Cell Proliferatio
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Extracellular Matrix Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5836,6 +6119,7 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39518492" target="_blank">PMID:39518492</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5857,6 +6141,7 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5891,18 +6176,20 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Vascular Smooth Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5930,18 +6217,20 @@ This pathophysiological event involves Vascular Smooth Muscle Cell, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Extracellular Matrix Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5969,18 +6258,20 @@ This pathophysiological event involves increased Extracellular Matrix Organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Coronary Artery (UBERON:0001621). UBERON:0001621 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Coronary Artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001621" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001621</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001621" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001621</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Coronary Artery (UBERON:0001621). UBERON:0001621 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6016,6 +6307,7 @@ This pathophysiological event occurs in Coronary Artery (UBERON:0001621). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6038,6 +6330,7 @@ This pathophysiological event occurs in Coronary Artery (UBERON:0001621). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38639096" target="_blank">PMID:38639096</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6059,6 +6352,7 @@ This pathophysiological event occurs in Coronary Artery (UBERON:0001621). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6095,18 +6389,20 @@ This pathophysiological event occurs in Coronary Artery (UBERON:0001621). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6134,18 +6430,20 @@ This pathophysiological event involves Platelet (CL:0000233). CL:0000233 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Thrombosis, annotated with blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Thrombosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Thrombosis, annotated with blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6188,6 +6486,7 @@ This pathophysiological event involves increased Thrombosis, annotated with bloo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6209,6 +6508,7 @@ This pathophysiological event involves increased Thrombosis, annotated with bloo
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6300,16 +6600,20 @@ This pathophysiological event involves increased Thrombosis, annotated with bloo
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001681</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Angina Pectoris (HP:0001681). HP:0001681 is a phenotype from the Human Phenotype Ontology.">
-                        Angina pectoris
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" class="curie-chip curie-chip-hp">HP:0001681</a>
-
-
+This clinical feature is Angina Pectoris (HP:0001681). HP:0001681 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6334,16 +6638,20 @@ This clinical feature is Angina Pectoris (HP:0001681). HP:0001681 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001658</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myocardial Infarction (HP:0001658). HP:0001658 is a phenotype from the Human Phenotype Ontology.">
-                        Myocardial infarction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" class="curie-chip curie-chip-hp">HP:0001658</a>
-
-
+This clinical feature is Myocardial Infarction (HP:0001658). HP:0001658 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6365,6 +6673,7 @@ This clinical feature is Myocardial Infarction (HP:0001658). HP:0001658 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24902970" target="_blank">PMID:24902970</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6409,16 +6718,20 @@ This clinical feature is Myocardial Infarction (HP:0001658). HP:0001658 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6480,6 +6793,28 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: APOE
+
+
+    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:613</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6494,6 +6829,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17878422" target="_blank">PMID:17878422</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6527,6 +6863,28 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LDLR
+
+
+    <a href="https://bioregistry.io/hgnc:6547" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:6547</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6541,6 +6899,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28444290" target="_blank">PMID:28444290</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6574,6 +6933,28 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PCSK9
+
+
+    <a href="https://bioregistry.io/hgnc:20001" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:20001</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6588,6 +6969,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16554528" target="_blank">PMID:16554528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6636,6 +7018,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17478681" target="_blank">PMID:17478681</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6666,6 +7049,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6682,18 +7068,18 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">statin therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is statin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">statin therapy</span>
+This treatment is statin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is statin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6735,6 +7121,7 @@ This treatment is statin therapy, annotated with Pharmacotherapy (NCIT:C15986). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787973" target="_blank">PMID:40787973</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6765,17 +7152,17 @@ This treatment is statin therapy, annotated with Pharmacotherapy (NCIT:C15986). 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6800,18 +7187,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses icosapent ethyl, annotated with ethyl (5Z,8Z,11Z,14Z,17Z)-icosapentaenoate (CHEBI:84883). CHEBI:84883 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         icosapent ethyl
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_84883" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:84883</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_84883" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:84883</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses icosapent ethyl, annotated with ethyl (5Z,8Z,11Z,14Z,17Z)-icosapentaenoate (CHEBI:84883). CHEBI:84883 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6837,6 +7226,7 @@ This treatment uses icosapent ethyl, annotated with ethyl (5Z,8Z,11Z,14Z,17Z)-ic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30415628" target="_blank">PMID:30415628</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6859,6 +7249,7 @@ This treatment uses icosapent ethyl, annotated with ethyl (5Z,8Z,11Z,14Z,17Z)-ic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35261279" target="_blank">PMID:35261279</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6880,6 +7271,7 @@ This treatment uses icosapent ethyl, annotated with ethyl (5Z,8Z,11Z,14Z,17Z)-ic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30415628" target="_blank">PMID:30415628</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6913,18 +7305,18 @@ This treatment uses icosapent ethyl, annotated with ethyl (5Z,8Z,11Z,14Z,17Z)-ic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">antiplatelet therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antiplatelet therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">antiplatelet therapy</span>
+This treatment is antiplatelet therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antiplatelet therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6966,6 +7358,7 @@ This treatment is antiplatelet therapy, annotated with Pharmacotherapy (NCIT:C15
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11786451" target="_blank">PMID:11786451</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6996,18 +7389,18 @@ This treatment is antiplatelet therapy, annotated with Pharmacotherapy (NCIT:C15
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">ACE inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">ACE inhibitor therapy</span>
+This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7032,18 +7425,20 @@ This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C1
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         ACE inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C247</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C247</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7067,18 +7462,18 @@ This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">beta-blocker therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">beta-blocker therapy</span>
+This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7118,18 +7513,18 @@ This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">percutaneous coronary intervention<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is percutaneous coronary intervention (NCIT:C99521). NCIT:C99521 is a clinical intervention from the NCI Thesaurus.">percutaneous coronary intervention</span>
+This treatment is percutaneous coronary intervention (NCIT:C99521). NCIT:C99521 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Percutaneous Coronary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C99521" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is percutaneous coronary intervention (NCIT:C99521). NCIT:C99521 is a clinical intervention from the NCI Thesaurus.">NCIT:C99521</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C99521" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C99521">NCIT:C99521</a>
 
 
 
@@ -7169,18 +7564,18 @@ This treatment is percutaneous coronary intervention (NCIT:C99521). NCIT:C99521 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">coronary artery bypass grafting<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is coronary artery bypass grafting, annotated with Coronary Artery Bypass Surgery (NCIT:C51998). NCIT:C51998 is a clinical intervention from the NCI Thesaurus.">coronary artery bypass grafting</span>
+This treatment is coronary artery bypass grafting, annotated with Coronary Artery Bypass Surgery (NCIT:C51998). NCIT:C51998 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Coronary Artery Bypass Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C51998" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is coronary artery bypass grafting, annotated with Coronary Artery Bypass Surgery (NCIT:C51998). NCIT:C51998 is a clinical intervention from the NCI Thesaurus.">NCIT:C51998</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51998" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C51998">NCIT:C51998</a>
 
 
 
@@ -7228,11 +7623,94 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
-
-                <div class="item-desc">Major modifiable risk factor, promotes endothelial damage</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-40">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Major modifiable risk factor, with a dose-response relationship to myocardial infarction risk.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15364185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15364185" target="_blank">PMID:15364185</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Smoking (odds ratio 2.87 for current vs never, PAR 35.7% for current and former vs never)"</div>
+
+
+                <div class="evidence-explanation">INTERHEART, a standardised case-control study of acute myocardial infarction across 52 countries with 15152 cases and 14820 controls. Establishes smoking as one of the largest modifiable contributors to population attributable risk.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16920470" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16920470" target="_blank">PMID:16920470</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"risk increased by 5.6% for every additional cigarette smoked"</div>
+
+
+                <div class="evidence-explanation">The tobacco-specific INTERHEART analysis. Quoted for the dose-response relationship, which is the part of the note the odds ratio alone does not establish.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7241,11 +7719,71 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
             <div class="item-box environmental-box anchor-target" id="environmental-high-fat-diet" data-dismech-node="High-Fat Diet" data-dismech-type="environmental">
                 <div class="item-name">High-Fat Diet</div>
 
-
-                <div class="item-desc">Elevates LDL cholesterol</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        high dietary lipid exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0090010" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:0090010</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is increased high dietary lipid exposure, annotated with exposure to lipid in food (ECTO:0090010). ECTO:0090010 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Dietary saturated fat raises serum cholesterol and cardiovascular event risk. The measured effect on LDL specifically is small; the robust finding is the reduction in combined cardiovascular events when saturated fat is reduced.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32428300" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32428300" target="_blank">PMID:32428300</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meta-regression suggested that greater reductions in saturated fat (reflected in greater reductions in serum cholesterol) resulted in greater reductions in risk of CVD events, explaining most heterogeneity between trials"</div>
+
+
+                <div class="evidence-explanation">Cochrane review of 15 randomised controlled trials with about 59000 participants. Note this source qualifies the original note rather than simply confirming it: the same abstract reports only small reductions in LDL cholesterol from reducing saturated fat, so LDL elevation is a weaker claim than the cardiovascular event effect, and the note was rewritten accordingly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7254,11 +7792,94 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
             <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary Lifestyle" data-dismech-type="environmental">
                 <div class="item-name">Sedentary Lifestyle</div>
 
-
-                <div class="item-desc">Contributes to metabolic syndrome</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        sedentary lifestyle
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-42">ECTO:6000004</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is sedentary lifestyle, annotated with exposure to sedentary lifestyle (ECTO:6000004). ECTO:6000004 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Physical inactivity is an independent contributor to myocardial infarction risk. Low physical activity is associated with metabolic syndrome, but sedentary behaviour measured as screen time is not, so the metabolic-syndrome route is not a settled mechanism for this exposure.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15364185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15364185" target="_blank">PMID:15364185</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"regular physical activity (0.86, PAR 12.2%)"</div>
+
+
+                <div class="evidence-explanation">INTERHEART reports regular physical activity as protective against myocardial infarction with a population attributable risk of 12.2 percent for its absence, which is the evidence that inactivity is a risk factor for this disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27997601" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27997601" target="_blank">PMID:27997601</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"for sedentary behavior, represented by screen time &gt; 2 hours/day, a significant association was not identified"</div>
+
+
+                <div class="evidence-explanation">Cited as a caveat, not support. This meta-analysis of eighteen studies found low physical activity significantly associated with metabolic syndrome, but sedentary behaviour measured as screen time was NOT significantly associated overall - only on weekends in subgroup analysis. It is an adolescent population, so it does not settle the question in adults, but it is enough to show the metabolic-syndrome mechanism should not be stated flatly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7268,10 +7889,47 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
                 <div class="item-name">Obesity</div>
 
 
-                <div class="item-desc">Associated with dyslipidemia and inflammation</div>
 
 
 
+
+                <div class="item-desc">Abdominal obesity is an independent contributor to myocardial infarction risk.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15364185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15364185" target="_blank">PMID:15364185</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abdominal obesity (1.12 for top vs lowest tertile and 1.62 for middle vs lowest tertile, PAR 20.1% for top two tertiles vs lowest tertile)"</div>
+
+
+                <div class="evidence-explanation">INTERHEART. Note the measure is abdominal obesity by waist/hip ratio rather than body mass index, which is a more specific claim than the entry name suggests.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7314,6 +7972,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28444290" target="_blank">PMID:28444290</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7381,6 +8040,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20031199" target="_blank">PMID:20031199</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7419,7 +8079,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
                 <span class="card-count">9</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse289957">
                 <div class="item-name">
                     Differential Gene Expression related to Telomere Length in Arterial Wall Tissues and Granulocytes of Patients with Coronary Artery Disease
 
@@ -7462,7 +8122,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse310095">
                 <div class="item-name">
                     Whole Blood Transcriptomics Differentiates Circulating Gene Expression Between Coronary Artery Disease and Peripheral Artery Disease
 
@@ -7505,7 +8165,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse282042">
                 <div class="item-name">
                     RNA-seq analysis of human monocytes in patients with and without coronary atherosclerosis
 
@@ -7548,7 +8208,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000003">
                 <div class="item-name">
                     WTCCC case-control study for Coronary Artery Disease
 
@@ -7583,7 +8243,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000004">
                 <div class="item-name">
                     WTCCC case-control study for Coronary Artery Disease - Combined Controls
 
@@ -7618,7 +8278,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000005">
                 <div class="item-name">
                     WTCCC case-control study for Coronary Artery Disease, Hypertension, T2D - combined cases
 
@@ -7653,7 +8313,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000306">
                 <div class="item-name">
                     Metabolomics Approach to Identify Molecules and Pathways Involved in the Development of Atherosclerotic Coronary Artery Disease
 
@@ -7684,7 +8344,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000088508">
                 <div class="item-name">
                     TAILS identifies candidate substrates and biomarkers of ADAMTS7, a therapeutic protease target in coronary artery disease
 
@@ -7717,7 +8377,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000095097">
                 <div class="item-name">
                     Lipidomics-based algorithms can enhance prediction of obstructive coronary artery disease
 
@@ -7762,7 +8422,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05018247">
                 <div class="item-name">
                     NCT05018247
 
@@ -7787,6 +8447,7 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05018247" target="_blank">clinicaltrials:NCT05018247</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7836,7 +8497,6 @@ This treatment is coronary artery bypass grafting, annotated with Coronary Arter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Coronary Artery Disease
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Coronary artery disease (CAD) is the narrowing or obstruction of the coronary
   arteries by atherosclerotic plaque, driven by endothelial dysfunction, lipid
@@ -8255,6 +8915,7 @@ mechanistic_hypotheses:
     rather than uncorrelated context-specific effects.
   evidence:
   - reference: PMID:42443528
+    reference_title: &#34;Pervasive interactions between exposures and polygenic risk can inform more effective clinical and behavioral interventions.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: The predominant mechanism for PGS×C is the amplification of genetic effects in adverse contexts, such as low polyunsaturated fatty acids or social determinants of ill health
@@ -8264,6 +8925,7 @@ mechanistic_hypotheses:
       identified as the predominant mechanism of PGS×context interaction — the
       mechanism applied in this hypothesis.
   - reference: PMID:37228747
+    reference_title: &#34;Amplification is the primary mode of gene-by-sex interaction in complex human traits.&#34;
     supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: GxSex is pervasive but acts primarily through systematic sex differences in the magnitude of many genetic effects
@@ -8475,6 +9137,11 @@ biochemical:
     explanation: Individual-participant meta-analysis quantifies the association between circulating C-reactive protein and incident coronary heart disease, supporting CRP as an inflammatory risk marker in coronary artery disease.
 genetic:
 - name: APOE
+  gene_term:
+    preferred_term: APOE
+    term:
+      id: hgnc:613
+      label: APOE
   association: Risk Factor
   evidence:
   - reference: PMID:17878422
@@ -8484,6 +9151,11 @@ genetic:
     snippet: &#34;Compared with epsilon3/epsilon3, the odds ratio for coronary disease was 0.80 (95% CI, 0.70-0.90) in epsilon2 carriers and was 1.06 (95% CI, 0.99-1.13) in epsilon4 carriers.&#34;
     explanation: Meta-analysis of 121 studies (37,850 coronary cases) quantifies the APOE genotype-coronary risk association, with epsilon2 carriers at lower risk than the epsilon3/epsilon3 reference.
 - name: LDLR
+  gene_term:
+    preferred_term: LDLR
+    term:
+      id: hgnc:6547
+      label: LDLR
   association: Risk Factor
   evidence:
   - reference: PMID:28444290
@@ -8493,6 +9165,11 @@ genetic:
     snippet: &#34;Rare genetic mutations that cause reduced LDL receptor function lead to markedly higher LDL-C and a dose-dependent increase in the risk of ASCVD&#34;
     explanation: EAS consensus statement establishes that loss of LDL-receptor function raises LDL-C and increases atherosclerotic cardiovascular risk in a dose-dependent manner.
 - name: PCSK9
+  gene_term:
+    preferred_term: PCSK9
+    term:
+      id: hgnc:20001
+      label: PCSK9
   association: Risk Factor
   evidence:
   - reference: PMID:16554528
@@ -8512,13 +9189,100 @@ genetic:
     explanation: Genome-wide association scanning identified the chromosome 9p21 interval as a common CHD risk locus, quantifying the effect size in risk-allele homozygotes.
 environmental:
 - name: Smoking
-  notes: Major modifiable risk factor, promotes endothelial damage
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  notes: Major modifiable risk factor, with a dose-response relationship to
+    myocardial infarction risk.
+  review_notes: The prior note also asserted that smoking promotes endothelial
+    damage. That mechanism is not carried by either epidemiologic source cited here
+    and is not evidenced in this entry; it belongs in pathophysiology with its own
+    citation rather than as an unsourced clause on an exposure.
+  evidence:
+  - reference: PMID:15364185
+    reference_title: &#34;Effect of potentially modifiable risk factors associated with myocardial infarction in 52 countries (the INTERHEART study): case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Smoking (odds ratio 2.87 for current vs never, PAR 35.7% for current and former vs never)&#34;
+    explanation: &#34;INTERHEART, a standardised case-control study of acute myocardial infarction across 52 countries with 15152 cases and 14820 controls. Establishes smoking as one of the largest modifiable contributors to population attributable risk.&#34;
+  - reference: PMID:16920470
+    reference_title: &#34;Tobacco use and risk of myocardial infarction in 52 countries in the INTERHEART study: a case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;risk increased by 5.6% for every additional cigarette smoked&#34;
+    explanation: &#34;The tobacco-specific INTERHEART analysis. Quoted for the dose-response relationship, which is the part of the note the odds ratio alone does not establish.&#34;
 - name: High-Fat Diet
-  notes: Elevates LDL cholesterol
+  exposure_term:
+    preferred_term: high dietary lipid exposure
+    modifier: INCREASED
+    term:
+      id: ECTO:0090010
+      label: exposure to lipid in food
+  notes: Dietary saturated fat raises serum cholesterol and cardiovascular event
+    risk. The measured effect on LDL specifically is small; the robust finding is
+    the reduction in combined cardiovascular events when saturated fat is reduced.
+  review_notes: The bound exposure term is broader than the cited evidence. The term
+    is total dietary lipid, while the citation concerns saturated fat specifically -
+    a distinction that matters, because trials reducing total fat do not show the
+    same event reduction. ECTO was searched for a saturated-fat-specific exposure
+    term and has none; the available matches are CHEBI and CDNO chemical classes,
+    which are not exposure classes and would not validate against the exposure-term
+    enum. The note therefore says saturated fat explicitly so the claim is scoped
+    correctly even though the term is not.
+  evidence:
+  - reference: PMID:32428300
+    reference_title: &#34;Reduction in saturated fat intake for cardiovascular disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Meta-regression suggested that greater reductions in saturated fat (reflected in greater reductions in serum cholesterol) resulted in greater reductions in risk of CVD events, explaining most heterogeneity between trials&#34;
+    explanation: &#34;Cochrane review of 15 randomised controlled trials with about 59000 participants. Note this source qualifies the original note rather than simply confirming it: the same abstract reports only small reductions in LDL cholesterol from reducing saturated fat, so LDL elevation is a weaker claim than the cardiovascular event effect, and the note was rewritten accordingly.&#34;
 - name: Sedentary Lifestyle
-  notes: Contributes to metabolic syndrome
+  exposure_term:
+    preferred_term: sedentary lifestyle
+    term:
+      id: ECTO:6000004
+      label: exposure to sedentary lifestyle
+  notes: Physical inactivity is an independent contributor to myocardial infarction
+    risk. Low physical activity is associated with metabolic syndrome, but sedentary
+    behaviour measured as screen time is not, so the metabolic-syndrome route is not
+    a settled mechanism for this exposure.
+  review_notes: The prior note read simply that a sedentary lifestyle contributes to
+    metabolic syndrome. The cited meta-analysis separates low physical activity from
+    sedentary behaviour and finds only the former significantly associated with
+    metabolic syndrome, so the note was split accordingly rather than left as a flat
+    claim. That meta-analysis is in adolescents and does not settle the question in
+    adults; it is enough to show the claim needs qualifying, not enough to refute it.
+  evidence:
+  - reference: PMID:15364185
+    reference_title: &#34;Effect of potentially modifiable risk factors associated with myocardial infarction in 52 countries (the INTERHEART study): case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;regular physical activity (0.86, PAR 12.2%)&#34;
+    explanation: &#34;INTERHEART reports regular physical activity as protective against myocardial infarction with a population attributable risk of 12.2 percent for its absence, which is the evidence that inactivity is a risk factor for this disease.&#34;
+  - reference: PMID:27997601
+    reference_title: &#34;Physical Activity, Sedentary Behavior, Cardiorespiratory Fitness and Metabolic Syndrome in Adolescents: Systematic Review and Meta-Analysis of Observational Evidence.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;for sedentary behavior, represented by screen time &gt; 2 hours/day, a significant association was not identified&#34;
+    explanation: &#34;Cited as a caveat, not support. This meta-analysis of eighteen studies found low physical activity significantly associated with metabolic syndrome, but sedentary behaviour measured as screen time was NOT significantly associated overall - only on weekends in subgroup analysis. It is an adolescent population, so it does not settle the question in adults, but it is enough to show the metabolic-syndrome mechanism should not be stated flatly.&#34;
 - name: Obesity
-  notes: Associated with dyslipidemia and inflammation
+  notes: Abdominal obesity is an independent contributor to myocardial infarction risk.
+  review_notes: Two separate caveats. First, obesity is a disease entity with its own
+    MONDO identity, not an environmental exposure, so this entry is modelling a host
+    state in the environmental block - the pattern tracked by issue 8551. It is cited
+    here rather than left bare because the evidence is real and moves with the entry
+    if it is later re-homed. Second, the prior note asserted association with
+    dyslipidemia and inflammation; the cited source establishes the association with
+    myocardial infarction, not that mechanism, so the note was narrowed.
+  evidence:
+  - reference: PMID:15364185
+    reference_title: &#34;Effect of potentially modifiable risk factors associated with myocardial infarction in 52 countries (the INTERHEART study): case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;abdominal obesity (1.12 for top vs lowest tertile and 1.62 for middle vs lowest tertile, PAR 20.1% for top two tertiles vs lowest tertile)&#34;
+    explanation: &#34;INTERHEART. Note the measure is abdominal obesity by waist/hip ratio rather than body mass index, which is a more specific claim than the entry name suggests.&#34;
 treatments:
 - name: Statins
   description: Lower LDL cholesterol and stabilize atherosclerotic plaques.
@@ -8656,6 +9420,7 @@ clinical_trials:
   description: Prospective randomized study comparing early revascularization guided by PET-quantified coronary flow capacity versus optimal medical therapy alone in stable ischemic heart disease.
   evidence:
   - reference: clinicaltrials:NCT05018247
+    reference_title: &#34;A Prospective, Randomized Trial of Early Revascularization in Stable Ischemic Heart Disease Guided by Positron Emission Tomography of Artery Specific Integrated Comprehensive Quantitative Myocardial Perfusion&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: To compare the impact of revascularization and Optimal Medical Treatment (OMT) on the extent of severely reduced coronary flow capacity in stable ischemic heart disease.
@@ -8726,9 +9491,9 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - treatment#Icosapent Ethyl
-  - mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model
-  - mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model
+  - treatments#Icosapent Ethyl
+  - mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model
+  - mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model
   - pathophysiology#Atherosclerotic Plaque Formation
   - pathophysiology#Endothelial Dysfunction
   - pathophysiology#Plaque Rupture and Thrombosis
@@ -8788,13 +9553,13 @@ discussions:
       preferred_term: randomized temporal causal-mediation trial
     perturbations:
     - name: Icosapent ethyl 4 g/day
-      target: treatment#Icosapent Ethyl
+      target: treatments#Icosapent Ethyl
       description: &gt;-
         Randomize purified icosapent ethyl with adherence measured independently
         of achieved eicosapentaenoic-acid concentration.
     readouts:
     - name: Atherogenic-particle and remnant trajectories
-      target: mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model
+      target: mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model
       description: &gt;-
         Measure triglycerides, apolipoprotein B and particle number, remnant
         cholesterol and composition, and proteoglycan binding before plaque or
@@ -8803,7 +9568,7 @@ discussions:
       - preferred_term: longitudinal lipoprotein particle and remnant profiling
       direction: NEGATIVE
     - name: Prespecified non-particle mediator trajectories
-      target: mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model
+      target: mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model
       description: &gt;-
         Measure EPA/arachidonic-acid lipid mediators, specialized pro-resolving
         mediators, high-sensitivity C-reactive protein, interleukin-6,
@@ -8824,7 +9589,7 @@ discussions:
       - preferred_term: intravascular plaque imaging
       direction: NEGATIVE
     - name: Adjudicated cardiovascular and safety outcomes
-      target: treatment#Icosapent Ethyl
+      target: treatments#Icosapent Ethyl
       description: &gt;-
         Adjudicate myocardial infarction, stroke, revascularization,
         cardiovascular death, atrial fibrillation or flutter, and serious
@@ -8882,11 +9647,11 @@ discussions:
       indirect effect. No biomarker or imaging association alone establishes
       mediation.
     would_support:
-    - mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model
-    - mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model
+    - mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model
+    - mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model
     would_refute:
-    - mechanistic_hypothesis#icosapent_ethyl_coronary_plaque_remodeling_model
-    - mechanistic_hypothesis#icosapent_ethyl_atherogenic_particle_lowering_model
+    - mechanistic_hypotheses#icosapent_ethyl_coronary_plaque_remodeling_model
+    - mechanistic_hypotheses#icosapent_ethyl_atherogenic_particle_lowering_model
   evidence:
   - reference: PMID:42397965
     reference_title: Rethinking triglycerides in the management of ASCVD.
@@ -10306,7 +11071,7 @@ Platelet/coagulation activation → CORONARY THROMBOSIS → MI / sudden death
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Coronary Artery Disease", "mondoId": "MONDO:0021661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coronary_Artery_Disease", "yamlRevision": "43264b29b09b"};
+        const OS_CONFIG = {"diseaseName": "Coronary Artery Disease", "mondoId": "MONDO:0021661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coronary_Artery_Disease", "yamlRevision": "e1424712b934"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10725,5 +11490,73 @@ Platelet/coagulation activation → CORONARY THROMBOSIS → MI / sudden death
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

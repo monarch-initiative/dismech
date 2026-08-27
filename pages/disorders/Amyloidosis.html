@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Amyloidosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Amyloidosis</h1>
             <div class="header-meta">
 
@@ -3931,42 +4053,130 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
 
-                    <span class="tag tag-classification">CARDIOVASCULAR</span>
 
-                    <span class="tag tag-classification">KIDNEY_URINARY_TRACT</span>
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
+
+                    <span class="tag tag-classification" title="AL amyloidosis is a clonal plasma-cell disorder.">ONCOLOGY HEMATOLOGY</span>
+
+
+                    <span class="tag tag-classification" title="Cardiac amyloidosis is a major systemic presentation.">CARDIOVASCULAR</span>
+
+
+                    <span class="tag tag-classification" title="Renal amyloid is central in AL and AA disease.">KIDNEY URINARY TRACT</span>
+
+
+                    <span class="tag tag-classification" title="ATTRv and AL can cause peripheral and autonomic neuropathy.">NEUROLOGIC</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-mechanistic">proteotoxic disease</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3984,7 +4194,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance-of-attrv-amyloidosis">
                 <div class="item-name">
                     Autosomal dominant inheritance of ATTRv amyloidosis
 
@@ -4028,6 +4238,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604431" target="_blank">PMID:25604431</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4094,7 +4305,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-al">
 
                     <div class="item-name">
                         AL (Immunoglobulin Light Chain) Amyloidosis
@@ -4130,6 +4341,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26858336" target="_blank">PMID:26858336</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4156,7 +4368,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-attrv">
 
                     <div class="item-name">
                         ATTRv (Hereditary Transthyretin) Amyloidosis
@@ -4190,6 +4402,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604431" target="_blank">PMID:25604431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4216,7 +4429,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-attrwt">
 
                     <div class="item-name">
                         ATTRwt (Wild-Type Transthyretin) Amyloidosis
@@ -4252,6 +4465,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26048914" target="_blank">PMID:26048914</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4273,6 +4487,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31731233" target="_blank">PMID:31731233</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4300,7 +4515,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aa">
 
                     <div class="item-name">
                         AA (Serum Amyloid A) Amyloidosis
@@ -4336,6 +4551,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18514052" target="_blank">PMID:18514052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4362,7 +4578,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-localized">
 
                     <div class="item-name">
                         Localized Amyloidosis
@@ -4395,6 +4611,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33100054" target="_blank">PMID:33100054</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4487,6 +4704,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33100054" target="_blank">PMID:33100054</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4559,6 +4777,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8086125" target="_blank">PMID:8086125</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4604,18 +4823,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4676,6 +4897,7 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34192431" target="_blank">PMID:34192431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4714,17 +4936,21 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TTR
 
 
-    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12405</a>
+    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:12405</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4753,18 +4979,20 @@ This pathophysiological event involves TTR (hgnc:12405). hgnc:12405 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4822,6 +5050,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604431" target="_blank">PMID:25604431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4855,18 +5084,20 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4892,17 +5123,21 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SAA1 (hgnc:10513). hgnc:10513 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SAA1
 
 
-    <a href="https://bioregistry.io/hgnc:10513" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10513</a>
+    <a href="https://bioregistry.io/hgnc:10513" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:10513</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SAA1 (hgnc:10513). hgnc:10513 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4964,6 +5199,7 @@ This pathophysiological event involves SAA1 (hgnc:10513). hgnc:10513 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18514052" target="_blank">PMID:18514052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5004,18 +5240,20 @@ This pathophysiological event involves SAA1 (hgnc:10513). hgnc:10513 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5073,6 +5311,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604431" target="_blank">PMID:25604431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5094,6 +5333,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26858336" target="_blank">PMID:26858336</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5128,18 +5368,20 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5156,18 +5398,20 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5195,18 +5439,20 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased amyloid fibril formation (GO:1990000). GO:1990000 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         amyloid fibril formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990000" target="_blank" class="curie-chip curie-chip-go">GO:1990000</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990000" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:1990000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased amyloid fibril formation (GO:1990000). GO:1990000 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5320,6 +5566,7 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40649158" target="_blank">PMID:40649158</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5342,6 +5589,7 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
                         <a href="https://bioregistry.io/DOI:10.1038/s41580-023-00647-2" target="_blank">DOI:10.1038/s41580-023-00647-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5363,6 +5611,7 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.26965" target="_blank">DOI:10.1002/ana.26965</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5460,16 +5709,20 @@ This pathophysiological event involves increased amyloid fibril formation (GO:19
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.">
-                        Proteinuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
-
-
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5489,6 +5742,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11926-024-01147-8" target="_blank">DOI:10.1007/s11926-024-01147-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5531,16 +5785,20 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000158</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype from the Human Phenotype Ontology.">
-                        Macroglossia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp">HP:0000158</a>
-
-
+This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5560,6 +5818,7 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8115892" target="_blank">PMID:8115892</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5602,16 +5861,20 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011034</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Amyloid deposition (HP:0011034). HP:0011034 is a phenotype from the Human Phenotype Ontology.">
-                        Amyloid deposition
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011034" target="_blank" class="curie-chip curie-chip-hp">HP:0011034</a>
-
-
+This clinical feature is Amyloid deposition (HP:0011034). HP:0011034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5631,6 +5894,7 @@ This clinical feature is Amyloid deposition (HP:0011034). HP:0011034 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33787019" target="_blank">PMID:33787019</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5673,16 +5937,20 @@ This clinical feature is Amyloid deposition (HP:0011034). HP:0011034 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course progressive. HP:0009830 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
-
-
+This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course progressive. HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5720,6 +5988,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22094129" target="_blank">PMID:22094129</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5753,16 +6022,22 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal autonomic nervous system physiology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autonomic dysfunction, annotated with Abnormal autonomic nervous system physiology (HP:0012332), qualified as course progressive. HP:0012332 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal autonomic nervous system physiology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp">HP:0012332</a>
-
-
+This clinical feature is Autonomic dysfunction, annotated with Abnormal autonomic nervous system physiology (HP:0012332), qualified as course progressive. HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5800,6 +6075,7 @@ This clinical feature is Autonomic dysfunction, annotated with Abnormal autonomi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22094129" target="_blank">PMID:22094129</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5842,16 +6118,22 @@ This clinical feature is Autonomic dysfunction, annotated with Abnormal autonomi
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Restrictive cardiomyopathy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001723</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Restrictive cardiomyopathy (HP:0001723), qualified as course progressive. HP:0001723 is a phenotype from the Human Phenotype Ontology.">
-                        Restrictive cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp">HP:0001723</a>
-
-
+This clinical feature is Restrictive cardiomyopathy (HP:0001723), qualified as course progressive. HP:0001723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5890,6 +6172,7 @@ This clinical feature is Restrictive cardiomyopathy (HP:0001723), qualified as c
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34518987" target="_blank">PMID:34518987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5911,6 +6194,7 @@ This clinical feature is Restrictive cardiomyopathy (HP:0001723), qualified as c
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40649158" target="_blank">PMID:40649158</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5944,16 +6228,20 @@ This clinical feature is Restrictive cardiomyopathy (HP:0001723), qualified as c
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.">
-                        Nephrotic syndrome
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp">HP:0000100</a>
-
-
+This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5973,6 +6261,7 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18514052" target="_blank">PMID:18514052</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5995,6 +6284,7 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23548761" target="_blank">PMID:23548761</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6030,16 +6320,22 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Constrictive median neuropathy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012185</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Carpal tunnel syndrome, annotated with Constrictive median neuropathy (HP:0012185). HP:0012185 is a phenotype from the Human Phenotype Ontology.">
-                        Constrictive median neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012185" target="_blank" class="curie-chip curie-chip-hp">HP:0012185</a>
-
-
+This clinical feature is Carpal tunnel syndrome, annotated with Constrictive median neuropathy (HP:0012185). HP:0012185 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6059,6 +6355,7 @@ This clinical feature is Carpal tunnel syndrome, annotated with Constrictive med
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1242815" target="_blank">DOI:10.3389/fneur.2023.1242815</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6138,15 +6435,17 @@ This clinical feature is Carpal tunnel syndrome, annotated with Constrictive med
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TTR
 
 
-    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12405</a>
+    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:12405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6172,6 +6471,7 @@ This disease-associated gene is TTR (hgnc:12405). hgnc:12405 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22094129" target="_blank">PMID:22094129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6194,6 +6494,7 @@ This disease-associated gene is TTR (hgnc:12405). hgnc:12405 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34518987" target="_blank">PMID:34518987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6215,6 +6516,7 @@ This disease-associated gene is TTR (hgnc:12405). hgnc:12405 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1001/jamacardio.2024.2190" target="_blank">DOI:10.1001/jamacardio.2024.2190</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6253,15 +6555,17 @@ This disease-associated gene is TTR (hgnc:12405). hgnc:12405 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SAA1 (hgnc:10513). hgnc:10513 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SAA1
 
 
-    <a href="https://bioregistry.io/hgnc:10513" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10513</a>
+    <a href="https://bioregistry.io/hgnc:10513" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:10513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SAA1 (hgnc:10513). hgnc:10513 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6284,6 +6588,7 @@ This disease-associated gene is SAA1 (hgnc:10513). hgnc:10513 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11926-024-01147-8" target="_blank">DOI:10.1007/s11926-024-01147-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6315,6 +6620,9 @@ This disease-associated gene is SAA1 (hgnc:10513). hgnc:10513 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6331,17 +6639,17 @@ This disease-associated gene is SAA1 (hgnc:10513). hgnc:10513 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6366,18 +6674,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         tafamidis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_78538" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:78538</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_78538" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:78538</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6411,6 +6721,7 @@ This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604431" target="_blank">PMID:25604431</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6453,6 +6764,7 @@ This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30145929" target="_blank">PMID:30145929</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6483,17 +6795,17 @@ This treatment uses tafamidis (CHEBI:78538). CHEBI:78538 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6518,18 +6830,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         patisiran
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C116792" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C116792</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C116792" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C116792</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6563,6 +6877,7 @@ This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s40259-023-00577-7" target="_blank">DOI:10.1007/s40259-023-00577-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6605,6 +6920,7 @@ This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972753" target="_blank">PMID:29972753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6635,17 +6951,17 @@ This treatment uses patisiran (NCIT:C116792). NCIT:C116792 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6670,18 +6986,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses acoramidis (NCIT:C170791). NCIT:C170791 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         acoramidis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170791" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C170791</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170791" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C170791</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acoramidis (NCIT:C170791). NCIT:C170791 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6715,6 +7033,7 @@ This treatment uses acoramidis (NCIT:C170791). NCIT:C170791 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38197816" target="_blank">PMID:38197816</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6757,6 +7076,7 @@ This treatment uses acoramidis (NCIT:C170791). NCIT:C170791 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38197816" target="_blank">PMID:38197816</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6787,17 +7107,17 @@ This treatment uses acoramidis (NCIT:C170791). NCIT:C170791 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6822,18 +7142,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         vutrisiran
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152919" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152919</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152919" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C152919</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6867,6 +7189,7 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s40259-023-00577-7" target="_blank">DOI:10.1007/s40259-023-00577-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6909,6 +7232,7 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39213194" target="_blank">PMID:39213194</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6941,18 +7265,18 @@ This treatment uses vutrisiran (NCIT:C152919). NCIT:C152919 is a therapeutic age
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -6977,18 +7301,20 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating mRNA Encoding Cas9 Protein and TTR-targeting Single Guide RNA NTLA-2001 (NCIT:C204942). NCIT:C204942 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         NTLA-2001
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C204942" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C204942</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C204942" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C204942</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating mRNA Encoding Cas9 Protein and TTR-targeting Single Guide RNA NTLA-2001 (NCIT:C204942). NCIT:C204942 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7022,6 +7348,7 @@ This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating m
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34215024" target="_blank">PMID:34215024</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7064,6 +7391,7 @@ This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating m
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34215024" target="_blank">PMID:34215024</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7094,17 +7422,17 @@ This treatment uses NTLA-2001, annotated with Lipid Nanoparticle Encapsulating m
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7129,18 +7457,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         inotersen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121667" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C121667</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121667" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C121667</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7174,6 +7504,7 @@ This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s40259-023-00577-7" target="_blank">DOI:10.1007/s40259-023-00577-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7216,6 +7547,7 @@ This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agen
                         <a href="https://bioregistry.io/DOI:10.1007/s40259-023-00577-7" target="_blank">DOI:10.1007/s40259-023-00577-7</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7246,17 +7578,17 @@ This treatment uses inotersen (NCIT:C121667). NCIT:C121667 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7281,18 +7613,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         eplontersen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C175062" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C175062</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C175062" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C175062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7326,6 +7660,7 @@ This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic ag
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s40259-023-00577-7" target="_blank">DOI:10.1007/s40259-023-00577-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7368,6 +7703,7 @@ This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic ag
                         <a href="https://bioregistry.io/DOI:10.7759/cureus.62981" target="_blank">DOI:10.7759/cureus.62981</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7398,17 +7734,17 @@ This treatment uses eplontersen (NCIT:C175062). NCIT:C175062 is a therapeutic ag
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7433,18 +7769,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         daratumumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C74007" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C74007</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C74007" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C74007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7478,6 +7816,7 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34192431" target="_blank">PMID:34192431</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7520,6 +7859,7 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34192431" target="_blank">PMID:34192431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7550,17 +7890,17 @@ This treatment uses daratumumab (NCIT:C74007). NCIT:C74007 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7585,18 +7925,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         tocilizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C84217</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C84217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7630,6 +7972,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11926-024-01147-8" target="_blank">DOI:10.1007/s11926-024-01147-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7671,6 +8014,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11926-024-01147-8" target="_blank">DOI:10.1007/s11926-024-01147-8</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7718,7 +8062,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hypertrophic-cardiomyopathy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Hypertrophic_Cardiomyopathy.html">Hypertrophic cardiomyopathy</a>
@@ -7765,6 +8109,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41463072" target="_blank">PMID:41463072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7790,7 +8135,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-fabry-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Fabry_disease.html">Fabry disease</a>
@@ -7835,6 +8180,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41463072" target="_blank">PMID:41463072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7870,7 +8216,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse293872">
                 <div class="item-name">
                     Gene expression and V(D)J profiles of B-lineage cells from bone marrow samples of healthy adults (HA) and patients with multiple myeloma (MM)  and light-chain amyloidosis (AL).
 
@@ -7913,7 +8259,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001418">
                 <div class="item-name">
                     Exome Sequencing to Define the Landscape of Plasma Cells in Systemic Light chain Amyloidosis
 
@@ -7948,7 +8294,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002730">
                 <div class="item-name">
                     Brain transcriptome of hereditary cerebral haemorrhage with amyloidosis–Dutch type (HCHWA-D)
 
@@ -7983,7 +8329,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004214">
                 <div class="item-name">
                     Analysis of exonic somatic variants in light-chain amyloidosis (ALA) and ALA concomitant with multiple myeloma
 
@@ -8030,7 +8376,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03201965">
                 <div class="item-name">
                     NCT03201965
 
@@ -8048,18 +8394,20 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Amyloid deposition (HP:0011034). HP:0011034 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Amyloid deposition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011034" target="_blank" class="curie-chip curie-chip-hp">HP:0011034</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011034</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Amyloid deposition (HP:0011034). HP:0011034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8077,6 +8425,7 @@ This clinical trial targets Amyloid deposition (HP:0011034). HP:0011034 is a phe
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03201965" target="_blank">clinicaltrials:NCT03201965</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8101,7 +8450,7 @@ This clinical trial targets Amyloid deposition (HP:0011034). HP:0011034 is a phe
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01994889">
                 <div class="item-name">
                     NCT01994889
 
@@ -8119,18 +8468,20 @@ This clinical trial targets Amyloid deposition (HP:0011034). HP:0011034 is a phe
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Restrictive cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp">HP:0001723</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8148,6 +8499,7 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01994889" target="_blank">clinicaltrials:NCT01994889</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8172,7 +8524,7 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04153149">
                 <div class="item-name">
                     NCT04153149
 
@@ -8190,18 +8542,20 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Restrictive cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp">HP:0001723</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8219,6 +8573,7 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04153149" target="_blank">clinicaltrials:NCT04153149</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8243,7 +8598,7 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04601051">
                 <div class="item-name">
                     NCT04601051
 
@@ -8261,33 +8616,37 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Peripheral neuropathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0009830</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Restrictive cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp">HP:0001723</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8305,6 +8664,7 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04601051" target="_blank">clinicaltrials:NCT04601051</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8384,17 +8744,21 @@ This clinical trial targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TTR
 
 
-    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12405</a>
+    <a href="https://bioregistry.io/hgnc:12405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:12405</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns TTR (hgnc:12405). hgnc:12405 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8439,6 +8803,7 @@ This experimental model concerns TTR (hgnc:12405). hgnc:12405 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8086125" target="_blank">PMID:8086125</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8460,6 +8825,7 @@ This experimental model concerns TTR (hgnc:12405). hgnc:12405 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8086125" target="_blank">PMID:8086125</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10990,5 +11356,73 @@ classifications:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>LAMB1-Related Cobblestone Lissencephaly</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>LAMB1-Related Cobblestone Lissencephaly</h1>
             <div class="header-meta">
 
@@ -3823,6 +3945,14 @@
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
@@ -3912,7 +4042,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3958,6 +4088,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3995,6 +4126,840 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_lamb1_pial_boundary_human_model_translatability">
+                <div class="item-name">No mouse model of laminin beta-1 loss in the pial basement membrane exists; the rodent evidence for this entry&#39;s boundary-failure chain comes from other laminin chains (a laminin gamma1 nidogen-binding-site deletion, and Lamb2/Lamc3 double-null mice). Does that cross-chain evidence license the LAMB1-specific mechanism in humans, given that laminin-chain redundancy and heterozygous dosage sensitivity plainly differ between the two systems?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_lamb1_pial_boundary_human_model_translatability</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-pial-basement-membrane-breach">pathophysiology#Pial Basement Membrane Breach</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-radial-glial-basal-endfoot-detachment">pathophysiology#Radial-Glial Basal Endfoot Detachment</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuronal-overmigration-through-the-pial-surface">pathophysiology#Neuronal Overmigration Through the Pial Surface</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The pial-boundary mechanism this entry curates — basement-membrane discontinuity, radial-glial endfoot retraction, and neuronal overmigration past the pial surface — is directly demonstrated in mice, but in every available model the perturbed subunit is a laminin chain other than beta-1: a targeted deletion of the nidogen-binding site of laminin gamma1, and ablation of the beta2 and gamma3 chains. For LAMB1 itself the human mechanism is inferred from protein localization (&#34;LAMB1 is localized to the pial basement membrane, suggesting that defective connection ... leads to this malformation&#34;), not from a Lamb1 model. Two concrete mismatches follow. First, laminin heterotrimers are combinatorial and partly redundant, so which pial-basement-membrane functions specifically require beta-1 rather than being buffered by another beta chain cannot be read off the gamma1 or beta2/gamma3 models. Second, the beta2/gamma3 model is dose-sensitive — heterozygous mice already show cortical laminar disruption — whereas human heterozygous LAMB1 carriers are clinically and radiologically unaffected, so mouse allele dosage does not map onto the strictly recessive human disease. This is a model-translatability gap, not an absence of mechanism evidence.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">LAMB1 chain-specificity test in human cortical organoids with a pial-like ECM interface</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
+
+        isogenic human cortical organoid chain-substitution experiment
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type isogenic human cortical organoid chain-substitution experiment.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_lamb1_organoid_pial_ecm_chain_specificity</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Build isogenic human iPSC-derived cortical organoids carrying biallelic LAMB1 loss-of-function and hypomorphic missense alleles, cultured against a defined laminin-rich pial-like extracellular-matrix interface, and compare them with LAMB2 and LAMC1 perturbations in the same background. Score basement-membrane continuity, radial-glial basal endfoot anchoring, and neuronal overmigration past the matrix boundary, and ask whether other beta chains compensate for beta-1 loss. Heterozygous lines are included to test directly whether the mouse dosage sensitivity has a human counterpart.</div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Model systems</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Human cortical organoid with engineered pial-like laminin ECM interface</div>
+
+        <div>Human iPSC-derived cortical organoids with an engineered laminin-rich pial-like matrix boundary, in isogenic LAMB1 wild-type, heterozygous, and biallelic-variant states.</div>
+
+        <div class="item-meta">
+
+            <span class="tag tag-exp-model-type">ORGANOID</span>
+
+
+
+
+        </div>
+
+        <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-organism">
+
+        human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-location">
+
+        cerebral cortex
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0000956</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-cell">
+
+        cortical radial glial cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0013000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0013000</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cortical radial glial cell, annotated with forebrain radial glial cell (CL:0013000). CL:0013000 is a cell type from the Cell Ontology.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">LAMB1 allelic series with LAMB2 and LAMC1 comparators</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-laminin-beta-1-deficiency-in-the-pial-basement-membrane">pathophysiology#Laminin Beta-1 Deficiency in the Pial Basement Membrane</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Biallelic null, biallelic hypomorphic missense, and heterozygous LAMB1 states, with LAMB2 and LAMC1 perturbations in the same isogenic background as chain-specificity comparators.</div>
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LAMB1
+
+
+    <a href="https://bioregistry.io/hgnc:6486" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:6486</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets LAMB1 (hgnc:6486). hgnc:6486 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Basement-membrane continuity at the pial-like boundary</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-pial-basement-membrane-breach">pathophysiology#Pial Basement Membrane Breach</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        basement membrane organization
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0071711" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0071711</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased basement membrane organization (GO:0071711). GO:0071711 is a biological process from the Gene Ontology.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: A beta-1-specific loss of continuity that other beta chains do not rescue would establish chain specificity in a human system.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Neuronal overmigration past the matrix boundary</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuronal-overmigration-through-the-pial-surface">pathophysiology#Neuronal Overmigration Through the Pial Surface</a>
+
+    </div>
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        neuron migration
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001764</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on increased neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Overmigration confined to biallelic lines, with unaffected heterozygotes, would show that the mouse heterozygous phenotype has no human counterpart.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Chain specificity is supported if biallelic LAMB1 loss breaches the matrix boundary and drives overmigration where LAMB2 perturbation in the same background does not; the mouse dosage mismatch is confirmed if heterozygous LAMB1 organoids are indistinguishable from wild type.</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12122064" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12122064" target="_blank">PMID:12122064</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In segments with a disrupted basement membrane, radial glia cells were retracted from the pial surface, and radially migrating neurons, including Cajal-Retzius cells and cortical plate neurons, passed the meninges or terminated their migration prematurely."</div>
+
+
+                <div class="evidence-explanation">Demonstrates this entry&#39;s endfoot-detachment and overmigration chain in mouse, but in a laminin gamma1 nidogen-binding-site mutant rather than in a Lamb1 model — the substitution that makes this a translatability gap.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22961762" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22961762" target="_blank">PMID:22961762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Surprisingly, heterozygous mice also exhibit laminar disruption of cortical neurons, albeit with lesser severity."</div>
+
+
+                <div class="evidence-explanation">The closest mouse phenocopy of cobblestone lissencephaly is dose-sensitive in the heterozygous state, unlike the strictly recessive human LAMB1 disorder, so severity cannot be read across species.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32548278" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurologic examination and brain MRI of her father showed no abnormalities"</div>
+
+
+                <div class="evidence-explanation">Documents an unaffected human heterozygous LAMB1 carrier, the contrast to the heterozygous mouse laminin phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_lamb1_allelic_spectrum_phenotype_determinants">
+                <div class="item-name">Why does biallelic LAMB1 loss produce a phenotypic range as wide as lethal fetal hydranencephaly, classic congenital cobblestone lissencephaly with hydrocephalus, and adult-onset leukoencephalopathy with no cortical dysgenesis at all — and is the truncating-versus-missense correlation this entry records actually established, or an artifact of a cohort of about a dozen patients?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_lamb1_allelic_spectrum_phenotype_determinants</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-laminin-beta-1-deficiency-in-the-pial-basement-membrane">pathophysiology#Laminin Beta-1 Deficiency in the Pial Basement Membrane</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-cobblestone-cortical-malformation">pathophysiology#Cobblestone Cortical Malformation</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The reported LAMB1 phenotypic spectrum spans an extraordinary range for a single gene: at the severe end, fetal hydranencephaly incompatible with life; in the middle, the cobblestone malformation with hydrocephalus that defines this entry; and at the mild end, an adult-onset leukoencephalopathy in which cortical dysgenesis was explicitly absent. The entry&#39;s genetic notes describe the truncating-versus-hypomorphic gradient as &#34;emerging&#34;, which is the right hedge — the whole reported cohort was about eleven patients and eleven variants, far too small to establish a genotype-phenotype rule, and it does not explain how a biallelic LAMB1 genotype can spare the cortical malformation entirely. Whether the determinant is residual laminin beta-1 function, compensating laminin chains, modifier background, or developmental timing of pial basement-membrane assembly is unresolved. This is the disease-level instance of the non-one-to-one gene-to-phenotype mapping that the cortical malformation review flags as a general gap for malformations of cortical development, and it bounds what this entry may claim: the cobblestone malformation is not an obligate consequence of biallelic LAMB1 loss.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Genotype-stratified LAMB1 registry with residual laminin beta-1 function assay</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-8">
+
+        genotype-stratified natural history study with functional assay
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this experiment is of type this experiment type
+This experiment is of type genotype-stratified natural history study with functional assay.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_lamb1_genotype_stratified_registry_and_residual_function</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Assemble a multi-centre registry of all biallelic LAMB1 cases with standardised fetal and postnatal neuroimaging review, and pair each genotype with a quantitative assay of residual laminin beta-1 protein and heterotrimer assembly in patient fibroblasts or iPSC-derived cells. Test whether measured residual function, rather than variant class alone, separates the hydranencephaly, cobblestone, and isolated-leukoencephalopathy presentations, and whether laminin beta-2 upregulation tracks with the milder outcomes.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">The correlation is established if residual laminin beta-1 function separates the three presentation classes with no overlap; it is refuted if patients with indistinguishable residual function fall on opposite ends of the cortical-malformation spectrum, which would point to modifiers or developmental timing instead.</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37466007" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathogenic variants in LAMB1 are rare, with only 11 pathogenic variants and 11 patients reported to date."</div>
+
+
+                <div class="evidence-explanation">Quantifies the cohort the genotype-phenotype correlation rests on, which is too small to support a rule.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33542858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33542858" target="_blank">PMID:33542858</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein we present LAMB1 as a monogenic cause of fetal hydranencephaly which was incompatible with life."</div>
+
+
+                <div class="evidence-explanation">Establishes the lethal severe extreme of the LAMB1 spectrum.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32548278" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain MRI showed diffuse T2 hyperintensity of cerebral white matter, but neither cortical dysgenesis nor cystic lesions were observed"</div>
+
+
+                <div class="evidence-explanation">Establishes the mild extreme, in which a biallelic LAMB1 genotype produced no cobblestone cortical malformation at all.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -4023,18 +4988,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased basement membrane organization (GO:0071711). GO:0071711 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         basement membrane organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071711" target="_blank" class="curie-chip curie-chip-go">GO:0071711</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071711" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0071711</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased basement membrane organization (GO:0071711). GO:0071711 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4090,6 +5057,7 @@ This pathophysiological event involves decreased basement membrane organization 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4131,18 +5099,20 @@ This pathophysiological event involves decreased basement membrane organization 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated basement membrane organization (GO:0071711). GO:0071711 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         basement membrane organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071711" target="_blank" class="curie-chip curie-chip-go">GO:0071711</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071711" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0071711</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated basement membrane organization (GO:0071711). GO:0071711 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4170,18 +5140,20 @@ This pathophysiological event involves dysregulated basement membrane organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pia mater (UBERON:0002361). UBERON:0002361 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pia mater
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002361" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002361</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002361" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002361</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pia mater (UBERON:0002361). UBERON:0002361 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4216,6 +5188,7 @@ This pathophysiological event occurs in pia mater (UBERON:0002361). UBERON:00023
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4252,18 +5225,20 @@ This pathophysiological event occurs in pia mater (UBERON:0002361). UBERON:00023
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cortical radial glial cell, annotated with forebrain radial glial cell (CL:0013000). CL:0013000 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cortical radial glial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0013000" target="_blank" class="curie-chip curie-chip-cl">CL:0013000</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0013000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0013000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical radial glial cell, annotated with forebrain radial glial cell (CL:0013000). CL:0013000 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4291,18 +5266,20 @@ This pathophysiological event involves cortical radial glial cell, annotated wit
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated formation of radial glial scaffolds (GO:0021943). GO:0021943 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         formation of radial glial scaffolds
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021943" target="_blank" class="curie-chip curie-chip-go">GO:0021943</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021943" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0021943</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated formation of radial glial scaffolds (GO:0021943). GO:0021943 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4358,6 +5335,7 @@ This pathophysiological event involves dysregulated formation of radial glial sc
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4393,18 +5371,20 @@ This pathophysiological event involves dysregulated formation of radial glial sc
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         radial glial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl">CL:0000681</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000681</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4432,18 +5412,20 @@ This pathophysiological event involves radial glial cell (CL:0000681). CL:000068
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go">GO:0001764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4498,6 +5480,7 @@ This pathophysiological event involves abnormal neuron migration (GO:0001764). G
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4571,6 +5554,7 @@ This pathophysiological event involves abnormal neuron migration (GO:0001764). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4592,6 +5576,7 @@ This pathophysiological event involves abnormal neuron migration (GO:0001764). G
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29888467" target="_blank">PMID:29888467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4635,18 +5620,20 @@ This pathophysiological event involves abnormal neuron migration (GO:0001764). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cerebrospinal fluid circulation (GO:0090660). GO:0090660 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cerebrospinal fluid circulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go">GO:0090660</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0090660</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cerebrospinal fluid circulation (GO:0090660). GO:0090660 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4688,6 +5675,7 @@ This pathophysiological event involves dysregulated cerebrospinal fluid circulat
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4781,16 +5769,20 @@ This pathophysiological event involves dysregulated cerebrospinal fluid circulat
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001297</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Perinatal cerebrovascular event, annotated with Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.">
-                        Stroke
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp">HP:0001297</a>
-
-
+This clinical feature is Perinatal cerebrovascular event, annotated with Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4810,6 +5802,7 @@ This clinical feature is Perinatal cerebrovascular event, annotated with Stroke 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4853,16 +5846,20 @@ This clinical feature is Perinatal cerebrovascular event, annotated with Stroke 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002085</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Occipital encephalocele (HP:0002085). HP:0002085 is a phenotype from the Human Phenotype Ontology.">
-                        Occipital encephalocele
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002085" target="_blank" class="curie-chip curie-chip-hp">HP:0002085</a>
-
-
+This clinical feature is Occipital encephalocele (HP:0002085). HP:0002085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4882,6 +5879,7 @@ This clinical feature is Occipital encephalocele (HP:0002085). HP:0002085 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4915,16 +5913,20 @@ This clinical feature is Occipital encephalocele (HP:0002085). HP:0002085 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.">
-                        Macrocephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp">HP:0000256</a>
-
-
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4944,6 +5946,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4977,16 +5980,20 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.">
-                        Microcephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
-
-
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5006,6 +6013,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5048,16 +6056,22 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Type II lissencephaly</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Type II lissencephaly (HP:0007260). HP:0007260 is a phenotype from the Human Phenotype Ontology.">
-                        Type II lissencephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007260" target="_blank" class="curie-chip curie-chip-hp">HP:0007260</a>
-
-
+This clinical feature is Type II lissencephaly (HP:0007260). HP:0007260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5077,6 +6091,7 @@ This clinical feature is Type II lissencephaly (HP:0007260). HP:0007260 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5110,16 +6125,22 @@ This clinical feature is Type II lissencephaly (HP:0007260). HP:0007260 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal cerebral white matter morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002500</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal cerebral white matter morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp">HP:0002500</a>
-
-
+This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5139,6 +6160,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5161,6 +6183,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29888467" target="_blank">PMID:29888467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5194,16 +6217,20 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000238</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.">
-                        Hydrocephalus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp">HP:0000238</a>
-
-
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5223,6 +6250,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5256,16 +6284,20 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5285,6 +6317,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5307,6 +6340,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33542858" target="_blank">PMID:33542858</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5340,16 +6374,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5369,6 +6407,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5402,16 +6441,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002079</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of the corpus callosum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp">HP:0002079</a>
-
-
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5431,6 +6474,7 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5464,16 +6508,20 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5493,6 +6541,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29888467" target="_blank">PMID:29888467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5515,6 +6564,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5548,16 +6598,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype from the Human Phenotype Ontology.">
-                        Hydranencephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002324" target="_blank" class="curie-chip curie-chip-hp">HP:0002324</a>
-
-
+This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5577,6 +6631,7 @@ This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33542858" target="_blank">PMID:33542858</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5619,16 +6674,20 @@ This clinical feature is Hydranencephaly (HP:0002324). HP:0002324 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007033" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007033</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar dysplasia (HP:0007033). HP:0007033 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebellar dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007033" target="_blank" class="curie-chip curie-chip-hp">HP:0007033</a>
-
-
+This clinical feature is Cerebellar dysplasia (HP:0007033). HP:0007033 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5648,6 +6707,7 @@ This clinical feature is Cerebellar dysplasia (HP:0007033). HP:0007033 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5681,16 +6741,22 @@ This clinical feature is Cerebellar dysplasia (HP:0007033). HP:0007033 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplasia of the brainstem</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of the brainstem
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp">HP:0002365</a>
-
-
+This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5710,6 +6776,7 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5743,16 +6810,20 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002350</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar cyst (HP:0002350). HP:0002350 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebellar cyst
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002350" target="_blank" class="curie-chip curie-chip-hp">HP:0002350</a>
-
-
+This clinical feature is Cerebellar cyst (HP:0002350). HP:0002350 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5772,6 +6843,7 @@ This clinical feature is Cerebellar cyst (HP:0002350). HP:0002350 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29888467" target="_blank">PMID:29888467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5794,6 +6866,7 @@ This clinical feature is Cerebellar cyst (HP:0002350). HP:0002350 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37466007" target="_blank">PMID:37466007</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5871,15 +6944,17 @@ This clinical feature is Cerebellar cyst (HP:0002350). HP:0002350 is a phenotype
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LAMB1
 
 
-    <a href="https://bioregistry.io/hgnc:6486" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6486</a>
+    <a href="https://bioregistry.io/hgnc:6486" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:6486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5903,6 +6978,7 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5925,6 +7001,7 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5946,6 +7023,7 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6001,6 +7079,8 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6012,6 +7092,7 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32548278" target="_blank">PMID:32548278</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6067,6 +7148,8 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6078,6 +7161,7 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35843586" target="_blank">PMID:35843586</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6114,6 +7198,9 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6130,18 +7217,18 @@ This disease-associated gene is LAMB1 (hgnc:6486). hgnc:6486 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">ventriculoperitoneal shunt placement<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ventriculoperitoneal shunt placement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">ventriculoperitoneal shunt placement</span>
+This treatment is ventriculoperitoneal shunt placement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ventriculoperitoneal shunt placement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6201,18 +7288,18 @@ This treatment is ventriculoperitoneal shunt placement, annotated with Surgical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">surgical repair<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical repair</span>
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6253,17 +7340,17 @@ This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C1532
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6295,18 +7382,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6324,17 +7413,17 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6375,17 +7464,17 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6442,7 +7531,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-alpha-dystroglycanopathy-cobblestone-malformations">
                 <div class="item-name">
 
                     Alpha-dystroglycanopathy cobblestone malformations
@@ -6482,6 +7571,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23472759" target="_blank">PMID:23472759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6503,6 +7593,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29888467" target="_blank">PMID:29888467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7299,6 +8390,236 @@ references:
   title: &#34;Compound variants of FKTN, POMGNT1, and LAMB1 gene identified by prenatal whole-exome sequencing in three fetuses with congenital hydrocephalus.&#34;
 - reference: PMID:25925986
   title: &#34;Cystic leukoencephalopathy with cortical dysplasia related to LAMB1 mutations.&#34;
+
+discussions:
+- discussion_id: gap_lamb1_pial_boundary_human_model_translatability
+  prompt: &gt;-
+    No mouse model of laminin beta-1 loss in the pial basement membrane exists;
+    the rodent evidence for this entry&#39;s boundary-failure chain comes from other
+    laminin chains (a laminin gamma1 nidogen-binding-site deletion, and
+    Lamb2/Lamc3 double-null mice). Does that cross-chain evidence license the
+    LAMB1-specific mechanism in humans, given that laminin-chain redundancy and
+    heterozygous dosage sensitivity plainly differ between the two systems?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Pial Basement Membrane Breach
+  - pathophysiology#Radial-Glial Basal Endfoot Detachment
+  - pathophysiology#Neuronal Overmigration Through the Pial Surface
+  rationale: &gt;-
+    The pial-boundary mechanism this entry curates — basement-membrane
+    discontinuity, radial-glial endfoot retraction, and neuronal overmigration
+    past the pial surface — is directly demonstrated in mice, but in every
+    available model the perturbed subunit is a laminin chain other than beta-1:
+    a targeted deletion of the nidogen-binding site of laminin gamma1, and
+    ablation of the beta2 and gamma3 chains. For LAMB1 itself the human
+    mechanism is inferred from protein localization (&#34;LAMB1 is localized to the
+    pial basement membrane, suggesting that defective connection ... leads to
+    this malformation&#34;), not from a Lamb1 model. Two concrete mismatches follow.
+    First, laminin heterotrimers are combinatorial and partly redundant, so
+    which pial-basement-membrane functions specifically require beta-1 rather
+    than being buffered by another beta chain cannot be read off the gamma1 or
+    beta2/gamma3 models. Second, the beta2/gamma3 model is dose-sensitive —
+    heterozygous mice already show cortical laminar disruption — whereas human
+    heterozygous LAMB1 carriers are clinically and radiologically unaffected,
+    so mouse allele dosage does not map onto the strictly recessive human
+    disease. This is a model-translatability gap, not an absence of mechanism
+    evidence.
+  evidence:
+  - reference: PMID:12122064
+    reference_title: &#34;A critical function of the pial basement membrane in cortical histogenesis.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      In segments with a disrupted basement membrane, radial glia cells were
+      retracted from the pial surface, and radially migrating neurons, including
+      Cajal-Retzius cells and cortical plate neurons, passed the meninges or
+      terminated their migration prematurely.
+    explanation: &gt;-
+      Demonstrates this entry&#39;s endfoot-detachment and overmigration chain in
+      mouse, but in a laminin gamma1 nidogen-binding-site mutant rather than in
+      a Lamb1 model — the substitution that makes this a translatability gap.
+  - reference: PMID:22961762
+    reference_title: &#34;beta2 and gamma3 laminins are critical cortical basement membrane components: ablation of Lamb2 and Lamc3 genes disrupts cortical lamination and produces dysplasia.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Surprisingly, heterozygous mice also exhibit laminar disruption of
+      cortical neurons, albeit with lesser severity.
+    explanation: &gt;-
+      The closest mouse phenocopy of cobblestone lissencephaly is dose-sensitive
+      in the heterozygous state, unlike the strictly recessive human LAMB1
+      disorder, so severity cannot be read across species.
+  - reference: PMID:32548278
+    reference_title: &#34;Adult-onset leukoencephalopathy with homozygous LAMB1 missense mutation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Neurologic examination and brain MRI of her father showed no abnormalities&#34;
+    explanation: &gt;-
+      Documents an unaffected human heterozygous LAMB1 carrier, the contrast to
+      the heterozygous mouse laminin phenotype.
+  proposed_experiments:
+  - experiment_id: exp_lamb1_organoid_pial_ecm_chain_specificity
+    name: LAMB1 chain-specificity test in human cortical organoids with a pial-like ECM interface
+    description: &gt;-
+      Build isogenic human iPSC-derived cortical organoids carrying biallelic
+      LAMB1 loss-of-function and hypomorphic missense alleles, cultured against
+      a defined laminin-rich pial-like extracellular-matrix interface, and
+      compare them with LAMB2 and LAMC1 perturbations in the same background.
+      Score basement-membrane continuity, radial-glial basal endfoot anchoring,
+      and neuronal overmigration past the matrix boundary, and ask whether other
+      beta chains compensate for beta-1 loss. Heterozygous lines are included to
+      test directly whether the mouse dosage sensitivity has a human counterpart.
+    experiment_type:
+      preferred_term: isogenic human cortical organoid chain-substitution experiment
+    model_systems:
+    - name: Human cortical organoid with engineered pial-like laminin ECM interface
+      description: &gt;-
+        Human iPSC-derived cortical organoids with an engineered laminin-rich
+        pial-like matrix boundary, in isogenic LAMB1 wild-type, heterozygous, and
+        biallelic-variant states.
+      experimental_model_type: ORGANOID
+      organism:
+        preferred_term: human
+        term:
+          id: NCBITaxon:9606
+          label: Homo sapiens
+      tissue_term:
+        preferred_term: cerebral cortex
+        term:
+          id: UBERON:0000956
+          label: cerebral cortex
+      cell_types:
+      - preferred_term: cortical radial glial cell
+        term:
+          id: CL:0013000
+          label: forebrain radial glial cell
+      cell_source: CRISPR-engineered or patient-derived human induced pluripotent stem cells
+      culture_system: Three-dimensional cortical organoids at a defined laminin-rich matrix boundary
+    perturbations:
+    - name: LAMB1 allelic series with LAMB2 and LAMC1 comparators
+      target: pathophysiology#Laminin Beta-1 Deficiency in the Pial Basement Membrane
+      genes:
+      - preferred_term: LAMB1
+        term:
+          id: hgnc:6486
+          label: LAMB1
+      description: &gt;-
+        Biallelic null, biallelic hypomorphic missense, and heterozygous LAMB1
+        states, with LAMB2 and LAMC1 perturbations in the same isogenic
+        background as chain-specificity comparators.
+    readouts:
+    - name: Basement-membrane continuity at the pial-like boundary
+      target: pathophysiology#Pial Basement Membrane Breach
+      biological_processes:
+      - preferred_term: basement membrane organization
+        term:
+          id: GO:0071711
+          label: basement membrane organization
+        modifier: DECREASED
+      direction: DECREASED
+      interpretation: &gt;-
+        A beta-1-specific loss of continuity that other beta chains do not
+        rescue would establish chain specificity in a human system.
+    - name: Neuronal overmigration past the matrix boundary
+      target: pathophysiology#Neuronal Overmigration Through the Pial Surface
+      biological_processes:
+      - preferred_term: neuron migration
+        term:
+          id: GO:0001764
+          label: neuron migration
+        modifier: INCREASED
+      direction: INCREASED
+      interpretation: &gt;-
+        Overmigration confined to biallelic lines, with unaffected
+        heterozygotes, would show that the mouse heterozygous phenotype has no
+        human counterpart.
+    decision_criterion: &gt;-
+      Chain specificity is supported if biallelic LAMB1 loss breaches the
+      matrix boundary and drives overmigration where LAMB2 perturbation in the
+      same background does not; the mouse dosage mismatch is confirmed if
+      heterozygous LAMB1 organoids are indistinguishable from wild type.
+
+- discussion_id: gap_lamb1_allelic_spectrum_phenotype_determinants
+  prompt: &gt;-
+    Why does biallelic LAMB1 loss produce a phenotypic range as wide as lethal
+    fetal hydranencephaly, classic congenital cobblestone lissencephaly with
+    hydrocephalus, and adult-onset leukoencephalopathy with no cortical
+    dysgenesis at all — and is the truncating-versus-missense correlation this
+    entry records actually established, or an artifact of a cohort of about a
+    dozen patients?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Laminin Beta-1 Deficiency in the Pial Basement Membrane
+  - pathophysiology#Cobblestone Cortical Malformation
+  rationale: &gt;-
+    The reported LAMB1 phenotypic spectrum spans an extraordinary range for a
+    single gene: at the severe end, fetal hydranencephaly incompatible with
+    life; in the middle, the cobblestone malformation with hydrocephalus that
+    defines this entry; and at the mild end, an adult-onset leukoencephalopathy
+    in which cortical dysgenesis was explicitly absent. The entry&#39;s genetic
+    notes describe the truncating-versus-hypomorphic gradient as &#34;emerging&#34;,
+    which is the right hedge — the whole reported cohort was about eleven
+    patients and eleven variants, far too small to establish a
+    genotype-phenotype rule, and it does not explain how a biallelic LAMB1
+    genotype can spare the cortical malformation entirely. Whether the
+    determinant is residual laminin beta-1 function, compensating laminin
+    chains, modifier background, or developmental timing of pial
+    basement-membrane assembly is unresolved. This is the disease-level instance
+    of the non-one-to-one gene-to-phenotype mapping that the cortical
+    malformation review flags as a general gap for malformations of cortical
+    development, and it bounds what this entry may claim: the cobblestone
+    malformation is not an obligate consequence of biallelic LAMB1 loss.
+  evidence:
+  - reference: PMID:37466007
+    reference_title: &#34;Novel homozygous LAMB1 in-frame deletion in a pediatric patient with brain anomalies and cerebrovascular event.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Pathogenic variants in LAMB1 are rare, with only 11 pathogenic variants
+      and 11 patients reported to date.
+    explanation: &gt;-
+      Quantifies the cohort the genotype-phenotype correlation rests on, which
+      is too small to support a rule.
+  - reference: PMID:33542858
+    reference_title: &#34;Biallelic Variants in LAMB1 Causing Hydranencephaly: A Severe Phenotype of a Rare Malformative Encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Herein we present LAMB1 as a monogenic cause of fetal hydranencephaly
+      which was incompatible with life.
+    explanation: Establishes the lethal severe extreme of the LAMB1 spectrum.
+  - reference: PMID:32548278
+    reference_title: &#34;Adult-onset leukoencephalopathy with homozygous LAMB1 missense mutation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Brain MRI showed diffuse T2 hyperintensity of cerebral white matter, but
+      neither cortical dysgenesis nor cystic lesions were observed
+    explanation: &gt;-
+      Establishes the mild extreme, in which a biallelic LAMB1 genotype produced
+      no cobblestone cortical malformation at all.
+  proposed_experiments:
+  - experiment_id: exp_lamb1_genotype_stratified_registry_and_residual_function
+    name: Genotype-stratified LAMB1 registry with residual laminin beta-1 function assay
+    description: &gt;-
+      Assemble a multi-centre registry of all biallelic LAMB1 cases with
+      standardised fetal and postnatal neuroimaging review, and pair each
+      genotype with a quantitative assay of residual laminin beta-1 protein and
+      heterotrimer assembly in patient fibroblasts or iPSC-derived cells. Test
+      whether measured residual function, rather than variant class alone,
+      separates the hydranencephaly, cobblestone, and isolated-leukoencephalopathy
+      presentations, and whether laminin beta-2 upregulation tracks with the
+      milder outcomes.
+    experiment_type:
+      preferred_term: genotype-stratified natural history study with functional assay
+    decision_criterion: &gt;-
+      The correlation is established if residual laminin beta-1 function
+      separates the three presentation classes with no overlap; it is refuted if
+      patients with indistinguishable residual function fall on opposite ends of
+      the cortical-malformation spectrum, which would point to modifiers or
+      developmental timing instead.
 </pre>
             </div>
         </div>
@@ -7876,7 +9197,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "LAMB1-Related Cobblestone Lissencephaly", "mondoId": "MONDO:0014077", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "LAMB1-Related_Cobblestone_Lissencephaly", "yamlRevision": "e04a31101b35"};
+        const OS_CONFIG = {"diseaseName": "LAMB1-Related Cobblestone Lissencephaly", "mondoId": "MONDO:0014077", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "LAMB1-Related_Cobblestone_Lissencephaly", "yamlRevision": "0b13c0adc155"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8295,5 +9616,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

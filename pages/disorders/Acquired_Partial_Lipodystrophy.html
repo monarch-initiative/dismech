@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Acquired Partial Lipodystrophy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acquired Partial Lipodystrophy</h1>
             <div class="header-meta">
 
@@ -3920,7 +4042,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-fat-loss-pattern">
                 <div class="item-name">Clinical fat-loss pattern</div>
 
                 <div class="item-desc">Acquired partial lipodystrophy is recognized by gradual loss of upper-body subcutaneous adipose tissue, especially face, neck, upper limbs, thorax, and trunk, with sparing of the lower extremities.</div>
@@ -3966,6 +4088,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32890433" target="_blank">PMID:32890433</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3987,6 +4110,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32404319" target="_blank">PMID:32404319</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4064,7 +4188,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Progressive Upper-Body Lipoatrophy</span>
+    <a class="entity-ref-chip" href="#phenotype-progressive-upper-body-lipoatrophy">phenotypes#Progressive Upper-Body Lipoatrophy</a>
 
 
 
@@ -4092,6 +4216,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38061004" target="_blank">PMID:38061004</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4113,6 +4238,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4193,6 +4319,7 @@
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4245,18 +4372,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation, alternative pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go">GO:0006957</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006957</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4322,6 +4451,7 @@ This pathophysiological event involves increased complement activation, alternat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31924231" target="_blank">PMID:31924231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4343,6 +4473,7 @@ This pathophysiological event involves increased complement activation, alternat
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38076230" target="_blank">PMID:38076230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4384,18 +4515,20 @@ This pathophysiological event involves increased complement activation, alternat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation, alternative pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go">GO:0006957</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006957</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4416,18 +4549,20 @@ This pathophysiological event involves increased complement activation, alternat
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4525,6 +4660,7 @@ This pathophysiological event involves dysregulated complement activation (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31924231" target="_blank">PMID:31924231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4546,6 +4682,7 @@ This pathophysiological event involves dysregulated complement activation (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31924231" target="_blank">PMID:31924231</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4580,18 +4717,20 @@ This pathophysiological event involves dysregulated complement activation (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4608,18 +4747,20 @@ This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a c
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4647,18 +4788,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation, alternative pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go">GO:0006957</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006957</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4686,18 +4829,20 @@ This pathophysiological event involves dysregulated complement activation, alter
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         subcutaneous adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002190</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002190</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4743,6 +4888,7 @@ This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4765,6 +4911,7 @@ This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4786,6 +4933,7 @@ This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4820,18 +4968,20 @@ This pathophysiological event occurs in subcutaneous adipose tissue (UBERON:0002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4852,18 +5002,20 @@ This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves increased macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4895,18 +5047,20 @@ This pathophysiological event involves increased macrophage (CL:0000235). CL:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4927,18 +5081,20 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4959,18 +5115,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4998,18 +5156,20 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in decreased subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         subcutaneous adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002190</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002190</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in decreased subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5095,6 +5255,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32890433" target="_blank">PMID:32890433</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5117,6 +5278,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32890433" target="_blank">PMID:32890433</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5138,6 +5300,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32890433" target="_blank">PMID:32890433</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5174,18 +5337,20 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5217,18 +5382,20 @@ This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lipid storage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go">GO:0019915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0019915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5256,18 +5423,20 @@ This pathophysiological event involves decreased lipid storage (GO:0019915). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in decreased subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         subcutaneous adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002190</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002190</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in decreased subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5329,6 +5498,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27823605" target="_blank">PMID:27823605</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5351,6 +5521,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27823605" target="_blank">PMID:27823605</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5372,6 +5543,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26139569" target="_blank">PMID:26139569</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5406,18 +5578,20 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5449,18 +5623,20 @@ This pathophysiological event involves decreased adipocyte (CL:0000136). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased fat cell differentiation (GO:0045444). GO:0045444 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         fat cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go">GO:0045444</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0045444</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased fat cell differentiation (GO:0045444). GO:0045444 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5488,18 +5664,20 @@ This pathophysiological event involves decreased fat cell differentiation (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in decreased subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         subcutaneous adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002190</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002190" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002190</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in decreased subcutaneous adipose tissue (UBERON:0002190). UBERON:0002190 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5537,6 +5715,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18752661" target="_blank">PMID:18752661</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5558,6 +5737,7 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18752661" target="_blank">PMID:18752661</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5599,18 +5779,20 @@ This pathophysiological event occurs in decreased subcutaneous adipose tissue (U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation, alternative pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go">GO:0006957</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006957</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5638,18 +5820,20 @@ This pathophysiological event involves increased complement activation, alternat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         renal glomerulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5695,6 +5879,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5717,6 +5902,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5738,6 +5924,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38076230" target="_blank">PMID:38076230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5776,7 +5963,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-atrophied-adipocytes-with-macrophage-rich-complement-injury">
                 <div class="item-name">
                     Atrophied adipocytes with macrophage-rich complement injury
 
@@ -5797,6 +5984,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32890433" target="_blank">PMID:32890433</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5819,6 +6007,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32890433" target="_blank">PMID:32890433</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5915,16 +6104,20 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001397</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatic steatosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp">HP:0001397</a>
-
-
+This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5944,6 +6137,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5966,6 +6160,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38061004" target="_blank">PMID:38061004</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6008,16 +6203,20 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.">
-                        Proteinuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
-
-
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6037,6 +6236,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6059,6 +6259,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38076230" target="_blank">PMID:38076230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6103,16 +6304,20 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002960</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.">
-                        Autoimmunity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp">HP:0002960</a>
-
-
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6132,6 +6337,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6154,6 +6360,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38061004" target="_blank">PMID:38061004</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6198,16 +6405,22 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal glucose homeostasis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal glucose homeostasis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp">HP:0011014</a>
-
-
+This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6227,6 +6440,7 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6249,6 +6463,7 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26139569" target="_blank">PMID:26139569</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6284,16 +6499,20 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002155</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertriglyceridemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp">HP:0002155</a>
-
-
+This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6313,6 +6532,7 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6355,16 +6575,20 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
-                        Depression
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
-
-
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6384,6 +6608,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6428,16 +6653,20 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100578" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100578</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from the Human Phenotype Ontology.">
-                        Lipoatrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100578" target="_blank" class="curie-chip curie-chip-hp">HP:0100578</a>
-
-
+This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6457,6 +6686,7 @@ This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6490,16 +6720,20 @@ This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000292" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000292</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Loss of facial adipose tissue (HP:0000292). HP:0000292 is a phenotype from the Human Phenotype Ontology.">
-                        Loss of facial adipose tissue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000292" target="_blank" class="curie-chip curie-chip-hp">HP:0000292</a>
-
-
+This clinical feature is Loss of facial adipose tissue (HP:0000292). HP:0000292 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6519,6 +6753,7 @@ This clinical feature is Loss of facial adipose tissue (HP:0000292). HP:0000292 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27402657" target="_blank">PMID:27402657</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6552,16 +6787,20 @@ This clinical feature is Loss of facial adipose tissue (HP:0000292). HP:0000292 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005995" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0005995</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased adipose tissue around neck (HP:0005995). HP:0005995 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased adipose tissue around neck
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005995" target="_blank" class="curie-chip curie-chip-hp">HP:0005995</a>
-
-
+This clinical feature is Decreased adipose tissue around neck (HP:0005995). HP:0005995 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6581,6 +6820,7 @@ This clinical feature is Decreased adipose tissue around neck (HP:0005995). HP:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27402657" target="_blank">PMID:27402657</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6614,16 +6854,20 @@ This clinical feature is Decreased adipose tissue around neck (HP:0005995). HP:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009056" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0009056</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Loss of subcutaneous adipose tissue from upper limbs (HP:0009056). HP:0009056 is a phenotype from the Human Phenotype Ontology.">
-                        Loss of subcutaneous adipose tissue from upper limbs
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009056" target="_blank" class="curie-chip curie-chip-hp">HP:0009056</a>
-
-
+This clinical feature is Loss of subcutaneous adipose tissue from upper limbs (HP:0009056). HP:0009056 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6643,6 +6887,7 @@ This clinical feature is Loss of subcutaneous adipose tissue from upper limbs (H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30604443" target="_blank">PMID:30604443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6676,16 +6921,20 @@ This clinical feature is Loss of subcutaneous adipose tissue from upper limbs (H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0009002</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Loss of truncal subcutaneous adipose tissue (HP:0009002). HP:0009002 is a phenotype from the Human Phenotype Ontology.">
-                        Loss of truncal subcutaneous adipose tissue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009002" target="_blank" class="curie-chip curie-chip-hp">HP:0009002</a>
-
-
+This clinical feature is Loss of truncal subcutaneous adipose tissue (HP:0009002). HP:0009002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6705,6 +6954,7 @@ This clinical feature is Loss of truncal subcutaneous adipose tissue (HP:0009002
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30604443" target="_blank">PMID:30604443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6740,16 +6990,20 @@ This clinical feature is Loss of truncal subcutaneous adipose tissue (HP:0009002
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0005421</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased circulating complement C3 concentration (HP:0005421). HP:0005421 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased circulating complement C3 concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005421" target="_blank" class="curie-chip curie-chip-hp">HP:0005421</a>
-
-
+This clinical feature is Decreased circulating complement C3 concentration (HP:0005421). HP:0005421 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6769,6 +7023,7 @@ This clinical feature is Decreased circulating complement C3 concentration (HP:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31924231" target="_blank">PMID:31924231</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6791,6 +7046,7 @@ This clinical feature is Decreased circulating complement C3 concentration (HP:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6826,16 +7082,20 @@ This clinical feature is Decreased circulating complement C3 concentration (HP:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030888" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0030888</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is C3 nephritic factor positivity (HP:0030888). HP:0030888 is a phenotype from the Human Phenotype Ontology.">
-                        C3 nephritic factor positivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030888" target="_blank" class="curie-chip curie-chip-hp">HP:0030888</a>
-
-
+This clinical feature is C3 nephritic factor positivity (HP:0030888). HP:0030888 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6855,6 +7115,7 @@ This clinical feature is C3 nephritic factor positivity (HP:0030888). HP:0030888
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31924231" target="_blank">PMID:31924231</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6890,16 +7151,20 @@ This clinical feature is C3 nephritic factor positivity (HP:0030888). HP:0030888
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000793" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000793</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). HP:0000793 is a phenotype from the Human Phenotype Ontology.">
-                        Membranoproliferative glomerulonephritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000793" target="_blank" class="curie-chip curie-chip-hp">HP:0000793</a>
-
-
+This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). HP:0000793 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6919,6 +7184,7 @@ This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6942,6 +7208,7 @@ This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38076230" target="_blank">PMID:38076230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6963,6 +7230,7 @@ This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14747765" target="_blank">PMID:14747765</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6996,16 +7264,20 @@ This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030499" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030499</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype from the Human Phenotype Ontology.">
-                        Macular drusen
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030499" target="_blank" class="curie-chip curie-chip-hp">HP:0030499</a>
-
-
+This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7025,6 +7297,7 @@ This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40435301" target="_blank">PMID:40435301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7088,6 +7361,9 @@ This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7106,18 +7382,18 @@ This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">therapeutic procedure</span>
+This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
 
 
 
@@ -7148,48 +7424,54 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal glucose homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp">HP:0011014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011014</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertriglyceridemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp">HP:0002155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hepatic steatosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp">HP:0001397</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001397</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7208,6 +7490,7 @@ This treatment targets Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27710244" target="_blank">PMID:27710244</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7231,6 +7514,7 @@ This treatment targets Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7252,6 +7536,7 @@ This treatment targets Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7285,17 +7570,17 @@ This treatment targets Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7320,18 +7605,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses metreleptin (NCIT:C170171). NCIT:C170171 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         metreleptin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170171" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C170171</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170171" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C170171</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metreleptin (NCIT:C170171). NCIT:C170171 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7346,33 +7633,37 @@ This treatment uses metreleptin (NCIT:C170171). NCIT:C170171 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal glucose homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp">HP:0011014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0011014</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertriglyceridemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp">HP:0002155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7391,6 +7682,7 @@ This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenot
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ema.europa.eu/en/medicines/human/EPAR/myalepta" target="_blank">url:https://www.ema.europa.eu/en/medicines/human/EPAR/myalepta</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7414,6 +7706,7 @@ This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenot
                         <a href="https://bioregistry.io/url:https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d3b50bbd-140b-425c-b5ec-d4682aad62bc" target="_blank">url:https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d3b50bbd-140b-425c-b5ec-d4682aad62bc</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7435,6 +7728,7 @@ This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenot
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7470,18 +7764,18 @@ This treatment targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenot
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7512,33 +7806,37 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Loss of facial adipose tissue (HP:0000292). HP:0000292 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Loss of facial adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000292" target="_blank" class="curie-chip curie-chip-hp">HP:0000292</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000292" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000292</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Loss of facial adipose tissue (HP:0000292). HP:0000292 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Lipoatrophy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100578" target="_blank" class="curie-chip curie-chip-hp">HP:0100578</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100578" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100578</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7557,6 +7855,7 @@ This treatment targets Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27402657" target="_blank">PMID:27402657</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7580,6 +7879,7 @@ This treatment targets Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27402657" target="_blank">PMID:27402657</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7601,6 +7901,7 @@ This treatment targets Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32404319" target="_blank">PMID:32404319</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7636,17 +7937,17 @@ This treatment targets Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7671,18 +7972,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses hyaluronic acid (CHEBI:16336). CHEBI:16336 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         hyaluronic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16336" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:16336</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16336" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:16336</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hyaluronic acid (CHEBI:16336). CHEBI:16336 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7697,18 +8000,20 @@ This treatment uses hyaluronic acid (CHEBI:16336). CHEBI:16336 is a therapeutic 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Loss of facial adipose tissue (HP:0000292). HP:0000292 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Loss of facial adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000292" target="_blank" class="curie-chip curie-chip-hp">HP:0000292</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000292" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000292</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Loss of facial adipose tissue (HP:0000292). HP:0000292 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7727,6 +8032,7 @@ This treatment targets Loss of facial adipose tissue (HP:0000292). HP:0000292 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30604443" target="_blank">PMID:30604443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7749,6 +8055,7 @@ This treatment targets Loss of facial adipose tissue (HP:0000292). HP:0000292 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30604443" target="_blank">PMID:30604443</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7782,18 +8089,18 @@ This treatment targets Loss of facial adipose tissue (HP:0000292). HP:0000292 is
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">behavioral counseling</span>
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">NCIT:C181743</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C181743">NCIT:C181743</a>
 
 
 
@@ -7834,6 +8141,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC12712982/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7919,6 +8227,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31924231" target="_blank">PMID:31924231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7958,6 +8267,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31924231" target="_blank">PMID:31924231</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8028,6 +8338,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8067,6 +8378,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8137,6 +8449,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8176,6 +8489,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34205507" target="_blank">PMID:34205507</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8246,6 +8560,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27823605" target="_blank">PMID:27823605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8285,6 +8600,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27823605" target="_blank">PMID:27823605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8326,7 +8642,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-familial-partial-lipodystrophy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Familial_Partial_Lipodystrophy.html">Familial partial lipodystrophy</a>
@@ -8354,6 +8670,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8379,7 +8696,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acquired-generalized-lipodystrophy">
                 <div class="item-name">
 
                     Acquired generalized lipodystrophy
@@ -8407,6 +8724,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8432,7 +8750,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-severe-weight-loss-states">
                 <div class="item-name">
 
                     Severe weight-loss states
@@ -8460,6 +8778,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8485,7 +8804,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-acquired-or-localized-lipoatrophy">
                 <div class="item-name">
 
                     Other acquired or localized lipoatrophy
@@ -8512,6 +8831,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC5155679/</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8551,7 +8871,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06484868">
                 <div class="item-name">
                     NCT06484868
 
@@ -8569,33 +8889,37 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal glucose homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp">HP:0011014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0011014</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertriglyceridemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp">HP:0002155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8613,6 +8937,7 @@ This clinical trial targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a p
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06484868" target="_blank">clinicaltrials:NCT06484868</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8636,6 +8961,7 @@ This clinical trial targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a p
                         <a href="https://bioregistry.io/url:https://clinicaltrials.gov/api/v2/studies/NCT06484868" target="_blank">url:https://clinicaltrials.gov/api/v2/studies/NCT06484868</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8657,6 +8983,7 @@ This clinical trial targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a p
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://clinicaltrials.gov/api/v2/studies/NCT06484868" target="_blank">url:https://clinicaltrials.gov/api/v2/studies/NCT06484868</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8707,7 +9034,6 @@ This clinical trial targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a p
                 <pre class="yaml-preview">name: Acquired Partial Lipodystrophy
 category: Complex
 creation_date: &#34;2026-05-11T00:00:00Z&#34;
-updated_date: &#34;2026-07-17T00:00:00Z&#34;
 description: &gt;-
   Acquired partial lipodystrophy, also called Barraquer-Simons syndrome, is a
   ultra-rare acquired disorder with progressive, usually childhood-onset
@@ -10937,7 +11263,7 @@ discussions:
   status: OPEN
   attaches_to:
   - pathophysiology#Alternative Complement Pathway Dysregulation
-  - phenotype#Progressive Upper-Body Lipoatrophy
+  - phenotypes#Progressive Upper-Body Lipoatrophy
   rationale: &gt;-
     Small cohorts report HLA enrichment and a single LMNB2 variant, but neither
     establishes a causal gene-disease relationship. The largest cohort found no
@@ -12572,7 +12898,7 @@ Lifestyle factors are relevant for management of metabolic complications but are
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acquired Partial Lipodystrophy", "mondoId": "MONDO:0012104", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acquired_Partial_Lipodystrophy", "yamlRevision": "8ed738edf74c"};
+        const OS_CONFIG = {"diseaseName": "Acquired Partial Lipodystrophy", "mondoId": "MONDO:0012104", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acquired_Partial_Lipodystrophy", "yamlRevision": "10603035bff3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12991,5 +13317,73 @@ Lifestyle factors are relevant for management of metabolic complications but are
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

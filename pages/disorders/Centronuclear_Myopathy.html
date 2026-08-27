@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Centronuclear Myopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Centronuclear Myopathy</h1>
             <div class="header-meta">
 
@@ -3914,7 +4036,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive">
                 <div class="item-name">
                     X-linked recessive
 
@@ -3959,6 +4081,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3982,7 +4105,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4027,6 +4150,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16227997" target="_blank">PMID:16227997</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4050,7 +4174,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4094,6 +4218,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17676042" target="_blank">PMID:17676042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4164,7 +4289,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-xlmtm">
 
                     <div class="item-name">
                         X-linked myotubular myopathy (MTM1)
@@ -4200,6 +4325,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4221,6 +4347,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8640223" target="_blank">PMID:8640223</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4248,7 +4375,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ad-cnm">
 
                     <div class="item-name">
                         Autosomal dominant centronuclear myopathy (DNM2)
@@ -4284,6 +4411,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16227997" target="_blank">PMID:16227997</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4310,7 +4438,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-cnm">
 
                     <div class="item-name">
                         Autosomal recessive centronuclear myopathy (BIN1)
@@ -4346,6 +4474,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17676042" target="_blank">PMID:17676042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4372,7 +4501,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ryr1-cnm">
 
                     <div class="item-name">
                         RYR1-related centronuclear myopathy
@@ -4408,6 +4537,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34768808" target="_blank">PMID:34768808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4434,7 +4564,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ttn-cnm">
 
                     <div class="item-name">
                         TTN-related centronuclear myopathy
@@ -4462,7 +4592,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-speg-cnm">
 
                     <div class="item-name">
                         SPEG-related centronuclear myopathy
@@ -4522,18 +4652,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4559,17 +4691,21 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves decreased MTM1 (hgnc:7448). hgnc:7448 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MTM1
 
 
-    <a href="https://bioregistry.io/hgnc:7448" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7448</a>
+    <a href="https://bioregistry.io/hgnc:7448" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7448</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased MTM1 (hgnc:7448). hgnc:7448 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4602,18 +4738,20 @@ This pathophysiological event involves decreased MTM1 (hgnc:7448). hgnc:7448 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Phosphatidylinositol dephosphorylation (GO:0046856). GO:0046856 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Phosphatidylinositol dephosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046856" target="_blank" class="curie-chip curie-chip-go">GO:0046856</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046856" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0046856</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Phosphatidylinositol dephosphorylation (GO:0046856). GO:0046856 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4672,6 +4810,7 @@ This pathophysiological event involves decreased Phosphatidylinositol dephosphor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8640223" target="_blank">PMID:8640223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4693,6 +4832,7 @@ This pathophysiological event involves decreased Phosphatidylinositol dephosphor
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34768808" target="_blank">PMID:34768808</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4728,18 +4868,20 @@ This pathophysiological event involves decreased Phosphatidylinositol dephosphor
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4765,17 +4907,21 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves increased DNM2 (hgnc:2974). hgnc:2974 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DNM2
 
 
-    <a href="https://bioregistry.io/hgnc:2974" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2974</a>
+    <a href="https://bioregistry.io/hgnc:2974" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2974</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased DNM2 (hgnc:2974). hgnc:2974 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4808,18 +4954,20 @@ This pathophysiological event involves increased DNM2 (hgnc:2974). hgnc:2974 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Endocytosis (GO:0006897). GO:0006897 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go">GO:0006897</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006897</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Endocytosis (GO:0006897). GO:0006897 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4878,6 +5026,7 @@ This pathophysiological event involves abnormal Endocytosis (GO:0006897). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16227997" target="_blank">PMID:16227997</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4900,6 +5049,7 @@ This pathophysiological event involves abnormal Endocytosis (GO:0006897). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34768808" target="_blank">PMID:34768808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4921,6 +5071,7 @@ This pathophysiological event involves abnormal Endocytosis (GO:0006897). GO:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37547294" target="_blank">PMID:37547294</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4956,18 +5107,20 @@ This pathophysiological event involves abnormal Endocytosis (GO:0006897). GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4993,17 +5146,21 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves decreased BIN1 (hgnc:1052). hgnc:1052 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         BIN1
 
 
-    <a href="https://bioregistry.io/hgnc:1052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1052</a>
+    <a href="https://bioregistry.io/hgnc:1052" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:1052</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased BIN1 (hgnc:1052). hgnc:1052 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5036,18 +5193,20 @@ This pathophysiological event involves decreased BIN1 (hgnc:1052). hgnc:1052 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Membrane tubulation (GO:0097749). GO:0097749 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Membrane tubulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097749" target="_blank" class="curie-chip curie-chip-go">GO:0097749</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0097749</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Membrane tubulation (GO:0097749). GO:0097749 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5106,6 +5265,7 @@ This pathophysiological event involves decreased Membrane tubulation (GO:0097749
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17676042" target="_blank">PMID:17676042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5127,6 +5287,7 @@ This pathophysiological event involves decreased Membrane tubulation (GO:0097749
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17676042" target="_blank">PMID:17676042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5162,18 +5323,20 @@ This pathophysiological event involves decreased Membrane tubulation (GO:0097749
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5201,18 +5364,20 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal T-tubule organization (GO:0033292). GO:0033292 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T-tubule organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033292" target="_blank" class="curie-chip curie-chip-go">GO:0033292</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033292" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0033292</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal T-tubule organization (GO:0033292). GO:0033292 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5271,6 +5436,7 @@ This pathophysiological event involves abnormal T-tubule organization (GO:003329
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34768808" target="_blank">PMID:34768808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5292,6 +5458,7 @@ This pathophysiological event involves abnormal T-tubule organization (GO:003329
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25168790" target="_blank">PMID:25168790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5327,18 +5494,20 @@ This pathophysiological event involves abnormal T-tubule organization (GO:003329
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5366,18 +5535,20 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Release of sequestered calcium ion into cytosol by sarcoplasmic reticulum (GO:0014808). GO:0014808 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Release of sequestered calcium ion into cytosol by sarcoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" class="curie-chip curie-chip-go">GO:0014808</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0014808</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Release of sequestered calcium ion into cytosol by sarcoplasmic reticulum (GO:0014808). GO:0014808 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5436,6 +5607,7 @@ This pathophysiological event involves decreased Release of sequestered calcium 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25168790" target="_blank">PMID:25168790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5470,18 +5642,20 @@ This pathophysiological event involves decreased Release of sequestered calcium 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5669,6 +5843,7 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34768808" target="_blank">PMID:34768808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5767,16 +5942,20 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011968</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
-                        Feeding difficulties
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
-
-
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5796,6 +5975,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37280644" target="_blank">PMID:37280644</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5838,16 +6018,20 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.">
-                        Ptosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp">HP:0000508</a>
-
-
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5867,6 +6051,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5900,16 +6085,20 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000545</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.">
-                        Myopia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp">HP:0000545</a>
-
-
+This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5929,6 +6118,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5971,16 +6161,20 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.">
-                        Weakness of facial musculature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp">HP:0030319</a>
-
-
+This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6000,6 +6194,7 @@ This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6042,16 +6237,20 @@ This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenotype from the Human Phenotype Ontology.">
-                        Neonatal hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp">HP:0001319</a>
-
-
+This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6071,6 +6270,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6104,16 +6304,20 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp">HP:0003324</a>
-
-
+This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6133,6 +6337,7 @@ This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8640223" target="_blank">PMID:8640223</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6166,16 +6371,20 @@ This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6195,6 +6404,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6237,16 +6447,20 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delayed motor milestones, annotated with Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
-                        Motor delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
-
-
+This clinical feature is Delayed motor milestones, annotated with Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6266,6 +6480,7 @@ This clinical feature is Delayed motor milestones, annotated with Motor delay (H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6288,6 +6503,7 @@ This clinical feature is Delayed motor milestones, annotated with Motor delay (H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16227997" target="_blank">PMID:16227997</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6330,16 +6546,20 @@ This clinical feature is Delayed motor milestones, annotated with Motor delay (H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.">
-                        Polyhydramnios
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp">HP:0001561</a>
-
-
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6359,6 +6579,7 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6401,16 +6622,20 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001558" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001558</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased fetal movement
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001558" target="_blank" class="curie-chip curie-chip-hp">HP:0001558</a>
-
-
+This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6430,6 +6655,7 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6463,16 +6689,20 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004887</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory failure requiring assisted ventilation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp">HP:0004887</a>
-
-
+This clinical feature is Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6492,6 +6722,7 @@ This clinical feature is Respiratory failure requiring assisted ventilation (HP:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6514,6 +6745,7 @@ This clinical feature is Respiratory failure requiring assisted ventilation (HP:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39285418" target="_blank">PMID:39285418</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6547,16 +6779,20 @@ This clinical feature is Respiratory failure requiring assisted ventilation (HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000602</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype from the Human Phenotype Ontology.">
-                        Ophthalmoplegia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp">HP:0000602</a>
-
-
+This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6576,6 +6812,7 @@ This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6609,16 +6846,22 @@ This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the liver</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatobiliary involvement, annotated with Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the liver
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp">HP:0001392</a>
-
-
+This clinical feature is Hepatobiliary involvement, annotated with Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6638,6 +6881,7 @@ This clinical feature is Hepatobiliary involvement, annotated with Abnormality o
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37280644" target="_blank">PMID:37280644</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6660,6 +6904,7 @@ This clinical feature is Hepatobiliary involvement, annotated with Abnormality o
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03199469" target="_blank">clinicaltrials:NCT03199469</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6691,16 +6936,20 @@ This clinical feature is Hepatobiliary involvement, annotated with Abnormality o
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003687" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003687</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Centrally nucleated skeletal muscle fibers (HP:0003687). HP:0003687 is a phenotype from the Human Phenotype Ontology.">
-                        Centrally nucleated skeletal muscle fibers
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003687" target="_blank" class="curie-chip curie-chip-hp">HP:0003687</a>
-
-
+This clinical feature is Centrally nucleated skeletal muscle fibers (HP:0003687). HP:0003687 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6720,6 +6969,7 @@ This clinical feature is Centrally nucleated skeletal muscle fibers (HP:0003687)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17676042" target="_blank">PMID:17676042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6753,16 +7003,20 @@ This clinical feature is Centrally nucleated skeletal muscle fibers (HP:0003687)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003803" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003803</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Type 1 muscle fiber predominance (HP:0003803). HP:0003803 is a phenotype from the Human Phenotype Ontology.">
-                        Type 1 muscle fiber predominance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003803" target="_blank" class="curie-chip curie-chip-hp">HP:0003803</a>
-
-
+This clinical feature is Type 1 muscle fiber predominance (HP:0003803). HP:0003803 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6782,6 +7036,7 @@ This clinical feature is Type 1 muscle fiber predominance (HP:0003803). HP:00038
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34768808" target="_blank">PMID:34768808</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6861,15 +7116,17 @@ This clinical feature is Type 1 muscle fiber predominance (HP:0003803). HP:00038
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MTM1 (hgnc:7448). hgnc:7448 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MTM1
 
 
-    <a href="https://bioregistry.io/hgnc:7448" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7448</a>
+    <a href="https://bioregistry.io/hgnc:7448" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:7448</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MTM1 (hgnc:7448). hgnc:7448 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6896,6 +7153,7 @@ This disease-associated gene is MTM1 (hgnc:7448). hgnc:7448 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8640223" target="_blank">PMID:8640223</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6934,15 +7192,17 @@ This disease-associated gene is MTM1 (hgnc:7448). hgnc:7448 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNM2
 
 
-    <a href="https://bioregistry.io/hgnc:2974" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2974</a>
+    <a href="https://bioregistry.io/hgnc:2974" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:2974</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6969,6 +7229,7 @@ This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16227997" target="_blank">PMID:16227997</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7007,15 +7268,17 @@ This disease-associated gene is DNM2 (hgnc:2974). hgnc:2974 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is BIN1 (hgnc:1052). hgnc:1052 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BIN1
 
 
-    <a href="https://bioregistry.io/hgnc:1052" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1052</a>
+    <a href="https://bioregistry.io/hgnc:1052" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:1052</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BIN1 (hgnc:1052). hgnc:1052 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7042,6 +7305,7 @@ This disease-associated gene is BIN1 (hgnc:1052). hgnc:1052 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17676042" target="_blank">PMID:17676042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7080,15 +7344,17 @@ This disease-associated gene is BIN1 (hgnc:1052). hgnc:1052 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RYR1
 
 
-    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10483</a>
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:10483</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7115,6 +7381,7 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34768808" target="_blank">PMID:34768808</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7146,6 +7413,9 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7162,18 +7432,18 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7216,6 +7486,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7246,18 +7517,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">artificial respiration<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.">artificial respiration</span>
+This treatment is artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mechanical Ventilation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C70909" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.">NCIT:C70909</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C70909" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C70909">NCIT:C70909</a>
 
 
 
@@ -7300,6 +7571,7 @@ This treatment is artificial respiration, annotated with Mechanical Ventilation 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301605" target="_blank">PMID:20301605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7330,18 +7602,18 @@ This treatment is artificial respiration, annotated with Mechanical Ventilation 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -7383,6 +7655,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39285418" target="_blank">PMID:39285418</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7431,7 +7704,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03199469">
                 <div class="item-name">
                     NCT03199469
 
@@ -7450,18 +7723,20 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory failure requiring assisted ventilation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp">HP:0004887</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0004887</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7479,6 +7754,7 @@ This clinical trial targets Respiratory failure requiring assisted ventilation (
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03199469" target="_blank">clinicaltrials:NCT03199469</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7501,7 +7777,7 @@ This clinical trial targets Respiratory failure requiring assisted ventilation (
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04033159">
                 <div class="item-name">
                     NCT04033159
 
@@ -7520,18 +7796,20 @@ This clinical trial targets Respiratory failure requiring assisted ventilation (
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Generalized muscle weakness (HP:0003324). HP:0003324 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Generalized muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp">HP:0003324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003324</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Generalized muscle weakness (HP:0003324). HP:0003324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7549,6 +7827,7 @@ This clinical trial targets Generalized muscle weakness (HP:0003324). HP:0003324
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04033159" target="_blank">clinicaltrials:NCT04033159</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7571,7 +7850,7 @@ This clinical trial targets Generalized muscle weakness (HP:0003324). HP:0003324
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04915846">
                 <div class="item-name">
                     NCT04915846
 
@@ -7590,18 +7869,20 @@ This clinical trial targets Generalized muscle weakness (HP:0003324). HP:0003324
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory failure requiring assisted ventilation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp">HP:0004887</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0004887</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7619,6 +7900,7 @@ This clinical trial targets Respiratory failure requiring assisted ventilation (
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04915846" target="_blank">clinicaltrials:NCT04915846</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7641,7 +7923,7 @@ This clinical trial targets Respiratory failure requiring assisted ventilation (
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07052929">
                 <div class="item-name">
                     NCT07052929
 
@@ -7660,18 +7942,20 @@ This clinical trial targets Respiratory failure requiring assisted ventilation (
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory failure requiring assisted ventilation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp">HP:0004887</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0004887</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7689,6 +7973,7 @@ This clinical trial targets Respiratory failure requiring assisted ventilation (
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07052929" target="_blank">clinicaltrials:NCT07052929</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8581,6 +8866,7 @@ phenotypes:
       US claims analysis identifies hepatobiliary abnormalities as the most
       frequently investigated comorbidity in XLMTM patients.
   - reference: clinicaltrials:NCT03199469
+    reference_title: &#34;ASPIRO: A Phase 1/2/3, Randomized, Open-Label, Ascending-Dose, Delayed-Treatment Concurrent Control Clinical Study to Evaluate the Safety and Efficacy of AT132, an AAV8-Delivered Gene Therapy in X-Linked Myotubular Myopathy (XLMTM) Patients&#34;
     supports: SUPPORT
     snippet: &gt;-
       XLMTM may also affect the liver, and in some cases, this can be dangerous
@@ -8848,6 +9134,7 @@ clinical_trials:
       label: Respiratory failure requiring assisted ventilation
   evidence:
   - reference: clinicaltrials:NCT03199469
+    reference_title: &#34;ASPIRO: A Phase 1/2/3, Randomized, Open-Label, Ascending-Dose, Delayed-Treatment Concurrent Control Clinical Study to Evaluate the Safety and Efficacy of AT132, an AAV8-Delivered Gene Therapy in X-Linked Myotubular Myopathy (XLMTM) Patients&#34;
     supports: SUPPORT
     snippet: &gt;-
       AT132 is a gene therapy that gets a healthy MTM1 gene into the body to help
@@ -8868,6 +9155,7 @@ clinical_trials:
       label: Generalized muscle weakness
   evidence:
   - reference: clinicaltrials:NCT04033159
+    reference_title: &#34;A Phase 1/2 Trial on the Safety, Tolerability, Pharmacokinetics, Pharmacodynamics and Exploratory Efficacy of DYN101 in Patients ≥ 16 Years of Age With Centronuclear Myopathies Caused by Mutations in DNM2 or MTM1.&#34;
     supports: SUPPORT
     snippet: &gt;-
       a new medicine called DYN101 in patients ≥ 16 years of age with CNM caused
@@ -8888,6 +9176,7 @@ clinical_trials:
       label: Respiratory failure requiring assisted ventilation
   evidence:
   - reference: clinicaltrials:NCT04915846
+    reference_title: &#34;TAM4MTM: a Phase 1/2 Randomized, Placebo-Controlled, Double-Blinded, Single Crossover Study to Determine the Safety and Efficacy of Tamoxifen Therapy for Myotubular Myopathy (XLMTM)&#34;
     supports: SUPPORT
     snippet: &gt;-
       to test the efficacy and safety of tamoxifen therapy to improve motor and
@@ -8908,6 +9197,7 @@ clinical_trials:
       label: Respiratory failure requiring assisted ventilation
   evidence:
   - reference: clinicaltrials:NCT07052929
+    reference_title: &#34;A Phase 1/2, Multicenter, Open-label, Dose Escalation and Expansion Clinical Study to Evaluate the Safety, Tolerability and Preliminary Efficacy of ASP2957 in Male Participants With Invasive Ventilator-dependent X-linked Myotubular Myopathy&#34;
     supports: SUPPORT
     snippet: &gt;-
       Researchers have developed ASP2957 to get a healthy MTM1 gene into the
@@ -9640,7 +9930,7 @@ MTM1 loss → altered phosphoinositide metabolism/trafficking (PtdIns3P-related)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Centronuclear Myopathy", "mondoId": "MONDO:0018947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Centronuclear_Myopathy", "yamlRevision": "ee26f1e21943"};
+        const OS_CONFIG = {"diseaseName": "Centronuclear Myopathy", "mondoId": "MONDO:0018947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Centronuclear_Myopathy", "yamlRevision": "afb6d1b7af4d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10059,5 +10349,73 @@ MTM1 loss → altered phosphoinositide metabolism/trafficking (PtdIns3P-related)
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

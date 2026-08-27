@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Congenital Insensitivity to Pain</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Congenital Insensitivity to Pain</h1>
             <div class="header-meta">
 
@@ -3920,7 +4042,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hsan-iv">
 
                     <div class="item-name">
                         NTRK1-related HSAN IV / congenital insensitivity to pain with anhidrosis
@@ -3956,6 +4078,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16138253" target="_blank">PMID:16138253</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3977,6 +4100,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16138253" target="_blank">PMID:16138253</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4004,7 +4128,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hsan-v">
 
                     <div class="item-name">
                         NGF-related HSAN V
@@ -4040,6 +4164,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14976160" target="_blank">PMID:14976160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4066,7 +4191,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-scn9a-ar-cip">
 
                     <div class="item-name">
                         SCN9A-related channelopathy-associated congenital insensitivity to pain
@@ -4102,6 +4227,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4128,7 +4254,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hsan-vii">
 
                     <div class="item-name">
                         SCN11A-related HSAN VII / congenital inability to experience pain
@@ -4164,6 +4290,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24036948" target="_blank">PMID:24036948</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4190,7 +4317,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-hsan-viii">
 
                     <div class="item-name">
                         PRDM12-related HSAN VIII / congenital insensitivity to pain-hypohidrosis syndrome
@@ -4225,6 +4352,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4281,18 +4409,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4320,17 +4450,21 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PRDM12 (hgnc:13997). hgnc:13997 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PRDM12
 
 
-    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13997</a>
+    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:13997</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRDM12 (hgnc:13997). hgnc:13997 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4359,18 +4493,20 @@ This pathophysiological event involves PRDM12 (hgnc:13997). hgnc:13997 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal neuron development (GO:0048666). GO:0048666 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048666" target="_blank" class="curie-chip curie-chip-go">GO:0048666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0048666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neuron development (GO:0048666). GO:0048666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4428,6 +4564,7 @@ This pathophysiological event involves abnormal neuron development (GO:0048666).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4461,18 +4598,20 @@ This pathophysiological event involves abnormal neuron development (GO:0048666).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4500,17 +4639,21 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8031</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4535,17 +4678,21 @@ This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7808</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4574,18 +4721,20 @@ This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neurotrophin TRK receptor signaling pathway (GO:0048011). GO:0048011 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neurotrophin TRK receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048011" target="_blank" class="curie-chip curie-chip-go">GO:0048011</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048011" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0048011</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neurotrophin TRK receptor signaling pathway (GO:0048011). GO:0048011 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4659,6 +4808,7 @@ This pathophysiological event involves decreased neurotrophin TRK receptor signa
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4692,18 +4842,20 @@ This pathophysiological event involves decreased neurotrophin TRK receptor signa
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4731,17 +4883,21 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:8031</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4766,17 +4922,21 @@ This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:7808</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4805,18 +4965,20 @@ This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4874,6 +5036,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4907,18 +5070,20 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4979,6 +5144,7 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14976160" target="_blank">PMID:14976160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5012,18 +5178,20 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5051,17 +5219,21 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:10597</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5090,18 +5262,20 @@ This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0042391</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5123,6 +5297,44 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        voltage-gated sodium channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0005248</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves voltage-gated sodium channel activity (GO:0005248), qualified as loss of function. GO:0005248 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⇓ LOSS OF FUNCTION
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -5167,6 +5379,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5200,18 +5413,20 @@ This pathophysiological event involves abnormal regulation of membrane potential
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5239,17 +5454,21 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SCN11A
 
 
-    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10583</a>
+    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:10583</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5278,18 +5497,20 @@ This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         membrane depolarization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go">GO:0051899</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0051899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5347,6 +5568,7 @@ This pathophysiological event involves abnormal membrane depolarization (GO:0051
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24036948" target="_blank">PMID:24036948</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5380,18 +5602,20 @@ This pathophysiological event involves abnormal membrane depolarization (GO:0051
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5419,17 +5643,21 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:10597</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5454,17 +5682,21 @@ This pathophysiological event involves SCN9A (hgnc:10597). hgnc:10597 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SCN11A
 
 
-    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10583</a>
+    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:10583</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5493,18 +5725,20 @@ This pathophysiological event involves SCN11A (hgnc:10583). hgnc:10583 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0042391</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5562,6 +5796,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5595,18 +5830,20 @@ This pathophysiological event involves abnormal regulation of membrane potential
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5634,17 +5871,21 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8031</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5669,17 +5910,21 @@ This pathophysiological event involves NTRK1 (hgnc:8031). hgnc:8031 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:7808</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5708,18 +5953,20 @@ This pathophysiological event involves NGF (hgnc:7808). hgnc:7808 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phagocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5776,6 +6023,7 @@ This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5850,6 +6098,7 @@ This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5883,18 +6132,20 @@ This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5922,18 +6173,20 @@ This pathophysiological event involves Nociceptor, annotated with pain receptor 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sensory perception of pain (GO:0019233). GO:0019233 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sensory perception of pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go">GO:0019233</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0019233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sensory perception of pain (GO:0019233). GO:0019233 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6007,6 +6260,7 @@ This pathophysiological event involves decreased sensory perception of pain (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6055,7 +6309,7 @@ This pathophysiological event involves decreased sensory perception of pain (GO:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital anosmia is the characteristic associated feature of the SCN9A channelopathy branch.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SCN9A AR-CIP\"], \"term_id\": \"HP:0000458\"}}, {\"id\": \"Developmental nociceptor apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental CIP converts trophic failure into structural denervation by early loss of nociceptors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"NTRK1\", \"NGF\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}, {\"label\": \"NGF\", \"id\": \"hgnc:7808\"}]}}, {\"id\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental NGF-TRKA CIP forms also weaken macrophage-mediated host defense against Staphylococcus aureus.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"genes\": [\"NTRK1\", \"NGF\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}, {\"label\": \"NGF\", \"id\": \"hgnc:7808\"}]}}, {\"id\": \"Impaired nociceptor excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In channelopathy-associated CIP, nociceptors are present but electrically unable to generate or propagate appropriate warning signals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"regulation of membrane potential\"], \"genes\": [\"SCN9A\", \"SCN11A\"], \"gene_terms\": [{\"label\": \"SCN9A\", \"id\": \"hgnc:10597\"}, {\"label\": \"SCN11A\", \"id\": \"hgnc:10583\"}]}}, {\"id\": \"Impaired nociceptor specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRDM12-related CIP begins as a developmental failure to impose nociceptor identity and precursor differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"neuron development\"], \"genes\": [\"PRDM12\"], \"gene_terms\": [{\"label\": \"PRDM12\", \"id\": \"hgnc:13997\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is documented in classic NTRK1-related CIPA and helps distinguish HSAN IV from some other CIP subtypes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HSAN IV\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of protective pain perception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both structural denervation and channelopathic firing failure converge on the same final phenotype: absent protective pain responses with severe injury-related morbidity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"sensory perception of pain\"]}}, {\"id\": \"NGF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NGF\"], \"gene_terms\": [{\"label\": \"NGF\", \"id\": \"hgnc:7808\"}], \"association\": \"Causative\"}}, {\"id\": \"NGF-TRKA trophic signaling failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NTRK1- and NGF-related developmental CIP disrupts the neurotrophin signaling axis needed for nociceptor genesis, maturation, and survival.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"neurotrophin TRK receptor signaling pathway\"], \"genes\": [\"NTRK1\", \"NGF\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}, {\"label\": \"NGF\", \"id\": \"hgnc:7808\"}]}}, {\"id\": \"NTRK1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NTRK1\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}], \"association\": \"Causative\"}}, {\"id\": \"Nav1.7 loss-of-function channelopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCN9A-associated CIP preserves nociceptors anatomically but disables Nav1.7, preventing normal electrical responses to tissue-damage signals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"regulation of membrane potential\"], \"genes\": [\"SCN9A\"], \"gene_terms\": [{\"label\": \"SCN9A\", \"id\": \"hgnc:10597\"}]}}, {\"id\": \"Nav1.9 depolarization-block channelopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCN11A-associated CIP is a paradoxical gain-of-function state in which excessive resting activity of Nav1.9 depolarizes nociceptors and blocks productive action-potential firing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"membrane depolarization\"], \"genes\": [\"SCN11A\"], \"gene_terms\": [{\"label\": \"SCN11A\", \"id\": \"hgnc:10583\"}]}}, {\"id\": \"Neuropathic arthropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repetitive painless joint injury leads to Charcot-joint deformity and progressive orthopedic damage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002821\"}}, {\"id\": \"Osteomyelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental CIP forms show susceptibility to Staphylococcus aureus osteomyelitis and related deep infections.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HSAN IV\", \"HSAN V\", \"HSAN VIII\"], \"term_id\": \"HP:0002754\"}}, {\"id\": \"PRDM12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRDM12\"], \"gene_terms\": [{\"label\": \"PRDM12\", \"id\": \"hgnc:13997\"}], \"association\": \"Causative\"}}, {\"id\": \"Pain insensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shared defining phenotype across the grouped CIP disorders, reflecting loss of protective pain sensation from birth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007021\"}}, {\"id\": \"Reduced nociceptor and small-fiber innervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental CIP forms show reduced C-fiber and A-delta-fiber innervation rather than merely an altered pain threshold.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"]}}, {\"id\": \"SCN11A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SCN11A\"], \"gene_terms\": [{\"label\": \"SCN11A\", \"id\": \"hgnc:10583\"}], \"association\": \"Causative\"}}, {\"id\": \"SCN9A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN9A\"], \"gene_terms\": [{\"label\": \"SCN9A\", \"id\": \"hgnc:10597\"}], \"association\": \"Causative\"}}, {\"id\": \"Self-mutilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early repetitive biting and tissue injury are common consequences of absent protective pain sensation, especially after teething.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000742\"}}, {\"id\": \"Staphylococcus aureus infection susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental CIP forms, but not channelopathy-associated forms, show a distinctive propensity to osteomyelitis, septic arthritis, and skin infection with Staphylococcus aureus.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HSAN IV\", \"HSAN V\", \"HSAN VIII\"]}}], \"edges\": [{\"source\": \"Impaired nociceptor specification\", \"target\": \"NGF-TRKA trophic signaling failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PRDM12 activity impairs the developmental program that normally establishes NTRK1 expression in nociceptor precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NGF-TRKA trophic signaling failure\", \"target\": \"Developmental nociceptor apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of trophic support causes early nociceptor loss during development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NGF-TRKA trophic signaling failure\", \"target\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same pathway also contributes to macrophage antibacterial responses, explaining infection susceptibility in developmental CIP forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NGF-TRKA trophic signaling failure\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NTRK1-related CIPA includes intellectual disability as part of the developmental HSAN IV phenotype; the intervening CNS mechanism is not resolved in this umbrella entry.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developmental nociceptor apoptosis\", \"target\": \"Reduced nociceptor and small-fiber innervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early apoptosis yields the characteristic loss of pain-transducing small fibers in developmental CIP.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced nociceptor and small-fiber innervation\", \"target\": \"Loss of protective pain perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural denervation removes the afferent substrate required for normal pain sensing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nav1.7 loss-of-function channelopathy\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Nav1.7 function leaves nociceptors present but unable to transmit normal warning signals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nav1.7 loss-of-function channelopathy\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SCN9A loss-of-function channelopathy causes congenital painlessness with anosmia as the characteristic additional feature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nav1.9 depolarization-block channelopathy\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained depolarization prevents normal action-potential generation in nociceptors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired nociceptor excitability\", \"target\": \"Loss of protective pain perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of nociceptor firing abolishes warning pain despite preserved neuronal anatomy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"target\": \"Staphylococcus aureus infection susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced macrophage killing capacity predisposes to recurrent deep and skin infections in developmental CIP forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Staphylococcus aureus infection susceptibility\", \"target\": \"Osteomyelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Staphylococcus aureus susceptibility in developmental CIP can manifest as osteomyelitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of protective pain perception\", \"target\": \"Pain insensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of protective pain perception is the defining pain-insensitivity phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of protective pain perception\", \"target\": \"Self-mutilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent protective pain sensation permits repetitive biting and tissue injury without normal warning pain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of protective pain perception\", \"target\": \"Neuropathic arthropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive painless joint injury leads to Charcot-joint arthropathy and progressive orthopedic damage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NTRK1\", \"target\": \"Developmental nociceptor apoptosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NTRK1\", \"target\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NTRK1\", \"target\": \"NGF-TRKA trophic signaling failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NGF\", \"target\": \"Developmental nociceptor apoptosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NGF\", \"target\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NGF\", \"target\": \"NGF-TRKA trophic signaling failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN9A\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN9A\", \"target\": \"Nav1.7 loss-of-function channelopathy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN11A\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN11A\", \"target\": \"Nav1.9 depolarization-block channelopathy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRDM12\", \"target\": \"Impaired nociceptor specification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital anosmia is the characteristic associated feature of the SCN9A channelopathy branch.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SCN9A AR-CIP\"], \"term_id\": \"HP:0000458\"}}, {\"id\": \"Developmental nociceptor apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental CIP converts trophic failure into structural denervation by early loss of nociceptors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"NTRK1\", \"NGF\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}, {\"label\": \"NGF\", \"id\": \"hgnc:7808\"}]}}, {\"id\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental NGF-TRKA CIP forms also weaken macrophage-mediated host defense against Staphylococcus aureus.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"genes\": [\"NTRK1\", \"NGF\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}, {\"label\": \"NGF\", \"id\": \"hgnc:7808\"}]}}, {\"id\": \"Impaired nociceptor excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In channelopathy-associated CIP, nociceptors are present but electrically unable to generate or propagate appropriate warning signals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"regulation of membrane potential\"], \"genes\": [\"SCN9A\", \"SCN11A\"], \"gene_terms\": [{\"label\": \"SCN9A\", \"id\": \"hgnc:10597\"}, {\"label\": \"SCN11A\", \"id\": \"hgnc:10583\"}]}}, {\"id\": \"Impaired nociceptor specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PRDM12-related CIP begins as a developmental failure to impose nociceptor identity and precursor differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"neuron development\"], \"genes\": [\"PRDM12\"], \"gene_terms\": [{\"label\": \"PRDM12\", \"id\": \"hgnc:13997\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is documented in classic NTRK1-related CIPA and helps distinguish HSAN IV from some other CIP subtypes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HSAN IV\"], \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of protective pain perception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both structural denervation and channelopathic firing failure converge on the same final phenotype: absent protective pain responses with severe injury-related morbidity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"sensory perception of pain\"]}}, {\"id\": \"NGF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NGF\"], \"gene_terms\": [{\"label\": \"NGF\", \"id\": \"hgnc:7808\"}], \"association\": \"Causative\"}}, {\"id\": \"NGF-TRKA trophic signaling failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NTRK1- and NGF-related developmental CIP disrupts the neurotrophin signaling axis needed for nociceptor genesis, maturation, and survival.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"neurotrophin TRK receptor signaling pathway\"], \"genes\": [\"NTRK1\", \"NGF\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}, {\"label\": \"NGF\", \"id\": \"hgnc:7808\"}]}}, {\"id\": \"NTRK1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NTRK1\"], \"gene_terms\": [{\"label\": \"NTRK1\", \"id\": \"hgnc:8031\"}], \"association\": \"Causative\"}}, {\"id\": \"Nav1.7 loss-of-function channelopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCN9A-associated CIP preserves nociceptors anatomically but disables Nav1.7, preventing normal electrical responses to tissue-damage signals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"regulation of membrane potential\"], \"molecular_functions\": [\"voltage-gated sodium channel activity\"], \"genes\": [\"SCN9A\"], \"gene_terms\": [{\"label\": \"SCN9A\", \"id\": \"hgnc:10597\"}]}}, {\"id\": \"Nav1.9 depolarization-block channelopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SCN11A-associated CIP is a paradoxical gain-of-function state in which excessive resting activity of Nav1.9 depolarizes nociceptors and blocks productive action-potential firing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"], \"biological_processes\": [\"membrane depolarization\"], \"genes\": [\"SCN11A\"], \"gene_terms\": [{\"label\": \"SCN11A\", \"id\": \"hgnc:10583\"}]}}, {\"id\": \"Neuropathic arthropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Repetitive painless joint injury leads to Charcot-joint deformity and progressive orthopedic damage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002821\"}}, {\"id\": \"Osteomyelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental CIP forms show susceptibility to Staphylococcus aureus osteomyelitis and related deep infections.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HSAN IV\", \"HSAN V\", \"HSAN VIII\"], \"term_id\": \"HP:0002754\"}}, {\"id\": \"PRDM12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRDM12\"], \"gene_terms\": [{\"label\": \"PRDM12\", \"id\": \"hgnc:13997\"}], \"association\": \"Causative\"}}, {\"id\": \"Pain insensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shared defining phenotype across the grouped CIP disorders, reflecting loss of protective pain sensation from birth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007021\"}}, {\"id\": \"Reduced nociceptor and small-fiber innervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental CIP forms show reduced C-fiber and A-delta-fiber innervation rather than merely an altered pain threshold.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nociceptor\"]}}, {\"id\": \"SCN11A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SCN11A\"], \"gene_terms\": [{\"label\": \"SCN11A\", \"id\": \"hgnc:10583\"}], \"association\": \"Causative\"}}, {\"id\": \"SCN9A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN9A\"], \"gene_terms\": [{\"label\": \"SCN9A\", \"id\": \"hgnc:10597\"}], \"association\": \"Causative\"}}, {\"id\": \"Self-mutilation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early repetitive biting and tissue injury are common consequences of absent protective pain sensation, especially after teething.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000742\"}}, {\"id\": \"Staphylococcus aureus infection susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental CIP forms, but not channelopathy-associated forms, show a distinctive propensity to osteomyelitis, septic arthritis, and skin infection with Staphylococcus aureus.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HSAN IV\", \"HSAN V\", \"HSAN VIII\"]}}], \"edges\": [{\"source\": \"Impaired nociceptor specification\", \"target\": \"NGF-TRKA trophic signaling failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PRDM12 activity impairs the developmental program that normally establishes NTRK1 expression in nociceptor precursors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NGF-TRKA trophic signaling failure\", \"target\": \"Developmental nociceptor apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of trophic support causes early nociceptor loss during development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NGF-TRKA trophic signaling failure\", \"target\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same pathway also contributes to macrophage antibacterial responses, explaining infection susceptibility in developmental CIP forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NGF-TRKA trophic signaling failure\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NTRK1-related CIPA includes intellectual disability as part of the developmental HSAN IV phenotype; the intervening CNS mechanism is not resolved in this umbrella entry.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developmental nociceptor apoptosis\", \"target\": \"Reduced nociceptor and small-fiber innervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early apoptosis yields the characteristic loss of pain-transducing small fibers in developmental CIP.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced nociceptor and small-fiber innervation\", \"target\": \"Loss of protective pain perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural denervation removes the afferent substrate required for normal pain sensing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nav1.7 loss-of-function channelopathy\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Nav1.7 function leaves nociceptors present but unable to transmit normal warning signals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nav1.7 loss-of-function channelopathy\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SCN9A loss-of-function channelopathy causes congenital painlessness with anosmia as the characteristic additional feature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nav1.9 depolarization-block channelopathy\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained depolarization prevents normal action-potential generation in nociceptors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired nociceptor excitability\", \"target\": \"Loss of protective pain perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of nociceptor firing abolishes warning pain despite preserved neuronal anatomy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"target\": \"Staphylococcus aureus infection susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced macrophage killing capacity predisposes to recurrent deep and skin infections in developmental CIP forms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Staphylococcus aureus infection susceptibility\", \"target\": \"Osteomyelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Staphylococcus aureus susceptibility in developmental CIP can manifest as osteomyelitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of protective pain perception\", \"target\": \"Pain insensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of protective pain perception is the defining pain-insensitivity phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of protective pain perception\", \"target\": \"Self-mutilation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent protective pain sensation permits repetitive biting and tissue injury without normal warning pain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of protective pain perception\", \"target\": \"Neuropathic arthropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive painless joint injury leads to Charcot-joint arthropathy and progressive orthopedic damage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NTRK1\", \"target\": \"Developmental nociceptor apoptosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NTRK1\", \"target\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NTRK1\", \"target\": \"NGF-TRKA trophic signaling failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NGF\", \"target\": \"Developmental nociceptor apoptosis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NGF\", \"target\": \"Impaired NGF-TRKA-dependent macrophage killing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NGF\", \"target\": \"NGF-TRKA trophic signaling failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN9A\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN9A\", \"target\": \"Nav1.7 loss-of-function channelopathy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN11A\", \"target\": \"Impaired nociceptor excitability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN11A\", \"target\": \"Nav1.9 depolarization-block channelopathy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PRDM12\", \"target\": \"Impaired nociceptor specification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6099,16 +6353,20 @@ This pathophysiological event involves decreased sensory perception of pain (GO:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000458</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.">
-                        Anosmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp">HP:0000458</a>
-
-
+This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6128,6 +6386,7 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6170,16 +6429,20 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002754</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype from the Human Phenotype Ontology.">
-                        Osteomyelitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp">HP:0002754</a>
-
-
+This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6199,6 +6462,7 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6241,16 +6505,20 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6270,6 +6538,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16138253" target="_blank">PMID:16138253</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6312,16 +6581,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0007021</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congenital insensitivity to pain, annotated with Pain insensitivity (HP:0007021). HP:0007021 is a phenotype from the Human Phenotype Ontology.">
-                        Pain insensitivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007021" target="_blank" class="curie-chip curie-chip-hp">HP:0007021</a>
-
-
+This clinical feature is Congenital insensitivity to pain, annotated with Pain insensitivity (HP:0007021). HP:0007021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6341,6 +6614,7 @@ This clinical feature is Congenital insensitivity to pain, annotated with Pain i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6374,16 +6648,20 @@ This clinical feature is Congenital insensitivity to pain, annotated with Pain i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000742" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000742</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Self-mutilation (HP:0000742). HP:0000742 is a phenotype from the Human Phenotype Ontology.">
-                        Self-mutilation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000742" target="_blank" class="curie-chip curie-chip-hp">HP:0000742</a>
-
-
+This clinical feature is Self-mutilation (HP:0000742). HP:0000742 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6403,6 +6681,7 @@ This clinical feature is Self-mutilation (HP:0000742). HP:0000742 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6436,16 +6715,20 @@ This clinical feature is Self-mutilation (HP:0000742). HP:0000742 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002821</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neuropathic arthropathy (Charcot joint), annotated with Neuropathic arthropathy (HP:0002821). HP:0002821 is a phenotype from the Human Phenotype Ontology.">
-                        Neuropathic arthropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002821" target="_blank" class="curie-chip curie-chip-hp">HP:0002821</a>
-
-
+This clinical feature is Neuropathic arthropathy (Charcot joint), annotated with Neuropathic arthropathy (HP:0002821). HP:0002821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6465,6 +6748,7 @@ This clinical feature is Neuropathic arthropathy (Charcot joint), annotated with
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6544,15 +6828,17 @@ This clinical feature is Neuropathic arthropathy (Charcot joint), annotated with
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NTRK1
 
 
-    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8031</a>
+    <a href="https://bioregistry.io/hgnc:8031" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:8031</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NTRK1 (hgnc:8031). hgnc:8031 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6573,6 +6859,7 @@ This disease-associated gene is NTRK1 (hgnc:8031). hgnc:8031 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16138253" target="_blank">PMID:16138253</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6611,15 +6898,17 @@ This disease-associated gene is NTRK1 (hgnc:8031). hgnc:8031 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NGF
 
 
-    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7808</a>
+    <a href="https://bioregistry.io/hgnc:7808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:7808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NGF (hgnc:7808). hgnc:7808 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6640,6 +6929,7 @@ This disease-associated gene is NGF (hgnc:7808). hgnc:7808 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14976160" target="_blank">PMID:14976160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6662,6 +6952,7 @@ This disease-associated gene is NGF (hgnc:7808). hgnc:7808 is a gene from the HU
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_f0b3691d-a3d3-42f6-9703-18af08f40688-2023-05-05T160000.000Z" target="_blank">CGGV:assertion_f0b3691d-a3d3-42f6-9703-18af08f40688-2023-05-05T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6700,15 +6991,17 @@ This disease-associated gene is NGF (hgnc:7808). hgnc:7808 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN9A
 
 
-    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10597</a>
+    <a href="https://bioregistry.io/hgnc:10597" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:10597</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6729,6 +7022,7 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6767,15 +7061,17 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN11A
 
 
-    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10583</a>
+    <a href="https://bioregistry.io/hgnc:10583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:10583</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6796,6 +7092,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24036948" target="_blank">PMID:24036948</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6818,6 +7115,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24036948" target="_blank">PMID:24036948</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6856,15 +7154,17 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PRDM12 (hgnc:13997). hgnc:13997 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRDM12
 
 
-    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13997</a>
+    <a href="https://bioregistry.io/hgnc:13997" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:13997</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRDM12 (hgnc:13997). hgnc:13997 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6885,6 +7185,7 @@ This disease-associated gene is PRDM12 (hgnc:13997). hgnc:13997 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6907,6 +7208,7 @@ This disease-associated gene is PRDM12 (hgnc:13997). hgnc:13997 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32219415" target="_blank">PMID:32219415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6945,15 +7247,17 @@ This disease-associated gene is PRDM12 (hgnc:13997). hgnc:13997 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RETREG1 (hgnc:25964). hgnc:25964 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RETREG1
 
 
-    <a href="https://bioregistry.io/hgnc:25964" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25964</a>
+    <a href="https://bioregistry.io/hgnc:25964" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:25964</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RETREG1 (hgnc:25964). hgnc:25964 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6974,6 +7278,7 @@ This disease-associated gene is RETREG1 (hgnc:25964). hgnc:25964 is a gene from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_e0b9041f-06f2-47c8-b070-5d4cfaaeb2db-2024-07-08T160000.000Z" target="_blank">CGGV:assertion_e0b9041f-06f2-47c8-b070-5d4cfaaeb2db-2024-07-08T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7003,6 +7308,9 @@ This disease-associated gene is RETREG1 (hgnc:25964). hgnc:25964 is a gene from 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7045,7 +7353,6 @@ This disease-associated gene is RETREG1 (hgnc:25964). hgnc:25964 is a gene from 
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Congenital Insensitivity to Pain
 creation_date: &#34;2026-04-16T19:22:23Z&#34;
-updated_date: &#34;2026-05-09T06:24:06Z&#34;
 category: Mendelian
 synonyms:
 - CIP
@@ -7618,6 +7925,7 @@ pathophysiology:
         individuals’ lifetime.
       explanation: Connects reduced pain-fiber innervation to the shared analgesic phenotype.
 - name: Nav1.7 loss-of-function channelopathy
+  conforms_to: &#34;nociceptor_sodium_channel_excitability#Loss of Nociceptor Sodium Current&#34;
   description: &gt;-
     SCN9A-associated CIP preserves nociceptors anatomically but disables Nav1.7,
     preventing normal electrical responses to tissue-damage signals.
@@ -7631,6 +7939,12 @@ pathophysiology:
     term:
       id: CL:0000198
       label: pain receptor cell
+  molecular_functions:
+  - preferred_term: voltage-gated sodium channel activity
+    modifier: LOSS_OF_FUNCTION
+    term:
+      id: GO:0005248
+      label: voltage-gated sodium channel activity
   biological_processes:
   - preferred_term: regulation of membrane potential
     modifier: ABNORMAL
@@ -7669,6 +7983,7 @@ pathophysiology:
       anosmia as the characteristic additional feature.
     causal_link_type: DIRECT
 - name: Nav1.9 depolarization-block channelopathy
+  conforms_to: &#34;nociceptor_sodium_channel_excitability#Sustained Nociceptor Depolarization and Conduction Block&#34;
   description: &gt;-
     SCN11A-associated CIP is a paradoxical gain-of-function state in which
     excessive resting activity of Nav1.9 depolarizes nociceptors and blocks
@@ -7716,6 +8031,7 @@ pathophysiology:
         action potentials and aberrant synaptic transmission.
       explanation: Directly links the Nav1.9 defect to failed nociceptor firing.
 - name: Impaired nociceptor excitability
+  conforms_to: &#34;nociceptor_sodium_channel_excitability#Nociceptor Action Potential Threshold and Firing&#34;
   description: &gt;-
     In channelopathy-associated CIP, nociceptors are present but electrically
     unable to generate or propagate appropriate warning signals.
@@ -8410,7 +8726,7 @@ phenotypes:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Congenital Insensitivity to Pain", "mondoId": "MONDO:0015364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Insensitivity_to_Pain", "yamlRevision": "4396d538ebad"};
+        const OS_CONFIG = {"diseaseName": "Congenital Insensitivity to Pain", "mondoId": "MONDO:0015364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Insensitivity_to_Pain", "yamlRevision": "7a9b0ffbad4f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8829,5 +9145,73 @@ phenotypes:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

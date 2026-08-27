@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Waldenstrom Macroglobulinemia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Waldenstrom Macroglobulinemia</h1>
             <div class="header-meta">
 
@@ -3837,7 +3959,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3977,7 +4099,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-pathologic-definition-of-waldenstrom-macroglobulinemia">
                 <div class="item-name">Pathologic definition of Waldenstrom macroglobulinemia</div>
 
                 <div class="item-desc">Waldenstrom macroglobulinemia is a distinct clinicopathologic entity defined by bone marrow infiltration by lymphoplasmacytic lymphoma together with an IgM monoclonal gammopathy.</div>
@@ -4022,6 +4144,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12720118" target="_blank">PMID:12720118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4092,7 +4215,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-asymptomatic-waldenstrom-macroglobulinemia">
 
                     <div class="item-name">
                         Asymptomatic Waldenstrom Macroglobulinemia
@@ -4126,6 +4249,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37099027" target="_blank">PMID:37099027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4152,7 +4276,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-symptomatic-waldenstrom-macroglobulinemia">
 
                     <div class="item-name">
                         Symptomatic Waldenstrom Macroglobulinemia
@@ -4186,6 +4310,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12720118" target="_blank">PMID:12720118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4217,7 +4342,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-myd88-mutant-waldenstrom-macroglobulinemia">
 
                     <div class="item-name">
                         MYD88-mutant Waldenstrom Macroglobulinemia
@@ -4230,18 +4355,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in MYD88 (hgnc:7562). hgnc:7562 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 MYD88
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7562</a>
+    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7562</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYD88 (hgnc:7562). hgnc:7562 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4267,6 +4394,7 @@ This subtype is caused by variation in MYD88 (hgnc:7562). hgnc:7562 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24224040" target="_blank">PMID:24224040</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4294,7 +4422,7 @@ This subtype is caused by variation in MYD88 (hgnc:7562). hgnc:7562 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cxcr4-mutated-waldenstrom-macroglobulinemia">
 
                     <div class="item-name">
                         CXCR4-mutated Waldenstrom Macroglobulinemia
@@ -4307,18 +4435,20 @@ This subtype is caused by variation in MYD88 (hgnc:7562). hgnc:7562 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CXCR4 (hgnc:2561). hgnc:2561 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CXCR4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2561" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2561</a>
+    <a href="https://bioregistry.io/hgnc:2561" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2561</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CXCR4 (hgnc:2561). hgnc:2561 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4344,6 +4474,7 @@ This subtype is caused by variation in CXCR4 (hgnc:2561). hgnc:2561 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26659815" target="_blank">PMID:26659815</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4400,18 +4531,20 @@ This subtype is caused by variation in CXCR4 (hgnc:2561). hgnc:2561 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4428,18 +4561,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4467,18 +4602,20 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4506,18 +4643,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4555,6 +4694,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12720118" target="_blank">PMID:12720118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4576,6 +4716,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11718214" target="_blank">PMID:11718214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4610,18 +4751,20 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves IgM plasma cell (CL:0000986). CL:0000986 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         IgM plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000986" target="_blank" class="curie-chip curie-chip-cl">CL:0000986</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000986" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000986</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves IgM plasma cell (CL:0000986). CL:0000986 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4649,18 +4792,20 @@ This pathophysiological event involves IgM plasma cell (CL:0000986). CL:0000986 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4688,18 +4833,20 @@ This pathophysiological event involves increased immunoglobulin production (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in blood serum (UBERON:0001977). UBERON:0001977 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         blood serum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001977" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001977</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001977" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001977</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood serum (UBERON:0001977). UBERON:0001977 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4736,6 +4883,7 @@ This pathophysiological event occurs in blood serum (UBERON:0001977). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12720118" target="_blank">PMID:12720118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4780,18 +4928,20 @@ This pathophysiological event occurs in blood serum (UBERON:0001977). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         blood
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4813,6 +4963,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18813229" target="_blank">PMID:18813229</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4895,6 +5046,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24224040" target="_blank">PMID:24224040</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4953,6 +5105,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26659815" target="_blank">PMID:26659815</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4986,18 +5139,20 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5014,18 +5169,20 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5053,18 +5210,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves cell-cell signaling (GO:0007267). GO:0007267 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell-cell signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007267" target="_blank" class="curie-chip curie-chip-go">GO:0007267</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007267" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007267</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cell-cell signaling (GO:0007267). GO:0007267 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5088,18 +5247,20 @@ This pathophysiological event involves cell-cell signaling (GO:0007267). GO:0007
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5137,6 +5298,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18216294" target="_blank">PMID:18216294</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5158,6 +5320,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18216294" target="_blank">PMID:18216294</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5194,7 +5357,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-lymphoplasmacytic-lymphoma">
                 <div class="item-name">
                     Lymphoplasmacytic Lymphoma
 
@@ -5217,6 +5380,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12720118" target="_blank">PMID:12720118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5276,7 +5440,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
 
@@ -5286,7 +5450,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5305,16 +5469,20 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5334,6 +5502,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18813229" target="_blank">PMID:18813229</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5378,16 +5547,20 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
-
-
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5407,6 +5580,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18813229" target="_blank">PMID:18813229</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5440,8 +5614,75 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-Cell Lymphoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        B-Cell Lymphoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012191</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35087759" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35087759" target="_blank">PMID:35087759</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lymphoplasmacytic lymphoma (LPL) is a rare subtype of B cell-derived non-Hodgkin lymphoma characterized by the abnormal growth of transformed clonal lymphoplasmacytes and plasma cells."</div>
+
+
+                <div class="evidence-explanation">Classifies lymphoplasmacytic lymphoma, the tissue-diagnosis counterpart of Waldenstrom macroglobulinemia, as a B-cell-derived non-Hodgkin lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-igm-paraproteinemia" data-dismech-node="IgM Paraproteinemia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5451,16 +5692,22 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">IgM heavy chain paraproteinemia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020196" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0020196</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:0020196 is a phenotype from the Human Phenotype Ontology.">
-                        IgM heavy chain paraproteinemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020196" target="_blank" class="curie-chip curie-chip-hp">HP:0020196</a>
-
-
+This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:0020196 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5480,6 +5727,7 @@ This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:002019
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12720118" target="_blank">PMID:12720118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5554,6 +5802,28 @@ This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:002019
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MYD88
+
+
+    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:7562</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYD88 (hgnc:7562). hgnc:7562 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5568,6 +5838,7 @@ This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:002019
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24224040" target="_blank">PMID:24224040</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5601,6 +5872,28 @@ This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:002019
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CXCR4
+
+
+    <a href="https://bioregistry.io/hgnc:2561" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:2561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CXCR4 (hgnc:2561). hgnc:2561 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5615,6 +5908,7 @@ This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:002019
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26659815" target="_blank">PMID:26659815</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5646,6 +5940,9 @@ This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:002019
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5662,18 +5959,18 @@ This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:002019
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">watchful waiting<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is watchful waiting, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">watchful waiting</span>
+This treatment is watchful waiting, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is watchful waiting, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5715,6 +6012,7 @@ This treatment is watchful waiting, annotated with Supportive Care (NCIT:C15747)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37099027" target="_blank">PMID:37099027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5745,18 +6043,18 @@ This treatment is watchful waiting, annotated with Supportive Care (NCIT:C15747)
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -5781,33 +6079,37 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses bendamustine (CHEBI:135515). CHEBI:135515 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         bendamustine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_135515" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:135515</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_135515" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:135515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bendamustine (CHEBI:135515). CHEBI:135515 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5832,6 +6134,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37099027" target="_blank">PMID:37099027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5863,18 +6166,18 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
 
 
 
@@ -5899,18 +6202,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses zanubrutinib (NCIT:C141428). NCIT:C141428 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         zanubrutinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C141428" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C141428</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C141428" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C141428</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses zanubrutinib (NCIT:C141428). NCIT:C141428 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5935,6 +6240,7 @@ This treatment uses zanubrutinib (NCIT:C141428). NCIT:C141428 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37099027" target="_blank">PMID:37099027</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5966,18 +6272,18 @@ This treatment uses zanubrutinib (NCIT:C141428). NCIT:C141428 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">plasmapheresis</span>
+This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Plasmapheresis</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">NCIT:C15304</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
 
 
 
@@ -6018,6 +6324,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18813229" target="_blank">PMID:18813229</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6063,7 +6370,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse179221">
                 <div class="item-name">
                     Aberrant extrafollicular B cells, immune dysfunction and myeloid inflammation precede malignancy in Waldenstrom macroglobulinemia
 
@@ -6106,7 +6413,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse70511">
                 <div class="item-name">
                     Aggressive gene expression signiture of waldenstrom macroglobulinemia with deletion 6q
 
@@ -6149,7 +6456,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse70515">
                 <div class="item-name">
                     Gene expression signature of bone lesion waldenstrom macroglobulinemia and myeloma
 
@@ -6188,7 +6495,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003597">
                 <div class="item-name">
                     Genetic landscape of Waldenstrom macroglobulinemia
 
@@ -6221,7 +6528,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003603">
                 <div class="item-name">
                     Genetic and expression landscape of Waldenstrom macroglobulinemia
 
@@ -6256,7 +6563,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs001284">
                 <div class="item-name">
                     NCI Waldenstrom Macroglobulinemia Genome-wide Association Study
 
@@ -6317,7 +6624,6 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Waldenstrom Macroglobulinemia
 creation_date: &#39;2026-04-13T05:35:14Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
 category: Cancer
 categories:
 - Hematologic Malignancy
@@ -6725,6 +7031,30 @@ histopathology:
       diagnosis in WM is lymphoplasmacytic lymphoma, this histopathologic finding
       is OBLIGATE for the disease concept curated here.
 phenotypes:
+- category: Neoplastic
+  name: B-Cell Lymphoma
+  description: &gt;-
+    Waldenstrom macroglobulinemia is the IgM-secreting clinical syndrome of
+    lymphoplasmacytic lymphoma, a neoplasm of mature B lymphocytes classified
+    as a B-cell non-Hodgkin lymphoma.
+  phenotype_term:
+    preferred_term: B-cell lymphoma
+    term:
+      id: HP:0012191
+      label: B-cell lymphoma
+  evidence:
+  - reference: PMID:35087759
+    reference_title: &#34;Determinants of Drug Resistance in B-Cell Non-Hodgkin Lymphomas: The Case of Lymphoplasmacytic Lymphoma/Waldenström Macroglobulinemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Lymphoplasmacytic lymphoma (LPL) is a rare subtype of B cell-derived
+      non-Hodgkin lymphoma characterized by the abnormal growth of transformed
+      clonal lymphoplasmacytes and plasma cells.
+    explanation: &gt;-
+      Classifies lymphoplasmacytic lymphoma, the tissue-diagnosis counterpart
+      of Waldenstrom macroglobulinemia, as a B-cell-derived non-Hodgkin
+      lymphoma.
 - category: Hematologic
   name: IgM Paraproteinemia
   frequency: OBLIGATE
@@ -6797,6 +7127,11 @@ phenotypes:
       FREQUENT band (30-79%).
 genetic:
 - name: MYD88
+  gene_term:
+    preferred_term: MYD88
+    term:
+      id: hgnc:7562
+      label: MYD88
   association: Somatic Mutation
   notes: &gt;-
     MYD88 L265P is the dominant recurrent somatic lesion in WM and is treated
@@ -6812,6 +7147,11 @@ genetic:
     explanation: &gt;-
       This supports MYD88 L265P as the dominant recurrent somatic alteration in WM.
 - name: CXCR4
+  gene_term:
+    preferred_term: CXCR4
+    term:
+      id: hgnc:2561
+      label: CXCR4
   association: Somatic Mutation
   notes: &gt;-
     WHIM-like CXCR4 mutations occur in a substantial subset of WM cases and are
@@ -7247,7 +7587,7 @@ representation using treatment actions plus ontology-grounded agents/procedures.
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Waldenstrom Macroglobulinemia", "mondoId": "MONDO:0100280", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Waldenstrom_Macroglobulinemia", "yamlRevision": "43a07211a495"};
+        const OS_CONFIG = {"diseaseName": "Waldenstrom Macroglobulinemia", "mondoId": "MONDO:0100280", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Waldenstrom_Macroglobulinemia", "yamlRevision": "410581a78eda"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7666,5 +8006,73 @@ representation using treatment actions plus ontology-grounded agents/procedures.
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Chromosome 18p Deletion Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Chromosome 18p Deletion Syndrome</h1>
             <div class="header-meta">
 
@@ -3899,7 +4021,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-de-novo-terminal-deletion">
                 <div class="item-name">
                     De novo terminal deletion
 
@@ -3925,6 +4047,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3983,18 +4106,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neural cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002319" target="_blank" class="curie-chip curie-chip-cl">CL:0002319</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002319" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002319</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4103,6 +4228,7 @@ This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4124,6 +4250,7 @@ This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4158,18 +4285,20 @@ This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neural cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002319" target="_blank" class="curie-chip curie-chip-cl">CL:0002319</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002319" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002319</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4197,17 +4326,21 @@ This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TGIF1 (hgnc:11776). hgnc:11776 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TGIF1
 
 
-    <a href="https://bioregistry.io/hgnc:11776" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11776</a>
+    <a href="https://bioregistry.io/hgnc:11776" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11776</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGIF1 (hgnc:11776). hgnc:11776 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4236,18 +4369,20 @@ This pathophysiological event involves TGIF1 (hgnc:11776). hgnc:11776 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal nodal signaling pathway (GO:0038092). GO:0038092 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nodal signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038092" target="_blank" class="curie-chip curie-chip-go">GO:0038092</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038092" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0038092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nodal signaling pathway (GO:0038092). GO:0038092 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4268,18 +4403,20 @@ This pathophysiological event involves abnormal nodal signaling pathway (GO:0038
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal forebrain development (GO:0030900). GO:0030900 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         forebrain development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go">GO:0030900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal forebrain development (GO:0030900). GO:0030900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4337,6 +4474,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17786116" target="_blank">PMID:17786116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4358,6 +4496,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17786116" target="_blank">PMID:17786116</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4392,18 +4531,20 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4431,18 +4572,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007399</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4508,6 +4651,7 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4548,18 +4692,20 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased growth hormone secretion (GO:0030252). GO:0030252 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         growth hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go">GO:0030252</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased growth hormone secretion (GO:0030252). GO:0030252 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4624,6 +4770,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17786116" target="_blank">PMID:17786116</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4738,6 +4885,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4778,17 +4926,21 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves GNAL (hgnc:4388). hgnc:4388 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GNAL
 
 
-    <a href="https://bioregistry.io/hgnc:4388" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4388</a>
+    <a href="https://bioregistry.io/hgnc:4388" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:4388</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAL (hgnc:4388). hgnc:4388 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4817,18 +4969,20 @@ This pathophysiological event involves GNAL (hgnc:4388). hgnc:4388 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal G protein-coupled receptor signaling pathway (GO:0007186). GO:0007186 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         G protein-coupled receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" class="curie-chip curie-chip-go">GO:0007186</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal G protein-coupled receptor signaling pathway (GO:0007186). GO:0007186 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4886,6 +5040,7 @@ This pathophysiological event involves abnormal G protein-coupled receptor signa
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38258373" target="_blank">PMID:38258373</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4913,7 +5068,8 @@ Dystonia-Parkinsonism."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smchd1-dependent-epigenetic-derepression" data-dismech-node="SMCHD1-dependent epigenetic derepression" data-dismech-type="pathophysiology">
                 <div class="item-name">SMCHD1-dependent epigenetic derepression</div>
 
-                <div class="item-desc">SMCHD1 (at 18p11.32) is a chromatin modifier that maintains heavy methylation of the D4Z4 macrosatellite repeat on chromosome 4q35, repressing the DUX4 retrogene. In 18p deletion carriers, SMCHD1 hemizygosity combined with a permissive (moderately sized) D4Z4 allele on chromosome 4 can cause facioscapulohumeral muscular dystrophy type 2 (FSHD2) through digenic inheritance, DUX4 derepression, and muscle degeneration.</div>
+                <div class="item-desc">SMCHD1 (at 18p11.32) is a chromatin modifier that maintains heavy methylation of the D4Z4 macrosatellite repeat on chromosome 4q35, repressing the DUX4 retrogene. In 18p deletion carriers, SMCHD1 hemizygosity combined with a permissive (moderately sized) D4Z4 allele on chromosome 4 can cause facioscapulohumeral muscular dystrophy type 2 (FSHD2) through digenic inheritance, DUX4 derepression, and muscle degeneration.
+The digenic claim here belongs to FSHD2, not to 18p deletion syndrome. 18p deletion is a chromosomal, usually de novo event, so this entry binds no digenic inheritance term (HP:0010984) and is not a member of the Digenic and Oligogenic Disorders grouping; Facioscapulohumeral Muscular Dystrophy is a member, on exactly this SMCHD1-plus-permissive-4qA mechanism. What 18p deletion contributes is one route to the SMCHD1 hemizygosity that FSHD2 needs.</div>
 
 
 
@@ -4927,17 +5083,21 @@ Dystonia-Parkinsonism."</div>
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMCHD1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:29090</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4984,6 +5144,7 @@ This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29563141" target="_blank">PMID:29563141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5017,18 +5178,20 @@ This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5089,6 +5252,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20635794" target="_blank">PMID:20635794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5137,7 +5301,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"18p haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Terminal or interstitial deletion of the short arm of chromosome 18 removes one copy of multiple dosage-sensitive genes, producing a contiguous-gene haploinsufficiency syndrome. The extent of the deleted region and which dosage-sensitive genes are rendered hemizygous determine the phenotypic spectrum, including a critical region for intellectual disability and the distal location of genes (e.g., TGIF1) underlying midline brain defects and growth-hormone deficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural cell\"]}}, {\"id\": \"Craniofacial dysmorphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced dosage of 18p developmental genes perturbs craniofacial and periocular morphogenesis, producing a recognizable but subtle facial gestalt with ptosis, strabismus, hypertelorism, broad flat nose, micrognathia, and large low-set ears.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is a low-penetrance, often adult-onset manifestation linked to GNAL hemizygosity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001332\"}}, {\"id\": \"GNAL haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNAL\"], \"gene_terms\": [{\"label\": \"GNAL\", \"id\": \"hgnc:4388\"}]}}, {\"id\": \"GNAL-related basal ganglia dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNAL (at 18p11.21) encodes the alpha subunit of the olfactory G protein (G-alpha-olf), and point mutations in GNAL are a major cause of adult-onset dystonia. Hemizygosity in 18p deletion carriers confers a low-penetrance (~3%) risk of dystonia through impaired striatal G-protein signaling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled receptor signaling pathway\"], \"genes\": [\"GNAL\"], \"gene_terms\": [{\"label\": \"GNAL\", \"id\": \"hgnc:4388\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is recognized in infancy and childhood across the 18p deletion phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth hormone deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Isolated growth-hormone deficiency (and less commonly hypopituitarism) is a treatable endocrine manifestation mapped to the distal 18p region.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000824\"}}, {\"id\": \"Holoprosencephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A holoprosencephaly spectrum, ranging from classic HPE to microforms (e.g., single central incisor), is linked to TGIF1 haploinsufficiency with incomplete penetrance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001360\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertelorism is part of the characteristic facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"IgA deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased circulating IgA (and other immunoglobulin deficiencies) is a recognized immune manifestation predisposing to infection and autoimmunity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002720\"}}, {\"id\": \"Immune dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"18p hemizygosity is associated with immunoglobulin deficiency (most notably IgA, but also IgG and IgM), predisposing to recurrent infection and autoimmunity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment, typically in the mild to borderline intellectual disability range, is a core feature; deletion extent correlates with cognitive outcome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large, low-set ears are part of the characteristic craniofacial dysmorphism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000369\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micrognathia is part of the characteristic craniofacial dysmorphism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Neurodevelopmental dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygosity of dosage-sensitive 18p genes impairs brain development, producing intellectual disability and global developmental delay. A critical region for intellectual disability lies between 18p11.1 and 18p11.21, and deletion extent correlates with cognitive outcome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Pituitary and growth dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distal 18p hemizygosity is associated with isolated growth-hormone deficiency and, less commonly, hypopituitarism, contributing to postnatal growth retardation and short stature. The distal 18p region is implicated in the GH-deficiency phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"growth hormone secretion\"]}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis is a characteristic periocular craniofacial feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000508\"}}, {\"id\": \"SMCHD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}]}}, {\"id\": \"SMCHD1-dependent epigenetic derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMCHD1 (at 18p11.32) is a chromatin modifier that maintains heavy methylation of the D4Z4 macrosatellite repeat on chromosome 4q35, repressing the DUX4 retrogene. In 18p deletion carriers, SMCHD1 hemizygosity combined with a permissive (moderately sized) D4Z4 allele on chromosome 4 can cause facioscapulohumeral muscular dystrophy type 2 (FSHD2) through digenic inheritance, DUX4 derepression, and muscle degeneration.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth retardation and short stature are common, frequently associated with growth-hormone deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a common ophthalmologic finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000486\"}}, {\"id\": \"TGIF1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TGIF1\"], \"gene_terms\": [{\"label\": \"TGIF1\", \"id\": \"hgnc:11776\"}]}}, {\"id\": \"TGIF1-dependent midline forebrain patterning defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGIF1 (at distal 18p11.3) encodes a homeodomain transcriptional regulator in the TGF-beta / NODAL signaling pathway that is critical for dorsal-ventral patterning and midline development during embryogenesis. Haploinsufficiency is an established genomic mechanism for holoprosencephaly (HPE) and HPE microforms, with incomplete penetrance; in 18p deletion carriers other genetic or environmental factors modulate expressivity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural cell\"], \"biological_processes\": [\"nodal signaling pathway\", \"forebrain development\"], \"genes\": [\"TGIF1\"], \"gene_terms\": [{\"label\": \"TGIF1\", \"id\": \"hgnc:11776\"}]}}, {\"id\": \"Wide nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad, flat nose is part of the characteristic facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000431\"}}], \"edges\": [{\"source\": \"18p haploinsufficiency\", \"target\": \"TGIF1-dependent midline forebrain patterning defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemizygosity of TGIF1 (distal 18p) reduces dosage of a key NODAL/TGF-beta pathway repressor required for ventral forebrain and midline development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Neurodevelopmental dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of one copy of dosage-sensitive neurodevelopmental genes across 18p impairs cognitive and motor development.\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Pituitary and growth dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal 18p hemizygosity is associated with isolated growth-hormone deficiency and hypopituitarism, contributing to postnatal growth failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Craniofacial dysmorphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dosage of 18p developmental genes perturbs craniofacial and periocular morphogenesis, producing the characteristic facial gestalt.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"GNAL-related basal ganglia dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemizygosity of GNAL (encoding G-alpha-olf) confers a low-penetrance risk of dystonia through impaired striatal G-protein signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"SMCHD1-dependent epigenetic derepression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemizygosity of SMCHD1 reduces D4Z4 methylation capacity, conferring a conditional risk of FSHD2 on a permissive chromosome 4q background.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Immune dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"18p hemizygosity is associated with immunoglobulin (IgA/IgG/IgM) deficiency and predisposition to infection and autoimmunity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TGIF1-dependent midline forebrain patterning defect\", \"target\": \"Holoprosencephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted NODAL/TGF-beta-dependent midline forebrain patterning produces holoprosencephaly and its microforms (e.g., single central incisor).\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent neurodevelopmental disruption manifests as intellectual disability.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental neurobiologic disruption presents as global developmental delay in infancy and childhood.\"}, {\"source\": \"Pituitary and growth dysregulation\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-hormone deficiency and impaired postnatal growth produce short stature.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pituitary and growth dysregulation\", \"target\": \"Growth hormone deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced somatotrope output presents as biochemical growth-hormone deficiency.\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periocular developmental dysregulation presents as ptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ophthalmologic developmental dysregulation presents as strabismus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface developmental dysregulation presents as hypertelorism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mandibular developmental dysregulation presents as micrognathia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Wide nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nasal developmental dysregulation produces a broad, flat nasal bridge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Auricular developmental dysregulation presents as large, low-set ears.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GNAL-related basal ganglia dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GNAL dosage impairs striatal signaling and confers a low-penetrance risk of dystonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune dysregulation\", \"target\": \"IgA deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired immunoglobulin production presents most commonly as IgA deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TGIF1 haploinsufficiency\", \"target\": \"TGIF1-dependent midline forebrain patterning defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GNAL haploinsufficiency\", \"target\": \"GNAL-related basal ganglia dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMCHD1 haploinsufficiency\", \"target\": \"SMCHD1-dependent epigenetic derepression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"18p haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Terminal or interstitial deletion of the short arm of chromosome 18 removes one copy of multiple dosage-sensitive genes, producing a contiguous-gene haploinsufficiency syndrome. The extent of the deleted region and which dosage-sensitive genes are rendered hemizygous determine the phenotypic spectrum, including a critical region for intellectual disability and the distal location of genes (e.g., TGIF1) underlying midline brain defects and growth-hormone deficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural cell\"]}}, {\"id\": \"Craniofacial dysmorphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced dosage of 18p developmental genes perturbs craniofacial and periocular morphogenesis, producing a recognizable but subtle facial gestalt with ptosis, strabismus, hypertelorism, broad flat nose, micrognathia, and large low-set ears.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia is a low-penetrance, often adult-onset manifestation linked to GNAL hemizygosity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001332\"}}, {\"id\": \"GNAL haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNAL\"], \"gene_terms\": [{\"label\": \"GNAL\", \"id\": \"hgnc:4388\"}]}}, {\"id\": \"GNAL-related basal ganglia dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GNAL (at 18p11.21) encodes the alpha subunit of the olfactory G protein (G-alpha-olf), and point mutations in GNAL are a major cause of adult-onset dystonia. Hemizygosity in 18p deletion carriers confers a low-penetrance (~3%) risk of dystonia through impaired striatal G-protein signaling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled receptor signaling pathway\"], \"genes\": [\"GNAL\"], \"gene_terms\": [{\"label\": \"GNAL\", \"id\": \"hgnc:4388\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is recognized in infancy and childhood across the 18p deletion phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth hormone deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Isolated growth-hormone deficiency (and less commonly hypopituitarism) is a treatable endocrine manifestation mapped to the distal 18p region.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000824\"}}, {\"id\": \"Holoprosencephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A holoprosencephaly spectrum, ranging from classic HPE to microforms (e.g., single central incisor), is linked to TGIF1 haploinsufficiency with incomplete penetrance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001360\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertelorism is part of the characteristic facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"IgA deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased circulating IgA (and other immunoglobulin deficiencies) is a recognized immune manifestation predisposing to infection and autoimmunity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002720\"}}, {\"id\": \"Immune dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"18p hemizygosity is associated with immunoglobulin deficiency (most notably IgA, but also IgG and IgM), predisposing to recurrent infection and autoimmunity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment, typically in the mild to borderline intellectual disability range, is a core feature; deletion extent correlates with cognitive outcome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large, low-set ears are part of the characteristic craniofacial dysmorphism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000369\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micrognathia is part of the characteristic craniofacial dysmorphism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Neurodevelopmental dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygosity of dosage-sensitive 18p genes impairs brain development, producing intellectual disability and global developmental delay. A critical region for intellectual disability lies between 18p11.1 and 18p11.21, and deletion extent correlates with cognitive outcome.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Pituitary and growth dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distal 18p hemizygosity is associated with isolated growth-hormone deficiency and, less commonly, hypopituitarism, contributing to postnatal growth retardation and short stature. The distal 18p region is implicated in the GH-deficiency phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"growth hormone secretion\"]}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis is a characteristic periocular craniofacial feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000508\"}}, {\"id\": \"SMCHD1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}]}}, {\"id\": \"SMCHD1-dependent epigenetic derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMCHD1 (at 18p11.32) is a chromatin modifier that maintains heavy methylation of the D4Z4 macrosatellite repeat on chromosome 4q35, repressing the DUX4 retrogene. In 18p deletion carriers, SMCHD1 hemizygosity combined with a permissive (moderately sized) D4Z4 allele on chromosome 4 can cause facioscapulohumeral muscular dystrophy type 2 (FSHD2) through digenic inheritance, DUX4 derepression, and muscle degeneration.\\nThe digenic claim here belongs to FSHD2, not to 18p deletion syndrome. 18p deletion is a chromosomal, usually de novo event, so this entry binds no digenic inheritance term (HP:0010984) and is not a member of the Digenic and Oligogenic Disorders grouping; Facioscapulohumeral Muscular Dystrophy is a member, on exactly this SMCHD1-plus-permissive-4qA mechanism. What 18p deletion contributes is one route to the SMCHD1 hemizygosity that FSHD2 needs.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMCHD1\"], \"gene_terms\": [{\"label\": \"SMCHD1\", \"id\": \"hgnc:29090\"}]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth retardation and short stature are common, frequently associated with growth-hormone deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a common ophthalmologic finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000486\"}}, {\"id\": \"TGIF1 haploinsufficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TGIF1\"], \"gene_terms\": [{\"label\": \"TGIF1\", \"id\": \"hgnc:11776\"}]}}, {\"id\": \"TGIF1-dependent midline forebrain patterning defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGIF1 (at distal 18p11.3) encodes a homeodomain transcriptional regulator in the TGF-beta / NODAL signaling pathway that is critical for dorsal-ventral patterning and midline development during embryogenesis. Haploinsufficiency is an established genomic mechanism for holoprosencephaly (HPE) and HPE microforms, with incomplete penetrance; in 18p deletion carriers other genetic or environmental factors modulate expressivity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural cell\"], \"biological_processes\": [\"nodal signaling pathway\", \"forebrain development\"], \"genes\": [\"TGIF1\"], \"gene_terms\": [{\"label\": \"TGIF1\", \"id\": \"hgnc:11776\"}]}}, {\"id\": \"Wide nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad, flat nose is part of the characteristic facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000431\"}}], \"edges\": [{\"source\": \"18p haploinsufficiency\", \"target\": \"TGIF1-dependent midline forebrain patterning defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemizygosity of TGIF1 (distal 18p) reduces dosage of a key NODAL/TGF-beta pathway repressor required for ventral forebrain and midline development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Neurodevelopmental dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of one copy of dosage-sensitive neurodevelopmental genes across 18p impairs cognitive and motor development.\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Pituitary and growth dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal 18p hemizygosity is associated with isolated growth-hormone deficiency and hypopituitarism, contributing to postnatal growth failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Craniofacial dysmorphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dosage of 18p developmental genes perturbs craniofacial and periocular morphogenesis, producing the characteristic facial gestalt.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"GNAL-related basal ganglia dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemizygosity of GNAL (encoding G-alpha-olf) confers a low-penetrance risk of dystonia through impaired striatal G-protein signaling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"SMCHD1-dependent epigenetic derepression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemizygosity of SMCHD1 reduces D4Z4 methylation capacity, conferring a conditional risk of FSHD2 on a permissive chromosome 4q background.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"18p haploinsufficiency\", \"target\": \"Immune dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"18p hemizygosity is associated with immunoglobulin (IgA/IgG/IgM) deficiency and predisposition to infection and autoimmunity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TGIF1-dependent midline forebrain patterning defect\", \"target\": \"Holoprosencephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted NODAL/TGF-beta-dependent midline forebrain patterning produces holoprosencephaly and its microforms (e.g., single central incisor).\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent neurodevelopmental disruption manifests as intellectual disability.\"}, {\"source\": \"Neurodevelopmental dysregulation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental neurobiologic disruption presents as global developmental delay in infancy and childhood.\"}, {\"source\": \"Pituitary and growth dysregulation\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-hormone deficiency and impaired postnatal growth produce short stature.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pituitary and growth dysregulation\", \"target\": \"Growth hormone deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced somatotrope output presents as biochemical growth-hormone deficiency.\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periocular developmental dysregulation presents as ptosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ophthalmologic developmental dysregulation presents as strabismus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface developmental dysregulation presents as hypertelorism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mandibular developmental dysregulation presents as micrognathia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Wide nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nasal developmental dysregulation produces a broad, flat nasal bridge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial dysmorphogenesis\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Auricular developmental dysregulation presents as large, low-set ears.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GNAL-related basal ganglia dysfunction\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GNAL dosage impairs striatal signaling and confers a low-penetrance risk of dystonia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune dysregulation\", \"target\": \"IgA deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired immunoglobulin production presents most commonly as IgA deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TGIF1 haploinsufficiency\", \"target\": \"TGIF1-dependent midline forebrain patterning defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GNAL haploinsufficiency\", \"target\": \"GNAL-related basal ganglia dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMCHD1 haploinsufficiency\", \"target\": \"SMCHD1-dependent epigenetic derepression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5187,16 +5351,22 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased circulating IgA concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002720</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased circulating IgA concentration (HP:0002720). HP:0002720 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased circulating IgA concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" class="curie-chip curie-chip-hp">HP:0002720</a>
-
-
+This clinical feature is Decreased circulating IgA concentration (HP:0002720). HP:0002720 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5216,6 +5386,7 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20635794" target="_blank">PMID:20635794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5258,16 +5429,20 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype from the Human Phenotype Ontology.">
-                        Low-set ears
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp">HP:0000369</a>
-
-
+This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5287,6 +5462,7 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5329,16 +5505,20 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.">
-                        Ptosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp">HP:0000508</a>
-
-
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5358,6 +5538,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5391,16 +5572,20 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.">
-                        Strabismus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp">HP:0000486</a>
-
-
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5420,6 +5605,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5453,16 +5639,20 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000316</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertelorism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp">HP:0000316</a>
-
-
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5482,6 +5672,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5524,16 +5715,20 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.">
-                        Micrognathia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp">HP:0000347</a>
-
-
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5553,6 +5748,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5595,16 +5791,20 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5624,6 +5824,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5657,16 +5858,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5686,6 +5891,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39058883" target="_blank">PMID:39058883</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5719,16 +5925,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenotype from the Human Phenotype Ontology.">
-                        Holoprosencephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp">HP:0001360</a>
-
-
+This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5748,6 +5958,7 @@ This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39058883" target="_blank">PMID:39058883</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5781,16 +5992,20 @@ This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.">
-                        Dystonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp">HP:0001332</a>
-
-
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5810,6 +6025,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38258373" target="_blank">PMID:38258373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5853,16 +6069,20 @@ Dystonia-Parkinsonism."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5882,6 +6102,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5924,16 +6145,22 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased response to growth hormone stimulation test</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Growth hormone deficiency, annotated with Decreased response to growth hormone stimulation test (HP:0000824). HP:0000824 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased response to growth hormone stimulation test
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000824" target="_blank" class="curie-chip curie-chip-hp">HP:0000824</a>
-
-
+This clinical feature is Growth hormone deficiency, annotated with Decreased response to growth hormone stimulation test (HP:0000824). HP:0000824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5953,6 +6180,7 @@ This clinical feature is Growth hormone deficiency, annotated with Decreased res
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17786116" target="_blank">PMID:17786116</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5986,16 +6214,20 @@ This clinical feature is Growth hormone deficiency, annotated with Decreased res
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000431</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.">
-                        Wide nasal bridge
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp">HP:0000431</a>
-
-
+This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6015,6 +6247,7 @@ This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6092,15 +6325,17 @@ This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TGIF1 (hgnc:11776). hgnc:11776 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TGIF1
 
 
-    <a href="https://bioregistry.io/hgnc:11776" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11776</a>
+    <a href="https://bioregistry.io/hgnc:11776" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:11776</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TGIF1 (hgnc:11776). hgnc:11776 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6121,6 +6356,7 @@ This disease-associated gene is TGIF1 (hgnc:11776). hgnc:11776 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17786116" target="_blank">PMID:17786116</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6157,15 +6393,17 @@ This disease-associated gene is TGIF1 (hgnc:11776). hgnc:11776 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GNAL (hgnc:4388). hgnc:4388 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNAL
 
 
-    <a href="https://bioregistry.io/hgnc:4388" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4388</a>
+    <a href="https://bioregistry.io/hgnc:4388" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:4388</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAL (hgnc:4388). hgnc:4388 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6186,6 +6424,7 @@ This disease-associated gene is GNAL (hgnc:4388). hgnc:4388 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38258373" target="_blank">PMID:38258373</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6223,15 +6462,17 @@ Dystonia-Parkinsonism."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMCHD1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:29090</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6252,6 +6493,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29563141" target="_blank">PMID:29563141</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6283,6 +6525,9 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6299,18 +6544,18 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">occupational therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.">occupational therapy</span>
+This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Occupational Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121351" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.">NCIT:C121351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121351">NCIT:C121351</a>
 
 
 
@@ -6350,18 +6595,18 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">speech therapy</span>
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">NCIT:C159273</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
 
 
 
@@ -6401,17 +6646,17 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Physical Therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">Physical Therapy</span>
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -6451,18 +6696,18 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">hormone modifying therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">hormone modifying therapy</span>
+This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">NCIT:C15445</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15445">NCIT:C15445</a>
 
 
 
@@ -6487,18 +6732,20 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         somatropin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C837</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6522,17 +6769,17 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6572,18 +6819,18 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6987,6 +7234,14 @@ pathophysiology:
     with a permissive (moderately sized) D4Z4 allele on chromosome 4 can cause
     facioscapulohumeral muscular dystrophy type 2 (FSHD2) through digenic
     inheritance, DUX4 derepression, and muscle degeneration.
+
+    The digenic claim here belongs to FSHD2, not to 18p deletion syndrome. 18p
+    deletion is a chromosomal, usually de novo event, so this entry binds no
+    digenic inheritance term (HP:0010984) and is not a member of the Digenic
+    and Oligogenic Disorders grouping; Facioscapulohumeral Muscular Dystrophy
+    is a member, on exactly this SMCHD1-plus-permissive-4qA mechanism. What 18p
+    deletion contributes is one route to the SMCHD1 hemizygosity that FSHD2
+    needs.
   genes:
   - preferred_term: SMCHD1
     term:
@@ -8296,7 +8551,7 @@ Knockout mice show defects in craniofacial and dorsal-ventral patterning during 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chromosome 18p Deletion Syndrome", "mondoId": "MONDO:0007800", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_18p_Deletion_Syndrome", "yamlRevision": "4354af4a6f6e"};
+        const OS_CONFIG = {"diseaseName": "Chromosome 18p Deletion Syndrome", "mondoId": "MONDO:0007800", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_18p_Deletion_Syndrome", "yamlRevision": "1acea6713c86"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8715,5 +8970,73 @@ Knockout mice show defects in craniofacial and dorsal-ventral patterning during 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

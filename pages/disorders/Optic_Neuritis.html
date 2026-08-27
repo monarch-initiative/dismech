@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Optic Neuritis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Optic Neuritis</h1>
             <div class="header-meta">
 
@@ -3989,7 +4111,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-autoimmune-optic-neuritis-spectrum">
                 <div class="item-name">Autoimmune optic neuritis spectrum</div>
 
                 <div class="item-desc">Autoimmune optic neuritis is a heterogeneous inflammatory optic-nerve syndrome spanning multiple sclerosis, NMOSD, MOGAD, isolated optic neuritis, and other etiologies. First-attack attribution should combine clinical red flags with orbital MRI, antibody assays, OCT, visual evoked potentials, and selected fluid biomarkers.</div>
@@ -4080,6 +4202,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41688447" target="_blank">PMID:41688447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4104,7 +4227,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-international-optic-neuritis-diagnostic-classification-framework">
                 <div class="item-name">International optic neuritis diagnostic-classification framework</div>
 
                 <div class="item-desc">The 2022 international framework begins with clinical features sufficient for possible optic neuritis, then uses paraclinical tests including brain, orbital, and retinal imaging, antibody testing, and protein biomarkers to support definite optic neuritis and classify disease subgroups.</div>
@@ -4148,6 +4271,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36179757" target="_blank">PMID:36179757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4172,7 +4296,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-isolated-optic-neuritis-definition">
                 <div class="item-name">Orphanet isolated optic neuritis definition</div>
 
                 <div class="item-desc">Isolated optic neuritis consists of single or recurrent optic neuritis episodes not associated with another neurologic or systemic disease.</div>
@@ -4215,6 +4339,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4289,7 +4414,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-isolated-optic-neuritis">
 
                     <div class="item-name">
                         Isolated optic neuritis
@@ -4325,6 +4450,7 @@
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4351,7 +4477,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-single-isolated-optic-neuritis">
 
                     <div class="item-name">
                         Single isolated optic neuritis
@@ -4387,6 +4513,7 @@
                         <a href="https://bioregistry.io/ORPHA:659626" target="_blank">ORPHA:659626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4413,7 +4540,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-relapsing-isolated-optic-neuritis">
 
                     <div class="item-name">
                         Relapsing isolated optic neuritis
@@ -4449,6 +4576,7 @@
                         <a href="https://bioregistry.io/ORPHA:659634" target="_blank">ORPHA:659634</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4470,6 +4598,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30612145" target="_blank">PMID:30612145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4497,7 +4626,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-multiple-sclerosis-associated-optic-neuritis">
 
                     <div class="item-name">
                         Multiple sclerosis-associated optic neuritis
@@ -4531,6 +4660,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36179757" target="_blank">PMID:36179757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4557,7 +4687,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mog-igg-associated-optic-neuritis">
 
                     <div class="item-name">
                         MOG-IgG-associated optic neuritis
@@ -4591,6 +4721,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36706773" target="_blank">PMID:36706773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4612,6 +4743,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38783085" target="_blank">PMID:38783085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4639,7 +4771,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aqp4-igg-nmosd-associated-optic-neuritis">
 
                     <div class="item-name">
                         AQP4-IgG/NMOSD-associated optic neuritis
@@ -4672,6 +4804,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092914" target="_blank">PMID:26092914</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4735,18 +4868,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4767,18 +4902,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuroinflammatory response (GO:0150076). GO:0150076 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuroinflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go">GO:0150076</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0150076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuroinflammatory response (GO:0150076). GO:0150076 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4806,18 +4943,20 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial nerve II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000941</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0000941</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4863,6 +5002,7 @@ This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERO
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4884,6 +5024,7 @@ This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41688447" target="_blank">PMID:41688447</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4918,18 +5059,20 @@ This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4957,18 +5100,20 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4995,18 +5140,20 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         myelin sheath
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go">GO:0043209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0043209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5015,18 +5162,20 @@ This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial nerve II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000941</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0000941</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5064,6 +5213,7 @@ This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERO
                         <a href="https://clinicaltrials.gov/study/NCT01524250" target="_blank">clinicaltrials:NCT01524250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5085,6 +5235,7 @@ This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28229892" target="_blank">PMID:28229892</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5126,18 +5277,20 @@ This pathophysiological event occurs in cranial nerve II (UBERON:0000941). UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5158,18 +5311,20 @@ This pathophysiological event involves increased complement activation (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased T cell mediated immunity (GO:0002456). GO:0002456 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002456" target="_blank" class="curie-chip curie-chip-go">GO:0002456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0002456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell mediated immunity (GO:0002456). GO:0002456 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5227,6 +5382,7 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36706773" target="_blank">PMID:36706773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5248,6 +5404,7 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40088708" target="_blank">PMID:40088708</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5282,18 +5439,20 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5321,17 +5480,21 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves AQP4 (hgnc:637). hgnc:637 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         AQP4
 
 
-    <a href="https://bioregistry.io/hgnc:637" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:637</a>
+    <a href="https://bioregistry.io/hgnc:637" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:637</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AQP4 (hgnc:637). hgnc:637 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5360,18 +5523,20 @@ This pathophysiological event involves AQP4 (hgnc:637). hgnc:637 is a gene from 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         complement activation, classical pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go">GO:0006958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5428,6 +5593,7 @@ This pathophysiological event involves increased complement activation, classica
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092914" target="_blank">PMID:26092914</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5541,16 +5707,20 @@ This pathophysiological event involves increased complement activation, classica
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is optic neuritis (HP:0100653). HP:0100653 is a phenotype from the Human Phenotype Ontology.">
-                        Optic neuritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp">HP:0100653</a>
-
-
+This clinical feature is optic neuritis (HP:0100653). HP:0100653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5570,6 +5740,7 @@ This clinical feature is optic neuritis (HP:0100653). HP:0100653 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36179757" target="_blank">PMID:36179757</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5605,16 +5776,20 @@ This clinical feature is optic neuritis (HP:0100653). HP:0100653 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0100653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is bilateral optic neuritis, annotated with Optic neuritis (HP:0100653). HP:0100653 is a phenotype from the Human Phenotype Ontology.">
-                        Optic neuritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp">HP:0100653</a>
-
-
+This clinical feature is bilateral optic neuritis, annotated with Optic neuritis (HP:0100653). HP:0100653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5634,6 +5809,7 @@ This clinical feature is bilateral optic neuritis, annotated with Optic neuritis
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38783085" target="_blank">PMID:38783085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5669,16 +5845,20 @@ This clinical feature is bilateral optic neuritis, annotated with Optic neuritis
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000572</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.">
-                        Visual loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp">HP:0000572</a>
-
-
+This clinical feature is visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5698,6 +5878,7 @@ This clinical feature is visual loss (HP:0000572). HP:0000572 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5733,16 +5914,20 @@ This clinical feature is visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001123</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.">
-                        Visual field defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp">HP:0001123</a>
-
-
+This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5762,6 +5947,7 @@ This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a pheno
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5797,16 +5983,20 @@ This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000603</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.">
-                        Central scotoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp">HP:0000603</a>
-
-
+This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5826,6 +6016,7 @@ This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5861,16 +6052,20 @@ This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030786</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from the Human Phenotype Ontology.">
-                        Photopsia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030786" target="_blank" class="curie-chip curie-chip-hp">HP:0030786</a>
-
-
+This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5890,6 +6085,7 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5934,16 +6130,20 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0200026</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype from the Human Phenotype Ontology.">
-                        Ocular pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp">HP:0200026</a>
-
-
+This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5963,6 +6163,7 @@ This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6007,16 +6208,20 @@ This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0030857</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Eye movement-induced pain (HP:0030857). HP:0030857 is a phenotype from the Human Phenotype Ontology.">
-                        Eye movement-induced pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030857" target="_blank" class="curie-chip curie-chip-hp">HP:0030857</a>
-
-
+This clinical feature is Eye movement-induced pain (HP:0030857). HP:0030857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6036,6 +6241,7 @@ This clinical feature is Eye movement-induced pain (HP:0030857). HP:0030857 is a
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6071,16 +6277,20 @@ This clinical feature is Eye movement-induced pain (HP:0030857). HP:0030857 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007641" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007641</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype from the Human Phenotype Ontology.">
-                        Dyschromatopsia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007641" target="_blank" class="curie-chip curie-chip-hp">HP:0007641</a>
-
-
+This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6100,6 +6310,7 @@ This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6135,16 +6346,20 @@ This clinical feature is Dyschromatopsia (HP:0007641). HP:0007641 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0032036</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced contrast sensitivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032036" target="_blank" class="curie-chip curie-chip-hp">HP:0032036</a>
-
-
+This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6164,6 +6379,7 @@ This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 i
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6199,16 +6415,20 @@ This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0200057</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Marcus Gunn pupil (HP:0200057). HP:0200057 is a phenotype from the Human Phenotype Ontology.">
-                        Marcus Gunn pupil
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200057" target="_blank" class="curie-chip curie-chip-hp">HP:0200057</a>
-
-
+This clinical feature is Marcus Gunn pupil (HP:0200057). HP:0200057 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6228,6 +6448,7 @@ This clinical feature is Marcus Gunn pupil (HP:0200057). HP:0200057 is a phenoty
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6263,16 +6484,22 @@ This clinical feature is Marcus Gunn pupil (HP:0200057). HP:0200057 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal optic disc morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012795" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012795</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Optic disc edema, annotated with Abnormal optic disc morphology (HP:0012795). HP:0012795 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal optic disc morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012795" target="_blank" class="curie-chip curie-chip-hp">HP:0012795</a>
-
-
+This clinical feature is Optic disc edema, annotated with Abnormal optic disc morphology (HP:0012795). HP:0012795 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6292,6 +6519,7 @@ This clinical feature is Optic disc edema, annotated with Abnormal optic disc mo
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6325,16 +6553,22 @@ This clinical feature is Optic disc edema, annotated with Abnormal optic disc mo
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of visual evoked potentials</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000649</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of visual evoked potentials (HP:0000649). HP:0000649 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of visual evoked potentials
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000649" target="_blank" class="curie-chip curie-chip-hp">HP:0000649</a>
-
-
+This clinical feature is Abnormality of visual evoked potentials (HP:0000649). HP:0000649 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6354,6 +6588,7 @@ This clinical feature is Abnormality of visual evoked potentials (HP:0000649). H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29507942" target="_blank">PMID:29507942</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6417,6 +6652,233 @@ This clinical feature is Abnormality of visual evoked potentials (HP:0000649). H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-isolated-optic-neuritis-disease-record">
+
+
+    <div class="item-name">Orphanet isolated optic neuritis disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://www.orpha.net/en/disease/detail/499096" target="_blank" rel="noopener noreferrer" title="Open ORPHA:499096">ORPHA:499096</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet ORPHA:499096 is a structured record for isolated optic neuritis, a narrower disorder within the broader optic neuritis syndrome curated here. The record provides an isolated-disease definition, ICD-10/ICD-11 cross-references, MONDO:0044688 exact mapping, and HPO phenotype annotations used for isolated optic neuritis features.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:499096" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0044688 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps the isolated optic neuritis record to MONDO:0044688, which is represented as an isolated subtype rather than the broad disease term.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:499096" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A rare inflammatory optic neuropathy"</div>
+
+
+                <div class="evidence-explanation">Orphanet defines isolated optic neuritis as an inflammatory optic neuropathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-single-isolated-optic-neuritis-subtype-record">
+
+
+    <div class="item-name">Orphanet single isolated optic neuritis subtype record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured subtype record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=659626" target="_blank" rel="noopener noreferrer" title="Open ORPHA:659626">ORPHA:659626</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet records single isolated optic neuritis as a clinical subtype of isolated optic neuritis and maps it exactly to MONDO:0971049.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:659626" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:659626" target="_blank">ORPHA:659626</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0971049 | Exact"</div>
+
+
+                <div class="evidence-explanation">The Orphanet subtype record provides an exact MONDO mapping for single isolated optic neuritis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-relapsing-isolated-optic-neuritis-subtype-record">
+
+
+    <div class="item-name">Orphanet relapsing isolated optic neuritis subtype record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured subtype record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=659634" target="_blank" rel="noopener noreferrer" title="Open ORPHA:659634">ORPHA:659634</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet records relapsing isolated optic neuritis as a clinical subtype of isolated optic neuritis and maps it exactly to MONDO:0971050.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:659634" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:659634" target="_blank">ORPHA:659634</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0971050 | Exact"</div>
+
+
+                <div class="evidence-explanation">The Orphanet subtype record provides an exact MONDO mapping for relapsing isolated optic neuritis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6433,18 +6895,18 @@ This clinical feature is Abnormality of visual evoked potentials (HP:0000649). H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">systemic corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">systemic corticosteroid therapy</span>
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
 
 
 
@@ -6469,18 +6931,20 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6524,6 +6988,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1734247" target="_blank">PMID:1734247</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6546,6 +7011,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29507942" target="_blank">PMID:29507942</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6567,6 +7033,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1734247" target="_blank">PMID:1734247</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -6598,18 +7065,18 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">plasmapheresis</span>
+This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Plasmapheresis</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">NCIT:C15304</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
 
 
 
@@ -6669,6 +7136,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25921047" target="_blank">PMID:25921047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6691,6 +7159,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36822570" target="_blank">PMID:36822570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6712,6 +7181,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15452303" target="_blank">PMID:15452303</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6745,18 +7215,18 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">intravenous immunoglobulin therapy</span>
+This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">NCIT:C62710</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C62710">NCIT:C62710</a>
 
 
 
@@ -6816,6 +7286,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35377395" target="_blank">PMID:35377395</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6846,17 +7317,17 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6881,18 +7352,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         eculizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C48386" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C48386</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C48386" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C48386</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6935,6 +7408,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31050279" target="_blank">PMID:31050279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7000,6 +7474,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36706773" target="_blank">PMID:36706773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7048,6 +7523,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26092914" target="_blank">PMID:26092914</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7098,6 +7574,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41688447" target="_blank">PMID:41688447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7138,7 +7615,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-nonarteritic-anterior-ischemic-optic-neuropathy">
                 <div class="item-name">
 
                     Nonarteritic anterior ischemic optic neuropathy
@@ -7179,6 +7656,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29222573" target="_blank">PMID:29222573</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7204,7 +7682,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-headache-ocular-pain-and-functional-visual-loss-mimics">
                 <div class="item-name">
 
                     Headache, ocular pain, and functional visual loss mimics
@@ -7245,6 +7723,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29222573" target="_blank">PMID:29222573</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7270,7 +7749,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-infectious-and-systemic-inflammatory-optic-neuropathies">
                 <div class="item-name">
 
                     Infectious and systemic inflammatory optic neuropathies
@@ -7311,6 +7790,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41688447" target="_blank">PMID:41688447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7346,7 +7826,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse226808">
                 <div class="item-name">
                     Different immunological mechanisms between AQP4-positive and MOG-positive optic neuritis based on RNA-seq analysis of whole blood
 
@@ -7389,7 +7869,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse62584">
                 <div class="item-name">
                     PBMC gene expression of early onset of the first demyelinating event of acute optic neuritis
 
@@ -7432,7 +7912,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse292730">
                 <div class="item-name">
                     Transcriptome Sequencing of Optic Nerve in a Rat Model of Neuromyelitis Optica Spectrum Disorder-Related Optic Neuritis (NMOSD-ON)
 
@@ -7483,7 +7963,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00000146">
                 <div class="item-name">
                     NCT00000146
 
@@ -7511,6 +7991,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="https://clinicaltrials.gov/study/NCT00000146" target="_blank">clinicaltrials:NCT00000146</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7532,6 +8013,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1734247" target="_blank">PMID:1734247</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7556,7 +8038,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01524250">
                 <div class="item-name">
                     NCT01524250
 
@@ -7584,6 +8066,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="https://clinicaltrials.gov/study/NCT01524250" target="_blank">clinicaltrials:NCT01524250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7605,6 +8088,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29507942" target="_blank">PMID:29507942</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7629,7 +8113,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01721161">
                 <div class="item-name">
                     NCT01721161
 
@@ -7657,6 +8141,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="https://clinicaltrials.gov/study/NCT01721161" target="_blank">clinicaltrials:NCT01721161</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7678,6 +8163,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28229892" target="_blank">PMID:28229892</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7702,7 +8188,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02657915">
                 <div class="item-name">
                     NCT02657915
 
@@ -7730,6 +8216,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="https://clinicaltrials.gov/study/NCT02657915" target="_blank">clinicaltrials:NCT02657915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7751,6 +8238,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39662163" target="_blank">PMID:39662163</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7775,7 +8263,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03586557">
                 <div class="item-name">
                     NCT03586557
 
@@ -7803,6 +8291,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                         <a href="https://clinicaltrials.gov/study/NCT03586557" target="_blank">clinicaltrials:NCT03586557</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7826,7 +8315,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04762017">
                 <div class="item-name">
                     NCT04762017
 
@@ -7853,6 +8342,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04762017" target="_blank">clinicaltrials:NCT04762017</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7902,7 +8392,6 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Optic Neuritis
 creation_date: &#34;2026-05-16T16:31:33Z&#34;
-updated_date: &#34;2026-05-16T16:44:27Z&#34;
 category: Neurological Disorder
 parents:
 - Autoimmune Disorder
@@ -9680,6 +10169,7 @@ references:
                         <a href="https://bioregistry.io/ORPHA:499096" target="_blank">ORPHA:499096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9748,6 +10238,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:659626" target="_blank">ORPHA:659626</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9818,6 +10309,7 @@ references:
                         <a href="https://bioregistry.io/ORPHA:659634" target="_blank">ORPHA:659634</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9886,6 +10378,7 @@ references:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41688447" target="_blank">PMID:41688447</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9956,6 +10449,7 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36179757" target="_blank">PMID:36179757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10024,6 +10518,7 @@ references:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29222573" target="_blank">PMID:29222573</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10094,6 +10589,7 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1734247" target="_blank">PMID:1734247</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10162,6 +10658,7 @@ references:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29507942" target="_blank">PMID:29507942</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10232,6 +10729,7 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37387119" target="_blank">PMID:37387119</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10300,6 +10798,7 @@ references:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39963868" target="_blank">PMID:39963868</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10370,6 +10869,7 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38783085" target="_blank">PMID:38783085</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10438,6 +10938,7 @@ references:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35377395" target="_blank">PMID:35377395</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10508,6 +11009,7 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36810323" target="_blank">PMID:36810323</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10576,6 +11078,7 @@ references:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39231384" target="_blank">PMID:39231384</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10646,6 +11149,7 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38418465" target="_blank">PMID:38418465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10715,6 +11219,7 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36822570" target="_blank">PMID:36822570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10783,6 +11288,7 @@ references:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31050279" target="_blank">PMID:31050279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11965,7 +12471,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Optic Neuritis", "mondoId": "MONDO:0005885", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Optic_Neuritis", "yamlRevision": "05348d4bffcd"};
+        const OS_CONFIG = {"diseaseName": "Optic Neuritis", "mondoId": "MONDO:0005885", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Optic_Neuritis", "yamlRevision": "69c34d1c4ed7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12384,5 +12890,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

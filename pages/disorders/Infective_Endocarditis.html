@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Infective Endocarditis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Infective Endocarditis</h1>
             <div class="header-meta">
 
@@ -3884,27 +4006,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">CARDIOVASCULAR</span>
+
+
+
+
+                    <span class="tag tag-classification" title="Curated under cardiovascular disease because the lesion, its haemodynamic consequences, and its surgical management are cardiac. It is equally an infectious disease, and the antimicrobial half of its management follows infectious disease logic rather than cardiac logic.">CARDIOVASCULAR</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3947,7 +4146,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-left-sided-native-valve">
 
                     <div class="item-name">
                         Left-sided native valve endocarditis
@@ -3976,7 +4175,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-right-sided">
 
                     <div class="item-name">
                         Right-sided endocarditis, typically tricuspid
@@ -4005,7 +4204,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-prosthetic-valve">
 
                     <div class="item-name">
                         Prosthetic valve endocarditis
@@ -4039,6 +4238,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19273776" target="_blank">PMID:19273776</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4111,7 +4311,7 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Antibiotic prophylaxis before dental procedures</span>
+    <a class="entity-ref-chip" href="#treatment-antibiotic-prophylaxis-before-dental-procedures">treatments#Antibiotic prophylaxis before dental procedures</a>
 
 
 
@@ -4158,6 +4358,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4181,6 +4387,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213367" target="_blank">PMID:28213367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4202,6 +4409,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213367" target="_blank">PMID:28213367</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4302,6 +4510,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4324,6 +4538,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40422904" target="_blank">PMID:40422904</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4371,18 +4586,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4399,18 +4616,20 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4438,18 +4657,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         platelet aggregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0070527</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4470,18 +4691,20 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4509,18 +4732,20 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         endocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002165</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0002165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4611,18 +4836,20 @@ This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell adhesion involved in biofilm formation (GO:0043708). GO:0043708 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell adhesion involved in biofilm formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043708" target="_blank" class="curie-chip curie-chip-go">GO:0043708</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043708" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0043708</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell adhesion involved in biofilm formation (GO:0043708). GO:0043708 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4681,6 +4908,7 @@ This pathophysiological event involves increased cell adhesion involved in biofi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40422904" target="_blank">PMID:40422904</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4715,18 +4943,20 @@ This pathophysiological event involves increased cell adhesion involved in biofi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4757,18 +4987,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         endocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002165</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002165" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:0002165 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4825,6 +5057,7 @@ This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40422904" target="_blank">PMID:40422904</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4859,18 +5092,20 @@ This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4887,18 +5122,20 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5057,6 +5294,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19273776" target="_blank">PMID:19273776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5151,16 +5389,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5180,6 +5422,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19273776" target="_blank">PMID:19273776</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5215,16 +5458,20 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001297</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.">
-                        Stroke
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp">HP:0001297</a>
-
-
+This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5244,6 +5491,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19273776" target="_blank">PMID:19273776</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5277,16 +5525,20 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001744</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.">
-                        Splenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp">HP:0001744</a>
-
-
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5309,16 +5561,22 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001627</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal heart morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp">HP:0001627</a>
-
-
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5338,6 +5596,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19273776" target="_blank">PMID:19273776</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5371,16 +5630,20 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001659</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic regurgitation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp">HP:0001659</a>
-
-
+This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5410,16 +5673,22 @@ This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hematuria</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000790</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.">
-                        Hematuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp">HP:0000790</a>
-
-
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5449,16 +5718,20 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5488,16 +5761,20 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030148</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Heart murmur (HP:0030148). HP:0030148 is a phenotype from the Human Phenotype Ontology.">
-                        Heart murmur
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030148" target="_blank" class="curie-chip curie-chip-hp">HP:0030148</a>
-
-
+This clinical feature is Heart murmur (HP:0030148). HP:0030148 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5518,16 +5795,20 @@ This clinical feature is Heart murmur (HP:0030148). HP:0030148 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.">
-                        Mitral regurgitation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp">HP:0001653</a>
-
-
+This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5578,6 +5859,9 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5594,17 +5878,17 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Antibiotic Therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">Antibiotic Therapy</span>
+This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -5657,6 +5941,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30152252" target="_blank">PMID:30152252</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5696,17 +5981,17 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Antibiotic Therapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">Antibiotic Therapy</span>
+This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -5768,6 +6053,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30152252" target="_blank">PMID:30152252</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5798,17 +6084,17 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Surgical Procedure</span>
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5860,6 +6146,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40422904" target="_blank">PMID:40422904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5916,6 +6203,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31832353" target="_blank">PMID:31832353</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5937,6 +6225,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31832353" target="_blank">PMID:31832353</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5968,17 +6257,17 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Antibiotic Therapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">Antibiotic Therapy</span>
+This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -6031,6 +6320,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213367" target="_blank">PMID:28213367</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6072,6 +6362,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213367" target="_blank">PMID:28213367</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6109,6 +6400,33 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
             <div class="item-box environmental-box anchor-target" id="environmental-injection-drug-use" data-dismech-node="Injection drug use" data-dismech-type="environmental">
                 <div class="item-name">Injection drug use</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        injection drug use
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000007" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-24">ECTO:6000007</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is injection drug use, annotated with exposure to substance abuse (ECTO:6000007). ECTO:6000007 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">No ECTO term is bound. The exposure hierarchy has no term expressing injection drug use as a route of microbial entry, and the available drug-exposure terms would assert a pharmacological exposure rather than the microbiological one that matters here.
@@ -6149,6 +6467,10 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                 <div class="item-name">Intravascular catheters and prosthetic material</div>
 
 
+
+
+
+
                 <div class="item-desc">No ECTO term is bound, for the same reason as the injection drug use entry.
 </div>
 
@@ -6187,6 +6509,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31941729" target="_blank">PMID:31941729</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6235,7 +6558,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-rheumatic-heart-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Rheumatic_Heart_Disease.html">Rheumatic heart disease</a>
@@ -6257,7 +6580,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-non-bacterial-thrombotic-endocarditis">
                 <div class="item-name">
 
                     Non-bacterial thrombotic endocarditis
@@ -6279,7 +6602,7 @@ This treatment is Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-systemic-lupus-erythematosus-with-libman-sacks-endocarditis">
                 <div class="item-name">
 
                     Systemic lupus erythematosus with Libman-Sacks endocarditis
@@ -6738,6 +7061,11 @@ phenotypes:
 
 environmental:
 - name: Injection drug use
+  exposure_term:
+    preferred_term: injection drug use
+    term:
+      id: ECTO:6000007
+      label: exposure to substance abuse
   description: &gt;
     A major and growing route of entry, and the one that most changes the shape of the disease.
     It delivers organisms, predominantly Staphylococcus aureus, directly and repeatedly into the
@@ -7747,7 +8075,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Infective Endocarditis", "mondoId": "MONDO:0000565", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infective_Endocarditis", "yamlRevision": "5d970d449ee1"};
+        const OS_CONFIG = {"diseaseName": "Infective Endocarditis", "mondoId": "MONDO:0000565", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infective_Endocarditis", "yamlRevision": "4bbd8883e7d5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8166,5 +8494,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

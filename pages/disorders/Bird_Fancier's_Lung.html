@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Bird Fancier&#39;s Lung</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Bird Fancier&#39;s Lung</h1>
             <div class="header-meta">
 
@@ -3935,27 +4057,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">RESPIRATORY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4057,7 +4256,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-nonfibrotic-bird-related-hypersensitivity-pneumonitis">
 
                     <div class="item-name">
                         Nonfibrotic bird-related hypersensitivity pneumonitis
@@ -4091,6 +4290,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32706311" target="_blank">PMID:32706311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4117,7 +4317,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fibrotic-bird-related-hypersensitivity-pneumonitis">
 
                     <div class="item-name">
                         Fibrotic bird-related hypersensitivity pneumonitis
@@ -4151,6 +4351,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32706311" target="_blank">PMID:32706311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4177,7 +4378,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-recurrent-chronic-bird-fancier-s-lung">
 
                     <div class="item-name">
                         Recurrent chronic bird fancier&#39;s lung
@@ -4211,6 +4412,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12839317" target="_blank">PMID:12839317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4237,7 +4439,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-insidious-chronic-bird-fancier-s-lung">
 
                     <div class="item-name">
                         Insidious chronic bird fancier&#39;s lung
@@ -4270,6 +4472,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12839317" target="_blank">PMID:12839317</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4362,6 +4565,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32706311" target="_blank">PMID:32706311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4441,6 +4645,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38924775" target="_blank">PMID:38924775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4462,6 +4667,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38218353" target="_blank">PMID:38218353</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4521,6 +4727,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38309995" target="_blank">PMID:38309995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4565,14 +4772,14 @@
 
 
 
-    <span class="entity-ref-chip">treatment#Nintedanib for Progressive Fibrosing Disease</span>
+    <a class="entity-ref-chip" href="#treatment-nintedanib-for-progressive-fibrosing-disease">treatments#Nintedanib for Progressive Fibrosing Disease</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Investigational Pirfenidone for Fibrotic HP</span>
+    <a class="entity-ref-chip" href="#treatment-investigational-pirfenidone-for-fibrotic-hp">treatments#Investigational Pirfenidone for Fibrotic HP</a>
 
 
 
@@ -4600,6 +4807,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32145830" target="_blank">PMID:32145830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4621,6 +4829,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37028940" target="_blank">PMID:37028940</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4677,18 +4886,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-1">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4742,6 +4953,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="https://bioregistry.io/DOI:10.3390/ijms24032884" target="_blank">DOI:10.3390/ijms24032884</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4764,6 +4976,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958101" target="_blank">PMID:39958101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4785,6 +4998,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33318919" target="_blank">PMID:33318919</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4819,18 +5033,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4847,18 +5063,20 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4875,18 +5093,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4917,18 +5137,20 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4966,6 +5188,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="https://bioregistry.io/DOI:10.3390/ijms24032884" target="_blank">DOI:10.3390/ijms24032884</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4999,18 +5222,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5027,18 +5252,20 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5055,18 +5282,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5083,18 +5312,20 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5125,18 +5356,20 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5174,6 +5407,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="https://bioregistry.io/DOI:10.3390/ijms24032884" target="_blank">DOI:10.3390/ijms24032884</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5207,18 +5441,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5246,18 +5482,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5281,18 +5519,20 @@ This pathophysiological event involves T cell activation (GO:0042110). GO:004211
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5330,6 +5570,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="https://bioregistry.io/DOI:10.3390/ijms24032884" target="_blank">DOI:10.3390/ijms24032884</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5363,18 +5604,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mononuclear cell, annotated with mononuclear leukocyte (CL:0000842). CL:0000842 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mononuclear cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" class="curie-chip curie-chip-cl">CL:0000842</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000842</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mononuclear cell, annotated with mononuclear leukocyte (CL:0000842). CL:0000842 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5402,18 +5645,20 @@ This pathophysiological event involves mononuclear cell, annotated with mononucl
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5441,33 +5686,37 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung connective tissue (UBERON:0000114). UBERON:0000114 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung connective tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000114" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000114</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000114" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000114</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung connective tissue (UBERON:0000114). UBERON:0000114 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5545,6 +5794,7 @@ This pathophysiological event occurs in lung connective tissue (UBERON:0000114).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14503346" target="_blank">PMID:14503346</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5566,6 +5816,7 @@ This pathophysiological event occurs in lung connective tissue (UBERON:0000114).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958101" target="_blank">PMID:39958101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5600,18 +5851,20 @@ This pathophysiological event occurs in lung connective tissue (UBERON:0000114).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5639,18 +5892,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves B cell activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         B cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go">GO:0042113</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B cell activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5667,18 +5922,20 @@ This pathophysiological event involves B cell activation (GO:0042113). GO:004211
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5702,18 +5959,20 @@ This pathophysiological event involves antigen processing and presentation (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5751,6 +6010,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33041192" target="_blank">PMID:33041192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5784,18 +6044,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5823,18 +6085,20 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves chemokine-mediated signaling pathway (GO:0070098). GO:0070098 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chemokine-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" class="curie-chip curie-chip-go">GO:0070098</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0070098</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves chemokine-mediated signaling pathway (GO:0070098). GO:0070098 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5858,18 +6122,20 @@ This pathophysiological event involves chemokine-mediated signaling pathway (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5907,6 +6173,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38924775" target="_blank">PMID:38924775</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5940,18 +6207,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5968,18 +6237,20 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6010,18 +6281,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6059,6 +6332,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38924775" target="_blank">PMID:38924775</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6092,18 +6366,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6131,18 +6407,20 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6166,18 +6444,20 @@ This pathophysiological event involves T cell activation (GO:0042110). GO:004211
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6215,6 +6495,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38924775" target="_blank">PMID:38924775</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6248,18 +6529,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6287,18 +6570,20 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6322,18 +6607,20 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6371,6 +6658,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38218353" target="_blank">PMID:38218353</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6404,18 +6692,20 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6476,6 +6766,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38218353" target="_blank">PMID:38218353</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6511,7 +6802,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-alveolitis-with-mononuclear-infiltration">
                 <div class="item-name">
                     Alveolitis with Mononuclear Infiltration
 
@@ -6532,6 +6823,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14503346" target="_blank">PMID:14503346</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6556,7 +6848,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-bronchiolocentric-interstitial-pneumonia-with-granulomatous-inflammation">
                 <div class="item-name">
                     Bronchiolocentric Interstitial Pneumonia with Granulomatous Inflammation
 
@@ -6577,6 +6869,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32706311" target="_blank">PMID:32706311</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6665,16 +6958,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6694,6 +6991,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14503346" target="_blank">PMID:14503346</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6738,16 +7036,20 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6767,6 +7069,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14503346" target="_blank">PMID:14503346</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6790,6 +7093,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958101" target="_blank">PMID:39958101</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6811,6 +7115,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32706311" target="_blank">PMID:32706311</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6846,16 +7151,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0012735</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
-                        Cough
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
-
-
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6875,6 +7184,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14503346" target="_blank">PMID:14503346</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6897,6 +7207,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32706311" target="_blank">PMID:32706311</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6930,16 +7241,20 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002206</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary fibrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
-
-
+This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6959,6 +7274,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37028940" target="_blank">PMID:37028940</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6982,6 +7298,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32145830" target="_blank">PMID:32145830</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7003,6 +7320,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24480143" target="_blank">PMID:24480143</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7038,16 +7356,20 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012418</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoxemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp">HP:0012418</a>
-
-
+This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7067,6 +7389,7 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11131880" target="_blank">PMID:11131880</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7109,16 +7432,20 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7138,6 +7465,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6761066" target="_blank">PMID:6761066</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7201,6 +7529,146 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-ats-jrs-alat-adult-hypersensitivity-pneumonitis-diagnostic-guideline">
+
+
+    <div class="item-name">ATS/JRS/ALAT adult hypersensitivity pneumonitis diagnostic guideline</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">ATS/JRS/ALAT</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">clinical practice guideline</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://pubmed.ncbi.nlm.nih.gov/32706311/" target="_blank" rel="noopener noreferrer" title="Open PMID:32706311">PMID:32706311</a>
+
+
+    </div>
+
+    <div class="item-desc">The official adult HP guideline supplies the nonfibrotic/fibrotic classification and multidisciplinary diagnostic framework applied to this avian-antigen subtype.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32706311" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32706311" target="_blank">PMID:32706311</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP was classified into nonfibrotic and fibrotic phenotypes."</div>
+
+
+                <div class="evidence-explanation">The official guideline establishes the current phenotype-based classification.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-german-s2k-hypersensitivity-pneumonitis-diagnosis-and-treatment-guideline">
+
+
+    <div class="item-name">German S2k hypersensitivity pneumonitis diagnosis and treatment guideline</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">German Respiratory Society and German Society for Allergology and Clinical Immunology</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">clinical practice guideline</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://pubmed.ncbi.nlm.nih.gov/39870058/" target="_blank" rel="noopener noreferrer" title="Open PMID:39870058">PMID:39870058</a>
+
+
+    </div>
+
+    <div class="item-desc">The 2025 S2k guideline adds treatment recommendations and distinguishes inflammatory and fibrotic patterns across acute and chronic HP courses.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39870058" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39870058" target="_blank">PMID:39870058</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Particular emphasis was placed on the different clinical courses (acute and chronic) and their characteristics (inflammatory and/or fibrotic pattern), which present differential diagnostic challenges and ultimately result in different treatment approaches."</div>
+
+
+                <div class="evidence-explanation">The guideline explicitly links phenotype and clinical course to treatment strategy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7219,18 +7687,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7279,6 +7747,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32764620" target="_blank">PMID:32764620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7309,33 +7778,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dyspnea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cough
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012735</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7354,6 +7827,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32764620" target="_blank">PMID:32764620</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7377,6 +7851,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
                         <a href="https://bioregistry.io/DOI:10.3390/jcm8010014" target="_blank">DOI:10.3390/jcm8010014</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7398,6 +7873,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0273544" target="_blank">DOI:10.1371/journal.pone.0273544</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7431,18 +7907,18 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">corticosteroid agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">corticosteroid agent therapy</span>
+This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
 
 
 
@@ -7467,18 +7943,20 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         prednisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:8382</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7511,6 +7989,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                         <a href="https://bioregistry.io/DOI:10.3390/jcm8010014" target="_blank">DOI:10.3390/jcm8010014</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7541,33 +8020,37 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dyspnea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cough
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0012735</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7586,6 +8069,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm8010014" target="_blank">DOI:10.3390/jcm8010014</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7608,6 +8092,7 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958101" target="_blank">PMID:39958101</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7641,18 +8126,18 @@ This treatment targets Cough (HP:0012735). HP:0012735 is a phenotype from the Hu
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">immunosuppressive therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunosuppressive therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">immunosuppressive therapy</span>
+This treatment is immunosuppressive therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunosuppressive therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">NCIT:C15261</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15261">NCIT:C15261</a>
 
 
 
@@ -7677,33 +8162,37 @@ This treatment is immunosuppressive therapy (NCIT:C15261). NCIT:C15261 is a clin
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:8764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         azathioprine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:2948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7736,6 +8225,7 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27816444" target="_blank">PMID:27816444</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7766,18 +8256,20 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dyspnea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7796,6 +8288,7 @@ This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27816444" target="_blank">PMID:27816444</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7829,18 +8322,18 @@ This treatment targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
 
 
 
@@ -7865,18 +8358,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses nintedanib (CHEBI:85164). CHEBI:85164 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         nintedanib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85164" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:85164</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85164" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:85164</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nintedanib (CHEBI:85164). CHEBI:85164 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7891,18 +8386,20 @@ This treatment uses nintedanib (CHEBI:85164). CHEBI:85164 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary fibrosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002206</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7921,6 +8418,7 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32145830" target="_blank">PMID:32145830</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7954,18 +8452,18 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
 
 
 
@@ -7990,18 +8488,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         pirfenidone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32016" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:32016</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32016" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:32016</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8016,18 +8516,20 @@ This treatment uses pirfenidone (CHEBI:32016). CHEBI:32016 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary fibrosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002206</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8046,6 +8548,7 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37028940" target="_blank">PMID:37028940</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8068,6 +8571,7 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02958917" target="_blank">clinicaltrials:NCT02958917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8110,23 +8614,29 @@ This treatment targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotyp
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is exposure to animal waste material (ECTO:7000098). ECTO:7000098 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         exposure to animal waste material
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_7000098" target="_blank" class="curie-chip curie-chip-ecto">ECTO:7000098</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000098" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-58">ECTO:7000098</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to animal waste material (ECTO:7000098). ECTO:7000098 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8145,6 +8655,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33041192" target="_blank">PMID:33041192</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8168,6 +8679,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14503346" target="_blank">PMID:14503346</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8189,6 +8701,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1053441" target="_blank">PMID:1053441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8240,6 +8753,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958101" target="_blank">PMID:39958101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8304,6 +8818,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33041192" target="_blank">PMID:33041192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8326,6 +8841,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38762468" target="_blank">PMID:38762468</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8347,6 +8863,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40049235" target="_blank">PMID:40049235</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8388,7 +8905,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-idiopathic-pulmonary-fibrosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Idiopathic_Pulmonary_Fibrosis.html">Idiopathic Pulmonary Fibrosis</a>
@@ -8435,6 +8952,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24480143" target="_blank">PMID:24480143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8460,7 +8978,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pulmonary-sarcoidosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Sarcoidosis.html">Pulmonary Sarcoidosis</a>
@@ -8507,6 +9025,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24480143" target="_blank">PMID:24480143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8532,7 +9051,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hypersensitivity-pneumonitis-from-home-mold-exposure">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Hypersensitivity_pneumonitis.html">Hypersensitivity Pneumonitis from Home Mold Exposure</a>
@@ -8579,6 +9098,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40338891" target="_blank">PMID:40338891</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8614,7 +9134,7 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse150910">
                 <div class="item-name">
                     RNA-Sequencing of Chronic hypersensitivity pneumonitis compared with Idiopathic Pulmonary Fibrosis and Control Lung
 
@@ -8642,18 +9162,20 @@ This environmental factor is exposure to animal waste material (ECTO:7000098). E
 
 
 
-                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this dataset samples this sample type
-This dataset samples lung tissue, annotated with lung (UBERON:0002048). UBERON:0002048 is a sample type from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-cell">
                         lung tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-59">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples lung tissue, annotated with lung (UBERON:0002048). UBERON:0002048 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -8696,6 +9218,7 @@ This dataset samples lung tissue, annotated with lung (UBERON:0002048). UBERON:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32602730" target="_blank">PMID:32602730</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8719,7 +9242,7 @@ This dataset samples lung tissue, annotated with lung (UBERON:0002048). UBERON:0
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse271789">
                 <div class="item-name">
                     Single-Cell Analysis Reveals Novel Immune Perturbations in Fibrotic Hypersensitivity Pneumonitis
 
@@ -8747,35 +9270,39 @@ This dataset samples lung tissue, annotated with lung (UBERON:0002048). UBERON:0
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this dataset samples this sample type
-This dataset samples peripheral blood mononuclear cell (CL:2000001). CL:2000001 is a sample type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         peripheral blood mononuclear cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000001" target="_blank" class="curie-chip curie-chip-cl">CL:2000001</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-60">CL:2000001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples peripheral blood mononuclear cell (CL:2000001). CL:2000001 is a sample type from the Cell Ontology.</span>
                     </span>
 
 
 
 
-                    <span class="tag tag-cell" title="NCI Thesaurus (NCIT)
-Relation: this dataset samples this sample type
-This dataset samples bronchoalveolar lavage, annotated with Bronchoalveolar Lavage Fluid (NCIT:C13195). NCIT:C13195 is a sample type from the NCI Thesaurus.">
+
+                    <span class="tag tag-cell">
                         bronchoalveolar lavage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C13195" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C13195</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C13195" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-61">NCIT:C13195</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this dataset samples this sample type
+This dataset samples bronchoalveolar lavage, annotated with Bronchoalveolar Lavage Fluid (NCIT:C13195). NCIT:C13195 is a sample type from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8818,6 +9345,7 @@ This dataset samples bronchoalveolar lavage, annotated with Bronchoalveolar Lava
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38924775" target="_blank">PMID:38924775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8853,7 +9381,7 @@ This dataset samples bronchoalveolar lavage, annotated with Bronchoalveolar Lava
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02958917">
                 <div class="item-name">
                     NCT02958917
 
@@ -8871,33 +9399,37 @@ This dataset samples bronchoalveolar lavage, annotated with Bronchoalveolar Lava
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dyspnea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary fibrosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002206</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8915,6 +9447,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02958917" target="_blank">clinicaltrials:NCT02958917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8939,7 +9472,7 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02496182">
                 <div class="item-name">
                     NCT02496182
 
@@ -8957,33 +9490,37 @@ This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phe
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary fibrosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002206</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cough
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0012735</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9001,6 +9538,7 @@ This clinical trial targets Cough (HP:0012735). HP:0012735 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02496182" target="_blank">clinicaltrials:NCT02496182</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9025,7 +9563,7 @@ This clinical trial targets Cough (HP:0012735). HP:0012735 is a phenotype from t
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04844359">
                 <div class="item-name">
                     NCT04844359
 
@@ -9043,33 +9581,37 @@ This clinical trial targets Cough (HP:0012735). HP:0012735 is a phenotype from t
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary fibrosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0002206</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dyspnea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9087,6 +9629,7 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04844359" target="_blank">clinicaltrials:NCT04844359</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9170,6 +9713,7 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
                         <a href="https://bioregistry.io/DOI:10.3390/ijms24032884" target="_blank">DOI:10.3390/ijms24032884</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9236,6 +9780,7 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39844643" target="_blank">PMID:39844643</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9278,7 +9823,6 @@ This clinical trial targets Dyspnea (HP:0002094). HP:0002094 is a phenotype from
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Bird Fancier&#39;s Lung
 creation_date: &#39;2026-01-30T23:42:47Z&#39;
-updated_date: &#39;2026-05-08T16:21:17Z&#39;
 category: Respiratory Disease
 parents:
 - Respiratory Disease
@@ -11011,8 +11555,8 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - treatment#Nintedanib for Progressive Fibrosing Disease
-  - treatment#Investigational Pirfenidone for Fibrotic HP
+  - treatments#Nintedanib for Progressive Fibrosing Disease
+  - treatments#Investigational Pirfenidone for Fibrotic HP
   rationale: &gt;-
     INBUILD was not powered for the HP subgroup or stratified by avian exposure.
     The pirfenidone trial enrolled only 40 participants and was underpowered for
@@ -12175,7 +12719,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bird Fancier\u0027s Lung", "mondoId": "MONDO:0005668", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bird_Fancier\u0027s_Lung", "yamlRevision": "fc7c21c4e8f2"};
+        const OS_CONFIG = {"diseaseName": "Bird Fancier\u0027s Lung", "mondoId": "MONDO:0005668", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bird_Fancier\u0027s_Lung", "yamlRevision": "fed942ec8968"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12594,5 +13138,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Anaplastic Large Cell Lymphoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Anaplastic Large Cell Lymphoma</h1>
             <div class="header-meta">
 
@@ -4017,7 +4139,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-pathologic-definition-of-anaplastic-large-cell-lymphoma">
                 <div class="item-name">Pathologic definition of anaplastic large cell lymphoma</div>
 
                 <div class="item-desc">ALCL is a mature T-cell lymphoma family unified by strong CD30 expression and subdivided here into systemic ALK-positive, systemic ALK-negative, and primary cutaneous entities.</div>
@@ -4063,6 +4185,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565334" target="_blank">PMID:40565334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4087,7 +4210,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-international-consensus-classification-framework">
                 <div class="item-name">International consensus classification framework</div>
 
                 <div class="item-desc">The entry follows the modern mature-lymphoid-neoplasm framework in which genomic findings refine entity definitions and diagnostic criteria.</div>
@@ -4132,6 +4255,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35653592" target="_blank">PMID:35653592</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4198,7 +4322,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-systemic-alk-positive">
 
                     <div class="item-name">
                         Systemic ALK-Positive Anaplastic Large Cell Lymphoma
@@ -4234,6 +4358,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37655119" target="_blank">PMID:37655119</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4256,6 +4381,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37655119" target="_blank">PMID:37655119</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4277,6 +4403,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36907641" target="_blank">PMID:36907641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4304,7 +4431,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-systemic-alk-negative">
 
                     <div class="item-name">
                         Systemic ALK-Negative Anaplastic Large Cell Lymphoma
@@ -4340,6 +4467,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24894770" target="_blank">PMID:24894770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4362,6 +4490,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24894770" target="_blank">PMID:24894770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4383,6 +4512,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41329859" target="_blank">PMID:41329859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4415,7 +4545,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-primary-cutaneous">
 
                     <div class="item-name">
                         Primary Cutaneous Anaplastic Large Cell Lymphoma
@@ -4451,6 +4581,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34382383" target="_blank">PMID:34382383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4472,6 +4603,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21841159" target="_blank">PMID:21841159</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4667,6 +4799,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11850821" target="_blank">PMID:11850821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4758,6 +4891,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34572893" target="_blank">PMID:34572893</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4848,6 +4982,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41329859" target="_blank">PMID:41329859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4978,6 +5113,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34382383" target="_blank">PMID:34382383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5034,35 +5170,35 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Radiation Therapy</span>
+    <a class="entity-ref-chip" href="#treatment-radiation-therapy">treatments#Radiation Therapy</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Surgical Excision</span>
+    <a class="entity-ref-chip" href="#treatment-surgical-excision">treatments#Surgical Excision</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Low-Dose Methotrexate for Primary Cutaneous ALCL</span>
+    <a class="entity-ref-chip" href="#treatment-low-dose-methotrexate-for-primary-cutaneous-alcl">treatments#Low-Dose Methotrexate for Primary Cutaneous ALCL</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Brentuximab Vedotin for Primary Cutaneous ALCL</span>
+    <a class="entity-ref-chip" href="#treatment-brentuximab-vedotin-for-primary-cutaneous-alcl">treatments#Brentuximab Vedotin for Primary Cutaneous ALCL</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">has_subtypes#Primary Cutaneous</span>
+    <a class="entity-ref-chip" href="#subtype-primary-cutaneous">has_subtypes#Primary Cutaneous</a>
 
 
 
@@ -5098,6 +5234,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21841159" target="_blank">PMID:21841159</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5119,6 +5256,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42192920" target="_blank">PMID:42192920</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5164,14 +5302,14 @@
 
 
 
-    <span class="entity-ref-chip">genetic#DUSP22 Rearrangement</span>
+    <a class="entity-ref-chip" href="#genetic-dusp22-rearrangement">genetic#DUSP22 Rearrangement</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">has_subtypes#Systemic ALK-Negative</span>
+    <a class="entity-ref-chip" href="#subtype-systemic-alk-negative">has_subtypes#Systemic ALK-Negative</a>
 
 
 
@@ -5207,6 +5345,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24894770" target="_blank">PMID:24894770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5229,6 +5368,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41329859" target="_blank">PMID:41329859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5250,6 +5390,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36453104" target="_blank">PMID:36453104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5295,7 +5436,7 @@
 
 
 
-    <span class="entity-ref-chip">animal_models#Mus musculus</span>
+    <a class="entity-ref-chip" href="#animal-model-t-cell-targeted-human-npm-alk-transgene-mus-musculus">animal_models#Mus musculus</a>
 
 
 
@@ -5337,6 +5478,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12424201" target="_blank">PMID:12424201</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5382,14 +5524,14 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Crizotinib</span>
+    <a class="entity-ref-chip" href="#treatment-crizotinib">treatments#Crizotinib</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Allogeneic Hematopoietic Stem Cell Transplantation</span>
+    <a class="entity-ref-chip" href="#treatment-allogeneic-hematopoietic-stem-cell-transplantation">treatments#Allogeneic Hematopoietic Stem Cell Transplantation</a>
 
 
 
@@ -5424,6 +5566,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36907641" target="_blank">PMID:36907641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5488,17 +5631,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALK
 
 
-    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:427</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5523,17 +5670,21 @@ This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from t
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NPM1
 
 
-    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7910</a>
+    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7910</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5563,18 +5714,20 @@ This pathophysiological event involves NPM1 (hgnc:7910). hgnc:7910 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased protein tyrosine kinase activity (GO:0004713). GO:0004713 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein tyrosine kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004713" target="_blank" class="curie-chip curie-chip-go">GO:0004713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004713" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004713</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased protein tyrosine kinase activity (GO:0004713). GO:0004713 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5660,6 +5813,7 @@ This pathophysiological event involves increased protein tyrosine kinase activit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37655119" target="_blank">PMID:37655119</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5682,6 +5836,7 @@ This pathophysiological event involves increased protein tyrosine kinase activit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29617304" target="_blank">PMID:29617304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5703,6 +5858,7 @@ This pathophysiological event involves increased protein tyrosine kinase activit
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11850821" target="_blank">PMID:11850821</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5755,17 +5911,21 @@ This pathophysiological event involves increased protein tyrosine kinase activit
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALK
 
 
-    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:427</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5794,18 +5954,20 @@ This pathophysiological event involves ALK (hgnc:427). hgnc:427 is a gene from t
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell surface receptor signaling pathway via JAK-STAT
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007259</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5928,6 +6090,7 @@ This pathophysiological event involves increased cell surface receptor signaling
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11850821" target="_blank">PMID:11850821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5979,17 +6142,21 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves BCL2L1 (hgnc:992). hgnc:992 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         BCL2L1
 
 
-    <a href="https://bioregistry.io/hgnc:992" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:992</a>
+    <a href="https://bioregistry.io/hgnc:992" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:992</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCL2L1 (hgnc:992). hgnc:992 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6018,18 +6185,20 @@ This pathophysiological event involves BCL2L1 (hgnc:992). hgnc:992 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6098,6 +6267,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11850821" target="_blank">PMID:11850821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6149,17 +6319,21 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CD274 (hgnc:17635). hgnc:17635 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CD274
 
 
-    <a href="https://bioregistry.io/hgnc:17635" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17635</a>
+    <a href="https://bioregistry.io/hgnc:17635" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:17635</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CD274 (hgnc:17635). hgnc:17635 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6188,18 +6362,20 @@ This pathophysiological event involves CD274 (hgnc:17635). hgnc:17635 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6268,6 +6444,7 @@ This pathophysiological event involves increased negative regulation of T cell m
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19088198" target="_blank">PMID:19088198</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6319,17 +6496,21 @@ This pathophysiological event involves increased negative regulation of T cell m
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:6190</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6354,17 +6535,21 @@ This pathophysiological event involves JAK1 (hgnc:6190). hgnc:6190 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6393,18 +6578,20 @@ This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell surface receptor signaling pathway via JAK-STAT
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007259</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6473,6 +6660,7 @@ This pathophysiological event involves increased cell surface receptor signaling
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34572893" target="_blank">PMID:34572893</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6524,17 +6712,21 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves EZH2 (hgnc:3527). hgnc:3527 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EZH2
 
 
-    <a href="https://bioregistry.io/hgnc:3527" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3527</a>
+    <a href="https://bioregistry.io/hgnc:3527" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:3527</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EZH2 (hgnc:3527). hgnc:3527 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6564,18 +6756,20 @@ This pathophysiological event involves EZH2 (hgnc:3527). hgnc:3527 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased histone H3K27 methyltransferase activity (GO:0046976). GO:0046976 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         histone H3K27 methyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046976" target="_blank" class="curie-chip curie-chip-go">GO:0046976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0046976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased histone H3K27 methyltransferase activity (GO:0046976). GO:0046976 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6643,6 +6837,7 @@ This pathophysiological event involves increased histone H3K27 methyltransferase
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41329859" target="_blank">PMID:41329859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6687,18 +6882,20 @@ This pathophysiological event involves increased histone H3K27 methyltransferase
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mature T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl">CL:0002419</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002419</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6726,18 +6923,20 @@ This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6846,6 +7045,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565334" target="_blank">PMID:40565334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6941,6 +7141,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34382383" target="_blank">PMID:34382383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6985,18 +7186,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mature T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl">CL:0002419</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002419" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002419</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7024,18 +7227,20 @@ This pathophysiological event involves mature T cell (CL:0002419). CL:0002419 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7123,6 +7328,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34382383" target="_blank">PMID:34382383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7158,7 +7364,7 @@ This pathophysiological event involves increased cell population proliferation (
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-hallmark-cells">
                 <div class="item-name">
                     Hallmark Cells
 
@@ -7179,6 +7385,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28975123" target="_blank">PMID:28975123</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7203,7 +7410,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-nuclear-pleomorphism">
                 <div class="item-name">
                     Nuclear Pleomorphism
 
@@ -7224,6 +7431,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28975123" target="_blank">PMID:28975123</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7318,16 +7526,22 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Lymphadenopathy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7347,6 +7561,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24346900" target="_blank">PMID:24346900</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7380,16 +7595,20 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7409,6 +7628,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39551572" target="_blank">PMID:39551572</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7451,16 +7671,20 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0200036</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype from the Human Phenotype Ontology.">
-                        Skin nodule
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" class="curie-chip curie-chip-hp">HP:0200036</a>
-
-
+This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7480,6 +7704,7 @@ This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24346900" target="_blank">PMID:24346900</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7522,16 +7747,20 @@ This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7551,6 +7780,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32311892" target="_blank">PMID:32311892</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7593,16 +7823,20 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030166</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype from the Human Phenotype Ontology.">
-                        Night sweats
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp">HP:0030166</a>
-
-
+This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7622,6 +7856,7 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32311892" target="_blank">PMID:32311892</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7664,16 +7899,20 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7693,6 +7932,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32311892" target="_blank">PMID:32311892</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7754,6 +7994,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37655119" target="_blank">PMID:37655119</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7802,6 +8043,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36907641" target="_blank">PMID:36907641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7881,15 +8123,17 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALK
 
 
-    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:427</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7914,6 +8158,7 @@ This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37655119" target="_blank">PMID:37655119</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7952,15 +8197,17 @@ This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPM1
 
 
-    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7910</a>
+    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:7910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7985,6 +8232,7 @@ This disease-associated gene is NPM1 (hgnc:7910). hgnc:7910 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37655119" target="_blank">PMID:37655119</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8023,15 +8271,17 @@ This disease-associated gene is NPM1 (hgnc:7910). hgnc:7910 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DUSP22 (hgnc:16077). hgnc:16077 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DUSP22
 
 
-    <a href="https://bioregistry.io/hgnc:16077" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16077</a>
+    <a href="https://bioregistry.io/hgnc:16077" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:16077</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DUSP22 (hgnc:16077). hgnc:16077 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8057,6 +8307,7 @@ This disease-associated gene is DUSP22 (hgnc:16077). hgnc:16077 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24894770" target="_blank">PMID:24894770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8079,6 +8330,7 @@ This disease-associated gene is DUSP22 (hgnc:16077). hgnc:16077 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24894770" target="_blank">PMID:24894770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8100,6 +8352,7 @@ This disease-associated gene is DUSP22 (hgnc:16077). hgnc:16077 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41329859" target="_blank">PMID:41329859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8140,15 +8393,17 @@ This disease-associated gene is DUSP22 (hgnc:16077). hgnc:16077 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TP63 (hgnc:15979). hgnc:15979 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP63
 
 
-    <a href="https://bioregistry.io/hgnc:15979" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15979</a>
+    <a href="https://bioregistry.io/hgnc:15979" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:15979</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP63 (hgnc:15979). hgnc:15979 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8174,6 +8429,7 @@ This disease-associated gene is TP63 (hgnc:15979). hgnc:15979 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24894770" target="_blank">PMID:24894770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8196,6 +8452,7 @@ This disease-associated gene is TP63 (hgnc:15979). hgnc:15979 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24894770" target="_blank">PMID:24894770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8217,6 +8474,7 @@ This disease-associated gene is TP63 (hgnc:15979). hgnc:15979 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41329859" target="_blank">PMID:41329859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8255,15 +8513,17 @@ This disease-associated gene is TP63 (hgnc:15979). hgnc:15979 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: JAK1
 
 
-    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6190</a>
+    <a href="https://bioregistry.io/hgnc:6190" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:6190</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8288,6 +8548,7 @@ This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34572893" target="_blank">PMID:34572893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8326,15 +8587,17 @@ This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:11364</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8359,6 +8622,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34572893" target="_blank">PMID:34572893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8390,6 +8654,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8408,18 +8675,18 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -8438,18 +8705,18 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">CHOP regimen<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this regimen component is this clinical intervention
-This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical intervention from the NCI Thesaurus.">CHOP regimen</span>
+This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: CHOP Regimen</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C9549" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this regimen component is this clinical intervention
-This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical intervention from the NCI Thesaurus.">NCIT:C9549</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C9549" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C9549">NCIT:C9549</a>
 
 
 
@@ -8500,6 +8767,7 @@ This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29279550" target="_blank">PMID:29279550</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8541,6 +8809,7 @@ This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29279550" target="_blank">PMID:29279550</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8573,18 +8842,18 @@ This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical in
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -8603,17 +8872,17 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">CHP-Brentuximab Vedotin Regimen<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this regimen component is this clinical intervention
-This regimen component is CHP-Brentuximab Vedotin Regimen (NCIT:C159558). NCIT:C159558 is a clinical intervention from the NCI Thesaurus.">CHP-Brentuximab Vedotin Regimen</span>
+This regimen component is CHP-Brentuximab Vedotin Regimen (NCIT:C159558). NCIT:C159558 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159558" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this regimen component is this clinical intervention
-This regimen component is CHP-Brentuximab Vedotin Regimen (NCIT:C159558). NCIT:C159558 is a clinical intervention from the NCI Thesaurus.">NCIT:C159558</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159558" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159558">NCIT:C159558</a>
 
 
 
@@ -8638,63 +8907,71 @@ This regimen component is CHP-Brentuximab Vedotin Regimen (NCIT:C159558). NCIT:C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         brentuximab vedotin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C66944</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C66944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxorubicin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:28748</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:28748</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         prednisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:8382</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8728,6 +9005,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29279550" target="_blank">PMID:29279550</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8770,6 +9048,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522922" target="_blank">PMID:30522922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8792,6 +9071,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30522922" target="_blank">PMID:30522922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8813,6 +9093,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40750774" target="_blank">PMID:40750774</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8846,18 +9127,18 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -8882,18 +9163,20 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         brentuximab vedotin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C66944</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C66944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8927,6 +9210,7 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29279550" target="_blank">PMID:29279550</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8969,6 +9253,7 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28974506" target="_blank">PMID:28974506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9001,18 +9286,18 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">targeted therapy</span>
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.">NCIT:C93352</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
 
 
 
@@ -9037,18 +9322,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses crizotinib (CHEBI:64310). CHEBI:64310 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         crizotinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_64310" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:64310</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64310" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:64310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses crizotinib (CHEBI:64310). CHEBI:64310 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9082,6 +9369,7 @@ This treatment uses crizotinib (CHEBI:64310). CHEBI:64310 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29279550" target="_blank">PMID:29279550</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9124,6 +9412,7 @@ This treatment uses crizotinib (CHEBI:64310). CHEBI:64310 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37549532" target="_blank">PMID:37549532</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9156,17 +9445,17 @@ This treatment uses crizotinib (CHEBI:64310). CHEBI:64310 is a therapeutic agent
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">Radiation Therapy</span>
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -9217,6 +9506,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24346900" target="_blank">PMID:24346900</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9258,6 +9548,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24346900" target="_blank">PMID:24346900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9290,17 +9581,17 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Surgical Procedure</span>
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -9351,6 +9642,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24346900" target="_blank">PMID:24346900</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9392,6 +9684,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24346900" target="_blank">PMID:24346900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9424,17 +9717,17 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">Chemotherapy</span>
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -9459,18 +9752,20 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         methotrexate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9504,6 +9799,7 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42192920" target="_blank">PMID:42192920</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9546,6 +9842,7 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42192920" target="_blank">PMID:42192920</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9578,17 +9875,17 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">Immunotherapy</span>
+This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -9613,18 +9910,20 @@ This treatment is Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         brentuximab vedotin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C66944</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C66944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9658,6 +9957,7 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42192920" target="_blank">PMID:42192920</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9700,6 +10000,7 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42192920" target="_blank">PMID:42192920</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9732,17 +10033,17 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Hematopoietic Cell Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">Hematopoietic Cell Transplantation</span>
+This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">NCIT:C15431</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
 
 
 
@@ -9793,6 +10094,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36907641" target="_blank">PMID:36907641</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9833,6 +10135,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36907641" target="_blank">PMID:36907641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9896,6 +10199,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565334" target="_blank">PMID:40565334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9942,6 +10246,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35941721" target="_blank">PMID:35941721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9990,6 +10295,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41329859" target="_blank">PMID:41329859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10030,7 +10336,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-classic-hodgkin-lymphoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Classic_Hodgkin_Lymphoma.html">Classic Hodgkin Lymphoma</a>
@@ -10071,6 +10377,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28975123" target="_blank">PMID:28975123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10096,7 +10403,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-peripheral-t-cell-lymphoma-not-otherwise-specified">
                 <div class="item-name">
 
                     Peripheral T-Cell Lymphoma, Not Otherwise Specified
@@ -10137,6 +10444,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28975123" target="_blank">PMID:28975123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10162,7 +10470,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-diffuse-large-b-cell-lymphoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Diffuse_Large_B-Cell_Lymphoma.html">Diffuse Large B-Cell Lymphoma</a>
@@ -10203,6 +10511,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28975123" target="_blank">PMID:28975123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10228,7 +10537,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-undifferentiated-carcinoma">
                 <div class="item-name">
 
                     Undifferentiated Carcinoma
@@ -10269,6 +10578,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28975123" target="_blank">PMID:28975123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10294,7 +10604,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-lymphomatoid-papulosis">
                 <div class="item-name">
 
                     Lymphomatoid Papulosis
@@ -10335,6 +10645,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21841159" target="_blank">PMID:21841159</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10370,7 +10681,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse217426">
                 <div class="item-name">
                     Expression signature characteristic of Anaplastic Large Cell Lymphoma (ALCL) patients
 
@@ -10413,7 +10724,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse209838">
                 <div class="item-name">
                     Plasma small-extracellular vesicles enriched in miR-122-5p promote disease aggressiveness in pediatric Anaplastic Large Cell Lymphoma
 
@@ -10456,7 +10767,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse115917">
                 <div class="item-name">
                     Peripheral T-cell lymphomas expressing CD30 and CD15 expand the spectrum of anaplastic large cell lymphoma, ALK-negative
 
@@ -10499,7 +10810,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003962">
                 <div class="item-name">
                     Breast implant-associated anaplastic large cell lymphoma shallow whole genome sequencing for copy number analysis and Whole exome sequencing data.
 
@@ -10538,7 +10849,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004189">
                 <div class="item-name">
                     Integrative molecular analysis of pediatric Anaplastic large cell lymphoma reveals subtypes with distinct immune suppression signatures.
 
@@ -10573,7 +10884,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004429">
                 <div class="item-name">
                     The genomic landscape of primary cutaneous anaplastic large cell lymphoma (pcALCL)
 
@@ -10620,7 +10931,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01777152">
                 <div class="item-name">
                     NCT01777152
 
@@ -10648,6 +10959,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="https://clinicaltrials.gov/study/NCT01777152" target="_blank">clinicaltrials:NCT01777152</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10671,7 +10983,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00866047">
                 <div class="item-name">
                     NCT00866047
 
@@ -10699,6 +11011,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="https://clinicaltrials.gov/study/NCT00866047" target="_blank">clinicaltrials:NCT00866047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10722,7 +11035,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02034981">
                 <div class="item-name">
                     NCT02034981
 
@@ -10750,6 +11063,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                         <a href="https://clinicaltrials.gov/study/NCT02034981" target="_blank">clinicaltrials:NCT02034981</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10771,6 +11085,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37549532" target="_blank">PMID:37549532</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10835,17 +11150,19 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-50">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-50">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -10906,6 +11223,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15184887" target="_blank">PMID:15184887</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10959,6 +11277,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15184887" target="_blank">PMID:15184887</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10999,6 +11318,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15184887" target="_blank">PMID:15184887</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11087,17 +11407,21 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALK
 
 
-    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:427</a>
+    <a href="https://bioregistry.io/hgnc:427" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:427</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns ALK (hgnc:427). hgnc:427 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -11122,17 +11446,21 @@ This experimental model concerns ALK (hgnc:427). hgnc:427 is a gene from the HUG
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NPM1
 
 
-    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7910</a>
+    <a href="https://bioregistry.io/hgnc:7910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:7910</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -11177,6 +11505,7 @@ This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12424201" target="_blank">PMID:12424201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11198,6 +11527,7 @@ This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12424201" target="_blank">PMID:12424201</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11289,6 +11619,7 @@ This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27669408" target="_blank">PMID:27669408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11334,6 +11665,7 @@ This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27669408" target="_blank">PMID:27669408</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11381,6 +11713,7 @@ This experimental model concerns NPM1 (hgnc:7910). hgnc:7910 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27669408" target="_blank">PMID:27669408</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -14365,5 +14698,73 @@ ALCL, primary cutaneous ALCL, or BIA-ALCL because:</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

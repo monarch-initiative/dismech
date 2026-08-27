@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Malignant Mesothelioma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Malignant Mesothelioma</h1>
             <div class="header-meta">
 
@@ -3895,34 +4017,154 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Carcinoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Occupational Disease</div>
+
+
+
+                <div class="tag-list">
+
+
+
+                    <span style="font-size: 0.78rem; color: #6b7280;">ILO (revised 2010) — by causative agent</span>
+
+
+
+                    <span class="tag tag-classification" title="ILO List of Occupational Diseases (revised 2010), item 3.1.1 &#34;Cancer caused by asbestos&#34;, under section 3 (occupational cancer). Contrast Asbestosis, which takes item 2.1.1 under the target-organ-system section from the same exposure — the ILO list routes the malignant and non-malignant consequences of asbestos through different sections. Roughly 80% of mesothelioma cases are occupationally attributable, but the assignment records that an occupational form is recognised, not that every case is occupational.">cancer asbestos</span>
+
+                </div>
+
+
+
+                <div class="tag-list">
+
+
+
+                    <span style="font-size: 0.78rem; color: #6b7280;">European schedule</span>
+
+
+
+                    <span class="tag tag-classification" title="European schedule of occupational diseases (Commission Recommendation 2003/670/EC as amended), Annex I item 301.22 &#34;Mesothelioma following the inhalation of asbestos dust&#34;, a sub-item of 301 (diseases of the respiratory system and cancers). Peritoneal mesothelioma is covered by the same item, which names the exposure rather than the serosal site.">mesothelioma inhalation asbestos dust</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3965,7 +4207,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-epithelioid-mesothelioma">
 
                     <div class="item-name">
                         Epithelioid Mesothelioma
@@ -3993,7 +4235,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sarcomatoid-mesothelioma">
 
                     <div class="item-name">
                         Sarcomatoid Mesothelioma
@@ -4021,7 +4263,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-biphasic-mesothelioma">
 
                     <div class="item-name">
                         Biphasic Mesothelioma
@@ -4078,18 +4320,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mesothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl">CL:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4117,18 +4361,20 @@ This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4149,18 +4395,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4188,18 +4436,20 @@ This pathophysiological event involves increased response to oxidative stress (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pleura (UBERON:0000977). UBERON:0000977 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pleura
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000977</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0000977</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pleura (UBERON:0000977). UBERON:0000977 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4230,17 +4480,21 @@ This pathophysiological event occurs in pleura (UBERON:0000977). UBERON:0000977 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves BAP1 (hgnc:950). hgnc:950 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         BAP1
 
 
-    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:950</a>
+    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:950</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BAP1 (hgnc:950). hgnc:950 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4269,18 +4523,20 @@ This pathophysiological event involves BAP1 (hgnc:950). hgnc:950 is a gene from 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4306,18 +4562,20 @@ This pathophysiological event involves decreased DNA damage response (GO:0006974
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased deubiquitinase activity (GO:0101005). GO:0101005 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         deubiquitinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0101005" target="_blank" class="curie-chip curie-chip-go">GO:0101005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0101005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0101005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased deubiquitinase activity (GO:0101005). GO:0101005 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4359,6 +4617,7 @@ This pathophysiological event involves decreased deubiquitinase activity (GO:010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23677068" target="_blank">PMID:23677068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4380,6 +4639,7 @@ This pathophysiological event involves decreased deubiquitinase activity (GO:010
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23677068" target="_blank">PMID:23677068</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4421,17 +4681,21 @@ This pathophysiological event involves decreased deubiquitinase activity (GO:010
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4460,18 +4724,20 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Hippo signaling (GO:0035329). GO:0035329 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Hippo signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go">GO:0035329</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0035329</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Hippo signaling (GO:0035329). GO:0035329 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4514,6 +4780,7 @@ This pathophysiological event involves decreased Hippo signaling (GO:0035329). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23677068" target="_blank">PMID:23677068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4535,6 +4802,7 @@ This pathophysiological event involves decreased Hippo signaling (GO:0035329). G
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23677068" target="_blank">PMID:23677068</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4576,17 +4844,21 @@ This pathophysiological event involves decreased Hippo signaling (GO:0035329). G
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:1787</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4615,18 +4887,20 @@ This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased negative regulation of G1/S transition, annotated with negative regulation of G1/S transition of mitotic cell cycle (GO:2000134). GO:2000134 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of G1/S transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_2000134" target="_blank" class="curie-chip curie-chip-go">GO:2000134</a>
+    <a href="http://purl.obolibrary.org/obo/GO_2000134" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:2000134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of G1/S transition, annotated with negative regulation of G1/S transition of mitotic cell cycle (GO:2000134). GO:2000134 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4669,6 +4943,7 @@ This pathophysiological event involves decreased negative regulation of G1/S tra
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23677068" target="_blank">PMID:23677068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4704,7 +4979,7 @@ This pathophysiological event involves decreased negative regulation of G1/S tra
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-mesothelial-neoplasm">
                 <div class="item-name">
                     Mesothelial Neoplasm
 
@@ -4727,6 +5002,7 @@ This pathophysiological event involves decreased negative regulation of G1/S tra
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21412769" target="_blank">PMID:21412769</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4771,7 +5047,7 @@ This pathophysiological event involves decreased negative regulation of G1/S tra
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Asbestos Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Asbestos fibers, when inhaled or ingested, become lodged in mesothelial tissues where they cause chronic inflammation, oxidative stress, and DNA damage. The fibers persist indefinitely in tissue and are directly genotoxic, causing chromosomal abnormalities and mesothelial cell transformation. Occupational exposure accounts for approximately 80% of cases.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Asbestos-Induced Mesothelial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Asbestos fibers penetrate the mesothelium and induce a cycle of cell death and regeneration. The fibers generate reactive oxygen species (ROS) and reactive nitrogen species that damage DNA, proteins, and lipids. Chronic inflammation driven by frustrated phagocytosis of long fibers promotes ongoing tissue damage and malignant transformation.\", \"meta\": {\"cell_types\": [\"mesothelial cell\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"pleura\"]}}, {\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Germline and Somatic Mutations\"}}, {\"id\": \"BAP1 Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAP1 (BRCA1-associated protein 1) is a nuclear deubiquitinase that regulates chromatin remodeling, DNA damage response, and cell cycle progression. BAP1 is one of the most frequently inactivated tumor suppressors in mesothelioma, affected through germline or somatic loss-of-function alterations that predispose to malignant transformation. BAP1 loss impairs chromatin regulation and global gene expression control.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\"], \"molecular_functions\": [\"deubiquitinase activity\"], \"genes\": [\"BAP1\"], \"gene_terms\": [{\"label\": \"BAP1\", \"id\": \"hgnc:950\"}]}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Homozygous Deletion\"}}, {\"id\": \"CDKN2A/p16 Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deletion of CDKN2A, encoding p16INK4a and p14ARF, is one of the most frequent genetic alterations in mesothelioma. Loss of p16 removes CDK4/6 inhibition, promoting cell cycle progression, while p14ARF loss compromises p53 stabilization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of G1/S transition\"], \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}]}}, {\"id\": \"NF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Somatic Mutations\"}}, {\"id\": \"NF2/Merlin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NF2 gene encoding merlin is frequently inactivated in mesothelioma. Merlin loss activates YAP/TAZ signaling through the Hippo pathway, promoting cell proliferation and inhibiting contact-dependent growth arrest.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Hippo signaling\"], \"genes\": [\"NF2\"], \"gene_terms\": [{\"label\": \"NF2\", \"id\": \"hgnc:7773\"}]}}], \"edges\": [{\"source\": \"Asbestos Exposure\", \"target\": \"Asbestos-Induced Mesothelial Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Fibers reaching and lodging in mesothelial tissue are what set off the repeated injury-and-regeneration cycle; because the fibers persist indefinitely, the insult is ongoing rather than a single hit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BAP1\", \"target\": \"BAP1 Tumor Suppressor Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF2\", \"target\": \"NF2/Merlin Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"CDKN2A/p16 Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Asbestos Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Asbestos fibers, when inhaled or ingested, become lodged in mesothelial tissues where they cause chronic inflammation, oxidative stress, and DNA damage. The fibers persist indefinitely in tissue and are directly genotoxic, causing chromosomal abnormalities and mesothelial cell transformation. Occupational exposure accounts for approximately 80% of cases.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Asbestos-Induced Mesothelial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Asbestos fibers penetrate the mesothelium and induce a cycle of cell death and regeneration. The fibers generate reactive oxygen species (ROS) and reactive nitrogen species that damage DNA, proteins, and lipids. Chronic inflammation driven by frustrated phagocytosis of long fibers promotes ongoing tissue damage and malignant transformation.\", \"meta\": {\"cell_types\": [\"mesothelial cell\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"pleura\"]}}, {\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"BAP1\"], \"gene_terms\": [{\"label\": \"BAP1\", \"id\": \"hgnc:950\"}], \"association\": \"Germline and Somatic Mutations\"}}, {\"id\": \"BAP1 Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAP1 (BRCA1-associated protein 1) is a nuclear deubiquitinase that regulates chromatin remodeling, DNA damage response, and cell cycle progression. BAP1 is one of the most frequently inactivated tumor suppressors in mesothelioma, affected through germline or somatic loss-of-function alterations that predispose to malignant transformation. BAP1 loss impairs chromatin regulation and global gene expression control.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\"], \"molecular_functions\": [\"deubiquitinase activity\"], \"genes\": [\"BAP1\"], \"gene_terms\": [{\"label\": \"BAP1\", \"id\": \"hgnc:950\"}]}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"association\": \"Homozygous Deletion\"}}, {\"id\": \"CDKN2A/p16 Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deletion of CDKN2A, encoding p16INK4a and p14ARF, is one of the most frequent genetic alterations in mesothelioma. Loss of p16 removes CDK4/6 inhibition, promoting cell cycle progression, while p14ARF loss compromises p53 stabilization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of G1/S transition\"], \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}]}}, {\"id\": \"NF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"NF2\"], \"gene_terms\": [{\"label\": \"NF2\", \"id\": \"hgnc:7773\"}], \"association\": \"Somatic Mutations\"}}, {\"id\": \"NF2/Merlin Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NF2 gene encoding merlin is frequently inactivated in mesothelioma. Merlin loss activates YAP/TAZ signaling through the Hippo pathway, promoting cell proliferation and inhibiting contact-dependent growth arrest.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Hippo signaling\"], \"genes\": [\"NF2\"], \"gene_terms\": [{\"label\": \"NF2\", \"id\": \"hgnc:7773\"}]}}], \"edges\": [{\"source\": \"Asbestos Exposure\", \"target\": \"Asbestos-Induced Mesothelial Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Fibers reaching and lodging in mesothelial tissue are what set off the repeated injury-and-regeneration cycle; because the fibers persist indefinitely, the insult is ongoing rather than a single hit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BAP1\", \"target\": \"BAP1 Tumor Suppressor Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF2\", \"target\": \"NF2/Merlin Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"CDKN2A/p16 Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4817,16 +5093,20 @@ This pathophysiological event involves decreased negative regulation of G1/S tra
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002202</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotype from the Human Phenotype Ontology.">
-                        Pleural effusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" class="curie-chip curie-chip-hp">HP:0002202</a>
-
-
+This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4858,16 +5138,20 @@ This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4899,16 +5183,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0100749</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.">
-                        Chest pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp">HP:0100749</a>
-
-
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4931,16 +5219,20 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4972,16 +5264,20 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5043,6 +5339,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BAP1
+
+
+    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:950</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAP1 (hgnc:950). hgnc:950 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -5064,6 +5382,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NF2
+
+
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7773</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5079,6 +5419,28 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CDKN2A
+
+
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:1787</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5090,6 +5452,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5108,18 +5473,18 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -5144,33 +5509,37 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cisplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pemetrexed (CHEBI:63616). CHEBI:63616 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         pemetrexed
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63616" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:63616</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63616" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:63616</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pemetrexed (CHEBI:63616). CHEBI:63616 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5194,18 +5563,18 @@ This treatment uses pemetrexed (CHEBI:63616). CHEBI:63616 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -5247,6 +5616,7 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15245787" target="_blank">DOI:10.3390/cancers15245787</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5277,17 +5647,17 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Definitive Surgical Resection<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">Definitive Surgical Resection</span>
+This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.">NCIT:C154430</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C154430" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C154430">NCIT:C154430</a>
 
 
 
@@ -5327,17 +5697,17 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">Radiation Therapy</span>
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -5388,23 +5758,29 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         exposure to asbestos
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9000033" target="_blank" class="curie-chip curie-chip-ecto">ECTO:9000033</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000033" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-26">ECTO:9000033</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -5423,6 +5799,7 @@ This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23743993" target="_blank">PMID:23743993</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5470,6 +5847,7 @@ This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23743993" target="_blank">PMID:23743993</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5551,7 +5929,7 @@ This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 i
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001006432">
                 <div class="item-name">
                     Malignant mesothelioma EWAS on European prospective study
 
@@ -5586,7 +5964,7 @@ This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 i
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001563">
                 <div class="item-name">
                     Genomic characterization of Malignant Pleural Mesothelioma.
 
@@ -5621,7 +5999,7 @@ This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 i
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002299">
                 <div class="item-name">
                     Mesothelioma Genomics Study - WGS tumour/normal pairs
 
@@ -5684,7 +6062,6 @@ This environmental factor is exposure to asbestos (ECTO:9000033). ECTO:9000033 i
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Malignant Mesothelioma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-05-09T19:42:12Z&#39;
 description: &gt;-
   Malignant mesothelioma is an aggressive cancer arising from mesothelial cells
   lining the pleural, peritoneal, or pericardial cavities. It is strongly associated
@@ -5977,6 +6354,11 @@ biochemical:
     mesothelial proliferation.
 genetic:
 - name: BAP1
+  gene_term:
+    preferred_term: BAP1
+    term:
+      id: hgnc:950
+      label: BAP1
   association: Germline and Somatic Mutations
   inheritance:
   - name: Autosomal Dominant
@@ -5986,12 +6368,22 @@ genetic:
     cutaneous melanoma, and renal cell carcinoma. Somatic BAP1 loss occurs in
     60-70% of sporadic mesotheliomas.
 - name: NF2
+  gene_term:
+    preferred_term: NF2
+    term:
+      id: hgnc:7773
+      label: NF2
   association: Somatic Mutations
   notes: &gt;-
     NF2 inactivation through mutation, deletion, or methylation occurs in
     approximately 50% of mesotheliomas. Encodes merlin, a tumor suppressor
     regulating the Hippo pathway.
 - name: CDKN2A
+  gene_term:
+    preferred_term: CDKN2A
+    term:
+      id: hgnc:1787
+      label: CDKN2A
   association: Homozygous Deletion
   notes: &gt;-
     CDKN2A homozygous deletion is the most common genetic alteration in
@@ -6075,6 +6467,25 @@ classifications:
     classification_value: Carcinoma
   harrisons_chapter:
   - classification_value: ONCOLOGY_HEMATOLOGY
+  ilo_agent_category:
+  - classification_value: cancer_asbestos
+    notes: &gt;-
+      ILO List of Occupational Diseases (revised 2010), item 3.1.1 &#34;Cancer
+      caused by asbestos&#34;, under section 3 (occupational cancer). Contrast
+      Asbestosis, which takes item 2.1.1 under the target-organ-system section
+      from the same exposure — the ILO list routes the malignant and
+      non-malignant consequences of asbestos through different sections.
+      Roughly 80% of mesothelioma cases are occupationally attributable, but the
+      assignment records that an occupational form is recognised, not that every
+      case is occupational.
+  eu_occupational_category:
+  - classification_value: mesothelioma_inhalation_asbestos_dust
+    notes: &gt;-
+      European schedule of occupational diseases (Commission Recommendation
+      2003/670/EC as amended), Annex I item 301.22 &#34;Mesothelioma following the
+      inhalation of asbestos dust&#34;, a sub-item of 301 (diseases of the
+      respiratory system and cancers). Peritoneal mesothelioma is covered by the
+      same item, which names the exposure rather than the serosal site.
 references:
 - reference: DOI:10.1200/jco-24-02425
   title: &#39;Treatment of Pleural Mesothelioma: ASCO Guideline Update&#39;
@@ -6281,6 +6692,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1200/jco-24-02425" target="_blank">DOI:10.1200/jco-24-02425</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6349,6 +6761,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15245787" target="_blank">DOI:10.3390/cancers15245787</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6419,6 +6832,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15245808" target="_blank">DOI:10.3390/cancers15245808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6487,6 +6901,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers17193199" target="_blank">DOI:10.3390/cancers17193199</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6557,6 +6972,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/diagnostics15111323" target="_blank">DOI:10.3390/diagnostics15111323</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6626,6 +7042,7 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms251910861" target="_blank">DOI:10.3390/ijms251910861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6694,6 +7111,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm13195837" target="_blank">DOI:10.3390/jcm13195837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6800,6 +7218,7 @@ datasets:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.6004/jnccn.2023.0045" target="_blank">DOI:10.6004/jnccn.2023.0045</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7747,7 +8166,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Malignant Mesothelioma", "mondoId": "MONDO:0006292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Malignant_Mesothelioma", "yamlRevision": "295df025c041"};
+        const OS_CONFIG = {"diseaseName": "Malignant Mesothelioma", "mondoId": "MONDO:0006292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Malignant_Mesothelioma", "yamlRevision": "7fbce0c6b38a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8166,5 +8585,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

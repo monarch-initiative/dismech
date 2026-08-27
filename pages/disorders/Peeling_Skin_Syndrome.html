@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Peeling Skin Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Peeling Skin Syndrome</h1>
             <div class="header-meta">
 
@@ -3879,36 +4001,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">DERMATOLOGY</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-mechanistic">desmosomopathy</span>
+
+
+
+
+                    <span class="tag tag-mechanistic" title="Applies specifically to the GPSS-Type-B-CDSN subtype (biallelic CDSN loss-of-function), where the corneodesmosome — a modified, stratum-corneum-specific desmosome — loses corneocyte-cohesion function (PMID:21929534). The other PSS subtypes are not desmosomal: TGM5 is a crosslinking-enzyme defect and CSTA/CAST/SERPINB8 are protease-inhibitor defects causing over-desquamation.">desmosomopathy</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3926,7 +4133,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3970,6 +4177,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22289416" target="_blank">PMID:22289416</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4044,7 +4252,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-apss-tgm5">
 
                     <div class="item-name">
                         Acral peeling skin syndrome (TGM5)
@@ -4057,18 +4265,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TGM5 (hgnc:11781). hgnc:11781 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TGM5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11781" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11781</a>
+    <a href="https://bioregistry.io/hgnc:11781" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11781</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TGM5 (hgnc:11781). hgnc:11781 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4093,7 +4303,7 @@ This subtype is caused by variation in TGM5 (hgnc:11781). hgnc:11781 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-apss-csta">
 
                     <div class="item-name">
                         Acral peeling skin syndrome / exfoliative ichthyosis (CSTA)
@@ -4106,18 +4316,20 @@ This subtype is caused by variation in TGM5 (hgnc:11781). hgnc:11781 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CSTA (hgnc:2481). hgnc:2481 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CSTA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2481" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2481</a>
+    <a href="https://bioregistry.io/hgnc:2481" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2481</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CSTA (hgnc:2481). hgnc:2481 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4142,7 +4354,7 @@ This subtype is caused by variation in CSTA (hgnc:2481). hgnc:2481 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gpss-type-a-chst8">
 
                     <div class="item-name">
                         Generalized PSS type A, non-inflammatory (CHST8)
@@ -4155,18 +4367,20 @@ This subtype is caused by variation in CSTA (hgnc:2481). hgnc:2481 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CHST8 (hgnc:15993). hgnc:15993 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CHST8
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:15993" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15993</a>
+    <a href="https://bioregistry.io/hgnc:15993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:15993</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CHST8 (hgnc:15993). hgnc:15993 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4191,7 +4405,7 @@ This subtype is caused by variation in CHST8 (hgnc:15993). hgnc:15993 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gpss-flg2">
 
                     <div class="item-name">
                         Generalized ichthyotic PSS (FLG2)
@@ -4204,18 +4418,20 @@ This subtype is caused by variation in CHST8 (hgnc:15993). hgnc:15993 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in FLG2 (hgnc:33276). hgnc:33276 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 FLG2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:33276" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:33276</a>
+    <a href="https://bioregistry.io/hgnc:33276" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:33276</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FLG2 (hgnc:33276). hgnc:33276 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4240,7 +4456,7 @@ This subtype is caused by variation in FLG2 (hgnc:33276). hgnc:33276 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gpss-type-b-cdsn">
 
                     <div class="item-name">
                         Generalized inflammatory PSS / peeling skin disease, PSS1 (CDSN)
@@ -4253,18 +4469,20 @@ This subtype is caused by variation in FLG2 (hgnc:33276). hgnc:33276 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CDSN (hgnc:1802). hgnc:1802 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CDSN
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1802" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1802</a>
+    <a href="https://bioregistry.io/hgnc:1802" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:1802</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CDSN (hgnc:1802). hgnc:1802 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4289,7 +4507,7 @@ This subtype is caused by variation in CDSN (hgnc:1802). hgnc:1802 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-plack-cast">
 
                     <div class="item-name">
                         PLACK syndrome (CAST)
@@ -4302,18 +4520,20 @@ This subtype is caused by variation in CDSN (hgnc:1802). hgnc:1802 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CAST (hgnc:1515). hgnc:1515 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CAST
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1515" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1515</a>
+    <a href="https://bioregistry.io/hgnc:1515" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:1515</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CAST (hgnc:1515). hgnc:1515 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4338,7 +4558,7 @@ This subtype is caused by variation in CAST (hgnc:1515). hgnc:1515 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gpss-serpinb8">
 
                     <div class="item-name">
                         Peeling skin syndrome (SERPINB8)
@@ -4351,18 +4571,20 @@ This subtype is caused by variation in CAST (hgnc:1515). hgnc:1515 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SERPINB8 (hgnc:8952). hgnc:8952 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SERPINB8
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8952" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8952</a>
+    <a href="https://bioregistry.io/hgnc:8952" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:8952</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SERPINB8 (hgnc:8952). hgnc:8952 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4416,18 +4638,20 @@ This subtype is caused by variation in SERPINB8 (hgnc:8952). hgnc:8952 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4455,18 +4679,20 @@ This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cell-cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go">GO:0098609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0098609</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4487,18 +4713,20 @@ This pathophysiological event involves decreased Cell-cell adhesion (GO:0098609)
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Keratinocyte differentiation (GO:0030216). GO:0030216 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Keratinocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" class="curie-chip curie-chip-go">GO:0030216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Keratinocyte differentiation (GO:0030216). GO:0030216 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4522,18 +4750,20 @@ This pathophysiological event involves Keratinocyte differentiation (GO:0030216)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Stratum corneum of epidermis (UBERON:0002027). UBERON:0002027 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Stratum corneum of epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002027" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002027" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Stratum corneum of epidermis (UBERON:0002027). UBERON:0002027 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4571,6 +4801,7 @@ This pathophysiological event occurs in Stratum corneum of epidermis (UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25473393" target="_blank">PMID:25473393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4592,6 +4823,7 @@ This pathophysiological event occurs in Stratum corneum of epidermis (UBERON:000
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25473393" target="_blank">PMID:25473393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4626,18 +4858,20 @@ This pathophysiological event occurs in Stratum corneum of epidermis (UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4665,18 +4899,20 @@ This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Establishment of skin barrier (GO:0061436). GO:0061436 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Establishment of skin barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go">GO:0061436</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0061436</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Establishment of skin barrier (GO:0061436). GO:0061436 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4704,18 +4940,20 @@ This pathophysiological event involves decreased Establishment of skin barrier (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4737,6 +4975,7 @@ This pathophysiological event occurs in Skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20691404" target="_blank">PMID:20691404</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4760,6 +4999,7 @@ This pathophysiological event occurs in Skin epidermis (UBERON:0001003). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20691404" target="_blank">PMID:20691404</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4781,6 +5021,7 @@ This pathophysiological event occurs in Skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20691404" target="_blank">PMID:20691404</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4815,18 +5056,20 @@ This pathophysiological event occurs in Skin epidermis (UBERON:0001003). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4854,18 +5097,20 @@ This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Proteolysis of corneodesmosomal adhesion proteins, annotated with proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Proteolysis of corneodesmosomal adhesion proteins
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Proteolysis of corneodesmosomal adhesion proteins, annotated with proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4923,6 +5168,7 @@ This pathophysiological event involves increased Proteolysis of corneodesmosomal
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30032785" target="_blank">PMID:30032785</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4945,6 +5191,7 @@ This pathophysiological event involves increased Proteolysis of corneodesmosomal
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30032785" target="_blank">PMID:30032785</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4966,6 +5213,7 @@ This pathophysiological event involves increased Proteolysis of corneodesmosomal
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16778802" target="_blank">PMID:16778802</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5000,18 +5248,20 @@ This pathophysiological event involves increased Proteolysis of corneodesmosomal
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5039,18 +5289,20 @@ This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Keratinization / cornified envelope formation, annotated with cornified envelope assembly (GO:1903575). GO:1903575 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Keratinization / cornified envelope formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903575" target="_blank" class="curie-chip curie-chip-go">GO:1903575</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903575" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:1903575</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Keratinization / cornified envelope formation, annotated with cornified envelope assembly (GO:1903575). GO:1903575 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5107,6 +5359,7 @@ This pathophysiological event involves abnormal Keratinization / cornified envel
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22289416" target="_blank">PMID:22289416</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5200,16 +5453,22 @@ This pathophysiological event involves abnormal Keratinization / cornified envel
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating IgE concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003212</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating IgE concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp">HP:0003212</a>
-
-
+This clinical feature is Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5229,6 +5488,7 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31663161" target="_blank">PMID:31663161</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5271,16 +5531,20 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.">
-                        Erythroderma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp">HP:0001019</a>
-
-
+This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5300,6 +5564,7 @@ This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32926582" target="_blank">PMID:32926582</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5333,16 +5598,20 @@ This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0500093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype from the Human Phenotype Ontology.">
-                        Food allergy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp">HP:0500093</a>
-
-
+This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5362,6 +5631,7 @@ This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20691404" target="_blank">PMID:20691404</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5404,16 +5674,22 @@ This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Scaling skin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0040189</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Superficial skin peeling, annotated with Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.">
-                        Scaling skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp">HP:0040189</a>
-
-
+This clinical feature is Superficial skin peeling, annotated with Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5433,6 +5709,7 @@ This clinical feature is Superficial skin peeling, annotated with Scaling skin (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31663161" target="_blank">PMID:31663161</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5455,6 +5732,7 @@ This clinical feature is Superficial skin peeling, annotated with Scaling skin (
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22289416" target="_blank">PMID:22289416</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5488,16 +5766,20 @@ This clinical feature is Superficial skin peeling, annotated with Scaling skin (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0008064</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
-                        Ichthyosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
-
-
+This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5517,6 +5799,7 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29505760" target="_blank">PMID:29505760</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5550,16 +5833,20 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
-                        Pruritus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
-
-
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5579,6 +5866,7 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32926582" target="_blank">PMID:32926582</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5612,16 +5900,20 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001820" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001820</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Leukonychia (HP:0001820). HP:0001820 is a phenotype from the Human Phenotype Ontology.">
-                        Leukonychia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001820" target="_blank" class="curie-chip curie-chip-hp">HP:0001820</a>
-
-
+This clinical feature is Leukonychia (HP:0001820). HP:0001820 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5641,6 +5933,7 @@ This clinical feature is Leukonychia (HP:0001820). HP:0001820 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25683118" target="_blank">PMID:25683118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5674,16 +5967,20 @@ This clinical feature is Leukonychia (HP:0001820). HP:0001820 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0032541</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Knuckle pad (HP:0032541). HP:0032541 is a phenotype from the Human Phenotype Ontology.">
-                        Knuckle pad
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032541" target="_blank" class="curie-chip curie-chip-hp">HP:0032541</a>
-
-
+This clinical feature is Knuckle pad (HP:0032541). HP:0032541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5703,6 +6000,7 @@ This clinical feature is Knuckle pad (HP:0032541). HP:0032541 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25683118" target="_blank">PMID:25683118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5736,16 +6034,22 @@ This clinical feature is Knuckle pad (HP:0032541). HP:0032541 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperpigmentation of the skin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000953</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperpigmentation of the skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp">HP:0000953</a>
-
-
+This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5765,6 +6069,7 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30032785" target="_blank">PMID:30032785</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5807,16 +6112,20 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0025819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Palmoplantar peeling (HP:0025819). HP:0025819 is a phenotype from the Human Phenotype Ontology.">
-                        Palmoplantar peeling
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025819" target="_blank" class="curie-chip curie-chip-hp">HP:0025819</a>
-
-
+This clinical feature is Palmoplantar peeling (HP:0025819). HP:0025819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5836,6 +6145,7 @@ This clinical feature is Palmoplantar peeling (HP:0025819). HP:0025819 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22289416" target="_blank">PMID:22289416</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5869,16 +6179,20 @@ This clinical feature is Palmoplantar peeling (HP:0025819). HP:0025819 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100825" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100825</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cheilitis (HP:0100825). HP:0100825 is a phenotype from the Human Phenotype Ontology.">
-                        Cheilitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100825" target="_blank" class="curie-chip curie-chip-hp">HP:0100825</a>
-
-
+This clinical feature is Cheilitis (HP:0100825). HP:0100825 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5898,6 +6212,7 @@ This clinical feature is Cheilitis (HP:0100825). HP:0100825 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25683118" target="_blank">PMID:25683118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5977,15 +6292,17 @@ This clinical feature is Cheilitis (HP:0100825). HP:0100825 is a phenotype from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CDSN (hgnc:1802). hgnc:1802 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDSN
 
 
-    <a href="https://bioregistry.io/hgnc:1802" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1802</a>
+    <a href="https://bioregistry.io/hgnc:1802" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:1802</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDSN (hgnc:1802). hgnc:1802 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6014,6 +6331,7 @@ This disease-associated gene is CDSN (hgnc:1802). hgnc:1802 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31663161" target="_blank">PMID:31663161</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6052,15 +6370,17 @@ This disease-associated gene is CDSN (hgnc:1802). hgnc:1802 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TGM5 (hgnc:11781). hgnc:11781 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TGM5
 
 
-    <a href="https://bioregistry.io/hgnc:11781" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11781</a>
+    <a href="https://bioregistry.io/hgnc:11781" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:11781</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TGM5 (hgnc:11781). hgnc:11781 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6095,15 +6415,17 @@ This disease-associated gene is TGM5 (hgnc:11781). hgnc:11781 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CHST8 (hgnc:15993). hgnc:15993 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CHST8
 
 
-    <a href="https://bioregistry.io/hgnc:15993" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15993</a>
+    <a href="https://bioregistry.io/hgnc:15993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:15993</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHST8 (hgnc:15993). hgnc:15993 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6132,6 +6454,7 @@ This disease-associated gene is CHST8 (hgnc:15993). hgnc:15993 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22289416" target="_blank">PMID:22289416</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6170,15 +6493,17 @@ This disease-associated gene is CHST8 (hgnc:15993). hgnc:15993 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FLG2 (hgnc:33276). hgnc:33276 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLG2
 
 
-    <a href="https://bioregistry.io/hgnc:33276" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:33276</a>
+    <a href="https://bioregistry.io/hgnc:33276" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:33276</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLG2 (hgnc:33276). hgnc:33276 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6207,6 +6532,7 @@ This disease-associated gene is FLG2 (hgnc:33276). hgnc:33276 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29505760" target="_blank">PMID:29505760</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6245,15 +6571,17 @@ This disease-associated gene is FLG2 (hgnc:33276). hgnc:33276 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CSTA (hgnc:2481). hgnc:2481 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CSTA
 
 
-    <a href="https://bioregistry.io/hgnc:2481" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2481</a>
+    <a href="https://bioregistry.io/hgnc:2481" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:2481</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CSTA (hgnc:2481). hgnc:2481 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6282,6 +6610,7 @@ This disease-associated gene is CSTA (hgnc:2481). hgnc:2481 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23534700" target="_blank">PMID:23534700</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6320,15 +6649,17 @@ This disease-associated gene is CSTA (hgnc:2481). hgnc:2481 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CAST (hgnc:1515). hgnc:1515 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CAST
 
 
-    <a href="https://bioregistry.io/hgnc:1515" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1515</a>
+    <a href="https://bioregistry.io/hgnc:1515" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:1515</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAST (hgnc:1515). hgnc:1515 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6357,6 +6688,7 @@ This disease-associated gene is CAST (hgnc:1515). hgnc:1515 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25683118" target="_blank">PMID:25683118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6395,15 +6727,17 @@ This disease-associated gene is CAST (hgnc:1515). hgnc:1515 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SERPINB8 (hgnc:8952). hgnc:8952 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SERPINB8
 
 
-    <a href="https://bioregistry.io/hgnc:8952" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8952</a>
+    <a href="https://bioregistry.io/hgnc:8952" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:8952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SERPINB8 (hgnc:8952). hgnc:8952 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6432,6 +6766,7 @@ This disease-associated gene is SERPINB8 (hgnc:8952). hgnc:8952 is a gene from t
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30032785" target="_blank">PMID:30032785</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6463,6 +6798,9 @@ This disease-associated gene is SERPINB8 (hgnc:8952). hgnc:8952 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6479,18 +6817,18 @@ This disease-associated gene is SERPINB8 (hgnc:8952). hgnc:8952 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">emollient therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is emollient therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">emollient therapy</span>
+This treatment is emollient therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is emollient therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6530,18 +6868,18 @@ This treatment is emollient therapy, annotated with Pharmacotherapy (NCIT:C15986
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6581,17 +6919,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6633,6 +6971,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38590258" target="_blank">PMID:38590258</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6663,17 +7002,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6715,6 +7054,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32926582" target="_blank">PMID:32926582</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6736,6 +7076,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32926582" target="_blank">PMID:32926582</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6767,17 +7108,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7065,6 +7406,7 @@ pathophysiology:
     explanation: &gt;-
       Identifies the molecular components of corneodesmosomes affected in PSS subtypes.
 - name: Loss of corneodesmosin and epidermal barrier breakdown
+  conforms_to: &#34;epidermal_cornification_failure#Stratum Corneum Permeability Barrier Failure&#34;
   description: &gt;-
     In CDSN-related inflammatory generalized PSS (PSS1/peeling skin disease),
     complete loss of corneodesmosin abolishes corneodesmosome adhesion, causing
@@ -8694,7 +9036,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peeling Skin Syndrome", "mondoId": "MONDO:0019347", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peeling_Skin_Syndrome", "yamlRevision": "0a36c398e236"};
+        const OS_CONFIG = {"diseaseName": "Peeling Skin Syndrome", "mondoId": "MONDO:0019347", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peeling_Skin_Syndrome", "yamlRevision": "33082c3587d8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9113,5 +9455,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

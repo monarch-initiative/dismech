@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Benign Neonatal Seizures</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Benign Neonatal Seizures</h1>
             <div class="header-meta">
 
@@ -3949,27 +4071,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification" title="Self-limited familial neonatal epilepsy is a focal epilepsy syndrome of neonatal onset.">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4043,7 +4242,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-boundary-of-self-limited-familial-neonatal-epilepsy">
                 <div class="item-name">Clinical boundary of self-limited familial neonatal epilepsy</div>
 
                 <div class="item-desc">Focal motor seizures begin after a seizure-free interval, typically at age two to eight days in an otherwise healthy term infant, and remit by six to 12 months with generally normal development. Tonic limb stiffening, migration during an event, apnea, and cyanosis are characteristic semiologies. Acute symptomatic neonatal seizures and KCNQ2-DEE must be excluded before assigning the self-limited syndrome.</div>
@@ -4089,6 +4288,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20437616" target="_blank">PMID:20437616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4110,6 +4310,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20437616" target="_blank">PMID:20437616</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4135,7 +4336,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-molecular-confirmation-of-kcnq2-related-self-limited-familial-neonatal-epilepsy">
                 <div class="item-name">Molecular confirmation of KCNQ2-related self-limited familial neonatal epilepsy</div>
 
                 <div class="item-desc">In a proband with the compatible self-limited neonatal phenotype, a heterozygous pathogenic KCNQ2 variant establishes a KCNQ2-related diagnosis. KCNQ3 is an independently established but less common cause; variant interpretation must incorporate phenotype and segregation rather than assume that every KCNQ2 or KCNQ3 variant predicts a benign course.</div>
@@ -4181,6 +4382,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20437616" target="_blank">PMID:20437616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4217,7 +4419,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4262,6 +4464,7 @@
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4284,6 +4487,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425895" target="_blank">PMID:9425895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4305,6 +4509,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20437616" target="_blank">PMID:20437616</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4359,7 +4564,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-kcnq2-bfns">
 
                     <div class="item-name">
                         KCNQ2-related benign familial neonatal seizures
@@ -4395,6 +4600,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425895" target="_blank">PMID:9425895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4416,6 +4622,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4443,7 +4650,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-kcnq3-bfns">
 
                     <div class="item-name">
                         KCNQ3-related benign familial neonatal seizures
@@ -4479,6 +4686,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425900" target="_blank">PMID:9425900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4500,6 +4708,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4605,11 +4814,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type heterologous channel electrophysiology and pharmacology experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         heterologous channel electrophysiology and pharmacology experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type heterologous channel electrophysiology and pharmacology experiment.</span>
     </span>
 
 
@@ -4666,17 +4879,21 @@ This experiment is of type heterologous channel electrophysiology and pharmacolo
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ2
 
 
-    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6296</a>
+    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6296</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4701,17 +4918,21 @@ This perturbation targets KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO G
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ3
 
 
-    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6297</a>
+    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6297</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4782,17 +5003,21 @@ This perturbation targets KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO G
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on decreased membrane repolarization (GO:0086009). GO:0086009 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         membrane repolarization
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086009" target="_blank" class="curie-chip curie-chip-go">GO:0086009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0086009</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased membrane repolarization (GO:0086009). GO:0086009 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4828,11 +5053,15 @@ This readout reports on decreased membrane repolarization (GO:0086009). GO:00860
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by patch-clamp electrophysiology assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         patch-clamp electrophysiology assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by patch-clamp electrophysiology assay.</span>
     </span>
 
 
@@ -4952,6 +5181,12 @@ This readout is measured by patch-clamp electrophysiology assay.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4975,6 +5210,7 @@ This readout is measured by patch-clamp electrophysiology assay.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22275249" target="_blank">PMID:22275249</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4996,6 +5232,7 @@ This readout is measured by patch-clamp electrophysiology assay.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41988220" target="_blank">PMID:41988220</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5068,11 +5305,15 @@ This readout is measured by patch-clamp electrophysiology assay.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type developmental time-course electrophysiology experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         developmental time-course electrophysiology experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
+This experiment is of type developmental time-course electrophysiology experiment.</span>
     </span>
 
 
@@ -5130,17 +5371,21 @@ This experiment is of type developmental time-course electrophysiology experimen
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on decreased membrane repolarization (GO:0086009). GO:0086009 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         membrane repolarization
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086009" target="_blank" class="curie-chip curie-chip-go">GO:0086009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0086009</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased membrane repolarization (GO:0086009). GO:0086009 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5169,17 +5414,21 @@ This readout reports on decreased membrane repolarization (GO:0086009). GO:00860
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on dysregulated trans-synaptic signaling (GO:0099537). GO:0099537 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         trans-synaptic signaling
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0099537" target="_blank" class="curie-chip curie-chip-go">GO:0099537</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0099537" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0099537</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on dysregulated trans-synaptic signaling (GO:0099537). GO:0099537 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5215,11 +5464,15 @@ This readout reports on dysregulated trans-synaptic signaling (GO:0099537). GO:0
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by patch-clamp electrophysiology assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-9">
 
         patch-clamp electrophysiology assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this readout is measured by this assay
+This readout is measured by patch-clamp electrophysiology assay.</span>
     </span>
 
 
@@ -5244,11 +5497,15 @@ This readout is measured by patch-clamp electrophysiology assay.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by multielectrode array recording.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-10">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -5347,6 +5604,12 @@ This readout is measured by multielectrode array recording.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5370,6 +5633,7 @@ This readout is measured by multielectrode array recording.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18483067" target="_blank">PMID:18483067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5392,6 +5656,7 @@ This readout is measured by multielectrode array recording.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36939707" target="_blank">PMID:36939707</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5413,6 +5678,7 @@ This readout is measured by multielectrode array recording.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41051877" target="_blank">PMID:41051877</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5499,11 +5765,15 @@ This readout is measured by multielectrode array recording.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type isogenic cortical organoid network-maturation experiment.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-11">
 
         isogenic cortical organoid network-maturation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this experiment is of type this experiment type
+This experiment is of type isogenic cortical organoid network-maturation experiment.</span>
     </span>
 
 
@@ -5550,6 +5820,7 @@ This experiment is of type isogenic cortical organoid network-maturation experim
             </span>
 
 
+
         </div>
 
         <div class="item-meta">
@@ -5558,17 +5829,21 @@ This experiment is of type isogenic cortical organoid network-maturation experim
 
 
 
-    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+
+
+    <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-12">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -5594,17 +5869,21 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this experimental model uses this anatomical location
-This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+
+
+    <span class="tag tag-location">
 
         cerebral cortex
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000956</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
     </span>
 
 
@@ -5633,17 +5912,21 @@ This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is
 
 
 
-    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+
+
+    <span class="tag tag-cell">
 
         cortical neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -5668,17 +5951,21 @@ This experimental model uses cortical neuron, annotated with neuron (CL:0000540)
 
 
 
-    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.">
+
+
+
+    <span class="tag tag-cell">
 
         neural progenitor cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0011020</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -5735,17 +6022,21 @@ This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ2
 
 
-    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6296</a>
+    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6296</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5770,17 +6061,21 @@ This perturbation targets KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO G
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this perturbation targets this gene
-This perturbation targets KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ3
 
 
-    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6297</a>
+    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:6297</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5851,17 +6146,21 @@ This perturbation targets KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO G
 
 
 
-    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this readout reports on this biological process
-This readout reports on decreased membrane repolarization (GO:0086009). GO:0086009 is a biological process from the Gene Ontology.">
+
+
+
+    <span class="tag tag-bio">
 
         membrane repolarization
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086009" target="_blank" class="curie-chip curie-chip-go">GO:0086009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0086009</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased membrane repolarization (GO:0086009). GO:0086009 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5897,11 +6196,15 @@ This readout reports on decreased membrane repolarization (GO:0086009). GO:00860
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by patch-clamp electrophysiology assay.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-19">
 
         patch-clamp electrophysiology assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Relation: this readout is measured by this assay
+This readout is measured by patch-clamp electrophysiology assay.</span>
     </span>
 
 
@@ -5926,11 +6229,15 @@ This readout is measured by patch-clamp electrophysiology assay.">
 
 
 
-    <span class="tag tag-dataset" title="Relation: this readout is measured by this assay
-This readout is measured by multielectrode array recording.">
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-20">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -6043,6 +6350,12 @@ This readout is measured by multielectrode array recording.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -6066,6 +6379,7 @@ This readout is measured by multielectrode array recording.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18483067" target="_blank">PMID:18483067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6087,6 +6401,7 @@ This readout is measured by multielectrode array recording.">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41051877" target="_blank">PMID:41051877</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6138,17 +6453,21 @@ This readout is measured by multielectrode array recording.">
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ2
 
 
-    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6296</a>
+    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:6296</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6210,6 +6529,7 @@ This pathophysiological event involves KCNQ2 (hgnc:6296). hgnc:6296 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425895" target="_blank">PMID:9425895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6248,17 +6568,21 @@ This pathophysiological event involves KCNQ2 (hgnc:6296). hgnc:6296 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ3
 
 
-    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6297</a>
+    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:6297</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6320,6 +6644,7 @@ This pathophysiological event involves KCNQ3 (hgnc:6297). hgnc:6297 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425900" target="_blank">PMID:9425900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6353,18 +6678,20 @@ This pathophysiological event involves KCNQ3 (hgnc:6297). hgnc:6297 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6392,17 +6719,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ2
 
 
-    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6296</a>
+    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:6296</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6427,17 +6758,21 @@ This pathophysiological event involves KCNQ2 (hgnc:6296). hgnc:6296 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ3
 
 
-    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6297</a>
+    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6297</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6467,18 +6802,20 @@ This pathophysiological event involves KCNQ3 (hgnc:6297). hgnc:6297 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased voltage-gated potassium channel activity (GO:0005249). GO:0005249 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         voltage-gated potassium channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005249" target="_blank" class="curie-chip curie-chip-go">GO:0005249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0005249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased voltage-gated potassium channel activity (GO:0005249). GO:0005249 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6505,18 +6842,20 @@ This pathophysiological event involves decreased voltage-gated potassium channel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6571,6 +6910,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9836639" target="_blank">PMID:9836639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6592,6 +6932,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18483067" target="_blank">PMID:18483067</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6626,18 +6967,20 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6665,18 +7008,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0042391</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6734,6 +7079,7 @@ This pathophysiological event involves dysregulated regulation of membrane poten
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9836639" target="_blank">PMID:9836639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6767,18 +7113,20 @@ This pathophysiological event involves dysregulated regulation of membrane poten
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6795,18 +7143,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6834,18 +7184,20 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuronal action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0019228</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6873,18 +7225,20 @@ This pathophysiological event involves increased neuronal action potential (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6922,6 +7276,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36939707" target="_blank">PMID:36939707</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6943,6 +7298,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41051877" target="_blank">PMID:41051877</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6977,18 +7333,20 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7019,18 +7377,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-35">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7140,6 +7500,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20437616" target="_blank">PMID:20437616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7232,16 +7593,20 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0007359</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.">
-                        Focal-onset seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp">HP:0007359</a>
-
-
+This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7261,6 +7626,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7305,16 +7671,20 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002104</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.">
-                        Apnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp">HP:0002104</a>
-
-
+This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7334,6 +7704,7 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7356,6 +7727,7 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926830" target="_blank">PMID:28926830</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7400,16 +7772,20 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0032807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.">
-                        Neonatal seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp">HP:0032807</a>
-
-
+This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7429,6 +7805,7 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7451,6 +7828,7 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36939707" target="_blank">PMID:36939707</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7486,16 +7864,20 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011167" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0011167</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal tonic seizure (HP:0011167). HP:0011167 is a phenotype from the Human Phenotype Ontology.">
-                        Focal tonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011167" target="_blank" class="curie-chip curie-chip-hp">HP:0011167</a>
-
-
+This clinical feature is Focal tonic seizure (HP:0011167). HP:0011167 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7515,6 +7897,7 @@ This clinical feature is Focal tonic seizure (HP:0011167). HP:0011167 is a pheno
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7537,6 +7920,7 @@ This clinical feature is Focal tonic seizure (HP:0011167). HP:0011167 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926830" target="_blank">PMID:28926830</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7572,16 +7956,20 @@ This clinical feature is Focal tonic seizure (HP:0011167). HP:0011167 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002266</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal clonic seizure (HP:0002266). HP:0002266 is a phenotype from the Human Phenotype Ontology.">
-                        Focal clonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002266" target="_blank" class="curie-chip curie-chip-hp">HP:0002266</a>
-
-
+This clinical feature is Focal clonic seizure (HP:0002266). HP:0002266 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7601,6 +7989,7 @@ This clinical feature is Focal clonic seizure (HP:0002266). HP:0002266 is a phen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7636,16 +8025,20 @@ This clinical feature is Focal clonic seizure (HP:0002266). HP:0002266 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002169</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Clonus (HP:0002169). HP:0002169 is a phenotype from the Human Phenotype Ontology.">
-                        Clonus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002169" target="_blank" class="curie-chip curie-chip-hp">HP:0002169</a>
-
-
+This clinical feature is Clonus (HP:0002169). HP:0002169 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7665,6 +8058,7 @@ This clinical feature is Clonus (HP:0002169). HP:0002169 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7700,16 +8094,20 @@ This clinical feature is Clonus (HP:0002169). HP:0002169 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0010818</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized tonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp">HP:0010818</a>
-
-
+This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7729,6 +8127,7 @@ This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7764,16 +8163,20 @@ This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0011154</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal autonomic seizure (HP:0011154). HP:0011154 is a phenotype from the Human Phenotype Ontology.">
-                        Focal autonomic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011154" target="_blank" class="curie-chip curie-chip-hp">HP:0011154</a>
-
-
+This clinical feature is Focal autonomic seizure (HP:0011154). HP:0011154 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7793,6 +8196,7 @@ This clinical feature is Focal autonomic seizure (HP:0011154). HP:0011154 is a p
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7828,16 +8232,20 @@ This clinical feature is Focal autonomic seizure (HP:0011154). HP:0011154 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0032556</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Circumoral cyanosis (HP:0032556). HP:0032556 is a phenotype from the Human Phenotype Ontology.">
-                        Circumoral cyanosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032556" target="_blank" class="curie-chip curie-chip-hp">HP:0032556</a>
-
-
+This clinical feature is Circumoral cyanosis (HP:0032556). HP:0032556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7857,6 +8265,7 @@ This clinical feature is Circumoral cyanosis (HP:0032556). HP:0032556 is a pheno
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7892,16 +8301,20 @@ This clinical feature is Circumoral cyanosis (HP:0032556). HP:0032556 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0045084</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limb myoclonus (HP:0045084). HP:0045084 is a phenotype from the Human Phenotype Ontology.">
-                        Limb myoclonus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0045084" target="_blank" class="curie-chip curie-chip-hp">HP:0045084</a>
-
-
+This clinical feature is Limb myoclonus (HP:0045084). HP:0045084 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7921,6 +8334,7 @@ This clinical feature is Limb myoclonus (HP:0045084). HP:0045084 is a phenotype 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7956,16 +8370,20 @@ This clinical feature is Limb myoclonus (HP:0045084). HP:0045084 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011188" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0011188</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal EEG discharges with secondary generalization (HP:0011188). HP:0011188 is a phenotype from the Human Phenotype Ontology.">
-                        Focal EEG discharges with secondary generalization
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011188" target="_blank" class="curie-chip curie-chip-hp">HP:0011188</a>
-
-
+This clinical feature is Focal EEG discharges with secondary generalization (HP:0011188). HP:0011188 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7985,6 +8403,7 @@ This clinical feature is Focal EEG discharges with secondary generalization (HP:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8064,15 +8483,17 @@ This clinical feature is Focal EEG discharges with secondary generalization (HP:
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNQ2
 
 
-    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6296</a>
+    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:6296</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8100,6 +8521,7 @@ This disease-associated gene is KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425895" target="_blank">PMID:9425895</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8122,6 +8544,7 @@ This disease-associated gene is KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the 
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8143,6 +8566,7 @@ This disease-associated gene is KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41988220" target="_blank">PMID:41988220</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8183,15 +8607,17 @@ This disease-associated gene is KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNQ3
 
 
-    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6297</a>
+    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:6297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8219,6 +8645,7 @@ This disease-associated gene is KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425900" target="_blank">PMID:9425900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8240,6 +8667,7 @@ This disease-associated gene is KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8271,6 +8699,105 @@ This disease-associated gene is KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-self-limited-neonatal-epilepsy-record">
+
+
+    <div class="item-name">Orphanet self-limited neonatal epilepsy record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=1949" target="_blank" rel="noopener noreferrer" title="Open ORPHA:1949">ORPHA:1949</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet identifies self-limited (familial) neonatal epilepsy (a synonym of benign familial neonatal seizures) as ORPHA:1949 and provides an exact cross-reference to MONDO:0016027.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:1949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0016027 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s cross-reference table maps ORPHA:1949 exactly to MONDO:0016027.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:1949" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:1949" target="_blank">ORPHA:1949</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:121200 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet also provides an exact OMIM cross-reference for benign familial neonatal seizures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8287,18 +8814,18 @@ This disease-associated gene is KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">anticonvulsant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">anticonvulsant agent therapy</span>
+This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
 
 
 
@@ -8323,18 +8850,20 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         carbamazepine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:3387</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:3387</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8349,33 +8878,37 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neonatal seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp">HP:0032807</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0032807</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Focal-onset seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0007359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8394,6 +8927,7 @@ This treatment targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37827512" target="_blank">PMID:37827512</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8417,6 +8951,7 @@ This treatment targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926830" target="_blank">PMID:28926830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8438,6 +8973,7 @@ This treatment targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36948217" target="_blank">PMID:36948217</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8471,18 +9007,18 @@ This treatment targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenoty
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">anticonvulsant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">anticonvulsant agent therapy</span>
+This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
 
 
 
@@ -8507,33 +9043,37 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         carbamazepine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:3387</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:3387</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses oxcarbazepine (CHEBI:7824). CHEBI:7824 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         oxcarbazepine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7824" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:7824</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7824" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:7824</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses oxcarbazepine (CHEBI:7824). CHEBI:7824 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8548,18 +9088,20 @@ This treatment uses oxcarbazepine (CHEBI:7824). CHEBI:7824 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neonatal seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp">HP:0032807</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0032807</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8578,6 +9120,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28926830" target="_blank">PMID:28926830</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8601,6 +9144,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40236662" target="_blank">PMID:40236662</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8622,6 +9166,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41988220" target="_blank">PMID:41988220</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8671,7 +9216,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-kcnq2-developmental-and-epileptic-encephalopathy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="KCNQ2_Developmental_and_Epileptic_Encephalopathy.html">KCNQ2 developmental and epileptic encephalopathy</a>
@@ -8722,6 +9267,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20437616" target="_blank">PMID:20437616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8743,6 +9289,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41988220" target="_blank">PMID:41988220</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8769,7 +9316,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-benign-familial-infantile-epilepsy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Benign_Familial_Infantile_Epilepsy.html">Benign familial infantile epilepsy</a>
@@ -8814,6 +9361,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40236662" target="_blank">PMID:40236662</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8839,7 +9387,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-symptomatic-neonatal-seizures">
                 <div class="item-name">
 
                     Acute symptomatic neonatal seizures
@@ -8880,6 +9428,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40236662" target="_blank">PMID:40236662</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8915,7 +9464,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-pmid-41988220">
                 <div class="item-name">
                     KCNQ2 Variants in Neonatal Epilepsy: Clinical Characteristics and Neurodevelopmental Outcomes in 30 Patients.
 
@@ -8976,6 +9525,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41988220" target="_blank">PMID:41988220</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9011,7 +9561,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05157737">
                 <div class="item-name">
                     NCT05157737
 
@@ -9038,6 +9588,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05157737" target="_blank">clinicaltrials:NCT05157737</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9153,6 +9704,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9836639" target="_blank">PMID:9836639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9198,6 +9750,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9836639" target="_blank">PMID:9836639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9219,6 +9772,7 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9836639" target="_blank">PMID:9836639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9307,17 +9861,21 @@ This treatment targets Neonatal seizure (HP:0032807). HP:0032807 is a phenotype 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ2
 
 
-    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6296</a>
+    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:6296</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9342,17 +9900,21 @@ This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ3
 
 
-    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6297</a>
+    <a href="https://bioregistry.io/hgnc:6297" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:6297</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9397,6 +9959,7 @@ This experimental model concerns KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18483067" target="_blank">PMID:18483067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9418,6 +9981,7 @@ This experimental model concerns KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18483067" target="_blank">PMID:18483067</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9486,17 +10050,21 @@ This experimental model concerns KCNQ3 (hgnc:6297). hgnc:6297 is a gene from the
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNQ2
 
 
-    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6296</a>
+    <a href="https://bioregistry.io/hgnc:6296" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:6296</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9541,6 +10109,7 @@ This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41051877" target="_blank">PMID:41051877</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9562,6 +10131,7 @@ This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41051877" target="_blank">PMID:41051877</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9605,7 +10175,6 @@ This experimental model concerns KCNQ2 (hgnc:6296). hgnc:6296 is a gene from the
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Benign Neonatal Seizures
 creation_date: &#34;2026-05-13T12:00:00Z&#34;
-updated_date: &#34;2026-05-13T20:00:00Z&#34;
 category: Mendelian
 description: &gt;-
   Benign neonatal seizures, now termed self-limited (familial) neonatal
@@ -11811,7 +12380,7 @@ medicine framing in PMID:28926830.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Benign Neonatal Seizures", "mondoId": "MONDO:0016027", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Benign_Neonatal_Seizures", "yamlRevision": "f6256674d01a"};
+        const OS_CONFIG = {"diseaseName": "Benign Neonatal Seizures", "mondoId": "MONDO:0016027", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Benign_Neonatal_Seizures", "yamlRevision": "ba5ffc1ceee5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12230,5 +12799,73 @@ medicine framing in PMID:28926830.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Laryngeal Squamous Cell Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Laryngeal Squamous Cell Carcinoma</h1>
             <div class="header-meta">
 
@@ -3898,6 +4020,122 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICD-O Morphology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Derived from this entry&#39;s disease term MONDO:0005595 (laryngeal squamous cell carcinoma), whose NCIT cross-reference NCIT:C4044 (Laryngeal Squamous Cell Carcinoma) is a descendant of NCIT:C2929 (Squamous Cell Carcinoma), the term this enum value is bound to.">Squamous Cell Carcinoma</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Laryngeal squamous cell carcinoma is managed as a head-and-neck solid-tumor oncology problem (surgery, radiotherapy, chemoradiation).">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -3942,7 +4180,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-glottic-scc">
 
                     <div class="item-name">
                         Glottic squamous cell carcinoma
@@ -3970,7 +4208,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-supraglottic-scc">
 
                     <div class="item-name">
                         Supraglottic squamous cell carcinoma
@@ -3998,7 +4236,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-subglottic-scc">
 
                     <div class="item-name">
                         Subglottic squamous cell carcinoma
@@ -4026,7 +4264,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-transglottic-scc">
 
                     <div class="item-name">
                         Transglottic squamous cell carcinoma
@@ -4083,18 +4321,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         squamous epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl">CL:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4122,18 +4362,20 @@ This pathophysiological event involves squamous epithelial cell (CL:0000076). CL
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4161,18 +4403,20 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         larynx
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001737" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001737</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001737" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001737</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4209,6 +4453,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jpm14101048" target="_blank">DOI:10.3390/jpm14101048</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4250,17 +4495,21 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4289,18 +4538,20 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cell cycle checkpoint signaling (GO:0000075). GO:0000075 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell cycle checkpoint signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go">GO:0000075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000075" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000075</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell cycle checkpoint signaling (GO:0000075). GO:0000075 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4321,18 +4572,20 @@ This pathophysiological event involves decreased cell cycle checkpoint signaling
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4390,6 +4643,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                         <a href="https://bioregistry.io/DOI:10.3390/jpm14101048" target="_blank">DOI:10.3390/jpm14101048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4430,18 +4684,20 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4499,6 +4755,7 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="https://bioregistry.io/DOI:10.3390/jpm14101048" target="_blank">DOI:10.3390/jpm14101048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4539,18 +4796,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4593,6 +4852,7 @@ This pathophysiological event involves increased negative regulation of T cell m
                         <a href="https://bioregistry.io/DOI:10.1007/s00405-024-08822-7" target="_blank">DOI:10.1007/s00405-024-08822-7</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4626,18 +4886,20 @@ This pathophysiological event involves increased negative regulation of T cell m
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         regulatory T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000815</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4654,18 +4916,20 @@ This pathophysiological event involves regulatory T cell (CL:0000815). CL:000081
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4693,18 +4957,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4760,6 +5026,7 @@ This pathophysiological event involves increased negative regulation of T cell m
                         <a href="https://bioregistry.io/DOI:10.1038/s42003-024-05765-x" target="_blank">DOI:10.1038/s42003-024-05765-x</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4800,18 +5067,20 @@ This pathophysiological event involves increased negative regulation of T cell m
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4832,18 +5101,20 @@ This pathophysiological event involves increased response to hypoxia (GO:0001666
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0016055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4864,18 +5135,20 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Notch signaling pathway (GO:0007219). GO:0007219 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Notch signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go">GO:0007219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Notch signaling pathway (GO:0007219). GO:0007219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4937,6 +5210,7 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
                         <a href="https://bioregistry.io/DOI:10.1093/gpbjnl/qzae056" target="_blank">DOI:10.1093/gpbjnl/qzae056</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4977,18 +5251,20 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5031,6 +5307,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                         <a href="https://bioregistry.io/DOI:10.1038/s42003-024-05765-x" target="_blank">DOI:10.1038/s42003-024-05765-x</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5066,7 +5343,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-laryngeal-squamous-cell-carcinoma">
                 <div class="item-name">
                     Laryngeal Squamous Cell Carcinoma
 
@@ -5151,16 +5428,20 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is cervical lymphadenopathy, annotated with Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is cervical lymphadenopathy, annotated with Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5192,16 +5473,20 @@ This clinical feature is cervical lymphadenopathy, annotated with Lymphadenopath
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5233,16 +5518,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5265,16 +5554,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0010307</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from the Human Phenotype Ontology.">
-                        Stridor
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp">HP:0010307</a>
-
-
+This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5306,16 +5599,22 @@ This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hoarse voice</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001609</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hoarseness, annotated with Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.">
-                        Hoarse voice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp">HP:0001609</a>
-
-
+This clinical feature is Hoarseness, annotated with Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5347,16 +5646,20 @@ This clinical feature is Hoarseness, annotated with Hoarse voice (HP:0001609). H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5423,15 +5726,17 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5452,6 +5757,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jpm14101048" target="_blank">DOI:10.3390/jpm14101048</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5490,15 +5796,17 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:1787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5519,6 +5827,7 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jpm14101048" target="_blank">DOI:10.3390/jpm14101048</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5557,15 +5866,17 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:8975</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5586,6 +5897,7 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jpm14101048" target="_blank">DOI:10.3390/jpm14101048</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5617,6 +5929,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5633,18 +5948,18 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5684,17 +5999,17 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">Radiation Therapy</span>
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -5734,18 +6049,18 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -5785,17 +6100,17 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5820,18 +6135,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         pembrolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C106432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5884,18 +6201,20 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         exposure to tobacco smoking
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-30">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
@@ -5904,9 +6223,46 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
 
+
+
+
+
                 <div class="item-desc">Tobacco smoke exposes laryngeal squamous epithelium to carcinogens that promote DNA damage, clonal selection, and malignant transformation.</div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1436247" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1436247" target="_blank">PMID:1436247</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study revealed that tobacco was significantly associated with laryngeal cancer."</div>
+
+
+                <div class="evidence-explanation">Case-control study establishing tobacco smoking as a significant risk factor for laryngeal cancer.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5918,18 +6274,20 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+
+                    <span class="tag tag-env">
+                        exposure to alcohol consumption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-31">ECTO:0001082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
-This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
-                        exposure to ethanol
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/ECTO_9000027" target="_blank" class="curie-chip curie-chip-ecto">ECTO:9000027</a>
-
-
-
+This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECTO:0001082 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
@@ -5938,9 +6296,48 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
 
+
+
+
+                <div class="item-desc">Bound to ECTO:0001082 (exposure to alcohol consumption, which involves the NCIT behaviour class) rather than ECTO:9000027 (exposure to ethanol, which involves CHEBI ethanol) because this entry makes a risk-association claim and describes no ethanol or acetaldehyde mechanism. Sibling head and neck entries that do curate that chemistry are named and bound for the chemical instead.</div>
+
+
                 <div class="item-desc">Alcohol exposure contributes to upper aerodigestive tract carcinogenesis and can act together with tobacco exposure to increase laryngeal cancer risk.</div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20833578" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20833578" target="_blank">PMID:20833578</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"alcohol drinking versus non-drinking was associated with an approximately 2-fold increase in risk of laryngeal cancer (RR=1.90; 95% CI: 1.59-2.28)"</div>
+
+
+                <div class="evidence-explanation">Systematic review and meta-analysis of 40 studies quantifying alcohol consumption&#39;s dose-dependent risk of laryngeal cancer.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5967,7 +6364,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06137378">
                 <div class="item-name">
                     NCT06137378
 
@@ -5995,6 +6392,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
                         <a href="https://clinicaltrials.gov/study/NCT06137378" target="_blank">clinicaltrials:NCT06137378</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6018,7 +6416,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04943445">
                 <div class="item-name">
                     NCT04943445
 
@@ -6045,6 +6443,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04943445" target="_blank">clinicaltrials:NCT04943445</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6094,7 +6493,6 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Laryngeal Squamous Cell Carcinoma
 creation_date: &#34;2026-05-07T15:54:22Z&#34;
-updated_date: &#34;2026-05-07T16:31:48Z&#34;
 description: &gt;-
   Laryngeal squamous cell carcinoma is the dominant histologic form of
   laryngeal carcinoma and arises from squamous epithelium of the larynx. It is
@@ -6114,6 +6512,19 @@ disease_term:
   term:
     id: MONDO:0005595
     label: laryngeal squamous cell carcinoma
+classifications:
+  icdo_morphology:
+    classification_value: Squamous Cell Carcinoma
+    notes: &gt;-
+      Derived from this entry&#39;s disease term MONDO:0005595 (laryngeal squamous
+      cell carcinoma), whose NCIT cross-reference NCIT:C4044 (Laryngeal Squamous
+      Cell Carcinoma) is a descendant of NCIT:C2929 (Squamous Cell Carcinoma),
+      the term this enum value is bound to.
+  harrisons_chapter:
+  - classification_value: ONCOLOGY_HEMATOLOGY
+    notes: &gt;-
+      Laryngeal squamous cell carcinoma is managed as a head-and-neck solid-tumor
+      oncology problem (surgery, radiotherapy, chemoradiation).
 parents:
 - laryngeal carcinoma
 - head and neck squamous cell carcinoma
@@ -6151,15 +6562,35 @@ environmental:
     term:
       id: ECTO:6000029
       label: exposure to tobacco smoking
+  evidence:
+  - reference: PMID:1436247
+    reference_title: &#34;Influence of tobacco on laryngeal carcinoma in Spain.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our study revealed that tobacco was significantly associated with laryngeal cancer.&#34;
+    explanation: Case-control study establishing tobacco smoking as a significant risk factor for laryngeal cancer.
 - name: Alcohol Consumption
   description: &gt;-
     Alcohol exposure contributes to upper aerodigestive tract carcinogenesis and
     can act together with tobacco exposure to increase laryngeal cancer risk.
+  notes: &gt;-
+    Bound to ECTO:0001082 (exposure to alcohol consumption, which involves the NCIT
+    behaviour class) rather than ECTO:9000027 (exposure to ethanol, which involves
+    CHEBI ethanol) because this entry makes a risk-association claim and describes
+    no ethanol or acetaldehyde mechanism. Sibling head and neck entries that do
+    curate that chemistry are named and bound for the chemical instead.
   exposure_term:
-    preferred_term: exposure to ethanol
+    preferred_term: exposure to alcohol consumption
     term:
-      id: ECTO:9000027
-      label: exposure to ethanol
+      id: ECTO:0001082
+      label: exposure to alcohol consumption
+  evidence:
+  - reference: PMID:20833578
+    reference_title: &#34;Alcohol drinking and laryngeal cancer: overall and dose-risk relation--a systematic review and meta-analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;alcohol drinking versus non-drinking was associated with an approximately 2-fold increase in risk of laryngeal cancer (RR=1.90; 95% CI: 1.59-2.28)&#34;
+    explanation: Systematic review and meta-analysis of 40 studies quantifying alcohol consumption&#39;s dose-dependent risk of laryngeal cancer.
 infectious_agent:
 - name: Human Papillomavirus
   description: &gt;-
@@ -6942,6 +7373,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1007/s00405-024-08822-7" target="_blank">DOI:10.1007/s00405-024-08822-7</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7010,6 +7442,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s42003-024-05765-x" target="_blank">DOI:10.1038/s42003-024-05765-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7080,6 +7513,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/gpbjnl/qzae056" target="_blank">DOI:10.1093/gpbjnl/qzae056</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7148,6 +7582,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s13690-024-01333-1" target="_blank">DOI:10.1186/s13690-024-01333-1</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7218,6 +7653,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3389/fimmu.2024.1353435" target="_blank">DOI:10.3389/fimmu.2024.1353435</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7286,6 +7722,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fonc.2025.1541385" target="_blank">DOI:10.3389/fonc.2025.1541385</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7356,6 +7793,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines12092136" target="_blank">DOI:10.3390/biomedicines12092136</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7424,6 +7862,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jpm14101048" target="_blank">DOI:10.3390/jpm14101048</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8456,7 +8895,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Laryngeal Squamous Cell Carcinoma", "mondoId": "MONDO:0005595", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Laryngeal_Squamous_Cell_Carcinoma", "yamlRevision": "a89a00be559e"};
+        const OS_CONFIG = {"diseaseName": "Laryngeal Squamous Cell Carcinoma", "mondoId": "MONDO:0005595", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Laryngeal_Squamous_Cell_Carcinoma", "yamlRevision": "e71dc5bd9555"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8875,5 +9314,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

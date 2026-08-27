@@ -1,6 +1,19 @@
 # MONDO Prioritizer
 
-The MONDO prioritizer builds a curation queue from MONDO disease rows rather than
+!!! note "No longer the curation queue"
+
+    The outstanding curation queue is now [`stubs/`](curation-stubs.md) — one
+    YAML file per disease, edited by pull request. The prioritizer's ranked
+    output is kept as a *browsable pool* for discovering MONDO concepts to
+    nominate into that queue, but it is no longer the answer to "what should I
+    curate next". Issue
+    [#8969](https://github.com/monarch-initiative/dismech/issues/8969) records
+    why: every cheap ontology feature the score can use (child count, synonym
+    count, aggregator tags) correlates with *being a grouping* rather than with
+    *being worth curating*, so the head of the ranking filled with umbrella
+    terms no matter how the weights were tuned.
+
+The MONDO prioritizer builds a candidate pool from MONDO disease rows rather than
 from ad hoc checklist issues. It scores candidate diseases against local DisMech
 coverage, then applies a small set of explicit specificity heuristics to suggest
 whether a term should be curated as a root, lumped into a parent, or dropped.
@@ -50,6 +63,34 @@ That flow first exports candidate rows from the local MONDO sqlite database at
 `~/.data/oaklib/mondo.db`, then writes the resulting dashboard under
 `tmp/priority-dashboard-all-mondo/`. The `tmp/` tree is gitignored so these
 large artifacts stay out of GitHub by default.
+
+## Candidate Export Sidecar
+
+`scripts/export_mondo_priority_candidates.py --kb-dir kb/disorders` **drops**
+already-curated roots before writing the TSV, so the exported rows are the
+remaining queue only. That leaves the export unable to answer "how many disease
+terms are already covered?" — a dropped row has no trace in the file, and a TSV
+has nowhere to record one (a comment line would break `csv.DictReader`).
+
+The exporter therefore writes a sidecar next to every export, named for it —
+`candidates.tsv` → `candidates.meta.json`:
+
+```json
+{
+  "disease_root_id": "MONDO:0000001",
+  "kb_dir": "kb/disorders",
+  "total_descendants": 27438,
+  "excluded_curated": 2932,
+  "exported_rows": 24506
+}
+```
+
+The dashboard reads `excluded_curated` and counts it in **both** halves of the
+coverage fraction: those terms are curated, and they were candidates. Without it
+the headline reported `already_curated: 0` / `coverage_percent: 0.0` no matter
+how much of MONDO the KB covered (issue #7425). A candidate file with no sidecar
+— a hand-built TSV, or one exported without `--kb-dir` — is read as "nothing was
+excluded", which is the correct reading for both.
 
 ## Expected Input
 

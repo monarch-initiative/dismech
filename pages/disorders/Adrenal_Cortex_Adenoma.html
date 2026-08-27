@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Adrenal Cortex Adenoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adrenal Cortex Adenoma</h1>
             <div class="header-meta">
 
@@ -3901,27 +4023,104 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
+
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3968,7 +4167,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cortisol-producing">
 
                     <div class="item-name">
                         Cortisol-Producing Adenoma (overt Cushing syndrome)
@@ -3981,33 +4180,37 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PRKACA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9380</a>
+    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9380</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 GNAS
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4392</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4033,6 +4236,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4060,7 +4264,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-macs">
 
                     <div class="item-name">
                         Mild Autonomous Cortisol Secretion (MACS)
@@ -4094,6 +4298,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4115,6 +4320,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34978855" target="_blank">PMID:34978855</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4142,7 +4348,7 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aldosterone-producing">
 
                     <div class="item-name">
                         Aldosterone-Producing Adenoma (APA, Conn adenoma)
@@ -4155,78 +4361,88 @@ This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 KCNJ5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6266</a>
+    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6266</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CACNA1D
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1391</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ATP1A1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:799</a>
+    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:799</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ATP2B3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:816</a>
+    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:816</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CTNNB1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:2514</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4252,6 +4468,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21311022" target="_blank">PMID:21311022</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4279,7 +4496,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-non-functioning">
 
                     <div class="item-name">
                         Non-Functioning Adenoma (NFAT)
@@ -4292,18 +4509,20 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CTNNB1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2514</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4329,6 +4548,7 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35731037" target="_blank">PMID:35731037</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4385,18 +4605,20 @@ This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4427,18 +4649,20 @@ This pathophysiological event involves adrenal cortical cell, annotated with cor
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:0001235 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         adrenal cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001235" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001235</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001235" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:0001235 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4475,6 +4699,7 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4516,17 +4741,21 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PRKACA
 
 
-    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9380</a>
+    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9380</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4551,17 +4780,21 @@ This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:4392</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4591,18 +4824,20 @@ This pathophysiological event involves GNAS (hgnc:4392). hgnc:4392 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased cAMP-dependent protein kinase activity (GO:0004691). GO:0004691 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cAMP-dependent protein kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004691" target="_blank" class="curie-chip curie-chip-go">GO:0004691</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004691" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0004691</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased cAMP-dependent protein kinase activity (GO:0004691). GO:0004691 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4659,6 +4894,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4681,6 +4917,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4702,6 +4939,7 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24700472" target="_blank">PMID:24700472</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4743,18 +4981,20 @@ This pathophysiological event involves increased cAMP-dependent protein kinase a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go">GO:0006468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4820,6 +5060,7 @@ This pathophysiological event involves increased protein phosphorylation (GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24700472" target="_blank">PMID:24700472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4853,18 +5094,20 @@ This pathophysiological event involves increased protein phosphorylation (GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves zona fasciculata cell, annotated with type II cell of adrenal cortex (CL:0002136). CL:0002136 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         zona fasciculata cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002136" target="_blank" class="curie-chip curie-chip-cl">CL:0002136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona fasciculata cell, annotated with type II cell of adrenal cortex (CL:0002136). CL:0002136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4892,18 +5135,20 @@ This pathophysiological event involves zona fasciculata cell, annotated with typ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cortisol biosynthetic process (GO:0034651). GO:0034651 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cortisol biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034651" target="_blank" class="curie-chip curie-chip-go">GO:0034651</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034651" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0034651</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cortisol biosynthetic process (GO:0034651). GO:0034651 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4931,18 +5176,20 @@ This pathophysiological event involves increased cortisol biosynthetic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in zona fasciculata, annotated with zona fasciculata of adrenal gland (UBERON:0002054). UBERON:0002054 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         zona fasciculata
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002054" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002054</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002054" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002054</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in zona fasciculata, annotated with zona fasciculata of adrenal gland (UBERON:0002054). UBERON:0002054 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5003,6 +5250,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5076,6 +5324,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5198,6 +5447,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5295,6 +5545,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533704" target="_blank">PMID:35533704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5317,6 +5568,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533704" target="_blank">PMID:35533704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5338,6 +5590,7 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34978855" target="_blank">PMID:34978855</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5372,18 +5625,20 @@ This pathophysiological event occurs in zona fasciculata, annotated with zona fa
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5411,17 +5666,21 @@ This pathophysiological event involves zona glomerulosa cell, annotated with typ
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KCNJ5
 
 
-    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6266</a>
+    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:6266</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5446,17 +5705,21 @@ This pathophysiological event involves KCNJ5 (hgnc:6266). hgnc:6266 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CACNA1D
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:1391</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5481,17 +5744,21 @@ This pathophysiological event involves CACNA1D (hgnc:1391). hgnc:1391 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATP1A1
 
 
-    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:799</a>
+    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:799</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5516,17 +5783,21 @@ This pathophysiological event involves ATP1A1 (hgnc:799). hgnc:799 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATP2B3
 
 
-    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:816</a>
+    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:816</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5558,18 +5829,20 @@ This pathophysiological event involves ATP2B3 (hgnc:816). hgnc:816 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in zona glomerulosa, annotated with zona glomerulosa of adrenal gland (UBERON:0002053). UBERON:0002053 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         zona glomerulosa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002053" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in zona glomerulosa, annotated with zona glomerulosa of adrenal gland (UBERON:0002053). UBERON:0002053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5607,6 +5880,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23416519" target="_blank">PMID:23416519</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5629,6 +5903,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5650,6 +5925,7 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5684,18 +5960,20 @@ This pathophysiological event occurs in zona glomerulosa, annotated with zona gl
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5723,18 +6001,20 @@ This pathophysiological event involves zona glomerulosa cell, annotated with typ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         membrane depolarization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go">GO:0051899</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0051899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5792,6 +6072,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21311022" target="_blank">PMID:21311022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5825,18 +6106,20 @@ This pathophysiological event involves increased membrane depolarization (GO:005
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5864,18 +6147,20 @@ This pathophysiological event involves zona glomerulosa cell, annotated with typ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased calcium ion import across plasma membrane (GO:0098703). GO:0098703 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         calcium ion import across plasma membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098703" target="_blank" class="curie-chip curie-chip-go">GO:0098703</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098703" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0098703</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased calcium ion import across plasma membrane (GO:0098703). GO:0098703 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5941,6 +6226,7 @@ This pathophysiological event involves increased calcium ion import across plasm
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5962,6 +6248,7 @@ This pathophysiological event involves increased calcium ion import across plasm
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5996,18 +6283,20 @@ This pathophysiological event involves increased calcium ion import across plasm
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6035,17 +6324,21 @@ This pathophysiological event involves zona glomerulosa cell, annotated with typ
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CYP11B2 (hgnc:2592). hgnc:2592 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CYP11B2
 
 
-    <a href="https://bioregistry.io/hgnc:2592" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2592</a>
+    <a href="https://bioregistry.io/hgnc:2592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:2592</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP11B2 (hgnc:2592). hgnc:2592 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6074,18 +6367,20 @@ This pathophysiological event involves CYP11B2 (hgnc:2592). hgnc:2592 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased aldosterone biosynthetic process (GO:0032342). GO:0032342 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         aldosterone biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032342" target="_blank" class="curie-chip curie-chip-go">GO:0032342</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032342" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0032342</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased aldosterone biosynthetic process (GO:0032342). GO:0032342 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6151,6 +6446,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6172,6 +6468,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6261,6 +6558,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6367,6 +6665,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6389,6 +6688,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6410,6 +6710,7 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29629943" target="_blank">PMID:29629943</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6451,17 +6752,21 @@ This pathophysiological event involves increased aldosterone biosynthetic proces
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CTNNB1
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:2514</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6490,18 +6795,20 @@ This pathophysiological event involves CTNNB1 (hgnc:2514). hgnc:2514 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0060070</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6559,6 +6866,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35731037" target="_blank">PMID:35731037</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6580,6 +6888,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35731037" target="_blank">PMID:35731037</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6616,7 +6925,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-circumscribed-lipid-rich-cortical-adenoma">
                 <div class="item-name">
                     Circumscribed Lipid-Rich Cortical Adenoma
 
@@ -6637,6 +6946,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6661,7 +6971,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-low-weiss-score">
                 <div class="item-name">
                     Low Weiss Score
 
@@ -6682,6 +6992,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6703192" target="_blank">PMID:6703192</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6704,6 +7015,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6728,7 +7040,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-low-proliferative-index">
                 <div class="item-name">
                     Low Proliferative Index
 
@@ -6749,6 +7061,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6773,7 +7086,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-cyp11b2-immunoreactivity-in-aldosterone-producing-lesions">
                 <div class="item-name">
                     CYP11B2 Immunoreactivity in Aldosterone-Producing Lesions
 
@@ -6794,6 +7107,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6888,16 +7202,20 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000978</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a phenotype from the Human Phenotype Ontology.">
-                        Bruising susceptibility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp">HP:0000978</a>
-
-
+This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6917,6 +7235,7 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6961,16 +7280,20 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
-
-
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6992,6 +7315,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533704" target="_blank">PMID:35533704</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7025,16 +7349,22 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Coronary artery atherosclerosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001677</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.">
-                        Coronary artery atherosclerosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp">HP:0001677</a>
-
-
+This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7056,6 +7386,7 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7089,16 +7420,22 @@ This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:000167
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congestive heart failure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7118,6 +7455,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7151,16 +7489,20 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001297</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.">
-                        Stroke
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp">HP:0001297</a>
-
-
+This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7180,6 +7522,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7213,16 +7556,20 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0005110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.">
-                        Atrial fibrillation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp">HP:0005110</a>
-
-
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7242,6 +7589,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7275,16 +7623,20 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001712</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.">
-                        Left ventricular hypertrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp">HP:0001712</a>
-
-
+This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7304,6 +7656,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7348,16 +7701,20 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0005978</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.">
-                        Type II diabetes mellitus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp">HP:0005978</a>
-
-
+This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7377,6 +7734,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533704" target="_blank">PMID:35533704</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7410,16 +7768,20 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000846</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.">
-                        Adrenal insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp">HP:0000846</a>
-
-
+This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7439,6 +7801,7 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7481,16 +7844,20 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002900</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.">
-                        Hypokalemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp">HP:0002900</a>
-
-
+This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7512,6 +7879,7 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7547,16 +7915,20 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0003077</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperlipidemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp">HP:0003077</a>
-
-
+This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7576,6 +7948,7 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35533704" target="_blank">PMID:35533704</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7620,16 +7993,20 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000939</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.">
-                        Osteoporosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp">HP:0000939</a>
-
-
+This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7649,6 +8026,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38703381" target="_blank">PMID:38703381</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7684,16 +8062,22 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Vertebral compression fracture</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002953</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953 is a phenotype from the Human Phenotype Ontology.">
-                        Vertebral compression fracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp">HP:0002953</a>
-
-
+This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7716,6 +8100,7 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38703381" target="_blank">PMID:38703381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7737,6 +8122,7 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38703381" target="_blank">PMID:38703381</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7770,16 +8156,20 @@ This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003701</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.">
-                        Proximal muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp">HP:0003701</a>
-
-
+This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7799,6 +8189,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7843,16 +8234,22 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Adrenocortical adenoma</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0008256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Adrenocortical adenoma (HP:0008256). HP:0008256 is a phenotype from the Human Phenotype Ontology.">
-                        Adrenocortical adenoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008256" target="_blank" class="curie-chip curie-chip-hp">HP:0008256</a>
-
-
+This clinical feature is Adrenocortical adenoma (HP:0008256). HP:0008256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7872,6 +8269,7 @@ This clinical feature is Adrenocortical adenoma (HP:0008256). HP:0008256 is a ph
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7905,16 +8303,20 @@ This clinical feature is Adrenocortical adenoma (HP:0008256). HP:0008256 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001579</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a phenotype from the Human Phenotype Ontology.">
-                        Primary hypercortisolism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001579" target="_blank" class="curie-chip curie-chip-hp">HP:0001579</a>
-
-
+This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7934,6 +8336,7 @@ This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7967,16 +8370,20 @@ This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0011736</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Primary hyperaldosteronism (HP:0011736). HP:0011736 is a phenotype from the Human Phenotype Ontology.">
-                        Primary hyperaldosteronism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011736" target="_blank" class="curie-chip curie-chip-hp">HP:0011736</a>
-
-
+This clinical feature is Primary hyperaldosteronism (HP:0011736). HP:0011736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7996,6 +8403,7 @@ This clinical feature is Primary hyperaldosteronism (HP:0011736). HP:0011736 is 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23416519" target="_blank">PMID:23416519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8029,16 +8437,20 @@ This clinical feature is Primary hyperaldosteronism (HP:0011736). HP:0011736 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012743" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0012743</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal obesity (HP:0012743). HP:0012743 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal obesity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012743" target="_blank" class="curie-chip curie-chip-hp">HP:0012743</a>
-
-
+This clinical feature is Abdominal obesity (HP:0012743). HP:0012743 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8058,6 +8470,7 @@ This clinical feature is Abdominal obesity (HP:0012743). HP:0012743 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34978855" target="_blank">PMID:34978855</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8137,15 +8550,17 @@ This clinical feature is Abdominal obesity (HP:0012743). HP:0012743 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRKACA
 
 
-    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9380</a>
+    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:9380</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8171,6 +8586,7 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8192,6 +8608,7 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8230,15 +8647,17 @@ This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:4392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8263,6 +8682,7 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8301,15 +8721,17 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNJ5
 
 
-    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6266</a>
+    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:6266</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8334,6 +8756,7 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21311022" target="_blank">PMID:21311022</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8372,15 +8795,17 @@ This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CACNA1D
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:1391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8405,6 +8830,7 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8443,15 +8869,17 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP1A1
 
 
-    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:799</a>
+    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:799</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8476,6 +8904,7 @@ This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23416519" target="_blank">PMID:23416519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8514,15 +8943,17 @@ This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP2B3
 
 
-    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:816</a>
+    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:816</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8547,6 +8978,7 @@ This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23416519" target="_blank">PMID:23416519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8585,15 +9017,17 @@ This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTNNB1
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:2514</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8618,6 +9052,7 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35731037" target="_blank">PMID:35731037</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8649,6 +9084,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8667,17 +9105,17 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Adrenalectomy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical intervention from the NCI Thesaurus.">Adrenalectomy</span>
+This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15177" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical intervention from the NCI Thesaurus.">NCIT:C15177</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15177" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15177">NCIT:C15177</a>
 
 
 
@@ -8750,6 +9188,7 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28576687" target="_blank">PMID:28576687</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8772,6 +9211,7 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8793,6 +9233,7 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8826,17 +9267,17 @@ This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical interve
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8861,33 +9302,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         spironolactone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-60">CHEBI:9241</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         eplerenone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31547" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31547</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31547" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-61">CHEBI:31547</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8931,6 +9376,7 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26934393" target="_blank">PMID:26934393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8952,6 +9398,7 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29129575" target="_blank">PMID:29129575</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8985,17 +9432,17 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9020,18 +9467,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI:17650 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         hydrocortisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17650" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17650</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17650" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-63">CHEBI:17650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI:17650 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9064,18 +9513,20 @@ This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Adrenal insufficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp">HP:0000846</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0000846</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9094,6 +9545,7 @@ This treatment targets Adrenal insufficiency (HP:0000846). HP:0000846 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9127,17 +9579,17 @@ This treatment targets Adrenal insufficiency (HP:0000846). HP:0000846 is a pheno
                     <span class="tag tag-treatment">Screening</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Disease Screening<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.">Disease Screening</span>
+This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.">NCIT:C15419</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15419">NCIT:C15419</a>
 
 
 
@@ -9179,6 +9631,7 @@ This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9200,6 +9653,7 @@ This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical int
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38703381" target="_blank">PMID:38703381</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9233,17 +9687,17 @@ This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical int
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">Diagnostic Imaging Testing<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a clinical intervention from the NCI Thesaurus.">Diagnostic Imaging Testing</span>
+This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16502" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a clinical intervention from the NCI Thesaurus.">NCIT:C16502</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16502" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16502">NCIT:C16502</a>
 
 
 
@@ -9285,6 +9739,7 @@ This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9306,6 +9761,7 @@ This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a cli
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37583083" target="_blank">PMID:37583083</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9339,17 +9795,17 @@ This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a cli
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9374,18 +9830,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         metyrapone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44241" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:44241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-68">CHEBI:44241</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9429,6 +9887,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35769081" target="_blank">PMID:35769081</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9450,6 +9909,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35769081" target="_blank">PMID:35769081</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9593,6 +10053,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9631,6 +10092,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34978855" target="_blank">PMID:34978855</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9703,6 +10165,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26934393" target="_blank">PMID:26934393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9724,6 +10187,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9796,6 +10260,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9841,6 +10306,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23416519" target="_blank">PMID:23416519</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9862,6 +10328,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9903,7 +10370,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-adrenal-cortex-carcinoma">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Adrenal Cortex Carcinoma</span>
@@ -9957,6 +10424,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6703192" target="_blank">PMID:6703192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9979,6 +10447,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35288842" target="_blank">PMID:35288842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10000,6 +10469,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38108848" target="_blank">PMID:38108848</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10028,7 +10498,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bilateral-macronodular-adrenal-hyperplasia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Bilateral Macronodular Adrenal Hyperplasia</span>
@@ -10080,6 +10550,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24601692" target="_blank">PMID:24601692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10101,6 +10572,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24601692" target="_blank">PMID:24601692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10127,7 +10599,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-primary-pigmented-nodular-adrenocortical-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Primary_Pigmented_Nodular_Adrenocortical_Disease.html">Primary Pigmented Nodular Adrenocortical Disease</a>
@@ -10178,6 +10650,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24571724" target="_blank">PMID:24571724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10203,7 +10676,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pheochromocytoma">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Pheochromocytoma</span>
@@ -10257,6 +10730,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10282,7 +10756,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-adrenal-metastasis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Adrenal Metastasis</span>
@@ -10334,6 +10808,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10359,7 +10834,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-adrenal-myelolipoma">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Adrenal Myelolipoma</span>
@@ -10408,6 +10883,7 @@ This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37318239" target="_blank">PMID:37318239</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -13944,5 +14420,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

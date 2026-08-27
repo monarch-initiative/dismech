@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Lupus Nephritis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Lupus Nephritis</h1>
             <div class="header-meta">
 
@@ -3660,7 +3782,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Lupus%20Nephritis"
@@ -3805,7 +3927,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3821,12 +3943,28 @@
             </a>
 
 
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3871,29 +4009,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">KIDNEY_URINARY_TRACT</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+                    <span class="tag tag-classification">KIDNEY URINARY TRACT</span>
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3911,7 +4127,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-polygenic-multifactorial-susceptibility">
                 <div class="item-name">
                     Polygenic / multifactorial susceptibility
 
@@ -3956,6 +4172,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3990,8 +4207,533 @@
 
         <!-- Mechanistic Hypotheses -->
 
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target" id="hypothesis-unidirectional-immune-injury-model">
+                <div class="item-name">Unidirectional Immune-Complex Injury Model</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">unidirectional_immune_injury_model</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-CANONICAL">CANONICAL</span>
+
+
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">1 support</span>
+
+                    <span class="evidence-support support-PARTIAL">1 partial</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">The classical account treats the kidney as a passive target of systemic autoimmunity: autoreactive B cells and plasma cells generate anti-dsDNA and anti-chromatin antibodies, the resulting immune complexes deposit in — or bind in situ within — the glomerulus, and complement, Fc-receptor, and Toll-like-receptor engagement drive inflammatory glomerular and tubulointerstitial injury. Causal flow runs in one direction, from systemic autoimmunity to renal tissue damage, and this model underwrites systemic immunosuppression as the therapeutic strategy.</div>
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-autoantibody-production-and-immune-complex-formation">Autoantibody Production and Immune Complex Formation</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-glomerular-immune-complex-deposition">Glomerular Immune Complex Deposition</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Pathogenic anti-dsDNA/anti-chromatin antibodies deposit as immune complexes in the glomerulus.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-glomerular-immune-complex-deposition">Glomerular Immune Complex Deposition</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-complement-activation-and-glomerular-inflammation">Complement Activation and Glomerular Inflammation</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Deposited immune complexes co-stimulate Fc receptors and endosomal TLRs and activate complement.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-complement-activation-and-glomerular-inflammation">Complement Activation and Glomerular Inflammation</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-glomerular-and-tubulointerstitial-injury">Glomerular and Tubulointerstitial Injury</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Complement activation and inflammatory infiltration are deleterious, driving glomerular and tubular tissue injury.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-intrarenal-immune-infiltration-and-proinflammatory-cytokine-milieu">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-glomerular-and-tubulointerstitial-injury">Glomerular and Tubulointerstitial Injury</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">The intrarenal infiltrate and cytokine milieu are in part directly responsible for the tissue damage observed in lupus nephritis.</span>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22192660" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathogenic anti-dsDNA antibodies deposit as immune complexes"</div>
+
+
+                <div class="evidence-explanation">Supports the autoantibody-to-deposition step that opens the unidirectional chain.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is now increasingly appreciated that LN is not due to unidirectional immune cell activation with subsequent kidney damage."</div>
+
+
+                <div class="evidence-explanation">This review does not dispute that immune-complex-driven activation causes renal injury, but holds the strictly unidirectional framing to be an incomplete account of lupus nephritis — hence PARTIAL rather than SUPPORT for the model as a whole.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target" id="hypothesis-bidirectional-kidney-immune-crosstalk">
+                <div class="item-name">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">bidirectional_kidney_immune_crosstalk</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-EMERGING">EMERGING</span>
+
+
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">1 support</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">An extension in which the kidney is an active participant rather than a passive target. The renal biochemical niche (low oxygen tension and hypertonicity) together with intrinsic renal cell types — which can present antigen and produce cytokines — shapes the recruitment, survival, differentiation, and activation of the intrarenal immune infiltrate; those conditioned immune cells in turn modify kidney cell function, closing a self-amplifying loop. The model does not replace the immune-complex cascade; it adds a reciprocal arm downstream of it, and it predicts that kidney-targeted rather than systemic intervention could interrupt the loop.</div>
+
+
+                <div class="mapping-notes">Status is EMERGING rather than CANONICAL because the supporting citation is a narrative review synthesizing largely mechanistic and model-system work; the reciprocal arm has not been shown to drive human renal outcomes independently of the immune-complex cascade.</div>
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-complement-activation-and-glomerular-inflammation">Complement Activation and Glomerular Inflammation</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-intrarenal-immune-infiltration-and-proinflammatory-cytokine-milieu">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Complement- and Fc-receptor-driven glomerular inflammation recruits leukocytes into the kidney, establishing the intrarenal immune infiltrate and cytokine milieu that characterizes the lupus kidney.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-intrarenal-immune-infiltration-and-proinflammatory-cytokine-milieu">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-intrinsic-renal-cell-antigen-presentation-and-cytokine-production">Intrinsic Renal Cell Antigen Presentation and Cytokine Production</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Infiltrating immune cells and their cytokines act on intrinsic renal cells, engaging the renal-cell arm of the reciprocal loop. Note this edge deliberately targets the induced renal-cell activity, not the renal biochemical niche, which is constitutive rather than immune-induced. Evidence caveat: the cited abstract states a general effect on intrinsic renal cells (&#34;affects intrinsic renal cells&#34;) and describes antigen presentation and cytokine production in the renal-to-immune direction; that the infiltrate specifically induces those two pathways is a reasonable inference from the review&#39;s framing rather than a sentence it states, so the specificity of this edge is weaker than its direction.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-intrarenal-immune-infiltration-and-proinflammatory-cytokine-milieu">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-glomerular-and-tubulointerstitial-injury">Glomerular and Tubulointerstitial Injury</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">The intrarenal infiltrate and cytokine milieu are in part directly responsible for the tissue damage observed in lupus nephritis.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-renal-biochemical-niche-low-oxygen-tension-and-hypertonicity">Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-intrarenal-immune-cell-conditioning-and-activation">Intrarenal Immune Cell Conditioning and Activation</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">The renal biochemical niche acts on the immune cells that enter it, shaping their behaviour within the kidney.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-intrinsic-renal-cell-antigen-presentation-and-cytokine-production">Intrinsic Renal Cell Antigen Presentation and Cytokine Production</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-intrarenal-immune-cell-conditioning-and-activation">Intrarenal Immune Cell Conditioning and Activation</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Antigen presentation and cytokine production by intrinsic renal cells act on the intrarenal immune cells, the second input to their conditioning.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-intrarenal-immune-cell-conditioning-and-activation">Intrarenal Immune Cell Conditioning and Activation</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-intrarenal-immune-infiltration-and-proinflammatory-cytokine-milieu">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Feedback arm: kidney-conditioned recruitment, survival, and differentiation amplify and sustain the local infiltrate. This edge closes the loop that distinguishes the bidirectional model from the classical unidirectional cascade.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-intrarenal-immune-cell-conditioning-and-activation">Intrarenal Immune Cell Conditioning and Activation</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-altered-intrinsic-renal-cell-function">Altered Intrinsic Renal Cell Function</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">The second half of the review&#39;s reciprocal sentence: the conditioned immune cells in turn modify the function of the kidney&#39;s own cells.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-altered-intrinsic-renal-cell-function">Altered Intrinsic Renal Cell Function</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-glomerular-and-tubulointerstitial-injury">Glomerular and Tubulointerstitial Injury</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Immune-cell-driven alteration of intrinsic renal cell function is part of what produces the tissue damage seen in lupus nephritis.</span>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the kidney microenvironment influences the recruitment, survival, differentiation, and activation of immune cells, which, in turn, modify kidney cell function"</div>
+
+
+                <div class="evidence-explanation">States the reciprocal kidney-to-immune-cell and immune-cell-to-kidney arms that define this model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Discussions / Knowledge Gaps -->
+
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_kidney_targeted_ln_therapy">
+                <div class="item-name">Can the intrarenal kidney-immune crosstalk loop be interrupted by kidney-targeted therapy without systemic immunosuppression, and does doing so improve renal outcomes relative to the current systemic regimens?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_kidney_targeted_ln_therapy</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-renal-biochemical-niche-low-oxygen-tension-and-hypertonicity">pathophysiology#Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-intrinsic-renal-cell-antigen-presentation-and-cytokine-production">pathophysiology#Intrinsic Renal Cell Antigen Presentation and Cytokine Production</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-intrarenal-immune-infiltration-and-proinflammatory-cytokine-milieu">pathophysiology#Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Every treatment currently curated on this entry — mycophenolate/cyclophosphamide induction, corticosteroids, belimumab, voclosporin, obinutuzumab, rituximab, azathioprine — acts systemically, which follows from the unidirectional model in which the kidney is a passive target. If the reciprocal arm is a genuine driver, the loop is in principle interruptible at renal-restricted nodes (the hypoxic and hypertonic niche, renal antigen presentation, renal cytokine production) that systemic immunosuppression does not specifically address. The gap is that no kidney-targeted agent acting on these nodes has been shown to change renal outcomes in patients, so the therapeutic claim remains a prediction of the model rather than a curated treatment.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Renal-restricted target engagement with paired kidney biopsy readouts</div>
+
+            </div>
+
+            <div class="experiment-id">exp_ln_renal_restricted_target_engagement</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Test an agent directed at a renal-restricted node of the loop (for example renal antigen presentation or the hypoxia/hypertonicity response) using paired pre- and post-treatment kidney biopsies, scoring change in the intrarenal immune infiltrate and local cytokine milieu alongside proteinuric response, and comparing against a systemically immunosuppressed control arm to establish whether renal-compartment engagement is separable from systemic effect.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An understanding of these mechanisms can lead to the design of more kidney-targeted treatments and the avoidance of systemic immunosuppressive effects and may represent the next frontier of LN therapies."</div>
+
+
+                <div class="evidence-explanation">Frames kidney-targeted therapy as a prospective consequence of these mechanisms (&#34;can lead to&#34;, &#34;may represent&#34;), i.e. an open question rather than a demonstrated therapeutic result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Pathophysiology -->
@@ -4000,7 +4742,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-production-and-immune-complex-formation" data-dismech-node="Autoantibody Production and Immune Complex Formation" data-dismech-type="pathophysiology">
@@ -4009,22 +4751,35 @@
                 <div class="item-desc">Failure of B-cell tolerance in SLE generates anti-dsDNA and anti-chromatin (anti-nucleosome) autoantibodies from autoreactive B cells and plasma cells. These antibodies to DNA/nucleosomes are the autoantibody species most closely linked to the development of nephritis and form circulating and in-situ immune complexes.</div>
 
 
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                    </span>
+
+                </div>
+
 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4041,18 +4796,20 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4080,18 +4837,20 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4112,18 +4871,20 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Humoral immune response mediated by circulating immunoglobulin (GO:0002455). GO:0002455 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Humoral immune response mediated by circulating immunoglobulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" class="curie-chip curie-chip-go">GO:0002455</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0002455</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Humoral immune response mediated by circulating immunoglobulin (GO:0002455). GO:0002455 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4162,6 +4923,17 @@ This pathophysiological event involves abnormal Humoral immune response mediated
 	                            <span class="crosslink-desc">Pathogenic anti-dsDNA/anti-chromatin antibodies deposit as immune complexes in the glomerulus.</span>
 
 
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                                    </span>
+
+                                </span>
+
 	                        </div>
 
 	                    </div>
@@ -4180,6 +4952,7 @@ This pathophysiological event involves abnormal Humoral immune response mediated
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4202,6 +4975,7 @@ This pathophysiological event involves abnormal Humoral immune response mediated
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42413709" target="_blank">PMID:42413709</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4232,22 +5006,35 @@ This pathophysiological event involves abnormal Humoral immune response mediated
                 <div class="item-desc">Immune complexes accumulate in the glomerulus both by deposition of circulating complexes and by in-situ binding of anti-dsDNA/chromatin antibodies to nucleosomes and DNA present in the glomerular matrix, engaging mesangial cells, glomerular endothelium, and podocytes across the mesangial, subendothelial, and subepithelial compartments that define the ISN/RPS histologic classes.</div>
 
 
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                    </span>
+
+                </div>
+
 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves glomerular mesangial cell (CL:1000742). CL:1000742 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         glomerular mesangial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000742" target="_blank" class="curie-chip curie-chip-cl">CL:1000742</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000742" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:1000742</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glomerular mesangial cell (CL:1000742). CL:1000742 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4264,18 +5051,20 @@ This pathophysiological event involves glomerular mesangial cell (CL:1000742). C
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves glomerular capillary endothelial cell (CL:1001005). CL:1001005 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         glomerular capillary endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001005" target="_blank" class="curie-chip curie-chip-cl">CL:1001005</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001005" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:1001005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glomerular capillary endothelial cell (CL:1001005). CL:1001005 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4292,18 +5081,20 @@ This pathophysiological event involves glomerular capillary endothelial cell (CL
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4345,6 +5136,17 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 	                            <span class="crosslink-desc">Deposited immune complexes co-stimulate Fc receptors and endosomal TLRs and activate complement.</span>
 
 
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                                    </span>
+
+                                </span>
+
 	                        </div>
 
 	                    </div>
@@ -4363,6 +5165,7 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4393,22 +5196,42 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
                 <div class="item-desc">Glomerular immune complexes activate the complement cascade — deposition of complement proteins in glomeruli is a hallmark of lupus nephritis — and recruit macrophages and other leukocytes, producing an inflammatory glomerular microenvironment. Concurrent anti-C1q antibodies accelerate renal disease.</div>
 
 
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                    </span>
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                    </span>
+
+                </div>
+
 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4436,18 +5259,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Complement activation, classical pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go">GO:0006958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4468,18 +5293,20 @@ This pathophysiological event involves increased Complement activation, classica
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4518,6 +5345,36 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 	                            <span class="crosslink-desc">Complement activation and inflammatory infiltration are deleterious, driving glomerular and tubular tissue injury.</span>
 
 
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</span>
+
+	                            <span class="crosslink-desc">Complement- and Fc-receptor-driven glomerular inflammation recruits leukocytes into the kidney, establishing the intrarenal immune infiltrate and cytokine milieu that characterizes the lupus kidney.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
 	                        </div>
 
 	                    </div>
@@ -4536,6 +5393,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4558,6 +5416,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4582,28 +5441,78 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-and-tubulointerstitial-injury" data-dismech-node="Glomerular and Tubulointerstitial Injury" data-dismech-type="pathophysiology">
-                <div class="item-name">Glomerular and Tubulointerstitial Injury</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrarenal-immune-infiltration-and-proinflammatory-cytokine-milieu" data-dismech-node="Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu" data-dismech-type="pathophysiology">
+                <div class="item-name">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</div>
 
-                <div class="item-desc">Sustained immune-complex, complement, and inflammatory injury produces the graded ISN/RPS histologic spectrum — from mesangial (class I/II) through proliferative (class III/IV) and membranous (class V) disease to end-stage fibrosis (class VI) — with tubulointerstitial disease that also impacts prognosis. Loss of glomerular and tubular function through renal cell death and fibrosis underlies progression to end-stage kidney disease.</div>
+                <div class="item-desc">Downstream of complement and Fc-receptor activation, the lupus kidney accumulates a substantial infiltrate of T cells, macrophages, and other leukocytes together with a proinflammatory cytokine milieu. This intrarenal compartment is not merely a bystander readout of systemic autoimmunity: the infiltrating cells and the cytokines they produce act directly on intrinsic renal cells, and are in part responsible for the tissue damage seen in lupus nephritis.</div>
 
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                    </span>
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                    </span>
+
+                </div>
 
 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
+
+                    <span class="tag tag-cell">
+                        T cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000084</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
-                        podocyte
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
+                    </span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
 
 
 
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4631,18 +5540,1160 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
+
+                    <span class="tag tag-bio">
+                        Leukocyte migration into the kidney
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0050900</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+This pathophysiological event involves increased Leukocyte migration into the kidney, annotated with leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Proinflammatory cytokine production
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0001816</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Proinflammatory cytokine production, annotated with cytokine production (GO:0001816). GO:0001816 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intrinsic Renal Cell Antigen Presentation and Cytokine Production</span>
+
+	                            <span class="crosslink-desc">Infiltrating immune cells and their cytokines act on intrinsic renal cells, engaging the renal-cell arm of the reciprocal loop. Note this edge deliberately targets the induced renal-cell activity, not the renal biochemical niche, which is constitutive rather than immune-induced. Evidence caveat: the cited abstract states a general effect on intrinsic renal cells (&#34;affects intrinsic renal cells&#34;) and describes antigen presentation and cytokine production in the renal-to-immune direction; that the infiltrate specifically induces those two pathways is a reasonable inference from the review&#39;s framing rather than a sentence it states, so the specificity of this edge is weaker than its direction.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glomerular and Tubulointerstitial Injury</span>
+
+	                            <span class="crosslink-desc">The intrarenal infiltrate and cytokine milieu are in part directly responsible for the tissue damage observed in lupus nephritis.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-unidirectional-immune-injury-model">Unidirectional Immune-Complex Injury Model</a>
+
+                                    </span>
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The kidney in LN is characterized by a significant immune infiltrate and proinflammatory cytokine milieu"</div>
+
+
+                <div class="evidence-explanation">Supports the intrarenal immune infiltrate and cytokine milieu as a defining feature of the lupus kidney.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-biochemical-niche-low-oxygen-tension-and-hypertonicity" data-dismech-node="Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)" data-dismech-type="pathophysiology">
+                <div class="item-name">Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)</div>
+
+                <div class="item-desc">The kidney&#39;s distinctive biochemical environment — the low oxygen tension of the corticomedullary gradient and the hypertonicity of the medullary interstitium — is a constitutive feature of normal renal physiology, not a state induced by lupus. It is modelled here as an initiating, contextual node because it is the pre-existing environment that infiltrating immune cells arrive into, and it shapes how those cells behave once they are there. It therefore carries no incoming edge from the immune infiltrate.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        kidney epithelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002518</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        kidney tubule cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000507" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:1000507</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney tubule cell (CL:1000507). CL:1000507 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Renal cellular response to low oxygen tension
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0071456</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Renal cellular response to low oxygen tension, annotated with cellular response to hypoxia (GO:0071456). GO:0071456 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Response to medullary hypertonicity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006972" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006972</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to medullary hypertonicity, annotated with hyperosmotic response (GO:0006972). GO:0006972 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intrarenal Immune Cell Conditioning and Activation</span>
+
+	                            <span class="crosslink-desc">The renal biochemical niche acts on the immune cells that enter it, shaping their behaviour within the kidney.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"low oxygen tension and hypertonicity) and unique kidney cell types affect the intrarenal immune cells in LN"</div>
+
+
+                <div class="evidence-explanation">Identifies low oxygen tension and hypertonicity as the biochemical environment of the kidney in this model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrinsic-renal-cell-antigen-presentation-and-cytokine-production" data-dismech-node="Intrinsic Renal Cell Antigen Presentation and Cytokine Production" data-dismech-type="pathophysiology">
+                <div class="item-name">Intrinsic Renal Cell Antigen Presentation and Cytokine Production</div>
+
+                <div class="item-desc">Intrinsic renal cells are not passive bystanders to the infiltrate. They interact with intrarenal immune cells through defined pathways — notably antigen presentation and cytokine production — and so participate directly in local immune regulation. Unlike the biochemical niche, this activity is induced by, and downstream of, the intrarenal immune infiltrate.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        kidney epithelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002518</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        kidney tubule cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000507" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:1000507</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney tubule cell (CL:1000507). CL:1000507 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        glomerular mesangial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000742" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:1000742</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glomerular mesangial cell (CL:1000742). CL:1000742 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        podocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000653</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Antigen presentation by intrinsic renal cells
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0019882</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Antigen presentation by intrinsic renal cells, annotated with antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Cytokine production by intrinsic renal cells
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0001816</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cytokine production by intrinsic renal cells, annotated with cytokine production (GO:0001816). GO:0001816 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intrarenal Immune Cell Conditioning and Activation</span>
+
+	                            <span class="crosslink-desc">Antigen presentation and cytokine production by intrinsic renal cells act on the intrarenal immune cells, the second input to their conditioning.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pathways used by intrinsic renal cells to interact with immune cells, such as antigen presentation and cytokine production"</div>
+
+
+                <div class="evidence-explanation">Establishes that intrinsic renal cells engage immune cells through antigen presentation and cytokine production.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrarenal-immune-cell-conditioning-and-activation" data-dismech-node="Intrarenal Immune Cell Conditioning and Activation" data-dismech-type="pathophysiology">
+                <div class="item-name">Intrarenal Immune Cell Conditioning and Activation</div>
+
+                <div class="item-desc">The convergent output of the renal niche and of intrinsic renal cell engagement: the recruitment, survival, differentiation, and activation of the immune cells within the kidney are shaped by the kidney itself. This is the node at which the causal direction reverses relative to the classical cascade, and it feeds back onto both the infiltrate that supplied the cells and the renal cells that conditioned them.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        T cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000084</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000235</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Activation of intrarenal leukocytes
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045321" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0045321</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Activation of intrarenal leukocytes, annotated with leukocyte activation (GO:0045321). GO:0045321 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu</span>
+
+	                            <span class="crosslink-desc">Feedback arm: kidney-conditioned recruitment, survival, and differentiation amplify and sustain the local infiltrate. This edge closes the loop that distinguishes the bidirectional model from the classical unidirectional cascade.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Altered Intrinsic Renal Cell Function</span>
+
+	                            <span class="crosslink-desc">The second half of the review&#39;s reciprocal sentence: the conditioned immune cells in turn modify the function of the kidney&#39;s own cells.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the kidney microenvironment influences the recruitment, survival, differentiation, and activation of immune cells"</div>
+
+
+                <div class="evidence-explanation">Supports kidney-directed conditioning of intrarenal immune cell recruitment, survival, differentiation, and activation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-intrinsic-renal-cell-function" data-dismech-node="Altered Intrinsic Renal Cell Function" data-dismech-type="pathophysiology">
+                <div class="item-name">Altered Intrinsic Renal Cell Function</div>
+
+                <div class="item-desc">The endpoint of the reciprocal arm: intrinsic renal cell function is modified by the immune cells the kidney has conditioned. Modelling this explicitly keeps both halves of the review&#39;s reciprocal claim as their own edges rather than leaving the kidney-directed half implicit, and it is the route by which the crosstalk loop contributes to tissue damage.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        kidney epithelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0002518</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        glomerular mesangial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000742" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:1000742</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glomerular mesangial cell (CL:1000742). CL:1000742 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        podocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000653</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Glomerular and Tubulointerstitial Injury</span>
+
+	                            <span class="crosslink-desc">Immune-cell-driven alteration of intrinsic renal cell function is part of what produces the tissue damage seen in lupus nephritis.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-bidirectional-kidney-immune-crosstalk">Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39120952" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39120952" target="_blank">PMID:39120952</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"which, in turn, modify kidney cell function"</div>
+
+
+                <div class="evidence-explanation">States that the kidney-conditioned immune cells modify kidney cell function.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-and-tubulointerstitial-injury" data-dismech-node="Glomerular and Tubulointerstitial Injury" data-dismech-type="pathophysiology">
+                <div class="item-name">Glomerular and Tubulointerstitial Injury</div>
+
+                <div class="item-desc">Sustained immune-complex, complement, and inflammatory injury produces the graded ISN/RPS histologic spectrum — from mesangial (class I/II) through proliferative (class III/IV) and membranous (class V) disease to end-stage fibrosis (class VI) — with tubulointerstitial disease that also impacts prognosis. Loss of glomerular and tubular function through renal cell death and fibrosis underlies progression to end-stage kidney disease.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        podocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000653</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4685,6 +6736,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4706,6 +6758,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4755,7 +6808,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoantibody Production and Immune Complex Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of B-cell tolerance in SLE generates anti-dsDNA and anti-chromatin (anti-nucleosome) autoantibodies from autoreactive B cells and plasma cells. These antibodies to DNA/nucleosomes are the autoantibody species most closely linked to the development of nephritis and form circulating and in-situ immune complexes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\", \"plasma cell\"], \"biological_processes\": [\"Immunoglobulin production\", \"Humoral immune response mediated by circulating immunoglobulin\"]}}, {\"id\": \"Complement Activation and Glomerular Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular immune complexes activate the complement cascade \\u2014 deposition of complement proteins in glomeruli is a hallmark of lupus nephritis \\u2014 and recruit macrophages and other leukocytes, producing an inflammatory glomerular microenvironment. Concurrent anti-C1q antibodies accelerate renal disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"Complement activation, classical pathway\", \"Inflammatory response\"]}}, {\"id\": \"Glomerular Immune Complex Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune complexes accumulate in the glomerulus both by deposition of circulating complexes and by in-situ binding of anti-dsDNA/chromatin antibodies to nucleosomes and DNA present in the glomerular matrix, engaging mesangial cells, glomerular endothelium, and podocytes across the mesangial, subendothelial, and subepithelial compartments that define the ISN/RPS histologic classes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glomerular mesangial cell\", \"glomerular capillary endothelial cell\", \"podocyte\"]}}, {\"id\": \"Glomerular and Tubulointerstitial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained immune-complex, complement, and inflammatory injury produces the graded ISN/RPS histologic spectrum \\u2014 from mesangial (class I/II) through proliferative (class III/IV) and membranous (class V) disease to end-stage fibrosis (class VI) \\u2014 with tubulointerstitial disease that also impacts prognosis. Loss of glomerular and tubular function through renal cell death and fibrosis underlies progression to end-stage kidney disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Type II Anti-CD20 B Cell Depletion (Obinutuzumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Obinutuzumab, a type II anti-CD20 monoclonal antibody, added to standard mycophenolate-plus-glucocorticoid therapy, is the most recently approved (2025) lupus nephritis-specific agent, based on the phase 3 REGENCY trial, which met its primary endpoint of complete renal response at week 76.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Obinutuzumab\"]}}], \"edges\": [{\"source\": \"Autoantibody Production and Immune Complex Formation\", \"target\": \"Glomerular Immune Complex Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic anti-dsDNA/anti-chromatin antibodies deposit as immune complexes in the glomerulus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glomerular Immune Complex Deposition\", \"target\": \"Complement Activation and Glomerular Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deposited immune complexes co-stimulate Fc receptors and endosomal TLRs and activate complement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Complement Activation and Glomerular Inflammation\", \"target\": \"Glomerular and Tubulointerstitial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement activation and inflammatory infiltration are deleterious, driving glomerular and tubular tissue injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Type II Anti-CD20 B Cell Depletion (Obinutuzumab)\", \"target\": \"Autoantibody Production and Immune Complex Formation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Intrinsic Renal Cell Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The endpoint of the reciprocal arm: intrinsic renal cell function is modified by the immune cells the kidney has conditioned. Modelling this explicitly keeps both halves of the review\u0027s reciprocal claim as their own edges rather than leaving the kidney-directed half implicit, and it is the route by which the crosstalk loop contributes to tissue damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\", \"glomerular mesangial cell\", \"podocyte\"]}}, {\"id\": \"Autoantibody Production and Immune Complex Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of B-cell tolerance in SLE generates anti-dsDNA and anti-chromatin (anti-nucleosome) autoantibodies from autoreactive B cells and plasma cells. These antibodies to DNA/nucleosomes are the autoantibody species most closely linked to the development of nephritis and form circulating and in-situ immune complexes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\", \"plasma cell\"], \"biological_processes\": [\"Immunoglobulin production\", \"Humoral immune response mediated by circulating immunoglobulin\"]}}, {\"id\": \"Complement Activation and Glomerular Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular immune complexes activate the complement cascade \\u2014 deposition of complement proteins in glomeruli is a hallmark of lupus nephritis \\u2014 and recruit macrophages and other leukocytes, producing an inflammatory glomerular microenvironment. Concurrent anti-C1q antibodies accelerate renal disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"Complement activation, classical pathway\", \"Inflammatory response\"]}}, {\"id\": \"Glomerular Immune Complex Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune complexes accumulate in the glomerulus both by deposition of circulating complexes and by in-situ binding of anti-dsDNA/chromatin antibodies to nucleosomes and DNA present in the glomerular matrix, engaging mesangial cells, glomerular endothelium, and podocytes across the mesangial, subendothelial, and subepithelial compartments that define the ISN/RPS histologic classes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glomerular mesangial cell\", \"glomerular capillary endothelial cell\", \"podocyte\"]}}, {\"id\": \"Glomerular and Tubulointerstitial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained immune-complex, complement, and inflammatory injury produces the graded ISN/RPS histologic spectrum \\u2014 from mesangial (class I/II) through proliferative (class III/IV) and membranous (class V) disease to end-stage fibrosis (class VI) \\u2014 with tubulointerstitial disease that also impacts prognosis. Loss of glomerular and tubular function through renal cell death and fibrosis underlies progression to end-stage kidney disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Intrarenal Immune Cell Conditioning and Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent output of the renal niche and of intrinsic renal cell engagement: the recruitment, survival, differentiation, and activation of the immune cells within the kidney are shaped by the kidney itself. This is the node at which the causal direction reverses relative to the classical cascade, and it feeds back onto both the infiltrate that supplied the cells and the renal cells that conditioned them.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"macrophage\"], \"biological_processes\": [\"Activation of intrarenal leukocytes\"]}}, {\"id\": \"Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downstream of complement and Fc-receptor activation, the lupus kidney accumulates a substantial infiltrate of T cells, macrophages, and other leukocytes together with a proinflammatory cytokine milieu. This intrarenal compartment is not merely a bystander readout of systemic autoimmunity: the infiltrating cells and the cytokines they produce act directly on intrinsic renal cells, and are in part responsible for the tissue damage seen in lupus nephritis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"macrophage\"], \"biological_processes\": [\"Leukocyte migration into the kidney\", \"Proinflammatory cytokine production\"]}}, {\"id\": \"Intrinsic Renal Cell Antigen Presentation and Cytokine Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intrinsic renal cells are not passive bystanders to the infiltrate. They interact with intrarenal immune cells through defined pathways \\u2014 notably antigen presentation and cytokine production \\u2014 and so participate directly in local immune regulation. Unlike the biochemical niche, this activity is induced by, and downstream of, the intrarenal immune infiltrate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\", \"kidney tubule cell\", \"glomerular mesangial cell\", \"podocyte\"], \"biological_processes\": [\"Antigen presentation by intrinsic renal cells\", \"Cytokine production by intrinsic renal cells\"]}}, {\"id\": \"Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The kidney\u0027s distinctive biochemical environment \\u2014 the low oxygen tension of the corticomedullary gradient and the hypertonicity of the medullary interstitium \\u2014 is a constitutive feature of normal renal physiology, not a state induced by lupus. It is modelled here as an initiating, contextual node because it is the pre-existing environment that infiltrating immune cells arrive into, and it shapes how those cells behave once they are there. It therefore carries no incoming edge from the immune infiltrate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney epithelial cell\", \"kidney tubule cell\"], \"biological_processes\": [\"Renal cellular response to low oxygen tension\", \"Response to medullary hypertonicity\"]}}, {\"id\": \"Type II Anti-CD20 B Cell Depletion (Obinutuzumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Obinutuzumab, a type II anti-CD20 monoclonal antibody, added to standard mycophenolate-plus-glucocorticoid therapy, is the most recently approved (2025) lupus nephritis-specific agent, based on the phase 3 REGENCY trial, which met its primary endpoint of complete renal response at week 76.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Obinutuzumab\"]}}], \"edges\": [{\"source\": \"Autoantibody Production and Immune Complex Formation\", \"target\": \"Glomerular Immune Complex Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic anti-dsDNA/anti-chromatin antibodies deposit as immune complexes in the glomerulus.\", \"hypothesis_groups\": [\"unidirectional_immune_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glomerular Immune Complex Deposition\", \"target\": \"Complement Activation and Glomerular Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deposited immune complexes co-stimulate Fc receptors and endosomal TLRs and activate complement.\", \"hypothesis_groups\": [\"unidirectional_immune_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Complement Activation and Glomerular Inflammation\", \"target\": \"Glomerular and Tubulointerstitial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement activation and inflammatory infiltration are deleterious, driving glomerular and tubular tissue injury.\", \"hypothesis_groups\": [\"unidirectional_immune_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Complement Activation and Glomerular Inflammation\", \"target\": \"Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement- and Fc-receptor-driven glomerular inflammation recruits leukocytes into the kidney, establishing the intrarenal immune infiltrate and cytokine milieu that characterizes the lupus kidney.\", \"hypothesis_groups\": [\"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu\", \"target\": \"Intrinsic Renal Cell Antigen Presentation and Cytokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltrating immune cells and their cytokines act on intrinsic renal cells, engaging the renal-cell arm of the reciprocal loop. Note this edge deliberately targets the induced renal-cell activity, not the renal biochemical niche, which is constitutive rather than immune-induced. Evidence caveat: the cited abstract states a general effect on intrinsic renal cells (\\\"affects intrinsic renal cells\\\") and describes antigen presentation and cytokine production in the renal-to-immune direction; that the infiltrate specifically induces those two pathways is a reasonable inference from the review\u0027s framing rather than a sentence it states, so the specificity of this edge is weaker than its direction.\", \"hypothesis_groups\": [\"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu\", \"target\": \"Glomerular and Tubulointerstitial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intrarenal infiltrate and cytokine milieu are in part directly responsible for the tissue damage observed in lupus nephritis.\", \"hypothesis_groups\": [\"unidirectional_immune_injury_model\", \"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)\", \"target\": \"Intrarenal Immune Cell Conditioning and Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal biochemical niche acts on the immune cells that enter it, shaping their behaviour within the kidney.\", \"hypothesis_groups\": [\"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrinsic Renal Cell Antigen Presentation and Cytokine Production\", \"target\": \"Intrarenal Immune Cell Conditioning and Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen presentation and cytokine production by intrinsic renal cells act on the intrarenal immune cells, the second input to their conditioning.\", \"hypothesis_groups\": [\"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrarenal Immune Cell Conditioning and Activation\", \"target\": \"Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feedback arm: kidney-conditioned recruitment, survival, and differentiation amplify and sustain the local infiltrate. This edge closes the loop that distinguishes the bidirectional model from the classical unidirectional cascade.\", \"hypothesis_groups\": [\"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrarenal Immune Cell Conditioning and Activation\", \"target\": \"Altered Intrinsic Renal Cell Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second half of the review\u0027s reciprocal sentence: the conditioned immune cells in turn modify the function of the kidney\u0027s own cells.\", \"hypothesis_groups\": [\"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Intrinsic Renal Cell Function\", \"target\": \"Glomerular and Tubulointerstitial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune-cell-driven alteration of intrinsic renal cell function is part of what produces the tissue damage seen in lupus nephritis.\", \"hypothesis_groups\": [\"bidirectional_kidney_immune_crosstalk\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Type II Anti-CD20 B Cell Depletion (Obinutuzumab)\", \"target\": \"Autoantibody Production and Immune Complex Formation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4797,16 +6850,20 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
-
-
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4826,6 +6883,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4870,16 +6928,20 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000123</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nephritis (HP:0000123). HP:0000123 is a phenotype from the Human Phenotype Ontology.">
-                        Nephritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000123" target="_blank" class="curie-chip curie-chip-hp">HP:0000123</a>
-
-
+This clinical feature is Nephritis (HP:0000123). HP:0000123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4899,6 +6961,7 @@ This clinical feature is Nephritis (HP:0000123). HP:0000123 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4932,16 +6995,20 @@ This clinical feature is Nephritis (HP:0000123). HP:0000123 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.">
-                        Proteinuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
-
-
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4961,6 +7028,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22192660" target="_blank">PMID:22192660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4994,16 +7062,20 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000083</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Renal insufficiency (HP:0000083), qualified as course progressive. HP:0000083 is a phenotype from the Human Phenotype Ontology.">
-                        Renal insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp">HP:0000083</a>
-
-
+This clinical feature is Renal insufficiency (HP:0000083), qualified as course progressive. HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5041,6 +7113,7 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31974366" target="_blank">PMID:31974366</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5083,16 +7156,20 @@ This clinical feature is Renal insufficiency (HP:0000083), qualified as course p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.">
-                        Glomerulonephritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp">HP:0000099</a>
-
-
+This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5112,6 +7189,7 @@ This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31974366" target="_blank">PMID:31974366</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5175,6 +7253,9 @@ This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenot
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5191,18 +7272,18 @@ This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenot
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">immune suppressant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">immune suppressant agent therapy</span>
+This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">NCIT:C15261</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15261">NCIT:C15261</a>
 
 
 
@@ -5227,33 +7308,37 @@ This treatment is immune suppressant agent therapy, annotated with Immunosuppres
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:8764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5279,6 +7364,7 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31974366" target="_blank">PMID:31974366</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5300,6 +7386,7 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5331,17 +7418,17 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5366,18 +7453,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         glucocorticoid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:24261</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:24261</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5401,17 +7490,17 @@ This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5436,18 +7525,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses belimumab (NCIT:C91385). NCIT:C91385 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         belimumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C91385" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C91385</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C91385" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C91385</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses belimumab (NCIT:C91385). NCIT:C91385 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5473,6 +7564,7 @@ This treatment uses belimumab (NCIT:C91385). NCIT:C91385 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32937045" target="_blank">PMID:32937045</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5494,6 +7586,7 @@ This treatment uses belimumab (NCIT:C91385). NCIT:C91385 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5525,17 +7618,17 @@ This treatment uses belimumab (NCIT:C91385). NCIT:C91385 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5560,18 +7653,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses voclosporin (NCIT:C152902). NCIT:C152902 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         voclosporin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152902" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152902</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152902" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C152902</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses voclosporin (NCIT:C152902). NCIT:C152902 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5597,6 +7692,7 @@ This treatment uses voclosporin (NCIT:C152902). NCIT:C152902 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33971155" target="_blank">PMID:33971155</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5618,6 +7714,7 @@ This treatment uses voclosporin (NCIT:C152902). NCIT:C152902 is a therapeutic ag
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5649,17 +7746,17 @@ This treatment uses voclosporin (NCIT:C152902). NCIT:C152902 is a therapeutic ag
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5684,18 +7781,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Obinutuzumab (NCIT:C70741). NCIT:C70741 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Obinutuzumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C70741" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C70741</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C70741" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C70741</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Obinutuzumab (NCIT:C70741). NCIT:C70741 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5739,6 +7838,7 @@ This treatment uses Obinutuzumab (NCIT:C70741). NCIT:C70741 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39927615" target="_blank">PMID:39927615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5760,6 +7860,7 @@ This treatment uses Obinutuzumab (NCIT:C70741). NCIT:C70741 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39927615" target="_blank">PMID:39927615</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5791,17 +7892,17 @@ This treatment uses Obinutuzumab (NCIT:C70741). NCIT:C70741 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5826,18 +7927,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         hydroxychloroquine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5801</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:5801</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5862,6 +7965,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5893,17 +7997,17 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5928,18 +8032,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         azathioprine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:2948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5964,6 +8070,7 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5995,17 +8102,17 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6030,18 +8137,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:61049). CHEBI:61049 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         tacrolimus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_61049" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:61049</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_61049" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:61049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:61049). CHEBI:61049 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6066,6 +8175,7 @@ This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:610
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6097,17 +8207,17 @@ This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:610
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6132,18 +8242,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6168,6 +8280,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6199,17 +8312,17 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6234,18 +8347,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         acetylsalicylic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15365</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-58">CHEBI:15365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6270,6 +8385,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42420832" target="_blank">PMID:42420832</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6315,7 +8431,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse306378">
                 <div class="item-name">
                     Based on single-cell sequencing analysis of CD4+ T cells and B cells in patients with lupus nephritis, the heterogeneity of these cells was investigated.
 
@@ -6358,7 +8474,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse296560">
                 <div class="item-name">
                     Lupus nephritis serum induces changes in gene expression in human glomerular endothelial cells, which is modulated by L-sepiapterin: Implications for redox-mediated endothelial dysfunction
 
@@ -6401,7 +8517,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse322527">
                 <div class="item-name">
                     Single-cell transcriptomes and T cell receptor sequences of CD4 or CD8 single positive T lymphocytes from peripheral blood or urine of lupus nephritis patients at flare.
 
@@ -6440,7 +8556,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001007117">
                 <div class="item-name">
                     Identification of Long Non-coding RNA Biomarker of Human Lupus Nephritis Disease Activity
 
@@ -6475,7 +8591,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas50000000159">
                 <div class="item-name">
                     ScRNA-seq of human kidney immune cells of patients with ANCA-associated glomerulonephritis, Lupus Nephritis against a &#34;healthy&#34; nephrectomy control
 
@@ -6510,7 +8626,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs001609">
                 <div class="item-name">
                     Genetic Contributions of Lupus Nephritis in A Multi-Ethnic Cohort
 
@@ -6634,6 +8750,59 @@ prevalence:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Most patients with SLE who develop LN do so within 5 years of an SLE diagnosis and, in many cases, LN is the presenting manifestation resulting in the diagnosis of SLE&#34;
     explanation: Supports the early-onset timing of LN within the SLE disease course.
+mechanistic_hypotheses:
+- hypothesis_group_id: unidirectional_immune_injury_model
+  hypothesis_label: Unidirectional Immune-Complex Injury Model
+  status: CANONICAL
+  description: &gt;-
+    The classical account treats the kidney as a passive target of systemic
+    autoimmunity: autoreactive B cells and plasma cells generate anti-dsDNA and
+    anti-chromatin antibodies, the resulting immune complexes deposit in — or bind
+    in situ within — the glomerulus, and complement, Fc-receptor, and
+    Toll-like-receptor engagement drive inflammatory glomerular and
+    tubulointerstitial injury. Causal flow runs in one direction, from systemic
+    autoimmunity to renal tissue damage, and this model underwrites systemic
+    immunosuppression as the therapeutic strategy.
+  evidence:
+  - reference: PMID:22192660
+    reference_title: &#34;Mechanisms of tissue injury in lupus nephritis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Pathogenic anti-dsDNA antibodies deposit as immune complexes&#34;
+    explanation: Supports the autoantibody-to-deposition step that opens the unidirectional chain.
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &#34;It is now increasingly appreciated that LN is not due to unidirectional immune cell activation with subsequent kidney damage.&#34;
+    explanation: &gt;-
+      This review does not dispute that immune-complex-driven activation causes renal
+      injury, but holds the strictly unidirectional framing to be an incomplete account
+      of lupus nephritis — hence PARTIAL rather than SUPPORT for the model as a whole.
+- hypothesis_group_id: bidirectional_kidney_immune_crosstalk
+  hypothesis_label: Bidirectional Kidney Microenvironment-Immune Cell Crosstalk Model
+  status: EMERGING
+  description: &gt;-
+    An extension in which the kidney is an active participant rather than a passive
+    target. The renal biochemical niche (low oxygen tension and hypertonicity) together
+    with intrinsic renal cell types — which can present antigen and produce cytokines —
+    shapes the recruitment, survival, differentiation, and activation of the intrarenal
+    immune infiltrate; those conditioned immune cells in turn modify kidney cell
+    function, closing a self-amplifying loop. The model does not replace the
+    immune-complex cascade; it adds a reciprocal arm downstream of it, and it predicts
+    that kidney-targeted rather than systemic intervention could interrupt the loop.
+  evidence:
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;the kidney microenvironment influences the recruitment, survival, differentiation, and activation of immune cells, which, in turn, modify kidney cell function&#34;
+    explanation: States the reciprocal kidney-to-immune-cell and immune-cell-to-kidney arms that define this model.
+  notes: &gt;-
+    Status is EMERGING rather than CANONICAL because the supporting citation is a
+    narrative review synthesizing largely mechanistic and model-system work; the
+    reciprocal arm has not been shown to drive human renal outcomes independently of
+    the immune-complex cascade.
 pathophysiology:
 - name: Autoantibody Production and Immune Complex Formation
   description: &gt;-
@@ -6666,6 +8835,8 @@ pathophysiology:
   - target: Glomerular Immune Complex Deposition
     description: Pathogenic anti-dsDNA/anti-chromatin antibodies deposit as immune complexes in the glomerulus.
     causal_link_type: DIRECT
+    hypothesis_groups:
+    - unidirectional_immune_injury_model
     evidence:
     - reference: PMID:22192660
       reference_title: &#34;Mechanisms of tissue injury in lupus nephritis.&#34;
@@ -6710,6 +8881,8 @@ pathophysiology:
   - target: Complement Activation and Glomerular Inflammation
     description: Deposited immune complexes co-stimulate Fc receptors and endosomal TLRs and activate complement.
     causal_link_type: DIRECT
+    hypothesis_groups:
+    - unidirectional_immune_injury_model
     evidence:
     - reference: PMID:22192660
       reference_title: &#34;Mechanisms of tissue injury in lupus nephritis.&#34;
@@ -6750,6 +8923,8 @@ pathophysiology:
   - target: Glomerular and Tubulointerstitial Injury
     description: Complement activation and inflammatory infiltration are deleterious, driving glomerular and tubular tissue injury.
     causal_link_type: DIRECT
+    hypothesis_groups:
+    - unidirectional_immune_injury_model
     evidence:
     - reference: PMID:22192660
       reference_title: &#34;Mechanisms of tissue injury in lupus nephritis.&#34;
@@ -6757,6 +8932,21 @@ pathophysiology:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;There is strong evidence that complement activation is deleterious in lupus nephritis&#34;
       explanation: Links complement activation to tissue injury in lupus nephritis.
+  - target: Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu
+    description: &gt;-
+      Complement- and Fc-receptor-driven glomerular inflammation recruits leukocytes
+      into the kidney, establishing the intrarenal immune infiltrate and cytokine
+      milieu that characterizes the lupus kidney.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The kidney in LN is characterized by a significant immune infiltrate and proinflammatory cytokine milieu&#34;
+      explanation: Establishes the intrarenal immune infiltrate and cytokine milieu as the state reached downstream of glomerular inflammation.
   evidence:
   - reference: PMID:22192660
     reference_title: &#34;Mechanisms of tissue injury in lupus nephritis.&#34;
@@ -6770,6 +8960,304 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;When anti-C1q antibodies are present along with anti-dsDNA antibodies, development of renal disease is accelerated&#34;
     explanation: Supports anti-C1q antibodies as an accelerant of complement-driven renal disease.
+- name: Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu
+  biological_scale: TISSUE
+  description: &gt;-
+    Downstream of complement and Fc-receptor activation, the lupus kidney accumulates
+    a substantial infiltrate of T cells, macrophages, and other leukocytes together
+    with a proinflammatory cytokine milieu. This intrarenal compartment is not merely
+    a bystander readout of systemic autoimmunity: the infiltrating cells and the
+    cytokines they produce act directly on intrinsic renal cells, and are in part
+    responsible for the tissue damage seen in lupus nephritis.
+  biological_processes:
+  - preferred_term: Leukocyte migration into the kidney
+    term:
+      id: GO:0050900
+      label: leukocyte migration
+    modifier: INCREASED
+  - preferred_term: Proinflammatory cytokine production
+    term:
+      id: GO:0001816
+      label: cytokine production
+    modifier: INCREASED
+  cell_types:
+  - preferred_term: T cell
+    term:
+      id: CL:0000084
+      label: T cell
+  - preferred_term: macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  downstream:
+  - target: Intrinsic Renal Cell Antigen Presentation and Cytokine Production
+    description: &gt;-
+      Infiltrating immune cells and their cytokines act on intrinsic renal cells,
+      engaging the renal-cell arm of the reciprocal loop. Note this edge deliberately
+      targets the induced renal-cell activity, not the renal biochemical niche, which
+      is constitutive rather than immune-induced. Evidence caveat: the cited abstract
+      states a general effect on intrinsic renal cells (&#34;affects intrinsic renal
+      cells&#34;) and describes antigen presentation and cytokine production in the
+      renal-to-immune direction; that the infiltrate specifically induces those two
+      pathways is a reasonable inference from the review&#39;s framing rather than a
+      sentence it states, so the specificity of this edge is weaker than its direction.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The kidney in LN is characterized by a significant immune infiltrate and proinflammatory cytokine milieu that affects intrinsic renal cells&#34;
+      explanation: Establishes that the intrarenal infiltrate and cytokine milieu act upon intrinsic renal cells.
+  - target: Glomerular and Tubulointerstitial Injury
+    description: &gt;-
+      The intrarenal infiltrate and cytokine milieu are in part directly responsible
+      for the tissue damage observed in lupus nephritis.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - unidirectional_immune_injury_model
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;proinflammatory cytokine milieu that affects intrinsic renal cells and is, in part, responsible for the tissue damage observed in LN&#34;
+      explanation: Attributes part of the renal tissue damage directly to the intrarenal cytokine milieu.
+  evidence:
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The kidney in LN is characterized by a significant immune infiltrate and proinflammatory cytokine milieu&#34;
+    explanation: Supports the intrarenal immune infiltrate and cytokine milieu as a defining feature of the lupus kidney.
+- name: Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)
+  biological_scale: TISSUE
+  description: &gt;-
+    The kidney&#39;s distinctive biochemical environment — the low oxygen tension of the
+    corticomedullary gradient and the hypertonicity of the medullary interstitium —
+    is a constitutive feature of normal renal physiology, not a state induced by
+    lupus. It is modelled here as an initiating, contextual node because it is the
+    pre-existing environment that infiltrating immune cells arrive into, and it shapes
+    how those cells behave once they are there. It therefore carries no incoming edge
+    from the immune infiltrate.
+  biological_processes:
+  - preferred_term: Renal cellular response to low oxygen tension
+    term:
+      id: GO:0071456
+      label: cellular response to hypoxia
+  - preferred_term: Response to medullary hypertonicity
+    term:
+      id: GO:0006972
+      label: hyperosmotic response
+  cell_types:
+  - preferred_term: kidney epithelial cell
+    term:
+      id: CL:0002518
+      label: kidney epithelial cell
+  - preferred_term: kidney tubule cell
+    term:
+      id: CL:1000507
+      label: kidney tubule cell
+  downstream:
+  - target: Intrarenal Immune Cell Conditioning and Activation
+    description: &gt;-
+      The renal biochemical niche acts on the immune cells that enter it, shaping
+      their behaviour within the kidney.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;low oxygen tension and hypertonicity) and unique kidney cell types affect the intrarenal immune cells in LN&#34;
+      explanation: States that the renal biochemical environment affects the intrarenal immune cells.
+  evidence:
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;low oxygen tension and hypertonicity) and unique kidney cell types affect the intrarenal immune cells in LN&#34;
+    explanation: Identifies low oxygen tension and hypertonicity as the biochemical environment of the kidney in this model.
+  notes: &gt;-
+    No modifier is asserted on either process: the review treats these as the kidney&#39;s
+    normal biochemical conditions, so neither is curated as increased or decreased
+    relative to a healthy kidney. Term choice: GO:0071456 and GO:0006972 name the
+    cells&#39; responses to hypoxia and hypertonicity, whereas this node models the niche
+    itself as an environment. No better handle exists — an environment is a PATO/ENVO
+    concept and this is intrinsic renal physiology rather than an exposure, so ECTO
+    does not apply either — and per the &#34;no term beats a bad one&#34; rule these are kept
+    with preferred_term values that name the niche.
+- name: Intrinsic Renal Cell Antigen Presentation and Cytokine Production
+  biological_scale: CELLULAR
+  description: &gt;-
+    Intrinsic renal cells are not passive bystanders to the infiltrate. They interact
+    with intrarenal immune cells through defined pathways — notably antigen
+    presentation and cytokine production — and so participate directly in local immune
+    regulation. Unlike the biochemical niche, this activity is induced by, and
+    downstream of, the intrarenal immune infiltrate.
+  biological_processes:
+  - preferred_term: Antigen presentation by intrinsic renal cells
+    term:
+      id: GO:0019882
+      label: antigen processing and presentation
+    modifier: INCREASED
+  - preferred_term: Cytokine production by intrinsic renal cells
+    term:
+      id: GO:0001816
+      label: cytokine production
+    modifier: INCREASED
+  cell_types:
+  - preferred_term: kidney epithelial cell
+    term:
+      id: CL:0002518
+      label: kidney epithelial cell
+  - preferred_term: kidney tubule cell
+    term:
+      id: CL:1000507
+      label: kidney tubule cell
+  - preferred_term: glomerular mesangial cell
+    term:
+      id: CL:1000742
+      label: glomerular mesangial cell
+  - preferred_term: podocyte
+    term:
+      id: CL:0000653
+      label: podocyte
+  downstream:
+  - target: Intrarenal Immune Cell Conditioning and Activation
+    description: &gt;-
+      Antigen presentation and cytokine production by intrinsic renal cells act on the
+      intrarenal immune cells, the second input to their conditioning.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The pathways used by intrinsic renal cells to interact with immune cells, such as antigen presentation and cytokine production&#34;
+      explanation: Names antigen presentation and cytokine production as the pathways by which intrinsic renal cells act on immune cells.
+  evidence:
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The pathways used by intrinsic renal cells to interact with immune cells, such as antigen presentation and cytokine production&#34;
+    explanation: Establishes that intrinsic renal cells engage immune cells through antigen presentation and cytokine production.
+- name: Intrarenal Immune Cell Conditioning and Activation
+  biological_scale: CELLULAR
+  description: &gt;-
+    The convergent output of the renal niche and of intrinsic renal cell engagement:
+    the recruitment, survival, differentiation, and activation of the immune cells
+    within the kidney are shaped by the kidney itself. This is the node at which the
+    causal direction reverses relative to the classical cascade, and it feeds back
+    onto both the infiltrate that supplied the cells and the renal cells that
+    conditioned them.
+  biological_processes:
+  - preferred_term: Activation of intrarenal leukocytes
+    term:
+      id: GO:0045321
+      label: leukocyte activation
+    modifier: INCREASED
+  cell_types:
+  - preferred_term: T cell
+    term:
+      id: CL:0000084
+      label: T cell
+  - preferred_term: macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  downstream:
+  - target: Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu
+    description: &gt;-
+      Feedback arm: kidney-conditioned recruitment, survival, and differentiation
+      amplify and sustain the local infiltrate. This edge closes the loop that
+      distinguishes the bidirectional model from the classical unidirectional cascade.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;the kidney microenvironment influences the recruitment, survival, differentiation, and activation of immune cells&#34;
+      explanation: States the kidney-to-immune-cell arm of the loop that this edge represents.
+  - target: Altered Intrinsic Renal Cell Function
+    description: &gt;-
+      The second half of the review&#39;s reciprocal sentence: the conditioned immune
+      cells in turn modify the function of the kidney&#39;s own cells.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;the kidney microenvironment influences the recruitment, survival, differentiation, and activation of immune cells, which, in turn, modify kidney cell function&#34;
+      explanation: The trailing clause states that the conditioned immune cells modify kidney cell function.
+  evidence:
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;the kidney microenvironment influences the recruitment, survival, differentiation, and activation of immune cells&#34;
+    explanation: Supports kidney-directed conditioning of intrarenal immune cell recruitment, survival, differentiation, and activation.
+- name: Altered Intrinsic Renal Cell Function
+  biological_scale: CELLULAR
+  description: &gt;-
+    The endpoint of the reciprocal arm: intrinsic renal cell function is modified by
+    the immune cells the kidney has conditioned. Modelling this explicitly keeps both
+    halves of the review&#39;s reciprocal claim as their own edges rather than leaving the
+    kidney-directed half implicit, and it is the route by which the crosstalk loop
+    contributes to tissue damage.
+  cell_types:
+  - preferred_term: kidney epithelial cell
+    term:
+      id: CL:0002518
+      label: kidney epithelial cell
+  - preferred_term: glomerular mesangial cell
+    term:
+      id: CL:1000742
+      label: glomerular mesangial cell
+  - preferred_term: podocyte
+    term:
+      id: CL:0000653
+      label: podocyte
+  downstream:
+  - target: Glomerular and Tubulointerstitial Injury
+    description: &gt;-
+      Immune-cell-driven alteration of intrinsic renal cell function is part of what
+      produces the tissue damage seen in lupus nephritis.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - bidirectional_kidney_immune_crosstalk
+    evidence:
+    - reference: PMID:39120952
+      reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;proinflammatory cytokine milieu that affects intrinsic renal cells and is, in part, responsible for the tissue damage observed in LN&#34;
+      explanation: Links the effect on intrinsic renal cells to the tissue damage observed in lupus nephritis.
+  evidence:
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;which, in turn, modify kidney cell function&#34;
+    explanation: States that the kidney-conditioned immune cells modify kidney cell function.
+  notes: &gt;-
+    Curated from a narrative review, so this arm records a mechanism the review
+    synthesizes rather than a single-study finding; the review does not quantify how
+    much of the tissue damage in lupus nephritis proceeds through this route.
 - name: Glomerular and Tubulointerstitial Injury
   description: &gt;-
     Sustained immune-complex, complement, and inflammatory injury produces the graded
@@ -7133,6 +9621,49 @@ treatments:
     evidence_source: OTHER
     snippet: &#34;Low-dose aspirin is recommended universally to reduce preeclampsia risk.&#34;
     explanation: Establishes low-dose aspirin as universal preeclampsia prevention in lupus nephritis pregnancies.
+discussions:
+- discussion_id: gap_kidney_targeted_ln_therapy
+  prompt: &gt;-
+    Can the intrarenal kidney-immune crosstalk loop be interrupted by kidney-targeted
+    therapy without systemic immunosuppression, and does doing so improve renal
+    outcomes relative to the current systemic regimens?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)
+  - pathophysiology#Intrinsic Renal Cell Antigen Presentation and Cytokine Production
+  - pathophysiology#Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu
+  rationale: &gt;-
+    Every treatment currently curated on this entry — mycophenolate/cyclophosphamide
+    induction, corticosteroids, belimumab, voclosporin, obinutuzumab, rituximab,
+    azathioprine — acts systemically, which follows from the unidirectional model in
+    which the kidney is a passive target. If the reciprocal arm is a genuine driver,
+    the loop is in principle interruptible at renal-restricted nodes (the hypoxic and
+    hypertonic niche, renal antigen presentation, renal cytokine production) that
+    systemic immunosuppression does not specifically address. The gap is that no
+    kidney-targeted agent acting on these nodes has been shown to change renal
+    outcomes in patients, so the therapeutic claim remains a prediction of the model
+    rather than a curated treatment.
+  proposed_experiments:
+  - experiment_id: exp_ln_renal_restricted_target_engagement
+    name: Renal-restricted target engagement with paired kidney biopsy readouts
+    description: &gt;-
+      Test an agent directed at a renal-restricted node of the loop (for example
+      renal antigen presentation or the hypoxia/hypertonicity response) using paired
+      pre- and post-treatment kidney biopsies, scoring change in the intrarenal
+      immune infiltrate and local cytokine milieu alongside proteinuric response, and
+      comparing against a systemically immunosuppressed control arm to establish
+      whether renal-compartment engagement is separable from systemic effect.
+  evidence:
+  - reference: PMID:39120952
+    reference_title: &#34;Lupus Nephritis: Immune Cells and the Kidney Microenvironment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;An understanding of these mechanisms can lead to the design of more kidney-targeted treatments and the avoidance of systemic immunosuppressive effects and may represent the next frontier of LN therapies.&#34;
+    explanation: &gt;-
+      Frames kidney-targeted therapy as a prospective consequence of these mechanisms
+      (&#34;can lead to&#34;, &#34;may represent&#34;), i.e. an open question rather than a
+      demonstrated therapeutic result.
 review_notes: &gt;-
   Lupus nephritis is curated as a distinct renal manifestation-level entry
   (MONDO:0005556, a manifestation of SLE, MONDO:0007915) separate from the base
@@ -7882,7 +10413,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lupus Nephritis", "mondoId": "MONDO:0005556", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lupus_Nephritis", "yamlRevision": "0fda07dd0fa9"};
+        const OS_CONFIG = {"diseaseName": "Lupus Nephritis", "mondoId": "MONDO:0005556", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lupus_Nephritis", "yamlRevision": "d93130f75786"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8301,5 +10832,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

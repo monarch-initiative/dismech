@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3772,7 @@
             <span>Narcolepsy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Narcolepsy</h1>
             <div class="header-meta">
 
@@ -3659,6 +3785,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Narcolepsy"
@@ -3799,7 +3927,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3816,6 +3944,14 @@
 
 
 
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#genetic">
@@ -3881,27 +4017,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3940,7 +4153,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-narcolepsy-type-1">
 
                     <div class="item-name">
                         Narcolepsy Type 1
@@ -3974,6 +4187,7 @@
                         <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4002,7 +4216,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-narcolepsy-type-2">
 
                     <div class="item-name">
                         Narcolepsy Type 2
@@ -4035,6 +4249,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4080,13 +4295,13 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-orexin-hypocretin-deficiency" data-dismech-node="Orexin/Hypocretin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Orexin/Hypocretin Deficiency</div>
 
-                <div class="item-desc">Loss of orexin-producing neurons in the lateral hypothalamus leads to instability of sleep-wake states. Orexin normally promotes and stabilizes wakefulness. In Type 1 narcolepsy, &gt;90% of orexin neurons are destroyed, likely through autoimmune mechanisms.
+                <div class="item-desc">Loss of orexin-producing neurons in the lateral hypothalamus removes the signal that normally holds the sleep-wake switch in a stable position. Postmortem series show an 85-95% reduction in orexin neuron number, and the loss is cell-type-selective: the intermingled melanin-concentrating hormone neurons are spared, which excludes a nonspecific hypothalamic lesion. Because the population is small and unreplaced, the deficit is permanent, and it is detectable in life as low or undetectable CSF hypocretin-1. Scoped to Narcolepsy Type 1: CSF hypocretin-1 is normal or intermediate in most patients with Type 2, which is why this node - and its conformance to the orexin module&#39;s trigger - applies to the Type 1 subtype only.
 </div>
 
 
@@ -4094,18 +4309,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Orexin Neuron, annotated with hypocretin-secreting neuron (CL:0011109). CL:0011109 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Orexin Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011109" target="_blank" class="curie-chip curie-chip-cl">CL:0011109</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011109" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0011109</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Orexin Neuron, annotated with hypocretin-secreting neuron (CL:0011109). CL:0011109 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4133,18 +4350,20 @@ This pathophysiological event involves Orexin Neuron, annotated with hypocretin-
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Sleep-Wake Regulation, annotated with circadian sleep/wake cycle (GO:0042745). GO:0042745 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Sleep-Wake Regulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go">GO:0042745</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042745</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Sleep-Wake Regulation, annotated with circadian sleep/wake cycle (GO:0042745). GO:0042745 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4168,6 +4387,21 @@ This pathophysiological event involves Sleep-Wake Regulation, annotated with cir
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sleep-Wake State Instability</span>
+
+	                            <span class="crosslink-desc">Loss of the orexin signal removes excitatory drive to the ascending arousal nuclei, so the sleep-wake switch can no longer be held stable and flips at inappropriate times in both directions.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4182,6 +4416,7 @@ This pathophysiological event involves Sleep-Wake Regulation, annotated with cir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4209,7 +4444,7 @@ This pathophysiological event involves Sleep-Wake Regulation, annotated with cir
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-destruction" data-dismech-node="Autoimmune Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune Destruction</div>
 
-                <div class="item-desc">Strong HLA-DQB1*06:02 association suggests autoimmune etiology. T-cell mediated destruction of hypocretin neurons is the leading hypothesis. Environmental triggers (infections, H1N1 vaccination) may initiate the autoimmune response in genetically susceptible individuals.
+                <div class="item-desc">Strong HLA-DQB1*06:02 association suggests autoimmune etiology. T-cell mediated destruction of hypocretin neurons is the leading hypothesis. Environmental triggers (infections, H1N1 vaccination) may initiate the autoimmune response in genetically susceptible individuals. Direct cellular evidence has since been obtained: hypocretin-specific CD4+ T cells are detectable in patients and not in controls, and hypocretin-specific CD8+ T cells are found in blood and cerebrospinal fluid.
 </div>
 
 
@@ -4224,22 +4459,372 @@ This pathophysiological event involves Sleep-Wake Regulation, annotated with cir
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Autoimmune Response, annotated with adaptive immune response based on somatic recombination of immune receptors built from immunoglobulin superfamily domains (GO:0002460). GO:0002460 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Autoimmune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002460" target="_blank" class="curie-chip curie-chip-go">GO:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002460" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002460</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Autoimmune Response, annotated with adaptive immune response based on somatic recombination of immune receptors built from immunoglobulin superfamily domains (GO:0002460). GO:0002460 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Orexin/Hypocretin Deficiency</span>
+
+	                            <span class="crosslink-desc">Immune-mediated destruction of the orexin-producing neurons is the route by which the orexin signal is lost in Type 1 narcolepsy.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25728441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The hypothesis that a targeted immune-mediated or autoimmune attack causes the specific degeneration of hypocretin neurons arose mainly through the discovery of genetic associations, first with the HLA-DQB1*06:02 allele and then with the T-cell receptor α locus."</div>
+
+
+                <div class="evidence-explanation">Genetic associations with HLA and TCR loci strongly support autoimmune etiology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32227223" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32227223" target="_blank">PMID:32227223</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Narcolepsy type 1 is hypothesized to be an autoimmune disease targeting the hypocretin/orexin neurons in the hypothalamus. Ample genetic and epidemiological evidence points in the direction of a pathogenesis involving the immune system"</div>
+
+
+                <div class="evidence-explanation">Recent review summarizing that genetic and epidemiological evidence supports autoimmune pathogenesis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38077397" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38077397" target="_blank">PMID:38077397</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Narcolepsy Type I (NT1) is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons. The mechanisms involved in the destruction of orexin neurons are not yet elucidated but the association of narcolepsy with environmental..."</div>
+
+
+                <div class="evidence-explanation">Transcriptomic study confirms the immunological basis and T-cell involvement in narcolepsy pathogenesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-wake-state-instability" data-dismech-node="Sleep-Wake State Instability" data-dismech-type="pathophysiology">
+                <div class="item-name">Sleep-Wake State Instability</div>
+
+                <div class="item-desc">The rate-limiting step, and the node that makes sense of the disorder&#39;s apparent paradox. Loss of orexinergic stabilisation does not abolish any single behavioural state; it makes every state transition too easy. Wakefulness fragments into involuntary sleep episodes, and nocturnal sleep fragments into frequent awakenings - which is why these patients are simultaneously excessively sleepy by day and poor sleepers by night, an observation a simple &#34;insufficient wake drive&#34; account does not predict. Unlike the trigger nodes above, this node is not scoped to Type 1: Type 2 patients show the same state instability without a demonstrated orexin deficit, which is precisely why the module places its conformance bar at the trigger rather than here.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        sleep-wake cycle state transition
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0022410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0022410</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal sleep-wake cycle state transition, annotated with circadian sleep/wake cycle process (GO:0022410). GO:0022410 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        regulation of the sleep-wake cycle
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042749</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of the sleep-wake cycle, annotated with regulation of circadian sleep/wake cycle (GO:0042749). GO:0042749 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dissociated Intrusion of REM Sleep Components</span>
+
+	                            <span class="crosslink-desc">An unstable switch permits REM sleep to be entered directly from wakefulness and permits individual REM components to appear in isolation.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10481909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10481909" target="_blank">PMID:10481909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We propose that orexin regulates sleep/wakefulness states"</div>
+
+
+                <div class="evidence-explanation">Names the function lost at this node - regulation of behavioural state rather than production of wakefulness - which is the distinction that makes the day-night paradox coherent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10458611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10458611" target="_blank">PMID:10458611</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is characterized by daytime sleepiness, cataplexy, and striking transitions from wakefulness into rapid eye movement (REM) sleep."</div>
+
+
+                <div class="evidence-explanation">Describes the instability phenotype as abrupt inappropriate state transitions, which is the readout this node encodes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11055430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11055430" target="_blank">PMID:11055430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"human narcoleptics have an 85%-95% reduction in the number of Hcrt neurons"</div>
+
+
+                <div class="evidence-explanation">Human evidence that the lesion upstream of this node is present, and near total, in patients rather than only in the animal models above - which matters because this is the entry&#39;s rate-limiting node and the model evidence alone would not license a human claim.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dissociated-intrusion-of-rem-sleep-components" data-dismech-node="Dissociated Intrusion of REM Sleep Components" data-dismech-type="pathophysiology">
+                <div class="item-name">Dissociated Intrusion of REM Sleep Components</div>
+
+                <div class="item-desc">REM sleep is normally an all-or-none package: EEG desynchronisation, rapid eye movements, dreaming, and skeletal muscle atonia arrive together. State instability lets the package come apart, so single components appear at the wrong time and without the others. Muscle atonia intruding into full wakefulness is cataplexy; atonia persisting into waking consciousness at a state boundary is sleep paralysis; dream imagery without sleep is hypnagogic hallucination; and the whole state entered directly from wake is a sleep-onset REM period. This node is what distinguishes orexin-driven hypersomnolence from every other cause of sleepiness, and is the reason the multiple sleep latency test counts sleep-onset REM periods rather than only measuring sleep latency.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        REM sleep
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042747" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0042747</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal REM sleep, annotated with circadian sleep/wake cycle, REM sleep (GO:0042747). GO:0042747 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
 
 
 
@@ -4264,72 +4849,81 @@ This pathophysiological event involves Autoimmune Response, annotated with adapt
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25728441" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:10481909" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10481909" target="_blank">PMID:10481909</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The hypothesis that a targeted immune-mediated or autoimmune attack causes the specific degeneration of hypocretin neurons arose mainly through the discovery of genetic associations, first with the HLA-DQB1*06:02 allele and then with the T-cell receptor α locus."</div>
+                <div class="evidence-snippet">"a disorder characterized primarily by rapid eye movement (REM) sleep dysregulation"</div>
 
 
-                <div class="evidence-explanation">Genetic associations with HLA and TCR loci strongly support autoimmune etiology.</div>
+                <div class="evidence-explanation">Identifies REM dysregulation as the defining downstream consequence of orexin loss, which is what this node models.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32227223" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:10458611" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32227223" target="_blank">PMID:32227223</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10458611" target="_blank">PMID:10458611</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
                 </div>
 
-                <div class="evidence-snippet">"Narcolepsy type 1 is hypothesized to be an autoimmune disease targeting the hypocretin/orexin neurons in the hypothalamus. Ample genetic and epidemiological evidence points in the direction of a pathogenesis involving the immune system"</div>
+                <div class="evidence-snippet">"This result identifies hypocretins as major sleep-modulating neurotransmitters"</div>
 
 
-                <div class="evidence-explanation">Recent review summarizing that genetic and epidemiological evidence supports autoimmune pathogenesis.</div>
+                <div class="evidence-explanation">Places the REM-dissociation phenotype downstream of hypocretin neurotransmission rather than treating it as an independent finding.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38077397" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:12374492" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38077397" target="_blank">PMID:38077397</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12374492" target="_blank">PMID:12374492</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
-                <div class="evidence-snippet">"NT1 is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons. The mechanisms involved in the destruction of orexin neurons are not yet elucidated but the association of narcolepsy with environmental triggers and genetic..."</div>
+                <div class="evidence-snippet">"HLA-DQB1*0602 frequency was increased in narcolepsy with typical cataplexy (93% vs 17% in controls), narcolepsy without cataplexy (56%), and in essential hypersomnia (52%)."</div>
 
 
-                <div class="evidence-explanation">Transcriptomic study confirms the immunological basis and T-cell involvement in narcolepsy pathogenesis.</div>
+                <div class="evidence-explanation">Human clinical evidence stratified by the presence of cataplexy - the REM-dissociation feature this node models - showing that the cataplexy-positive group is the one carrying the near-complete HLA association, which grounds the node in patients rather than in the knockout models above.</div>
 
 
 
             </div>
 
+
+            <div class="evidence-more">+ 3 more references</div>
 
         </div>
     </details>
@@ -4344,6 +4938,29 @@ This pathophysiological event involves Autoimmune Response, annotated with adapt
 
 
         <!-- Causal Graph (Pathograph) -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Narcolepsy</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Autoimmune Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Strong HLA-DQB1*06:02 association suggests autoimmune etiology. T-cell mediated destruction of hypocretin neurons is the leading hypothesis. Environmental triggers (infections, H1N1 vaccination) may initiate the autoimmune response in genetically susceptible individuals. Direct cellular evidence has since been obtained: hypocretin-specific CD4+ T cells are detectable in patients and not in controls, and hypocretin-specific CD8+ T cells are found in blood and cerebrospinal fluid.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Autoimmune Response\"], \"subtypes\": [\"Narcolepsy Type 1\"], \"role\": \"trigger\"}}, {\"id\": \"Dissociated Intrusion of REM Sleep Components\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"REM sleep is normally an all-or-none package: EEG desynchronisation, rapid eye movements, dreaming, and skeletal muscle atonia arrive together. State instability lets the package come apart, so single components appear at the wrong time and without the others. Muscle atonia intruding into full wakefulness is cataplexy; atonia persisting into waking consciousness at a state boundary is sleep paralysis; dream imagery without sleep is hypnagogic hallucination; and the whole state entered directly from wake is a sleep-onset REM period. This node is what distinguishes orexin-driven hypersomnolence from every other cause of sleepiness, and is the reason the multiple sleep latency test counts sleep-onset REM periods rather than only measuring sleep latency.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"REM sleep\"], \"role\": \"effector\"}}, {\"id\": \"Orexin/Hypocretin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of orexin-producing neurons in the lateral hypothalamus removes the signal that normally holds the sleep-wake switch in a stable position. Postmortem series show an 85-95% reduction in orexin neuron number, and the loss is cell-type-selective: the intermingled melanin-concentrating hormone neurons are spared, which excludes a nonspecific hypothalamic lesion. Because the population is small and unreplaced, the deficit is permanent, and it is detectable in life as low or undetectable CSF hypocretin-1. Scoped to Narcolepsy Type 1: CSF hypocretin-1 is normal or intermediate in most patients with Type 2, which is why this node - and its conformance to the orexin module\u0027s trigger - applies to the Type 1 subtype only.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Orexin Neuron\"], \"biological_processes\": [\"Sleep-Wake Regulation\"], \"subtypes\": [\"Narcolepsy Type 1\"], \"role\": \"trigger\"}}, {\"id\": \"Sleep-Wake State Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting step, and the node that makes sense of the disorder\u0027s apparent paradox. Loss of orexinergic stabilisation does not abolish any single behavioural state; it makes every state transition too easy. Wakefulness fragments into involuntary sleep episodes, and nocturnal sleep fragments into frequent awakenings - which is why these patients are simultaneously excessively sleepy by day and poor sleepers by night, an observation a simple \\\"insufficient wake drive\\\" account does not predict. Unlike the trigger nodes above, this node is not scoped to Type 1: Type 2 patients show the same state instability without a demonstrated orexin deficit, which is precisely why the module places its conformance bar at the trigger rather than here.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"sleep-wake cycle state transition\", \"regulation of the sleep-wake cycle\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Orexin/Hypocretin Deficiency\", \"target\": \"Sleep-Wake State Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the orexin signal removes excitatory drive to the ascending arousal nuclei, so the sleep-wake switch can no longer be held stable and flips at inappropriate times in both directions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autoimmune Destruction\", \"target\": \"Orexin/Hypocretin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune-mediated destruction of the orexin-producing neurons is the route by which the orexin signal is lost in Type 1 narcolepsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake State Instability\", \"target\": \"Dissociated Intrusion of REM Sleep Components\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An unstable switch permits REM sleep to be entered directly from wakefulness and permits individual REM components to appear in isolation.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
 
 
         <!-- Phenotypes -->
@@ -4368,15 +4985,17 @@ This pathophysiological event involves Autoimmune Response, annotated with adapt
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002329</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Excessive Daytime Sleepiness, annotated with Drowsiness (HP:0002329). HP:0002329 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp">HP:0002329</a>
-
-
+This clinical feature is Excessive Daytime Sleepiness, annotated with Drowsiness (HP:0002329). HP:0002329 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4399,12 +5018,13 @@ This clinical feature is Excessive Daytime Sleepiness, annotated with Drowsiness
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38077397" target="_blank">PMID:38077397</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
                 </div>
 
-                <div class="evidence-snippet">"NT1 is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons."</div>
+                <div class="evidence-snippet">"Narcolepsy Type I (NT1) is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons."</div>
 
 
                 <div class="evidence-explanation">Excessive daytime sleepiness results from loss of orexin neurons that regulate wakefulness.</div>
@@ -4434,15 +5054,17 @@ This clinical feature is Excessive Daytime Sleepiness, annotated with Drowsiness
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002524</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp">HP:0002524</a>
-
-
+This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4464,6 +5086,7 @@ This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4502,15 +5125,17 @@ This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025233" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0025233</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sleep Paralysis (HP:0025233). HP:0025233 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025233" target="_blank" class="curie-chip curie-chip-hp">HP:0025233</a>
-
-
+This clinical feature is Sleep Paralysis (HP:0025233). HP:0025233 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4532,6 +5157,7 @@ This clinical feature is Sleep Paralysis (HP:0025233). HP:0025233 is a phenotype
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4570,15 +5196,17 @@ This clinical feature is Sleep Paralysis (HP:0025233). HP:0025233 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002519</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypnagogic Hallucination (HP:0002519). HP:0002519 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002519" target="_blank" class="curie-chip curie-chip-hp">HP:0002519</a>
-
-
+This clinical feature is Hypnagogic Hallucination (HP:0002519). HP:0002519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4600,6 +5228,7 @@ This clinical feature is Hypnagogic Hallucination (HP:0002519). HP:0002519 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4638,15 +5267,17 @@ This clinical feature is Hypnagogic Hallucination (HP:0002519). HP:0002519 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp">HP:0002360</a>
-
-
+This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4668,6 +5299,7 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4731,6 +5363,7 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32227223" target="_blank">PMID:32227223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4750,6 +5383,7 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4785,6 +5419,28 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HCRT
+
+
+    <a href="https://bioregistry.io/hgnc:4847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:4847</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HCRT (hgnc:4847). hgnc:4847 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4799,6 +5455,7 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4832,6 +5489,28 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HCRTR2
+
+
+    <a href="https://bioregistry.io/hgnc:4849" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:4849</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HCRTR2 (hgnc:4849). hgnc:4849 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4846,6 +5525,7 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4877,6 +5557,9 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4893,17 +5576,17 @@ This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenoty
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -4945,6 +5628,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22893778" target="_blank">PMID:22893778</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4973,17 +5657,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5008,18 +5692,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses modafinil (CHEBI:31859). CHEBI:31859 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         modafinil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31859" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31859</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31859" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:31859</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses modafinil (CHEBI:31859). CHEBI:31859 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5044,6 +5730,7 @@ This treatment uses modafinil (CHEBI:31859). CHEBI:31859 is a therapeutic agent 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20671626" target="_blank">PMID:20671626</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5073,17 +5760,17 @@ This treatment uses modafinil (CHEBI:31859). CHEBI:31859 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5108,18 +5795,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pitolisant (CHEBI:134709). CHEBI:134709 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         pitolisant
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_134709" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:134709</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_134709" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:134709</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pitolisant (CHEBI:134709). CHEBI:134709 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5144,6 +5833,7 @@ This treatment uses pitolisant (CHEBI:134709). CHEBI:134709 is a therapeutic age
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34935103" target="_blank">PMID:34935103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5173,17 +5863,17 @@ This treatment uses pitolisant (CHEBI:134709). CHEBI:134709 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5208,18 +5898,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses solriamfetol (NCIT:C152389). NCIT:C152389 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         solriamfetol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152389" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C152389</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152389" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C152389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses solriamfetol (NCIT:C152389). NCIT:C152389 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5244,6 +5936,7 @@ This treatment uses solriamfetol (NCIT:C152389). NCIT:C152389 is a therapeutic a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30694576" target="_blank">PMID:30694576</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5273,17 +5966,17 @@ This treatment uses solriamfetol (NCIT:C152389). NCIT:C152389 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5326,6 +6019,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-70594-1" target="_blank">DOI:10.1038/s41598-024-70594-1</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5358,17 +6052,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5410,6 +6104,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18830438" target="_blank">PMID:18830438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5438,17 +6133,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5490,6 +6185,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30837110" target="_blank">PMID:30837110</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5518,18 +6214,18 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">behavioral counseling</span>
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">NCIT:C181743</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C181743">NCIT:C181743</a>
 
 
 
@@ -5571,6 +6267,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18830438" target="_blank">PMID:18830438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5607,11 +6304,71 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
             <div class="item-box environmental-box anchor-target" id="environmental-h1n1-infection" data-dismech-node="H1N1 Infection" data-dismech-type="environmental">
                 <div class="item-name">H1N1 Infection</div>
 
-
-                <div class="item-desc">Increased risk after 2009 pandemic</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        viral exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-25">ECTO:3000001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is viral exposure, annotated with exposure to virus (ECTO:3000001). ECTO:3000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Increased risk after 2009 pandemic. Evidenced independently of vaccination by a Chinese post-pandemic series, in which almost no patient had been vaccinated.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21866560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21866560" target="_blank">PMID:21866560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we found a 3-fold increase in narcolepsy onset following the 2009 H1N1 winter influenza pandemic. The increase is unlikely to be explained by increased vaccination, as only 8 of 142 (5.6%) patients recalled receiving an H1N1 vaccination"</div>
+
+
+                <div class="evidence-explanation">Retrospective analysis of onset in 629 Beijing patients, 86 percent of them children. Because vaccination was rare in this sample, it separates the infection exposure from the vaccine exposure curated below.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5621,10 +6378,70 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                 <div class="item-name">Pandemrix Vaccine</div>
 
 
-                <div class="item-desc">Associated with increased narcolepsy risk in Europe</div>
 
 
 
+
+                <div class="item-desc">Associated with increased narcolepsy risk in Europe after the 2009 pandemic vaccination campaign. The magnitude is drawn from observational studies whose methodological limitations are contested; both the estimate and the manufacturer-affiliated critique of it are cited, and they disagree.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29855798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29855798" target="_blank">PMID:29855798</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the risk of narcolepsy was increased 5- to 14-fold in children and adolescents and 2- to 7-fold in adults"</div>
+
+
+                <div class="evidence-explanation">Reports the magnitude of the association between the AS03-adjuvanted pandemic vaccine and incident narcolepsy across European studies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26379011" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26379011" target="_blank">PMID:26379011</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"significant methodological limitations of the studies have not been fully addressed and raise questions about the reported risk estimates"</div>
+
+
+                <div class="evidence-explanation">Cited deliberately alongside the risk estimate as the dissenting reading of the same twelve European studies. Provenance matters here and is not neutral: the authors are staff and contractors of GSK Vaccines, the manufacturer of Pandemrix, together with a pharmacovigilance consultancy, so this is the manufacturer-affiliated critique rather than independent scrutiny. The two cited sources genuinely disagree - PMID:29855798 concedes that confounding and diagnostic bias may influence some studies but judges it unlikely they explain the increased incidence across every country where Pandemrix was used. The dispute is recorded here rather than resolved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5633,11 +6450,71 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
             <div class="item-box environmental-box anchor-target" id="environmental-streptococcal-infection" data-dismech-node="Streptococcal Infection" data-dismech-type="environmental">
                 <div class="item-name">Streptococcal Infection</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        Infectious agent exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000000" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-26">ECTO:3000000</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Infectious agent exposure, annotated with exposure to organism (ECTO:3000000). ECTO:3000000 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Possible trigger in some cases</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19725248" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19725248" target="_blank">PMID:19725248</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Streptococcal infections are probably a significant environmental trigger for narcolepsy"</div>
+
+
+                <div class="evidence-explanation">Serological study of anti-streptolysin O titers in narcolepsy near disease onset. The authors hedge as probable rather than established, which is the level of confidence this note records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5681,6 +6558,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5709,6 +6587,33 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5721,7 +6626,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse240851">
                 <div class="item-name">
                     The Transcriptomic Profiling of Blood CD4 and CD8 T-cells in Narcolepsy Type I
 
@@ -5764,7 +6669,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse21592">
                 <div class="item-name">
                     Genome-wide gene expression profiling of human narcolepsy
 
@@ -5807,7 +6712,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse247134">
                 <div class="item-name">
                     Single cell transcriptomics of cerebrospinal fluid cells from patients with recent-onset narcolepsy
 
@@ -5846,7 +6751,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004886">
                 <div class="item-name">
                     mRNA and T cell receptor sequencing of patients with Pandemrix-associated narcolepsy type 1
 
@@ -5881,7 +6786,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000092401">
                 <div class="item-name">
                     LCMSMS Quantitation of HILIC Enriched N glycopeptides derived from low abundance serum glycoproteins in patients with Narcolepsy Type I
 
@@ -5942,7 +6847,6 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Narcolepsy
 creation_date: &#39;2025-12-19T14:27:56Z&#39;
-updated_date: &#39;2026-05-17T03:10:05Z&#39;
 description: &gt;-
   Narcolepsy is a chronic neurological sleep disorder characterized by excessive
   daytime sleepiness and dysregulation of rapid eye movement (REM) sleep. Type 1
@@ -5987,10 +6891,28 @@ has_subtypes:
 pathophysiology:
 - name: Orexin/Hypocretin Deficiency
   description: &gt;
-    Loss of orexin-producing neurons in the lateral hypothalamus leads to
-    instability of sleep-wake states. Orexin normally promotes and stabilizes
-    wakefulness. In Type 1 narcolepsy, &gt;90% of orexin neurons are destroyed,
-    likely through autoimmune mechanisms.
+    Loss of orexin-producing neurons in the lateral hypothalamus removes the
+    signal that normally holds the sleep-wake switch in a stable position.
+    Postmortem series show an 85-95% reduction in orexin neuron number, and the
+    loss is cell-type-selective: the intermingled melanin-concentrating hormone
+    neurons are spared, which excludes a nonspecific hypothalamic lesion. Because
+    the population is small and unreplaced, the deficit is permanent, and it is
+    detectable in life as low or undetectable CSF hypocretin-1.
+    Scoped to Narcolepsy Type 1: CSF hypocretin-1 is normal or intermediate in
+    most patients with Type 2, which is why this node - and its conformance to
+    the orexin module&#39;s trigger - applies to the Type 1 subtype only.
+  role: trigger
+  biological_scale: CELLULAR
+  subtypes:
+  - Narcolepsy Type 1
+  conforms_to: &#34;orexin_arousal_instability#Loss of Hypothalamic Orexin (Hypocretin) Signal&#34;
+  downstream:
+  - target: Sleep-Wake State Instability
+    description: &gt;-
+      Loss of the orexin signal removes excitatory drive to the ascending arousal
+      nuclei, so the sleep-wake switch can no longer be held stable and flips at
+      inappropriate times in both directions.
+    causal_link_type: DIRECT
   cell_types:
   - preferred_term: Orexin Neuron
     term:
@@ -6013,7 +6935,20 @@ pathophysiology:
     Strong HLA-DQB1*06:02 association suggests autoimmune etiology. T-cell
     mediated destruction of hypocretin neurons is the leading hypothesis.
     Environmental triggers (infections, H1N1 vaccination) may initiate
-    the autoimmune response in genetically susceptible individuals.
+    the autoimmune response in genetically susceptible individuals. Direct
+    cellular evidence has since been obtained: hypocretin-specific CD4+ T cells
+    are detectable in patients and not in controls, and hypocretin-specific CD8+
+    T cells are found in blood and cerebrospinal fluid.
+  role: trigger
+  biological_scale: CELLULAR
+  subtypes:
+  - Narcolepsy Type 1
+  downstream:
+  - target: Orexin/Hypocretin Deficiency
+    description: &gt;-
+      Immune-mediated destruction of the orexin-producing neurons is the route by
+      which the orexin signal is lost in Type 1 narcolepsy.
+    causal_link_type: DIRECT
   biological_processes:
   - preferred_term: Autoimmune Response
     term:
@@ -6034,8 +6969,188 @@ pathophysiology:
   - reference: PMID:38077397
     reference_title: &#34;The transcriptomics profiling of blood CD4 and CD8 T-cells in narcolepsy type I.&#34;
     supports: SUPPORT
-    snippet: &#34;NT1 is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons. The mechanisms involved in the destruction of orexin neurons are not yet elucidated but the association of narcolepsy with environmental triggers and genetic susceptibility (strong association with the HLA, TCRs and other immunologically-relevant loci) implicates an immuno-pathological process.&#34;
+    snippet: &#34;Narcolepsy Type I (NT1) is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons. The mechanisms involved in the destruction of orexin neurons are not yet elucidated but the association of narcolepsy with environmental triggers and genetic susceptibility (strong association with the HLA, TCRs and other immunologically-relevant loci) implicates an immuno-pathological process.&#34;
     explanation: Transcriptomic study confirms the immunological basis and T-cell involvement in narcolepsy pathogenesis.
+- name: Sleep-Wake State Instability
+  description: &gt;-
+    The rate-limiting step, and the node that makes sense of the disorder&#39;s
+    apparent paradox. Loss of orexinergic stabilisation does not abolish any
+    single behavioural state; it makes every state transition too easy.
+    Wakefulness fragments into involuntary sleep episodes, and nocturnal sleep
+    fragments into frequent awakenings - which is why these patients are
+    simultaneously excessively sleepy by day and poor sleepers by night, an
+    observation a simple &#34;insufficient wake drive&#34; account does not predict.
+    Unlike the trigger nodes above, this node is not scoped to Type 1: Type 2
+    patients show the same state instability without a demonstrated orexin
+    deficit, which is precisely why the module places its conformance bar at the
+    trigger rather than here.
+  role: central_effector
+  biological_scale: ORGANISM
+  conforms_to: &#34;orexin_arousal_instability#Sleep-Wake State Instability&#34;
+  biological_processes:
+  - preferred_term: sleep-wake cycle state transition
+    term:
+      id: GO:0022410
+      label: circadian sleep/wake cycle process
+    modifier: ABNORMAL
+  - preferred_term: regulation of the sleep-wake cycle
+    term:
+      id: GO:0042749
+      label: regulation of circadian sleep/wake cycle
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:10481909
+    reference_title: &#34;Narcolepsy in orexin knockout mice: molecular genetics of sleep regulation.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      We propose that orexin regulates sleep/wakefulness states
+    explanation: &gt;-
+      Names the function lost at this node - regulation of behavioural state
+      rather than production of wakefulness - which is the distinction that makes
+      the day-night paradox coherent.
+  - reference: PMID:10458611
+    reference_title: The sleep disorder canine narcolepsy is caused by a mutation in the hypocretin (orexin) receptor 2 gene.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      It is characterized by daytime sleepiness, cataplexy, and striking
+      transitions from wakefulness into rapid eye movement (REM) sleep.
+    explanation: &gt;-
+      Describes the instability phenotype as abrupt inappropriate state
+      transitions, which is the readout this node encodes.
+  - reference: PMID:11055430
+    reference_title: Reduced number of hypocretin neurons in human narcolepsy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      human narcoleptics have an 85%-95% reduction in the number of Hcrt neurons
+    explanation: &gt;-
+      Human evidence that the lesion upstream of this node is present, and near
+      total, in patients rather than only in the animal models above - which
+      matters because this is the entry&#39;s rate-limiting node and the model
+      evidence alone would not license a human claim.
+  - reference: PMID:12374492
+    reference_title: The role of cerebrospinal fluid hypocretin measurement in the diagnosis of narcolepsy and other hypersomnias.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Narcolepsy-cataplexy with hypocretin deficiency is a genuine disease entity.
+    explanation: &gt;-
+      Establishes the hypocretin-deficient state-instability syndrome as a
+      distinct human entity, not an extrapolation from the knockout phenotype.
+  downstream:
+  - target: Dissociated Intrusion of REM Sleep Components
+    description: &gt;-
+      An unstable switch permits REM sleep to be entered directly from
+      wakefulness and permits individual REM components to appear in isolation.
+    causal_link_type: DIRECT
+- name: Dissociated Intrusion of REM Sleep Components
+  description: &gt;-
+    REM sleep is normally an all-or-none package: EEG desynchronisation, rapid
+    eye movements, dreaming, and skeletal muscle atonia arrive together. State
+    instability lets the package come apart, so single components appear at the
+    wrong time and without the others. Muscle atonia intruding into full
+    wakefulness is cataplexy; atonia persisting into waking consciousness at a
+    state boundary is sleep paralysis; dream imagery without sleep is hypnagogic
+    hallucination; and the whole state entered directly from wake is a
+    sleep-onset REM period. This node is what distinguishes orexin-driven
+    hypersomnolence from every other cause of sleepiness, and is the reason the
+    multiple sleep latency test counts sleep-onset REM periods rather than only
+    measuring sleep latency.
+  role: effector
+  biological_scale: ORGANISM
+  conforms_to: &#34;orexin_arousal_instability#Dissociated Intrusion of REM Sleep Components into Wakefulness&#34;
+  biological_processes:
+  - preferred_term: REM sleep
+    term:
+      id: GO:0042747
+      label: circadian sleep/wake cycle, REM sleep
+    modifier: ABNORMAL
+  notes: &gt;-
+    The atonia machinery whose intrusion produces cataplexy is the same pontine
+    circuit modelled in rem_sleep_atonia_control_failure, where it fails in the
+    opposite direction - atonia absent during REM sleep rather than present
+    during wakefulness. Narcolepsy type 1 can show both, and REM sleep behaviour
+    disorder is a recognised association. This entry does not declare conformance
+    to that module, because it curates no polysomnographic finding of REM sleep
+    without atonia, which is that module&#39;s stated entry requirement.
+  evidence:
+  - reference: PMID:10481909
+    reference_title: &#34;Narcolepsy in orexin knockout mice: molecular genetics of sleep regulation.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      a disorder characterized primarily by rapid eye movement (REM) sleep
+      dysregulation
+    explanation: &gt;-
+      Identifies REM dysregulation as the defining downstream consequence of
+      orexin loss, which is what this node models.
+  - reference: PMID:10458611
+    reference_title: The sleep disorder canine narcolepsy is caused by a mutation in the hypocretin (orexin) receptor 2 gene.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      This result identifies hypocretins as major sleep-modulating
+      neurotransmitters
+    explanation: &gt;-
+      Places the REM-dissociation phenotype downstream of hypocretin
+      neurotransmission rather than treating it as an independent finding.
+  - reference: PMID:12374492
+    reference_title: The role of cerebrospinal fluid hypocretin measurement in the diagnosis of narcolepsy and other hypersomnias.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      HLA-DQB1*0602 frequency was increased in narcolepsy with typical cataplexy
+      (93% vs 17% in controls), narcolepsy without cataplexy (56%), and in
+      essential hypersomnia (52%).
+    explanation: &gt;-
+      Human clinical evidence stratified by the presence of cataplexy - the
+      REM-dissociation feature this node models - showing that the
+      cataplexy-positive group is the one carrying the near-complete HLA
+      association, which grounds the node in patients rather than in the
+      knockout models above.
+  - reference: PMID:12374492
+    reference_title: The role of cerebrospinal fluid hypocretin measurement in the diagnosis of narcolepsy and other hypersomnias.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      These patients did not always have abnormal MSLT.
+    explanation: &gt;-
+      Cited as PARTIAL because it qualifies this node in humans: the
+      sleep-onset-REM readout is not universally present even in
+      hypocretin-deficient patients, so REM dissociation is characteristic of the
+      disorder without being obligate on testing.
+  - reference: PMID:29069490
+    reference_title: Optimizing MSLT Specificity in Narcolepsy With Cataplexy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      A positive MSLT (mean sleep latency ≤ 8.0 minutes and ≥2 SOREMPs) was found
+      in 53 NC (95%), 1 PD (1%), 8 SDB (9%), and 12 ISS patients (52%).
+    explanation: &gt;-
+      The direct human polysomnographic measurement of this node: sleep-onset REM
+      periods in 95% of narcolepsy-with-cataplexy patients, against 1-9% in the
+      neurological and respiratory comparators. This is the observation the node
+      models, measured in patients rather than inferred from the animal models
+      above.
+  - reference: PMID:29069490
+    reference_title: Optimizing MSLT Specificity in Narcolepsy With Cataplexy.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Multiple sleep onset rapid eye movement (R) periods (SOREMPs) and a mean
+      sleep latency of ≤8 minutes on the multiple sleep latency test (MSLT) are
+      diagnostic criteria of narcolepsy (NC), but also occur in other conditions
+      with increased sleep pressure, including insufficient sleep syndrome (ISS),
+      sleep-disordered breathing (SDB), or Parkinson&#39;s disease (PD).
+    explanation: &gt;-
+      Cited as PARTIAL because it bounds the node&#39;s specificity in the quoted
+      sentence itself: the same readout occurs in other conditions with increased
+      sleep pressure, so REM dissociation on the MSLT is characteristic of
+      orexin-deficient narcolepsy without being unique to it - which is why the
+      module places its conformance bar at the orexin trigger rather than at this
+      readout. The companion SUPPORT item on this node quantifies the overlap.
 phenotypes:
 - name: Excessive Daytime Sleepiness
   category: Sleep
@@ -6046,7 +7161,7 @@ phenotypes:
   - reference: PMID:38077397
     reference_title: &#34;The transcriptomics profiling of blood CD4 and CD8 T-cells in narcolepsy type I.&#34;
     supports: SUPPORT
-    snippet: &#34;NT1 is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons.&#34;
+    snippet: &#34;Narcolepsy Type I (NT1) is a rare, life-long sleep disorder arising as a consequence of the extensive destruction of orexin-producing hypothalamic neurons.&#34;
     explanation: Excessive daytime sleepiness results from loss of orexin neurons that regulate wakefulness.
   phenotype_term:
     preferred_term: Excessive Daytime Sleepiness
@@ -6157,6 +7272,11 @@ genetic:
       This deep-research citation updates the HLA assertion with high-resolution
       2024 HLA sequencing evidence.
 - name: HCRT
+  gene_term:
+    preferred_term: HCRT
+    term:
+      id: hgnc:4847
+      label: HCRT
   association: Causative
   notes: Rare mutations in hypocretin gene cause familial narcolepsy
   evidence:
@@ -6167,6 +7287,11 @@ genetic:
     snippet: &#34;Ablation of hypocretin or hypocretin receptors also leads to narcolepsy phenotypes in animal models.&#34;
     explanation: Demonstrates that loss of hypocretin gene function causes narcolepsy.
 - name: HCRTR2
+  gene_term:
+    preferred_term: HCRTR2
+    term:
+      id: hgnc:4849
+      label: HCRTR2
   association: Causative
   notes: Hypocretin receptor 2 mutations (canine model)
   evidence:
@@ -6178,11 +7303,52 @@ genetic:
     explanation: Confirms that hypocretin receptor mutations cause narcolepsy in animal models.
 environmental:
 - name: H1N1 Infection
-  notes: Increased risk after 2009 pandemic
+  exposure_term:
+    preferred_term: viral exposure
+    term:
+      id: ECTO:3000001
+      label: exposure to virus
+  notes: Increased risk after 2009 pandemic. Evidenced independently of vaccination
+    by a Chinese post-pandemic series, in which almost no patient had been vaccinated.
+  evidence:
+  - reference: PMID:21866560
+    reference_title: &#34;Narcolepsy onset is seasonal and increased following the 2009 H1N1 pandemic in China.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we found a 3-fold increase in narcolepsy onset following the 2009 H1N1 winter influenza pandemic. The increase is unlikely to be explained by increased vaccination, as only 8 of 142 (5.6%) patients recalled receiving an H1N1 vaccination&#34;
+    explanation: &#34;Retrospective analysis of onset in 629 Beijing patients, 86 percent of them children. Because vaccination was rare in this sample, it separates the infection exposure from the vaccine exposure curated below.&#34;
 - name: Pandemrix Vaccine
-  notes: Associated with increased narcolepsy risk in Europe
+  notes: Associated with increased narcolepsy risk in Europe after the 2009 pandemic
+    vaccination campaign. The magnitude is drawn from observational studies whose
+    methodological limitations are contested; both the estimate and the
+    manufacturer-affiliated critique of it are cited, and they disagree.
+  evidence:
+  - reference: PMID:29855798
+    reference_title: &#34;Narcolepsy Associated with Pandemrix Vaccine.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the risk of narcolepsy was increased 5- to 14-fold in children and adolescents and 2- to 7-fold in adults&#34;
+    explanation: &#34;Reports the magnitude of the association between the AS03-adjuvanted pandemic vaccine and incident narcolepsy across European studies.&#34;
+  - reference: PMID:26379011
+    reference_title: &#34;Pandemrix™ and narcolepsy: A critical appraisal of the observational studies.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;significant methodological limitations of the studies have not been fully addressed and raise questions about the reported risk estimates&#34;
+    explanation: &#34;Cited deliberately alongside the risk estimate as the dissenting reading of the same twelve European studies. Provenance matters here and is not neutral: the authors are staff and contractors of GSK Vaccines, the manufacturer of Pandemrix, together with a pharmacovigilance consultancy, so this is the manufacturer-affiliated critique rather than independent scrutiny. The two cited sources genuinely disagree - PMID:29855798 concedes that confounding and diagnostic bias may influence some studies but judges it unlikely they explain the increased incidence across every country where Pandemrix was used. The dispute is recorded here rather than resolved.&#34;
 - name: Streptococcal Infection
+  exposure_term:
+    preferred_term: Infectious agent exposure
+    term:
+      id: ECTO:3000000
+      label: exposure to organism
   notes: Possible trigger in some cases
+  evidence:
+  - reference: PMID:19725248
+    reference_title: &#34;Elevated anti-streptococcal antibodies in patients with recent narcolepsy onset.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Streptococcal infections are probably a significant environmental trigger for narcolepsy&#34;
+    explanation: &#34;Serological study of anti-streptolysin O titers in narcolepsy near disease onset. The authors hedge as probable rather than established, which is the level of confidence this note records.&#34;
 treatments:
 - name: Sodium Oxybate
   description: First-line for cataplexy and daytime sleepiness, improves nighttime sleep.
@@ -6643,6 +7809,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-70594-1" target="_blank">DOI:10.1038/s41598-024-70594-1</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6749,6 +7916,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6817,6 +7985,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6887,6 +8056,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1415918" target="_blank">DOI:10.3389/fphar.2024.1415918</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6955,6 +8125,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fpsyt.2026.1799520" target="_blank">DOI:10.3389/fpsyt.2026.1799520</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7025,6 +8196,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ctn8030025" target="_blank">DOI:10.3390/ctn8030025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7094,6 +8266,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms252211914" target="_blank">DOI:10.3390/ijms252211914</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7162,6 +8335,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm14238444" target="_blank">DOI:10.3390/jcm14238444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7701,7 +8875,7 @@ These models support evaluation of orexin-pathway therapeutics for wake consolid
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Narcolepsy", "mondoId": "MONDO:0021107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Narcolepsy", "yamlRevision": "f267f9d31f98"};
+        const OS_CONFIG = {"diseaseName": "Narcolepsy", "mondoId": "MONDO:0021107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Narcolepsy", "yamlRevision": "597c2e4eca3e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8120,5 +9294,73 @@ These models support evaluation of orexin-pathway therapeutics for wake consolid
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

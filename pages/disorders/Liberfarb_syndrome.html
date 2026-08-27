@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>Liberfarb syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Liberfarb syndrome</h1>
             <div class="header-meta">
 
@@ -3883,7 +4005,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3927,6 +4049,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3990,17 +4113,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves decreased PISD (hgnc:8999). hgnc:8999 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PISD
 
 
-    <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8999</a>
+    <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8999</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased PISD (hgnc:8999). hgnc:8999 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4033,17 +4160,21 @@ This pathophysiological event involves decreased PISD (hgnc:8999). hgnc:8999 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PISD (hgnc:8999). hgnc:8999 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PISD
 
 
-    <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8999</a>
+    <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8999</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PISD (hgnc:8999). hgnc:8999 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4072,18 +4203,20 @@ This pathophysiological event involves PISD (hgnc:8999). hgnc:8999 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased phospholipid biosynthetic process (GO:0008654). GO:0008654 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phospholipid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="curie-chip curie-chip-go">GO:0008654</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008654</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phospholipid biosynthetic process (GO:0008654). GO:0008654 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4104,18 +4237,20 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal phospholipid metabolic process (GO:0006644). GO:0006644 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phospholipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go">GO:0006644</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006644</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal phospholipid metabolic process (GO:0006644). GO:0006644 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4141,18 +4276,20 @@ This pathophysiological event involves abnormal phospholipid metabolic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased phosphatidylserine decarboxylase activity (GO:0004609). GO:0004609 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phosphatidylserine decarboxylase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004609" target="_blank" class="curie-chip curie-chip-go">GO:0004609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0004609</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased phosphatidylserine decarboxylase activity (GO:0004609). GO:0004609 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4179,18 +4316,20 @@ This pathophysiological event involves decreased phosphatidylserine decarboxylas
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743). GO:0005743 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         mitochondrial inner membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005743</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743). GO:0005743 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4236,6 +4375,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4257,6 +4397,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4298,18 +4439,20 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased phospholipid biosynthetic process (GO:0008654). GO:0008654 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phospholipid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="curie-chip curie-chip-go">GO:0008654</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008654" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008654</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phospholipid biosynthetic process (GO:0008654). GO:0008654 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4330,18 +4473,20 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal phospholipid metabolic process (GO:0006644). GO:0006644 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phospholipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go">GO:0006644</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006644</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal phospholipid metabolic process (GO:0006644). GO:0006644 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4369,18 +4514,20 @@ This pathophysiological event involves abnormal phospholipid metabolic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743). GO:0005743 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         mitochondrial inner membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005743</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743). GO:0005743 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4490,6 +4637,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4511,6 +4659,7 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4552,18 +4701,20 @@ This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrion organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4605,6 +4756,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4654,7 +4806,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Fragmented mitochondrial morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived cells show abnormal mitochondrial fragmentation, supporting a mitochondrial structural defect downstream of PISD dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is part of the multisystem Liberfarb syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired mitochondrial phospholipid metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective PISD activity impairs conversion of phosphatidylserine to phosphatidylethanolamine, disrupting mitochondrial membrane homeostasis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the reported multisystem developmental phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe joint laxity is part of the connective-tissue and skeletal phenotype in Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly has been reported in patients with Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve involvement has been reported as part of the ocular phenotype of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"PISD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causal biallelic variant\"}}, {\"id\": \"PISD deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liberfarb syndrome is caused by pathogenic biallelic PISD variants that impair phosphatidylserine decarboxylase function in mitochondria.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"molecular_functions\": [\"phosphatidylserine decarboxylase activity\"], \"genes\": [\"PISD\"], \"gene_terms\": [{\"label\": \"PISD\", \"id\": \"hgnc:8999\", \"modifier\": \"DECREASED\"}, {\"label\": \"PISD\", \"id\": \"hgnc:8999\"}], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset retinal degeneration is a core ocular manifestation of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000546\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is reported with the skeletal dysplasia and short-stature branch of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is a recurrent feature across the PISD-related disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal dysplasia is a core manifestation of the PISD-related skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002652\"}}], \"edges\": [{\"source\": \"PISD deficiency\", \"target\": \"Impaired mitochondrial phospholipid metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PISD function disrupts phosphatidylethanolamine biosynthesis within mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PISD deficiency\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial structural integrity is compromised downstream of PISD dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mitochondrial phosphatidylethanolamine homeostasis compromises mitochondrial membrane structure and fragmentation control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal bone formation and skeletal dysplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The PISD-related bone-formation branch includes disproportionate short stature within the spondyloepimetaphyseal skeletal phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Joint hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The skeletal and connective-tissue branch includes severe joint laxity alongside skeletal dysplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The skeletal dysplasia branch includes spinal curvature as part of the Liberfarb skeletal phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same PISD phospholipid-metabolism mechanism is linked to sensory defects, including hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to the ocular sensory branch of the syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ocular sensory branch can include optic disc pallor and optic atrophy in affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development and neurodevelopmental impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PISD\", \"target\": \"PISD deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Fragmented mitochondrial morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived cells show abnormal mitochondrial fragmentation, supporting a mitochondrial structural defect downstream of PISD dysfunction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is part of the multisystem Liberfarb syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired mitochondrial phospholipid metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective PISD activity impairs conversion of phosphatidylserine to phosphatidylethanolamine, disrupting mitochondrial membrane homeostasis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the reported multisystem developmental phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe joint laxity is part of the connective-tissue and skeletal phenotype in Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly has been reported in patients with Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve involvement has been reported as part of the ocular phenotype of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"PISD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PISD\"], \"gene_terms\": [{\"label\": \"PISD\", \"id\": \"hgnc:8999\"}], \"association\": \"Causal biallelic variant\"}}, {\"id\": \"PISD deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liberfarb syndrome is caused by pathogenic biallelic PISD variants that impair phosphatidylserine decarboxylase function in mitochondria.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid biosynthetic process\", \"phospholipid metabolic process\"], \"molecular_functions\": [\"phosphatidylserine decarboxylase activity\"], \"genes\": [\"PISD\"], \"gene_terms\": [{\"label\": \"PISD\", \"id\": \"hgnc:8999\", \"modifier\": \"DECREASED\"}, {\"label\": \"PISD\", \"id\": \"hgnc:8999\"}], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Retinal degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset retinal degeneration is a core ocular manifestation of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000546\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is reported with the skeletal dysplasia and short-stature branch of Liberfarb syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is a recurrent feature across the PISD-related disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skeletal dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal dysplasia is a core manifestation of the PISD-related skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002652\"}}], \"edges\": [{\"source\": \"PISD deficiency\", \"target\": \"Impaired mitochondrial phospholipid metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PISD function disrupts phosphatidylethanolamine biosynthesis within mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PISD deficiency\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial structural integrity is compromised downstream of PISD dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Fragmented mitochondrial morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mitochondrial phosphatidylethanolamine homeostasis compromises mitochondrial membrane structure and fragmentation control.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Skeletal dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal bone formation and skeletal dysplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The PISD-related bone-formation branch includes disproportionate short stature within the spondyloepimetaphyseal skeletal phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Joint hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The skeletal and connective-tissue branch includes severe joint laxity alongside skeletal dysplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The skeletal dysplasia branch includes spinal curvature as part of the Liberfarb skeletal phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same PISD phospholipid-metabolism mechanism is linked to sensory defects, including hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Retinal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to the ocular sensory branch of the syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ocular sensory branch can include optic disc pallor and optic atrophy in affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial phospholipid metabolism\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PISD-related phospholipid metabolism disruption is linked to abnormal cerebral development and neurodevelopmental impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PISD\", \"target\": \"PISD deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4704,16 +4856,20 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
-                        Hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
-
-
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4733,6 +4889,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4775,16 +4932,20 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000648</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.">
-                        Optic atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp">HP:0000648</a>
-
-
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4804,6 +4965,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4846,16 +5008,20 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.">
-                        Microcephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
-
-
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4875,6 +5041,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4917,16 +5084,20 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002652</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is skeletal dysplasia (HP:0002652). HP:0002652 is a phenotype from the Human Phenotype Ontology.">
-                        Skeletal dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" class="curie-chip curie-chip-hp">HP:0002652</a>
-
-
+This clinical feature is skeletal dysplasia (HP:0002652). HP:0002652 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4946,6 +5117,7 @@ This clinical feature is skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4979,16 +5151,20 @@ This clinical feature is skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001382</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.">
-                        Joint hypermobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp">HP:0001382</a>
-
-
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5008,6 +5184,7 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5041,16 +5218,20 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5070,6 +5251,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5112,16 +5294,20 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5141,6 +5327,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5183,16 +5370,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5212,6 +5403,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5254,16 +5446,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000546</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phenotype from the Human Phenotype Ontology.">
-                        Retinal degeneration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" class="curie-chip curie-chip-hp">HP:0000546</a>
-
-
+This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5283,6 +5479,7 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31263216" target="_blank">PMID:31263216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5357,6 +5554,28 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PISD
+
+
+    <a href="https://bioregistry.io/hgnc:8999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:8999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PISD (hgnc:8999). hgnc:8999 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5371,6 +5590,7 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/cge.14549" target="_blank">DOI:10.1111/cge.14549</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5393,6 +5613,7 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_c79d65c7-3c7b-42fa-a84b-894bc865316d-2024-10-02T160000.000Z" target="_blank">CGGV:assertion_c79d65c7-3c7b-42fa-a84b-894bc865316d-2024-10-02T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5422,6 +5643,9 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5464,7 +5688,6 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Liberfarb syndrome
 creation_date: &#34;2026-04-13T22:47:36Z&#34;
-updated_date: &#34;2026-05-20T00:09:53Z&#34;
 description: &gt;-
   Liberfarb syndrome is a rare PISD-related multisystem developmental disorder
   affecting the eye, ear, bone, and brain. Reported manifestations include
@@ -5943,6 +6166,11 @@ phenotypes:
     explanation: This directly supports microcephaly in the clinically defined Liberfarb syndrome cohort.
 genetic:
 - name: PISD
+  gene_term:
+    preferred_term: PISD
+    term:
+      id: hgnc:8999
+      label: PISD
   association: Causal biallelic variant
   notes: &gt;-
     Liberfarb syndrome is caused by biallelic pathogenic variants in PISD,
@@ -6442,7 +6670,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Liberfarb syndrome", "mondoId": "MONDO:0030045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Liberfarb_syndrome", "yamlRevision": "49aef008c5a4"};
+        const OS_CONFIG = {"diseaseName": "Liberfarb syndrome", "mondoId": "MONDO:0030045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Liberfarb_syndrome", "yamlRevision": "3c11295fe442"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6861,5 +7089,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

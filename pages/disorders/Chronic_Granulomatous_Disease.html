@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3772,7 @@
             <span>Chronic Granulomatous Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Chronic Granulomatous Disease</h1>
             <div class="header-meta">
 
@@ -3905,36 +4031,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
-
-
-
-
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">IUIS Category</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">phagocyte defect</span>
+
                 </div>
+
             </div>
 
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3952,7 +4166,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-cybb">
                 <div class="item-name">
                     X-linked (CYBB)
 
@@ -3979,6 +4193,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4003,7 +4218,7 @@ inherited in an X-linked manner"</div>
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-cyba-cybc1-ncf1-ncf2-ncf4">
                 <div class="item-name">
                     Autosomal recessive (CYBA/CYBC1/NCF1/NCF2/NCF4)
 
@@ -4029,6 +4244,7 @@ inherited in an X-linked manner"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4101,7 +4317,7 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-x-linked-cybb">
 
                     <div class="item-name">
                         X-linked CGD (CYBB / gp91phox)
@@ -4129,7 +4345,7 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p47phox-ncf1">
 
                     <div class="item-name">
                         Autosomal recessive CGD (NCF1 / p47phox)
@@ -4157,7 +4373,7 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p22phox-cyba">
 
                     <div class="item-name">
                         Autosomal recessive CGD (CYBA / p22phox)
@@ -4185,7 +4401,7 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p67phox-ncf2">
 
                     <div class="item-name">
                         Autosomal recessive CGD (NCF2 / p67phox)
@@ -4213,7 +4429,7 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p40phox-ncf4">
 
                     <div class="item-name">
                         Autosomal recessive CGD (NCF4 / p40phox)
@@ -4241,7 +4457,7 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-cybc1-eros">
 
                     <div class="item-name">
                         Autosomal recessive CGD (CYBC1 / EROS)
@@ -4298,18 +4514,20 @@ recessive manner"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4326,18 +4544,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         monocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4354,18 +4574,20 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4382,18 +4604,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         eosinophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4421,17 +4645,21 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CYBB (hgnc:2578). hgnc:2578 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CYBB
 
 
-    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2578</a>
+    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2578</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYBB (hgnc:2578). hgnc:2578 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4456,17 +4684,21 @@ This pathophysiological event involves CYBB (hgnc:2578). hgnc:2578 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NCF1 (hgnc:7660). hgnc:7660 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NCF1
 
 
-    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7660</a>
+    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7660</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NCF1 (hgnc:7660). hgnc:7660 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4495,18 +4727,20 @@ This pathophysiological event involves NCF1 (hgnc:7660). hgnc:7660 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased superoxide anion generation (GO:0042554). GO:0042554 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         superoxide anion generation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042554" target="_blank" class="curie-chip curie-chip-go">GO:0042554</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042554" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042554</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased superoxide anion generation (GO:0042554). GO:0042554 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4564,6 +4798,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4598,18 +4833,20 @@ genes that encode or permit assembly of the subunits of phagocyte NADPH oxidase"
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4637,18 +4874,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased respiratory burst (GO:0045730). GO:0045730 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         respiratory burst
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045730" target="_blank" class="curie-chip curie-chip-go">GO:0045730</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045730" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0045730</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased respiratory burst (GO:0045730). GO:0045730 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4669,18 +4908,20 @@ This pathophysiological event involves decreased respiratory burst (GO:0045730).
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         reactive oxygen species metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go">GO:0072593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0072593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4746,6 +4987,7 @@ This pathophysiological event involves decreased reactive oxygen species metabol
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4779,18 +5021,20 @@ This pathophysiological event involves decreased reactive oxygen species metabol
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4818,18 +5062,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased defense response to bacterium (GO:0042742). GO:0042742 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         defense response to bacterium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" class="curie-chip curie-chip-go">GO:0042742</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042742</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased defense response to bacterium (GO:0042742). GO:0042742 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4850,18 +5096,20 @@ This pathophysiological event involves decreased defense response to bacterium (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased defense response to fungus (GO:0050832). GO:0050832 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         defense response to fungus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050832" target="_blank" class="curie-chip curie-chip-go">GO:0050832</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050832" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0050832</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased defense response to fungus (GO:0050832). GO:0050832 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4903,6 +5151,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4937,18 +5186,20 @@ This pathophysiological event involves decreased defense response to fungus (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4976,18 +5227,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased granuloma formation (GO:0002432). GO:0002432 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         granuloma formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" class="curie-chip curie-chip-go">GO:0002432</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased granuloma formation (GO:0002432). GO:0002432 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5008,18 +5261,20 @@ This pathophysiological event involves increased granuloma formation (GO:0002432
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5061,6 +5316,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5157,16 +5413,22 @@ inflammatory disorders such as colitis"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Granulomatosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002955</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype from the Human Phenotype Ontology.">
-                        Granulomatosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002955" target="_blank" class="curie-chip curie-chip-hp">HP:0002955</a>
-
-
+This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5186,6 +5448,7 @@ This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5230,16 +5493,20 @@ This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100523" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100523</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype from the Human Phenotype Ontology.">
-                        Liver abscess
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100523" target="_blank" class="curie-chip curie-chip-hp">HP:0100523</a>
-
-
+This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5259,6 +5526,7 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5281,6 +5549,7 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5316,16 +5585,20 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002583</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.">
-                        Colitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp">HP:0002583</a>
-
-
+This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5347,6 +5620,7 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5370,6 +5644,7 @@ inflammatory disorders such as colitis"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5414,16 +5689,20 @@ inflammatory disorders such as colitis"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002090</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.">
-                        Pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp">HP:0002090</a>
-
-
+This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5443,6 +5722,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5466,6 +5746,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5503,16 +5784,20 @@ cause)"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002754</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype from the Human Phenotype Ontology.">
-                        Osteomyelitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp">HP:0002754</a>
-
-
+This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5532,6 +5817,7 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5554,6 +5840,7 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5589,16 +5876,22 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent abscess formation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002722</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent skin abscesses, annotated with Recurrent abscess formation (HP:0002722). HP:0002722 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent abscess formation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp">HP:0002722</a>
-
-
+This clinical feature is Recurrent skin abscesses, annotated with Recurrent abscess formation (HP:0002722). HP:0002722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5618,6 +5911,7 @@ This clinical feature is Recurrent skin abscesses, annotated with Recurrent absc
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5640,6 +5934,7 @@ This clinical feature is Recurrent skin abscesses, annotated with Recurrent absc
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5676,16 +5971,20 @@ cause)"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100806</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.">
-                        Sepsis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp">HP:0100806</a>
-
-
+This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5705,6 +6004,7 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5749,16 +6049,20 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent bacterial infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp">HP:0002718</a>
-
-
+This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5778,6 +6082,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5813,16 +6118,20 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002841</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent fungal infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp">HP:0002841</a>
-
-
+This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5842,6 +6151,7 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5877,16 +6187,20 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002840" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002840</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenitis (HP:0002840). HP:0002840 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002840" target="_blank" class="curie-chip curie-chip-hp">HP:0002840</a>
-
-
+This clinical feature is Lymphadenitis (HP:0002840). HP:0002840 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5906,6 +6220,7 @@ This clinical feature is Lymphadenitis (HP:0002840). HP:0002840 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5928,6 +6243,7 @@ This clinical feature is Lymphadenitis (HP:0002840). HP:0002840 is a phenotype f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5964,16 +6280,22 @@ prevalent cause)"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Pyloric stenosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002021</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastric outlet obstruction, annotated with Pyloric stenosis (HP:0002021). HP:0002021 is a phenotype from the Human Phenotype Ontology.">
-                        Pyloric stenosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002021" target="_blank" class="curie-chip curie-chip-hp">HP:0002021</a>
-
-
+This clinical feature is Gastric outlet obstruction, annotated with Pyloric stenosis (HP:0002021). HP:0002021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5993,6 +6315,7 @@ This clinical feature is Gastric outlet obstruction, annotated with Pyloric sten
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6072,15 +6395,17 @@ This clinical feature is Gastric outlet obstruction, annotated with Pyloric sten
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYBB
 
 
-    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2578</a>
+    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:2578</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6101,6 +6426,7 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6123,6 +6449,7 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31988463" target="_blank">PMID:31988463</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6161,15 +6488,17 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CYBA (hgnc:2577). hgnc:2577 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYBA
 
 
-    <a href="https://bioregistry.io/hgnc:2577" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2577</a>
+    <a href="https://bioregistry.io/hgnc:2577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:2577</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYBA (hgnc:2577). hgnc:2577 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6190,6 +6519,7 @@ This disease-associated gene is CYBA (hgnc:2577). hgnc:2577 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6229,15 +6559,17 @@ autosomal recessive CGD"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NCF1 (hgnc:7660). hgnc:7660 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NCF1
 
 
-    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7660</a>
+    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:7660</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NCF1 (hgnc:7660). hgnc:7660 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6258,6 +6590,7 @@ This disease-associated gene is NCF1 (hgnc:7660). hgnc:7660 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6297,15 +6630,17 @@ autosomal recessive CGD"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NCF2 (hgnc:7661). hgnc:7661 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NCF2
 
 
-    <a href="https://bioregistry.io/hgnc:7661" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7661</a>
+    <a href="https://bioregistry.io/hgnc:7661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:7661</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NCF2 (hgnc:7661). hgnc:7661 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6326,6 +6661,7 @@ This disease-associated gene is NCF2 (hgnc:7661). hgnc:7661 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6365,15 +6701,17 @@ autosomal recessive CGD"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NCF4 (hgnc:7662). hgnc:7662 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NCF4
 
 
-    <a href="https://bioregistry.io/hgnc:7662" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7662</a>
+    <a href="https://bioregistry.io/hgnc:7662" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:7662</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NCF4 (hgnc:7662). hgnc:7662 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6394,6 +6732,7 @@ This disease-associated gene is NCF4 (hgnc:7662). hgnc:7662 is a gene from the H
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6433,15 +6772,17 @@ autosomal recessive CGD"</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CYBC1 (hgnc:28672). hgnc:28672 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYBC1
 
 
-    <a href="https://bioregistry.io/hgnc:28672" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28672</a>
+    <a href="https://bioregistry.io/hgnc:28672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:28672</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYBC1 (hgnc:28672). hgnc:28672 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6462,6 +6803,7 @@ This disease-associated gene is CYBC1 (hgnc:28672). hgnc:28672 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6494,6 +6836,9 @@ autosomal recessive CGD"</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6510,18 +6855,18 @@ autosomal recessive CGD"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Antibiotic prophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antibiotic prophylaxis, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">Antibiotic prophylaxis</span>
+This treatment is Antibiotic prophylaxis, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antibiotic prophylaxis, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.">NCIT:C15620</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15620" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15620">NCIT:C15620</a>
 
 
 
@@ -6546,33 +6891,37 @@ This treatment is Antibiotic prophylaxis, annotated with Antibiotic Therapy (NCI
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses trimethoprim (CHEBI:45924). CHEBI:45924 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         trimethoprim
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45924" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:45924</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:45924</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trimethoprim (CHEBI:45924). CHEBI:45924 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         sulfamethoxazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9332" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:9332</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9332" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:9332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6616,6 +6965,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6638,6 +6988,7 @@ antifungal prophylaxis is recommended"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6670,18 +7021,18 @@ discontinued during pregnancy because of the high risk for birth defects"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Antifungal pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Antifungal pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Antifungal pharmacotherapy</span>
+This treatment is Antifungal pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Antifungal pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6706,18 +7057,20 @@ This treatment is Antifungal pharmacotherapy, annotated with Pharmacotherapy (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         itraconazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6076" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6076</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6076" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:6076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6761,6 +7114,7 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6783,6 +7137,7 @@ antifungal prophylaxis is recommended"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6816,17 +7171,17 @@ infections"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6851,18 +7206,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses interferon gamma-1b (CHEBI:5939). CHEBI:5939 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         interferon gamma-1b
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5939" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5939</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5939" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:5939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses interferon gamma-1b (CHEBI:5939). CHEBI:5939 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6906,6 +7263,7 @@ This treatment uses interferon gamma-1b (CHEBI:5939). CHEBI:5939 is a therapeuti
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6937,18 +7295,18 @@ gamma (IFN-gamma) is part of the prophylactic regimen in many centers"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Corticosteroid therapy</span>
+This treatment is Corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6973,18 +7331,20 @@ This treatment is Corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7028,6 +7388,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7059,18 +7420,18 @@ resolve the associated heightened inflammatory response, including colitis"</div
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">allogeneic hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C46089). NCIT:C46089 is a clinical intervention from the NCI Thesaurus.">allogeneic hematopoietic stem cell transplantation</span>
+This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C46089). NCIT:C46089 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Allogeneic Hematopoietic Stem Cell Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C46089" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C46089). NCIT:C46089 is a clinical intervention from the NCI Thesaurus.">NCIT:C46089</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C46089" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C46089">NCIT:C46089</a>
 
 
 
@@ -7130,6 +7491,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7161,18 +7523,18 @@ for CGD"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">Gene therapy</span>
+This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -7232,6 +7594,7 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31988463" target="_blank">PMID:31988463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7255,6 +7618,7 @@ of 16-46% oxidase-positive neutrophils"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31988463" target="_blank">PMID:31988463</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7287,18 +7651,18 @@ promising approach for CGD patients"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive care</span>
+This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7358,6 +7722,7 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7381,6 +7746,7 @@ inhalation of fungal spores can result in fulminant pneumonitis"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7414,17 +7780,17 @@ Salmonella typhi vaccination"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7466,6 +7832,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7500,6 +7867,311 @@ prenatal and preimplantation genetic testing are possible"</div>
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-neutrophil-oxidative-burst-testing-dhr-nbt">
+                <div class="item-name">
+                    Neutrophil oxidative burst testing (DHR / NBT)
+
+                </div>
+
+                <div class="item-desc">The functional hallmark of CGD is an absent or markedly reduced phagocyte oxidative burst, demonstrated by dihydrorhodamine (DHR) flow cytometry (preferred) or the older nitroblue tetrazolium (NBT) slide test. Molecular genetic testing then confirms the specific subunit defect.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        flow cytometry procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16585" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C16585</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Absent or markedly reduced neutrophil oxidative burst</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39836849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39836849" target="_blank">PMID:39836849</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1,2,3-dihydrorhodamine oxidation technique, with phorbol-12-myristate-13-acetate
+as a stimulus, is performed to diagnose the classic chronic granulomatous
+disease"</div>
+
+
+                <div class="evidence-explanation">Establishes the dihydrorhodamine (DHR) oxidative-burst assay as the diagnostic test for classic CGD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Definitive diagnosis is established by identifying pathogenic variant(s) in one of the six NADPH oxidase genes (CYBB, CYBA, CYBC1, NCF1, NCF2, NCF4).</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Pathogenic variant(s) in a NADPH oxidase subunit/assembly gene</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of CGD is established in a proband with
+suggestive findings by identification of pathogenic variant(s) in one of six
+genes"</div>
+
+
+                <div class="evidence-explanation">GeneReviews states molecular identification of a pathogenic variant in one of the six genes establishes the diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states">
+                <div class="item-name">United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.4&ndash;0.5 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">A US national registry estimated a minimum birth incidence of roughly 1/200,000 to 1/250,000 live births (0.4-0.5 per 100,000) for the period 1980-1989; of 368 registered patients, the majority (259) had the X-linked form. Because the registry figure is explicitly a MINIMUM estimate from voluntary registration, the true birth prevalence is likely higher.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"minimum estimate of birth rate is
+between 1/200,000 and 1/250,000 live births for the period 1980-1989"</div>
+
+
+                <div class="evidence-explanation">The US CGD registry provides the minimum birth-incidence estimate.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"259 have the
+X-linked recessive form of CGD, 81 have 1 of the autosomal recessive forms"</div>
+
+
+                <div class="evidence-explanation">The registry documents the predominance of the X-linked form (259 of 368 patients).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7514,7 +8186,7 @@ prenatal and preimplantation genetic testing are possible"</div>
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-primary-immunodeficiencies">
                 <div class="item-name">
 
                     Other primary immunodeficiencies
@@ -7542,6 +8214,7 @@ prenatal and preimplantation genetic testing are possible"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7568,7 +8241,7 @@ immunodeficiency disorder of phagocytes"</div>
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-inflammatory-bowel-disease">
                 <div class="item-name">
 
                     Inflammatory bowel disease
@@ -7595,6 +8268,7 @@ immunodeficiency disorder of phagocytes"</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7632,7 +8306,7 @@ inflammatory disorders such as colitis"</div>
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001005463">
                 <div class="item-name">
                     Bruno et al.: Interferon gamma rebalances immunopathological signatures in Chronic Granulomatous Disease through metabolic rewiring
 
@@ -7830,6 +8504,7 @@ has_subtypes:
     phenotype: 618935 (no distinct MONDO subtype term is available).
 pathophysiology:
 - name: NADPH oxidase (NOX2) complex assembly failure
+  conforms_to: &#34;phagocyte_oxidative_burst_failure#Phagocyte NADPH Oxidase Assembly or Activation Failure&#34;
   description: &gt;-
     Pathogenic variants in any one of the NOX2 complex subunits (membrane
     gp91phox/CYBB and p22phox/CYBA forming flavocytochrome b558; cytosolic
@@ -7882,6 +8557,7 @@ pathophysiology:
     causal_link_type: DIRECT
     description: A non-functional NADPH oxidase cannot generate superoxide, abolishing the respiratory burst and downstream reactive oxygen species.
 - name: Failed respiratory burst and ROS deficiency
+  conforms_to: &#34;phagocyte_oxidative_burst_failure#Failed Respiratory Burst and Phagosomal ROS Deficiency&#34;
   description: &gt;-
     The assembled NADPH oxidase normally catalyzes the respiratory (oxidative)
     burst, reducing molecular oxygen to superoxide, which is dismutated and
@@ -9119,7 +9795,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic Granulomatous Disease", "mondoId": "MONDO:0018305", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Granulomatous_Disease", "yamlRevision": "4741402e08a9"};
+        const OS_CONFIG = {"diseaseName": "Chronic Granulomatous Disease", "mondoId": "MONDO:0018305", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Granulomatous_Disease", "yamlRevision": "484ee42f42aa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9538,5 +10214,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

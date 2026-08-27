@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -1454,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2892,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2914,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3733,13 @@
 
 
 
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3768,7 @@
             <span>RYR2 CPVT</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>RYR2 CPVT</h1>
             <div class="header-meta">
 
@@ -3919,6 +4041,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3928,16 +4120,25 @@
 
 
 
-
-
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Channelopathy</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-mechanistic">cardiac channelopathy</span>
+
                 </div>
+
             </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4012,7 +4213,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -4057,6 +4258,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4078,6 +4280,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4102,7 +4305,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -4147,6 +4350,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4168,6 +4372,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4234,7 +4439,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cpvt1">
 
                     <div class="item-name">
                         Catecholaminergic polymorphic ventricular tachycardia 1 (RYR2)
@@ -4251,18 +4456,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 RYR2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10484</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4295,6 +4502,7 @@ This subtype is caused by variation in RYR2 (hgnc:10484). hgnc:10484 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4321,7 +4529,7 @@ This subtype is caused by variation in RYR2 (hgnc:10484). hgnc:10484 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cpvt2">
 
                     <div class="item-name">
                         Catecholaminergic polymorphic ventricular tachycardia 2 (CASQ2)
@@ -4336,18 +4544,20 @@ This subtype is caused by variation in RYR2 (hgnc:10484). hgnc:10484 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CASQ2 (hgnc:1513). hgnc:1513 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CASQ2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1513" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1513</a>
+    <a href="https://bioregistry.io/hgnc:1513" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1513</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CASQ2 (hgnc:1513). hgnc:1513 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4373,6 +4583,7 @@ This subtype is caused by variation in CASQ2 (hgnc:1513). hgnc:1513 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4400,7 +4611,7 @@ This subtype is caused by variation in CASQ2 (hgnc:1513). hgnc:1513 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cpvt3">
 
                     <div class="item-name">
                         Catecholaminergic polymorphic ventricular tachycardia 3 (TECRL)
@@ -4415,18 +4626,20 @@ This subtype is caused by variation in CASQ2 (hgnc:1513). hgnc:1513 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TECRL (hgnc:27365). hgnc:27365 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TECRL
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:27365" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:27365</a>
+    <a href="https://bioregistry.io/hgnc:27365" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:27365</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TECRL (hgnc:27365). hgnc:27365 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4452,6 +4665,7 @@ This subtype is caused by variation in TECRL (hgnc:27365). hgnc:27365 is a gene 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27861123" target="_blank">PMID:27861123</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4479,7 +4693,7 @@ This subtype is caused by variation in TECRL (hgnc:27365). hgnc:27365 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cpvt4">
 
                     <div class="item-name">
                         Catecholaminergic polymorphic ventricular tachycardia 4 (CALM1)
@@ -4494,18 +4708,20 @@ This subtype is caused by variation in TECRL (hgnc:27365). hgnc:27365 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CALM1 (hgnc:1442). hgnc:1442 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CALM1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1442</a>
+    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1442</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CALM1 (hgnc:1442). hgnc:1442 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4531,6 +4747,7 @@ This subtype is caused by variation in CALM1 (hgnc:1442). hgnc:1442 is a gene fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23040497" target="_blank">PMID:23040497</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4558,7 +4775,7 @@ This subtype is caused by variation in CALM1 (hgnc:1442). hgnc:1442 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cpvt5">
 
                     <div class="item-name">
                         Catecholaminergic polymorphic ventricular tachycardia 5 (TRDN)
@@ -4573,18 +4790,20 @@ This subtype is caused by variation in CALM1 (hgnc:1442). hgnc:1442 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TRDN
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12261</a>
+    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:12261</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4610,6 +4829,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22422768" target="_blank">PMID:22422768</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4729,6 +4949,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16239587" target="_blank">PMID:16239587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4833,6 +5054,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837242" target="_blank">PMID:12837242</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4854,6 +5076,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16239587" target="_blank">PMID:16239587</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -4956,6 +5179,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224043" target="_blank">PMID:20224043</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5060,6 +5284,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39278969" target="_blank">PMID:39278969</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5166,6 +5391,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16239587" target="_blank">PMID:16239587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5238,6 +5464,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37558302" target="_blank">PMID:37558302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5259,6 +5486,7 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37558302" target="_blank">PMID:37558302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5337,18 +5565,20 @@ This subtype is caused by variation in TRDN (hgnc:12261). hgnc:12261 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5376,17 +5606,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:10484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5416,18 +5650,20 @@ This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ryanodine-sensitive calcium-release channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go">GO:0005219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5454,18 +5690,20 @@ This pathophysiological event involves increased ryanodine-sensitive calcium-rel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5587,6 +5825,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5620,18 +5859,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5659,17 +5900,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CASQ2 (hgnc:1513). hgnc:1513 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CASQ2
 
 
-    <a href="https://bioregistry.io/hgnc:1513" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1513</a>
+    <a href="https://bioregistry.io/hgnc:1513" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:1513</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CASQ2 (hgnc:1513). hgnc:1513 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5701,18 +5946,20 @@ This pathophysiological event involves CASQ2 (hgnc:1513). hgnc:1513 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5750,6 +5997,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11704930" target="_blank">PMID:11704930</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5783,18 +6031,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5822,17 +6072,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CALM1 (hgnc:1442). hgnc:1442 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CALM1
 
 
-    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1442</a>
+    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:1442</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CALM1 (hgnc:1442). hgnc:1442 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5857,17 +6111,21 @@ This pathophysiological event involves CALM1 (hgnc:1442). hgnc:1442 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CALM2 (hgnc:1445). hgnc:1445 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CALM2
 
 
-    <a href="https://bioregistry.io/hgnc:1445" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1445</a>
+    <a href="https://bioregistry.io/hgnc:1445" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:1445</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CALM2 (hgnc:1445). hgnc:1445 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5892,17 +6150,21 @@ This pathophysiological event involves CALM2 (hgnc:1445). hgnc:1445 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CALM3 (hgnc:1449). hgnc:1449 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CALM3
 
 
-    <a href="https://bioregistry.io/hgnc:1449" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1449</a>
+    <a href="https://bioregistry.io/hgnc:1449" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1449</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CALM3 (hgnc:1449). hgnc:1449 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5934,18 +6196,20 @@ This pathophysiological event involves CALM3 (hgnc:1449). hgnc:1449 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5983,6 +6247,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23040497" target="_blank">PMID:23040497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6004,6 +6269,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23040497" target="_blank">PMID:23040497</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6038,18 +6304,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6077,17 +6345,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TRDN (hgnc:12261). hgnc:12261 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TRDN
 
 
-    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12261</a>
+    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:12261</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TRDN (hgnc:12261). hgnc:12261 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6119,18 +6391,20 @@ This pathophysiological event involves TRDN (hgnc:12261). hgnc:12261 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6168,6 +6442,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22422768" target="_blank">PMID:22422768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6201,18 +6476,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6240,17 +6517,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TECRL (hgnc:27365). hgnc:27365 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TECRL
 
 
-    <a href="https://bioregistry.io/hgnc:27365" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:27365</a>
+    <a href="https://bioregistry.io/hgnc:27365" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:27365</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TECRL (hgnc:27365). hgnc:27365 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6282,18 +6563,20 @@ This pathophysiological event involves TECRL (hgnc:27365). hgnc:27365 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6331,6 +6614,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27861123" target="_blank">PMID:27861123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6352,6 +6636,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27861123" target="_blank">PMID:27861123</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6386,18 +6671,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6428,18 +6715,20 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6476,6 +6765,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37558300" target="_blank">PMID:37558300</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6521,18 +6811,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6560,17 +6852,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:10484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6600,18 +6896,20 @@ This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ryanodine-sensitive calcium-release channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go">GO:0005219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0005219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6637,18 +6935,20 @@ This pathophysiological event involves increased ryanodine-sensitive calcium-rel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         sarcoplasmic reticulum membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go">GO:0033017</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0033017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -6657,18 +6957,20 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6717,6 +7019,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16239587" target="_blank">PMID:16239587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6738,6 +7041,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16239587" target="_blank">PMID:16239587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6783,18 +7087,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6822,17 +7128,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:10484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6862,18 +7172,20 @@ This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ryanodine-sensitive calcium-release channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go">GO:0005219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0005219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6899,18 +7211,20 @@ This pathophysiological event involves increased ryanodine-sensitive calcium-rel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         sarcoplasmic reticulum membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go">GO:0033017</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0033017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -6919,18 +7233,20 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-35">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6979,6 +7295,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837242" target="_blank">PMID:12837242</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7001,6 +7318,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12837242" target="_blank">PMID:12837242</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7022,6 +7340,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16239587" target="_blank">PMID:16239587</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7067,18 +7386,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-36">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7106,17 +7427,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:10484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7146,18 +7471,20 @@ This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ryanodine-sensitive calcium-release channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go">GO:0005219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0005219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -7183,18 +7510,20 @@ This pathophysiological event involves increased ryanodine-sensitive calcium-rel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         sarcoplasmic reticulum membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go">GO:0033017</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0033017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -7203,18 +7532,20 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-40">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7263,6 +7594,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224043" target="_blank">PMID:20224043</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7284,6 +7616,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224043" target="_blank">PMID:20224043</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7329,18 +7662,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7368,17 +7703,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:10484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7408,18 +7747,20 @@ This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ryanodine-sensitive calcium-release channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go">GO:0005219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-43">GO:0005219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -7445,18 +7786,20 @@ This pathophysiological event involves increased ryanodine-sensitive calcium-rel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         sarcoplasmic reticulum membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go">GO:0033017</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0033017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves sarcoplasmic reticulum membrane (GO:0033017). GO:0033017 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -7465,18 +7808,20 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7525,6 +7870,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39278969" target="_blank">PMID:39278969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7546,6 +7892,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39278969" target="_blank">PMID:39278969</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7580,18 +7927,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-46">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7619,17 +7968,21 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:10484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7658,18 +8011,20 @@ This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased release of sequestered calcium ion into cytosol by sarcoplasmic reticulum (GO:0014808). GO:0014808 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         release of sequestered calcium ion into cytosol by sarcoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" class="curie-chip curie-chip-go">GO:0014808</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0014808</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased release of sequestered calcium ion into cytosol by sarcoplasmic reticulum (GO:0014808). GO:0014808 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7690,18 +8045,20 @@ This pathophysiological event involves increased release of sequestered calcium 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased calcium ion transport (GO:0006816). GO:0006816 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         calcium ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006816" target="_blank" class="curie-chip curie-chip-go">GO:0006816</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-49">GO:0006816</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased calcium ion transport (GO:0006816). GO:0006816 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7727,18 +8084,20 @@ This pathophysiological event involves increased calcium ion transport (GO:00068
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ryanodine-sensitive calcium-release channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go">GO:0005219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-50">GO:0005219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -7761,18 +8120,20 @@ This pathophysiological event involves ryanodine-sensitive calcium-release chann
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-51">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7826,6 +8187,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35222090" target="_blank">PMID:35222090</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7847,6 +8209,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7881,18 +8244,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7920,18 +8285,20 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-53">GO:0086001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7952,18 +8319,20 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-54">GO:0061337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8021,6 +8390,7 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35222090" target="_blank">PMID:35222090</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8054,18 +8424,20 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-55">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8093,18 +8465,20 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-56">GO:0061337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8186,6 +8560,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37558300" target="_blank">PMID:37558300</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8219,18 +8594,20 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiac pacemaker cell of sinoatrial node (CL:1000477). CL:1000477 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiac pacemaker cell of sinoatrial node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000477" target="_blank" class="curie-chip curie-chip-cl">CL:1000477</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000477" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-57">CL:1000477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac pacemaker cell of sinoatrial node (CL:1000477). CL:1000477 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8258,18 +8635,20 @@ This pathophysiological event involves cardiac pacemaker cell of sinoatrial node
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased SA node cell action potential (GO:0086015). GO:0086015 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         SA node cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086015" target="_blank" class="curie-chip curie-chip-go">GO:0086015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-58">GO:0086015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased SA node cell action potential (GO:0086015). GO:0086015 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8290,18 +8669,20 @@ This pathophysiological event involves decreased SA node cell action potential (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-59">GO:0061337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8366,6 +8747,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8455,6 +8837,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8548,16 +8931,20 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.">
-                        Syncope
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
-
-
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8577,6 +8964,7 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8599,6 +8987,7 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8634,16 +9023,20 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001645</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.">
-                        Sudden cardiac death
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp">HP:0001645</a>
-
-
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8663,6 +9056,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39835466" target="_blank">PMID:39835466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8698,16 +9092,20 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001962</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.">
-                        Palpitations
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp">HP:0001962</a>
-
-
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8727,6 +9125,7 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8762,16 +9161,20 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a phenotype from the Human Phenotype Ontology.">
-                        Ventricular fibrillation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp">HP:0001663</a>
-
-
+This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8791,6 +9194,7 @@ This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8826,16 +9230,20 @@ This clinical feature is Ventricular fibrillation (HP:0001663). HP:0001663 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0001695</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiac arrest
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp">HP:0001695</a>
-
-
+This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8855,6 +9263,7 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8877,6 +9286,7 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8910,16 +9320,20 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001662</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype from the Human Phenotype Ontology.">
-                        Bradycardia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp">HP:0001662</a>
-
-
+This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8939,6 +9353,7 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17875969" target="_blank">PMID:17875969</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8972,16 +9387,20 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0005110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.">
-                        Atrial fibrillation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp">HP:0005110</a>
-
-
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9001,6 +9420,7 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9045,16 +9465,22 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9076,6 +9502,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39835466" target="_blank">PMID:39835466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9120,16 +9547,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0034040</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bidirectional ventricular tachycardia (HP:0034040). HP:0034040 is a phenotype from the Human Phenotype Ontology.">
-                        Bidirectional ventricular tachycardia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034040" target="_blank" class="curie-chip curie-chip-hp">HP:0034040</a>
-
-
+This clinical feature is Bidirectional ventricular tachycardia (HP:0034040). HP:0034040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9149,6 +9580,7 @@ This clinical feature is Bidirectional ventricular tachycardia (HP:0034040). HP:
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37558300" target="_blank">PMID:37558300</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9228,15 +9660,17 @@ This clinical feature is Bidirectional ventricular tachycardia (HP:0034040). HP:
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-69">hgnc:10484</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9257,6 +9691,7 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32115705" target="_blank">PMID:32115705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9280,6 +9715,7 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35222090" target="_blank">PMID:35222090</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9301,6 +9737,7 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_1da07a67-9d04-448b-843b-39dac372cb59-2021-01-20T050000.000Z" target="_blank">CGGV:assertion_1da07a67-9d04-448b-843b-39dac372cb59-2021-01-20T050000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9339,15 +9776,17 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CASQ2 (hgnc:1513). hgnc:1513 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CASQ2
 
 
-    <a href="https://bioregistry.io/hgnc:1513" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1513</a>
+    <a href="https://bioregistry.io/hgnc:1513" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:1513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CASQ2 (hgnc:1513). hgnc:1513 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9368,6 +9807,7 @@ This disease-associated gene is CASQ2 (hgnc:1513). hgnc:1513 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11704930" target="_blank">PMID:11704930</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9390,6 +9830,7 @@ This disease-associated gene is CASQ2 (hgnc:1513). hgnc:1513 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9428,15 +9869,17 @@ This disease-associated gene is CASQ2 (hgnc:1513). hgnc:1513 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CALM1 (hgnc:1442). hgnc:1442 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CALM1
 
 
-    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1442</a>
+    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:1442</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CALM1 (hgnc:1442). hgnc:1442 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9457,6 +9900,7 @@ This disease-associated gene is CALM1 (hgnc:1442). hgnc:1442 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23040497" target="_blank">PMID:23040497</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9479,6 +9923,7 @@ This disease-associated gene is CALM1 (hgnc:1442). hgnc:1442 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9517,15 +9962,17 @@ This disease-associated gene is CALM1 (hgnc:1442). hgnc:1442 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CALM2 (hgnc:1445). hgnc:1445 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CALM2
 
 
-    <a href="https://bioregistry.io/hgnc:1445" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1445</a>
+    <a href="https://bioregistry.io/hgnc:1445" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:1445</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CALM2 (hgnc:1445). hgnc:1445 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9546,6 +9993,7 @@ This disease-associated gene is CALM2 (hgnc:1445). hgnc:1445 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9584,15 +10032,17 @@ This disease-associated gene is CALM2 (hgnc:1445). hgnc:1445 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CALM3 (hgnc:1449). hgnc:1449 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CALM3
 
 
-    <a href="https://bioregistry.io/hgnc:1449" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1449</a>
+    <a href="https://bioregistry.io/hgnc:1449" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:1449</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CALM3 (hgnc:1449). hgnc:1449 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9613,6 +10063,7 @@ This disease-associated gene is CALM3 (hgnc:1449). hgnc:1449 is a gene from the 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9651,15 +10102,17 @@ This disease-associated gene is CALM3 (hgnc:1449). hgnc:1449 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TRDN (hgnc:12261). hgnc:12261 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRDN
 
 
-    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12261</a>
+    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-74">hgnc:12261</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRDN (hgnc:12261). hgnc:12261 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9680,6 +10133,7 @@ This disease-associated gene is TRDN (hgnc:12261). hgnc:12261 is a gene from the
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22422768" target="_blank">PMID:22422768</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9718,15 +10172,17 @@ This disease-associated gene is TRDN (hgnc:12261). hgnc:12261 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TECRL (hgnc:27365). hgnc:27365 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TECRL
 
 
-    <a href="https://bioregistry.io/hgnc:27365" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:27365</a>
+    <a href="https://bioregistry.io/hgnc:27365" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-75">hgnc:27365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TECRL (hgnc:27365). hgnc:27365 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9747,6 +10203,7 @@ This disease-associated gene is TECRL (hgnc:27365). hgnc:27365 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27861123" target="_blank">PMID:27861123</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9769,6 +10226,7 @@ This disease-associated gene is TECRL (hgnc:27365). hgnc:27365 is a gene from th
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27861123" target="_blank">PMID:27861123</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9800,6 +10258,9 @@ This disease-associated gene is TECRL (hgnc:27365). hgnc:27365 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9816,18 +10277,18 @@ This disease-associated gene is TECRL (hgnc:27365). hgnc:27365 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">nadolol therapy<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is nadolol therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">nadolol therapy</span>
+This treatment is nadolol therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is nadolol therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9887,6 +10348,7 @@ This treatment is nadolol therapy, annotated with Pharmacotherapy (NCIT:C15986).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26432584" target="_blank">PMID:26432584</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9908,6 +10370,7 @@ This treatment is nadolol therapy, annotated with Pharmacotherapy (NCIT:C15986).
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9939,18 +10402,18 @@ This treatment is nadolol therapy, annotated with Pharmacotherapy (NCIT:C15986).
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-77">flecainide therapy<span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is flecainide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">flecainide therapy</span>
+This treatment is flecainide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is flecainide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -10010,6 +10473,7 @@ This treatment is flecainide therapy, annotated with Pharmacotherapy (NCIT:C1598
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19835880" target="_blank">PMID:19835880</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10032,6 +10496,7 @@ This treatment is flecainide therapy, annotated with Pharmacotherapy (NCIT:C1598
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19835880" target="_blank">PMID:19835880</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10053,6 +10518,7 @@ This treatment is flecainide therapy, annotated with Pharmacotherapy (NCIT:C1598
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39733778" target="_blank">PMID:39733778</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10084,18 +10550,18 @@ This treatment is flecainide therapy, annotated with Pharmacotherapy (NCIT:C1598
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">ICD implantation<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ICD implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">ICD implantation</span>
+This treatment is ICD implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ICD implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -10137,6 +10603,7 @@ This treatment is ICD implantation, annotated with Surgical Procedure (NCIT:C153
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39835466" target="_blank">PMID:39835466</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10167,18 +10634,18 @@ This treatment is ICD implantation, annotated with Surgical Procedure (NCIT:C153
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-79">left cardiac sympathetic denervation<span class="pill-tip" role="tooltip" id="pill-tip-79">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is left cardiac sympathetic denervation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">left cardiac sympathetic denervation</span>
+This treatment is left cardiac sympathetic denervation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is left cardiac sympathetic denervation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -10238,6 +10705,7 @@ This treatment is left cardiac sympathetic denervation, annotated with Surgical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10268,18 +10736,18 @@ This treatment is left cardiac sympathetic denervation, annotated with Surgical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">exercise restriction<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is exercise restriction, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">exercise restriction</span>
+This treatment is exercise restriction, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is exercise restriction, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -10321,6 +10789,7 @@ This treatment is exercise restriction, annotated with Supportive Care (NCIT:C15
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37558300" target="_blank">PMID:37558300</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10342,6 +10811,7 @@ This treatment is exercise restriction, annotated with Supportive Care (NCIT:C15
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301466" target="_blank">PMID:20301466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10406,7 +10876,6 @@ This treatment is exercise restriction, annotated with Supportive Care (NCIT:C15
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: RYR2 CPVT
 creation_date: &#39;2026-04-04T00:00:00Z&#39;
-updated_date: &#39;2026-04-07T02:36:25Z&#39;
 description: &gt;-
   Catecholaminergic polymorphic ventricular tachycardia (CPVT) is a heritable
   cardiac channelopathy of sarcoplasmic-reticulum calcium handling. The hallmark
@@ -13622,7 +14091,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "RYR2 CPVT", "mondoId": "MONDO:0017990", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RYR2_CPVT", "yamlRevision": "dc76f553a89a"};
+        const OS_CONFIG = {"diseaseName": "RYR2 CPVT", "mondoId": "MONDO:0017990", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RYR2_CPVT", "yamlRevision": "69758e7cd80b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14041,5 +14510,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
