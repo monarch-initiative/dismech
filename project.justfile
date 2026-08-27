@@ -1068,6 +1068,13 @@ check-environmental-evidence:
 list-environmental-evidence-gaps:
     uv run python scripts/check_environmental_evidence.py --all
 
+# List exposures dispositioned by a `review_notes:` waiver -- a recorded failed
+# search rather than an unexamined gap. These are excluded from the gap list
+# above, so this is how they stay visible (#8296).
+[group('QC')]
+list-environmental-evidence-waivers:
+    uv run python scripts/check_environmental_evidence.py --waivers
+
 # Regenerate the environmental-evidence baseline after intentionally changing
 # the backlog (e.g. citing exposures in a curation tranche). Review the diff.
 [group('QC')]

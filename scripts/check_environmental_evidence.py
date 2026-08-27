@@ -25,7 +25,31 @@ repo.
 Signal
 ------
 An `environmental[]` entry whose `evidence` key is absent, ``None``, or an
-empty list.
+empty list -- unless it carries a *waiver* (below).
+
+Waivers
+-------
+Some exposures cannot be cited, and never will be. A curator searches, finds
+no abstract that states the claim, and records that. Before this waiver
+existed such an entry was indistinguishable here from one nobody had looked
+at, so the backlog could never reach zero and an honest negative result read
+as an outstanding task.
+
+An entry is treated as *dispositioned* rather than uncited when its
+``review_notes`` begins with::
+
+    Left deliberately uncited.
+
+The sentinel is deliberately narrow. It must be ``review_notes``, not
+``notes``: a waiver any prose can trigger is not a waiver, and ``notes`` is
+disease content while ``review_notes`` is the curation record. The convention
+predates the check -- see the Gout "Dehydration" and Myasthenia_Gravis
+"Stress" entries, which already opened their ``review_notes`` with exactly
+this sentence.
+
+Waived entries stay visible: ``--all`` lists them under their own heading and
+``--count`` reports them on their own line. They are dispositioned, not
+disappeared.
 
 Baseline ratchet
 -----------------
@@ -48,6 +72,7 @@ Usage
     python scripts/check_environmental_evidence.py --against-ref origin/main
     python scripts/check_environmental_evidence.py --all                 # list every finding
     python scripts/check_environmental_evidence.py --count               # summary counts
+    python scripts/check_environmental_evidence.py --waivers             # list dispositioned entries
     python scripts/check_environmental_evidence.py --update-baseline
 """
 
@@ -86,6 +111,12 @@ BASELINE_PATH = ROOT / "tests" / "environmental_evidence_baseline.txt"
 # baseline_from_ref(). Mirrors SNIPPET_BASELINE_REF in check_snippet_length.py.
 BASELINE_REF_ENV = "ENVIRONMENTAL_EVIDENCE_BASELINE_REF"
 
+# An exposure whose `review_notes` opens with this sentence is a recorded
+# failed search, not an unexamined one. See the module docstring: the sentinel
+# is matched on `review_notes` only, and only as a prefix, so it cannot be
+# triggered by ordinary prose that happens to contain the words.
+WAIVER_SENTINEL = "left deliberately uncited"
+
 
 def _has_quoted_evidence(entry: dict) -> bool:
     """True if *entry* carries at least one evidence item with a real snippet.
@@ -110,15 +141,51 @@ def _has_quoted_evidence(entry: dict) -> bool:
     return False
 
 
-def find_violations(data):
-    """Yield ``(location, name)`` for each evidence-free `environmental[]` entry."""
+def is_waived(entry: dict) -> bool:
+    """True if *entry* records a deliberate, searched-for-and-not-found decision.
+
+    Matched on ``review_notes`` only, and only as a prefix, so the waiver is a
+    deliberate act rather than something ordinary prose can trip. ``notes`` is
+    disease content and is not consulted: a claim that merely *mentions* being
+    uncited is not the same as a curator recording a failed search.
+    """
+    review_notes = entry.get("review_notes")
+    if not isinstance(review_notes, str):
+        return False
+    return review_notes.strip().lower().startswith(WAIVER_SENTINEL)
+
+
+def _iter_environmental(data):
     entries = data.get("environmental") or []
     if not isinstance(entries, list):
         return
     for idx, entry in enumerate(entries):
-        if not isinstance(entry, dict):
+        if isinstance(entry, dict):
+            yield idx, entry
+
+
+def find_violations(data):
+    """Yield ``(location, name)`` for each evidence-free `environmental[]` entry.
+
+    Waived entries are excluded -- they are reported separately by
+    :func:`find_waivers` so they stay visible without counting as outstanding.
+    """
+    for idx, entry in _iter_environmental(data):
+        if _has_quoted_evidence(entry) or is_waived(entry):
             continue
-        if _has_quoted_evidence(entry):
+        name = entry.get("name") or "<unnamed>"
+        yield (f"environmental[{idx}]", name)
+
+
+def find_waivers(data):
+    """Yield ``(location, name)`` for each waived, still-uncited entry.
+
+    An entry that carries both a waiver and real evidence is not reported: the
+    evidence supersedes the waiver, and leaving it here would suggest the claim
+    is still unsourced.
+    """
+    for idx, entry in _iter_environmental(data):
+        if _has_quoted_evidence(entry) or not is_waived(entry):
             continue
         name = entry.get("name") or "<unnamed>"
         yield (f"environmental[{idx}]", name)
@@ -133,6 +200,15 @@ def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     dir so the reported paths still come out as ``kb/disorders/X.yaml`` --
     matching the working-tree keys the baseline is compared on.
     """
+    return _scan(find_violations, scan_dir, rel_to)
+
+
+def scan_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
+    """Return a sorted list of ``(relpath, location, name)`` waived entries."""
+    return _scan(find_waivers, scan_dir, rel_to)
+
+
+def _scan(finder, scan_dir: Path, rel_to: Path):
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
@@ -151,7 +227,7 @@ def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
         if not isinstance(data, dict):
             continue
         rel = path.relative_to(rel_to).as_posix()
-        for location, name in find_violations(data):
+        for location, name in finder(data):
             findings.append((rel, location, name))
     return findings
 
@@ -303,6 +379,11 @@ def main(argv=None) -> int:
     group.add_argument("--all", action="store_true", help="list every finding")
     group.add_argument("--count", action="store_true", help="print summary counts")
     group.add_argument(
+        "--waivers",
+        action="store_true",
+        help="list entries dispositioned by a review_notes waiver",
+    )
+    group.add_argument(
         "--update-baseline",
         action="store_true",
         help="rewrite the baseline from current findings",
@@ -330,11 +411,29 @@ def main(argv=None) -> int:
         )
         return 0
 
+    waivers = scan_waivers()
+
+    if args.waivers:
+        for rel, location, name in waivers:
+            print(f"{rel}:{location}: {name!r}")
+        files = {rel for rel, _, _ in waivers}
+        print(
+            f"\n{len(waivers)} exposure(s) dispositioned by a "
+            f"'{WAIVER_SENTINEL.capitalize()}.' review_notes waiver "
+            f"across {len(files)} file(s)."
+        )
+        return 0
+
     if args.all:
         for rel, location, name in findings:
             print(f"{rel}:{location}: {name!r}")
         files = {rel for rel, _, _ in findings}
         print(f"\n{len(findings)} evidence-free exposure(s) across {len(files)} file(s).")
+        if waivers:
+            print(
+                f"({len(waivers)} further exposure(s) carry a review_notes waiver "
+                "recording a failed search; see --waivers.)"
+            )
         return 0
 
     if args.count:
@@ -346,6 +445,7 @@ def main(argv=None) -> int:
             f"{sum(baseline.values())} grandfathered occurrence(s)"
         )
         print(f"new (non-baselined): {len(new_findings(findings, baseline))}")
+        print(f"dispositioned (review_notes waiver): {len(waivers)}")
         return 0
 
     baseline = resolve_baseline(args.against_ref)

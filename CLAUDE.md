@@ -1743,6 +1743,25 @@ references, and prose claims about defective sources that the cache
 contradicts. The first five use baselines; do not update a baseline to admit a
 defect introduced by the current change.
 
+**When an exposure genuinely cannot be cited, say so in `review_notes:`.**
+`check-environmental-evidence` treats an `environmental[]` entry whose
+`review_notes` *begins* with the sentence
+
+```
+Left deliberately uncited.
+```
+
+as dispositioned rather than uncited, and reports it under `just
+list-environmental-evidence-waivers` instead of as an outstanding gap. Use it
+only after a real search — say which searches you ran and why they failed, as
+the `Gout` → Dehydration and `Myasthenia_Gravis` → Stress entries do. The
+sentinel is matched on `review_notes` only, and only as a prefix: `notes:` is
+disease content and cannot waive, and prose that merely mentions the phrase
+does not trigger it. An entry carrying both a waiver and real evidence is not
+reported as waived — the evidence supersedes it. This exists so that "searched,
+found nothing quotable" is a recordable answer rather than a permanent backlog
+item; it is not a way to skip the search (#8296).
+
 `check-snippet-grading` (#8184) is the one to know about when copying an
 evidence item into a second block: `evidence_source` classifies the cited
 *publication*, so it cannot change because the quote moved. Re-grading a copied
