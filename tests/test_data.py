@@ -15,7 +15,10 @@ from linkml.validator import Validator
 # validation logic shared with the CLI tools.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from dismech.community_evidence import community_sole_support_errors
+from dismech.community_evidence import (
+    community_sole_support_errors,
+    iter_evidence_lists,
+)
 from dismech.entity_refs import (
     canonical_kind,
     entity_ref_errors,
@@ -107,22 +110,11 @@ def _has_allowed_reference_prefix(reference):
     return any(text.startswith(p.lower()) for p in ALLOWED_REFERENCE_PREFIXES)
 
 
-def _iter_evidence_lists(node, path=""):
-    """Yield every ``(dotted_path, evidence_list)`` pair anywhere in a document.
-
-    Evidence blocks are attached at many depths (top-level sections, nested
-    `downstream` causal edges, `readouts`, `findings`, `members`, ...), so the
-    only reliable way to check them all is to walk the whole tree.
-    """
-    if isinstance(node, dict):
-        for key, value in node.items():
-            child = f"{path}.{key}" if path else key
-            if key == "evidence" and isinstance(value, list):
-                yield child, value
-            yield from _iter_evidence_lists(value, child)
-    elif isinstance(node, list):
-        for index, item in enumerate(node):
-            yield from _iter_evidence_lists(item, f"{path}[{index}]")
+# Evidence blocks are attached at many depths (top-level sections, nested
+# `downstream` causal edges, `readouts`, `findings`, `members`, ...), so the only
+# reliable way to check them all is to walk the whole tree. Shared with
+# `scripts/check_community_evidence.py` rather than kept in two places.
+_iter_evidence_lists = iter_evidence_lists
 
 
 @lru_cache(maxsize=1)

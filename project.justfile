@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-community-evidence check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -980,6 +980,17 @@ check-duplicate-keys *files:
 [group('QC')]
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
+
+# Enforce the community-source corroboration rule (design decision 6b): a
+# reference tagged PatientOrganization or PatientCommunity may corroborate a
+# curated claim but may never be its sole support. Ungated in CI for the same
+# reason check-entity-refs is -- the matching pytest carries the `kb_data`
+# marker, so a curation PR touching only kb/ never runs it. Invisible to every
+# other gate by construction: the URL resolves and the snippet is a real quote
+# from it, so LinkML, terms and reference validation all pass. Offline.
+[group('QC')]
+check-community-evidence *files:
+    uv run python scripts/check_community_evidence.py "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the

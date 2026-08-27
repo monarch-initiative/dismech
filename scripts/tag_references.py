@@ -137,12 +137,42 @@ def next_entry_line(lines: list[str], entry_start: int, sec_end: int) -> int:
     return sec_end
 
 
+# A flow-style tags list, e.g. `  tags: [GeneReviews]` or `  tags: []`. 36
+# top-level `references:` entries across kb/ are written this way, so a
+# block-only reader silently reports them untagged and the writer then appends a
+# block item after a closing bracket -- which is not valid YAML.
+FLOW_TAGS_RE = re.compile(r"^(?P<indent>\s+)tags\s*:\s*\[(?P<items>.*)\]\s*$")
+
+
+def flow_tag_items(line: str) -> list[str] | None:
+    """Return the items of a flow-style `tags: [...]` line, or None if not flow style."""
+    match = FLOW_TAGS_RE.match(line)
+    if not match:
+        return None
+    body = match.group("items").strip()
+    if not body:
+        return []
+    return [item.strip().strip("\"'") for item in body.split(",") if item.strip()]
+
+
 def has_tag_in_entry(lines: list[str], entry_start: int, sec_end: int, tag: str) -> bool:
-    """Return True if the entry already contains `- GeneReviews` under a `tags:` key."""
+    """Return True if the entry already carries `tag` under a `tags:` key.
+
+    Reads both block style and flow style. Flow style matters because it is the
+    difference between "already tagged, write nothing" and "untagged, append" --
+    and the append lands inside a completed list.
+    """
     in_tags = False
     for i in range(entry_start, min(next_entry_line(lines, entry_start, sec_end), sec_end)):
         line = lines[i]
         if re.match(r"^\s+tags\s*:", line):
+            flow_items = flow_tag_items(line)
+            if flow_items is not None:
+                if tag in flow_items:
+                    return True
+                # A flow list is complete on its own line; nothing follows it.
+                in_tags = False
+                continue
             in_tags = True
         elif in_tags:
             if re.match(r"^\s+- " + re.escape(tag), line):
@@ -180,6 +210,17 @@ def add_tag_to_existing_entry(
     """
     tags_line = entry_field_line(lines, entry_start, sec_end, "tags")
     if tags_line != -1:
+        flow_items = flow_tag_items(lines[tags_line])
+        if flow_items is not None:
+            # Rewrite the flow list in place rather than appending a block item
+            # after its closing bracket. Reached for `tags: []`; a non-empty
+            # flow list that already holds the tag is caught by
+            # `has_tag_in_entry` before this function is called.
+            indent = FLOW_TAGS_RE.match(lines[tags_line]).group("indent")
+            joined = ", ".join(flow_items + [tag])
+            new_line = f"{indent}tags: [{joined}]"
+            return lines[:tags_line] + [new_line] + lines[tags_line + 1 :]
+
         # Append after the last `- ` item of the existing list, matching its
         # indentation so the entry's own style is preserved.
         entry_end = min(next_entry_line(lines, entry_start, sec_end), sec_end)
