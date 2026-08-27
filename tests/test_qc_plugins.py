@@ -1,13 +1,15 @@
-"""Tests for graph-derived QC metric plugins (phenotype connectivity)."""
+"""Tests for graph-derived QC metric plugins (pathograph wiring coverage)."""
 
 from linkml_data_qc.config import PathQCConfig, QCConfig
 from linkml_data_qc.models import AggregatedPathScore, ComplianceReport
 
 from dismech.qc_plugins import (
+    GeneActivityGroundingPlugin,
     GeneMechanismWiringPlugin,
     PhenotypeConnectivityPlugin,
     augment_report,
     causal_inlink_coverage,
+    gene_activity_grounding_coverage,
     gene_mechanism_wiring_coverage,
 )
 
@@ -193,6 +195,118 @@ def test_gene_wiring_plugin_emits_graded_score() -> None:
 
 def test_gene_wiring_plugin_returns_no_score_without_genes() -> None:
     assert GeneMechanismWiringPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+
+
+def _activity() -> dict:
+    """Two wired genes: one lands on an MF-bound node, one on a process-only node."""
+    return {
+        "name": "Test Disorder",
+        "genetic": [
+            {
+                "name": "ACP2",
+                "gene_term": {"term": {"id": "hgnc:123", "label": "ACP2"}},
+                "relationship_type": "CAUSAL",
+            },
+            {
+                "name": "SLC25A20",
+                "gene_term": {"term": {"id": "hgnc:1421", "label": "SLC25A20"}},
+                "relationship_type": "CAUSAL",
+            },
+        ],
+        "pathophysiology": [
+            {
+                "name": "Acid Phosphatase Deficiency",
+                "gene": {"term": {"id": "hgnc:123", "label": "ACP2"}},
+                "molecular_functions": [
+                    {"term": {"id": "GO:0003993", "label": "acid phosphatase activity"}}
+                ],
+                "biological_processes": [
+                    {"term": {"id": "GO:0016311", "label": "dephosphorylation"}}
+                ],
+            },
+            {
+                "name": "Carnitine Translocase Deficiency",
+                "gene": {"term": {"id": "hgnc:1421", "label": "SLC25A20"}},
+                "biological_processes": [
+                    {"term": {"id": "GO:0015879", "label": "carnitine transport"}}
+                ],
+            },
+        ],
+    }
+
+
+def test_activity_grounding_flags_the_process_only_landing() -> None:
+    grounded, total, ungrounded = gene_activity_grounding_coverage(_activity())
+    assert (grounded, total) == (1, 2)
+    assert ungrounded == ["SLC25A20"]
+
+
+def test_activity_denominator_is_the_wired_genes_only() -> None:
+    """An unwired gene is charged against wiring, not a second time here."""
+    data = _activity()
+    data["genetic"].append(
+        {
+            "name": "Floating Gene",
+            "gene_term": {"term": {"id": "hgnc:9999", "label": "FLOAT1"}},
+            "relationship_type": "CAUSAL",
+        }
+    )
+    wired, wiring_total, _ = gene_mechanism_wiring_coverage(data)
+    grounded, total, ungrounded = gene_activity_grounding_coverage(data)
+
+    assert (wired, wiring_total) == (2, 3)
+    assert total == wired, "the grounding denominator is the wiring numerator"
+    assert (grounded, ungrounded) == (1, ["SLC25A20"])
+
+
+def test_one_grounded_landing_is_enough() -> None:
+    """A gene reaching both an activity node and its consequence still counts."""
+    data = _activity()
+    data["pathophysiology"].append(
+        {
+            "name": "Impaired Long-Chain Fatty Acid Oxidation",
+            "gene": {"term": {"id": "hgnc:1421", "label": "SLC25A20"}},
+            "molecular_functions": [
+                {
+                    "term": {
+                        "id": "GO:0015227",
+                        "label": "O-acyl-L-carnitine transmembrane transporter activity",
+                    }
+                }
+            ],
+        }
+    )
+    grounded, total, ungrounded = gene_activity_grounding_coverage(data)
+    assert (grounded, total) == (2, 2)
+    assert ungrounded == []
+
+
+def test_activity_plugin_emits_graded_score() -> None:
+    config = QCConfig(
+        paths={
+            "genetic[].mechanism_activity_grounding": PathQCConfig(
+                weight=1.5, min_compliance=None
+            )
+        }
+    )
+    scores = GeneActivityGroundingPlugin().evaluate(_activity(), config)
+    assert len(scores) == 1
+    score = scores[0]
+    assert isinstance(score, AggregatedPathScore)
+    assert score.path == "genetic[]"
+    assert score.slot_name == "mechanism_activity_grounding"
+    assert (score.populated, score.total) == (1, 2)
+    assert score.percentage == 50.0
+    assert score.weight == 1.5
+
+
+def test_activity_plugin_returns_no_score_without_wired_genes() -> None:
+    assert (
+        GeneActivityGroundingPlugin().evaluate(
+            {"name": "x", "genetic": [{"name": "Floating Gene"}]}, QCConfig.default()
+        )
+        == []
+    )
 
 
 def test_augment_report_folds_in_connectivity_and_recomputes() -> None:

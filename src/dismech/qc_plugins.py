@@ -24,9 +24,17 @@ parsed disorder dict plus the active :class:`QCConfig` and returns extra
 ``AggregatedPathScore`` records. Phenotype connectivity was the first plugin;
 gene-to-mechanism wiring (:class:`GeneMechanismWiringPlugin`) is the source-side
 complement, rewarding a causal gene being wired into the pathograph rather than
-floating as an isolated genetic node. The same hook generically covers further
-graph-derived coverage metrics (orphan-target rate, dead-end pathophysiology
-nodes, ...).
+floating as an isolated genetic node.
+
+Those two ask *whether* a gene reaches the mechanism graph.
+:class:`GeneActivityGroundingPlugin` asks where it lands: GO puts a molecular
+function between a gene and a biological process, and an edge from a gene
+straight to a process-only node skips it. The two gene metrics are deliberately
+independent -- the grounding denominator is the *wired* genes, so an unwired
+gene is charged once, against wiring, rather than twice.
+
+The same hook generically covers further graph-derived coverage metrics
+(orphan-target rate, dead-end pathophysiology nodes, ...).
 """
 
 from __future__ import annotations
@@ -199,6 +207,83 @@ def gene_mechanism_wiring_coverage(
     return wired, total, unwired
 
 
+def gene_activity_grounding_coverage(
+    data: dict[str, Any],
+    predicates: frozenset[str] = GENE_WIRING_PREDICATES,
+) -> tuple[int, int, list[str]]:
+    """Return ``(grounded, total, ungrounded_names)`` for wired genetic nodes.
+
+    GO puts a level between a gene and a process -- **gene -> molecular function
+    -> biological process** -- and a pathograph edge that runs from a genetic
+    node straight to a node annotated only with ``biological_processes:`` skips
+    it: the graph states what the *cell* can no longer do without ever stating
+    what the *protein* can no longer do.
+
+    A wired gene counts as activity-grounded when at least one pathophysiology
+    node it reaches carries ``molecular_functions:``. Every such edge is direct,
+    so "the first node it links into" is any node it links into; one grounded
+    landing is enough, because a gene commonly reaches both the activity node
+    and its downstream consequences.
+
+    **The denominator is the wired genes, not all of them.** An unwired gene is
+    already counted against :func:`gene_mechanism_wiring_coverage`, and charging
+    it here as well would penalise one defect twice while making neither number
+    readable on its own. The two metrics compose: wiring asks whether the gene
+    reaches the mechanism graph at all, grounding asks whether where it lands
+    names a molecular function.
+
+    A landing node carrying many genes is the case to watch. When one node
+    collects twenty gene products with unrelated activities, no single MF term
+    is true of it, and the fix is to split the node rather than to annotate it.
+    This metric reports the gap; it does not say which of the two repairs the
+    node needs.
+    """
+    genetic_items = data.get("genetic", []) or []
+    candidates = [
+        item["name"]
+        for item in genetic_items
+        if isinstance(item, dict)
+        and item.get("name")
+        and _genetic_item_infers_mechanism_edges(item)
+    ]
+    if not candidates:
+        return 0, 0, []
+
+    graph = build_causal_graph(data)
+    candidate_set = set(candidates)
+    activity_nodes = {
+        item["name"]
+        for item in data.get("pathophysiology", []) or []
+        if isinstance(item, dict)
+        and item.get("name")
+        and item.get("molecular_functions")
+    }
+
+    wired: set[str] = set()
+    grounded: set[str] = set()
+    for edge in graph.edges:
+        if edge.predicate not in predicates:
+            continue
+        if edge.source == edge.target or edge.source not in candidate_set:
+            continue
+        target = graph.nodes.get(edge.target)
+        if target is None or target.node_type != "pathophysiology":
+            continue
+        wired.add(edge.source)
+        if edge.target in activity_nodes:
+            grounded.add(edge.source)
+
+    # Count candidate *entries*, not distinct names, so this denominator is
+    # exactly gene_mechanism_wiring_coverage's numerator even when an entry name
+    # repeats within one file.
+    wired_candidates = [name for name in candidates if name in wired]
+    total = len(wired_candidates)
+    if total == 0:
+        return 0, 0, []
+    ungrounded = [name for name in wired_candidates if name not in grounded]
+    return total - len(ungrounded), total, ungrounded
+
+
 class GeneMechanismWiringPlugin:
     """Coverage of causal genetic nodes wired into the mechanism pathograph.
 
@@ -236,9 +321,46 @@ class GeneMechanismWiringPlugin:
         ]
 
 
+class GeneActivityGroundingPlugin:
+    """Coverage of wired genes landing on a node that names a molecular function.
+
+    Emits a single ``genetic[].mechanism_activity_grounding`` score. Paired with
+    :class:`GeneMechanismWiringPlugin`, which scores the prior question: the
+    wiring metric asks whether the gene reaches the mechanism graph, this one
+    asks whether where it lands names the activity the gene product lost.
+    """
+
+    path = "genetic[]"
+    slot_name = "mechanism_activity_grounding"
+    parent_class = "Genetic"
+
+    def __init__(self, predicates: frozenset[str] = GENE_WIRING_PREDICATES) -> None:
+        self.predicates = predicates
+
+    def evaluate(
+        self, data: dict[str, Any], config: QCConfig
+    ) -> list[AggregatedPathScore]:
+        grounded, total, _ = gene_activity_grounding_coverage(data, self.predicates)
+        if total == 0:
+            return []
+        return [
+            AggregatedPathScore(
+                path=self.path,
+                slot_name=self.slot_name,
+                parent_class=self.parent_class,
+                populated=grounded,
+                total=total,
+                percentage=grounded / total * 100,
+                weight=config.get_weight(self.path, self.slot_name),
+                min_compliance=config.get_min_compliance(self.path, self.slot_name),
+            )
+        ]
+
+
 DEFAULT_PLUGINS: tuple[QCMetricPlugin, ...] = (
     PhenotypeConnectivityPlugin(),
     GeneMechanismWiringPlugin(),
+    GeneActivityGroundingPlugin(),
 )
 
 
@@ -302,8 +424,9 @@ def _main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Report graph-derived pathograph-wiring coverage across dismech "
-            "disorder files: phenotype causal-connectivity (inbound) and "
-            "gene-to-mechanism wiring (outbound)."
+            "disorder files: phenotype causal-connectivity (inbound), "
+            "gene-to-mechanism wiring (outbound), and whether a wired gene "
+            "lands on a node naming a molecular function."
         )
     )
     parser.add_argument(
@@ -330,9 +453,21 @@ def _main() -> None:
         help="Exit non-zero if aggregate gene-to-mechanism wiring falls below this percent.",
     )
     parser.add_argument(
+        "--activity-fail-under",
+        type=float,
+        default=None,
+        help=(
+            "Exit non-zero if aggregate gene activity grounding (a wired gene "
+            "landing on a node with molecular_functions) falls below this percent."
+        ),
+    )
+    parser.add_argument(
         "--list-unconnected",
         action="store_true",
-        help="List the disconnected phenotype and unwired genetic node names per file.",
+        help=(
+            "List the disconnected phenotype, unwired genetic, and "
+            "activity-ungrounded genetic node names per file."
+        ),
     )
     args = parser.parse_args()
 
@@ -350,10 +485,16 @@ def _main() -> None:
         fail_under = config.get_min_compliance(
             pheno_plugin.path, pheno_plugin.slot_name
         )
+    activity_plugin = GeneActivityGroundingPlugin()
     genes_fail_under = args.genes_fail_under
     if genes_fail_under is None:
         genes_fail_under = config.get_min_compliance(
             gene_plugin.path, gene_plugin.slot_name
+        )
+    activity_fail_under = args.activity_fail_under
+    if activity_fail_under is None:
+        activity_fail_under = config.get_min_compliance(
+            activity_plugin.path, activity_plugin.slot_name
         )
 
     files: list[Path] = []
@@ -374,6 +515,9 @@ def _main() -> None:
     total_wired = 0
     total_genes = 0
     gene_files_with_gaps = 0
+    total_grounded = 0
+    total_wired_genes = 0
+    activity_files_with_gaps = 0
 
     for path in files:
         with open(path) as fh:
@@ -410,6 +554,21 @@ def _main() -> None:
                     for name in unwired:
                         print(f"    - gene: {name}")
 
+        grounded, wtotal, ungrounded = gene_activity_grounding_coverage(data)
+        if wtotal:
+            total_grounded += grounded
+            total_wired_genes += wtotal
+            if ungrounded:
+                activity_files_with_gaps += 1
+                apct = grounded / wtotal * 100
+                print(
+                    f"{path.name}: {grounded}/{wtotal} wired genes land on a "
+                    f"molecular function ({apct:.0f}%)"
+                )
+                if args.list_unconnected:
+                    for name in ungrounded:
+                        print(f"    - gene without an activity landing: {name}")
+
     failed = False
 
     if total_phenotypes:
@@ -437,6 +596,22 @@ def _main() -> None:
             failed = True
     else:
         print("No mechanism-relevant genetic nodes found.")
+
+    if total_wired_genes:
+        aagg = total_grounded / total_wired_genes * 100
+        print(
+            f"Gene activity grounding: {total_grounded}/{total_wired_genes} wired "
+            f"genes land on a node naming a molecular function ({aagg:.1f}%); "
+            f"{activity_files_with_gaps} file(s) with gaps."
+        )
+        if activity_fail_under is not None and aagg < activity_fail_under:
+            print(
+                f"FAIL: gene activity grounding below threshold "
+                f"{activity_fail_under:.1f}%"
+            )
+            failed = True
+    else:
+        print("No wired genetic nodes found.")
 
     if failed:
         raise SystemExit(1)
