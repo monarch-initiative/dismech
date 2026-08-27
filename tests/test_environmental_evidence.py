@@ -3,34 +3,25 @@
 An `Environmental` entry with no `evidence:` block is an uncited causation
 claim that every current validator (`just validate`, `validate-terms`,
 `count-verified-snippets`) is structurally blind to, since `evidence` is
-optional on the class. A baseline grandfathers the pre-existing backlog so
-this test fails only on newly introduced ones.
+optional on the class. The backlog is zero, so this is a hard gate: an
+exposure that cannot be cited carries a `review_notes` waiver instead.
 
 See scripts/check_environmental_evidence.py and dismech issue #8296.
 """
 
-import subprocess
-from collections import Counter
 from pathlib import Path
 
 from dismech.yaml_io import safe_load
 from scripts import check_environmental_evidence as cee
 from scripts.check_environmental_evidence import (
-    BASELINE_REF_ENV,
     MIN_WAIVER_WORDS,
     WAIVER_SENTINEL,
-    _baseline_key,
-    baseline_from_ref,
     find_thin_waivers,
     find_violations,
     find_waivers,
     is_waived,
-    load_baseline,
-    new_findings,
-    resolve_baseline,
     scan_repo,
     waiver_detail,
-    write_baseline,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,23 +37,21 @@ def _entry(name: str | None = "Smoking", evidence=None, **extra) -> dict:
     return entry
 
 
-def test_no_new_evidence_free_environmental_exposures():
-    # resolve_baseline() grandfathers against origin/main when CI sets
-    # ENVIRONMENTAL_EVIDENCE_BASELINE_REF (so the base branch is green by
-    # construction and parallel merges cannot clobber the grandfather set),
-    # and falls back to the committed baseline for local runs / shallow
-    # checkouts.
-    baseline = resolve_baseline()
-    new = [
-        f"{rel}:{location}: {name!r}"
-        for rel, location, name in new_findings(scan_repo(), baseline)
+def test_no_evidence_free_environmental_exposures():
+    # Hard gate: the dismech#8296 backlog was worked to zero and the baseline
+    # ratchet removed, so any finding here is a new one. An exposure that
+    # genuinely cannot be cited is recorded with a `review_notes` waiver
+    # instead (see the waiver tests below), which is why this can be absolute.
+    found = [
+        f"{rel}:{location}: {name!r}" for rel, location, name in scan_repo()
     ]
-    assert not new, (
-        "New evidence-free `environmental:` exposure(s) detected. Every "
+    assert not found, (
+        "Evidence-free `environmental:` exposure(s) detected. Every "
         "environmental entry is an uncited causation claim until it carries "
         "an `evidence:` block. Add a citable PMID/DOI with a verified "
-        "snippet, or record provenance in `notes` if no citable source "
-        "exists:\n  " + "\n  ".join(new)
+        "snippet, or -- if you searched and found nothing quotable -- record "
+        "that in `review_notes:` beginning 'Left deliberately uncited.':\n  "
+        + "\n  ".join(found)
     )
 
 
@@ -321,135 +310,3 @@ def test_scan_covers_kb_beyond_disorders(tmp_path):
     ]
 
 
-def test_baseline_key_is_location_independent():
-    # Locations shift whenever the environmental list above them grows; the
-    # key must not.
-    assert _baseline_key("kb/x.yaml", "Smoking") == _baseline_key(
-        "kb/x.yaml", "Smoking"
-    )
-
-
-def test_baseline_does_not_grandfather_an_unrelated_exposure(tmp_path):
-    baseline_path = tmp_path / "baseline.txt"
-    write_baseline([("kb/disorders/X.yaml", "environmental[0]", "Smoking")], baseline_path)
-    baseline = load_baseline(baseline_path)
-    assert new_findings(
-        [("kb/disorders/X.yaml", "environmental[1]", "Obesity")], baseline
-    )
-    # Same exposure name, different file: still a new finding.
-    assert new_findings(
-        [("kb/disorders/Y.yaml", "environmental[0]", "Smoking")], baseline
-    )
-
-
-def test_extra_reuse_of_a_baselined_exposure_is_a_new_finding(tmp_path):
-    """Two grandfathered evidence-free 'Smoking' entries in one file stay quiet;
-    a third does not."""
-    known = [
-        ("kb/disorders/X.yaml", "environmental[0]", "Smoking"),
-        ("kb/disorders/X.yaml", "environmental[1]", "Smoking"),
-    ]
-    baseline_path = tmp_path / "baseline.txt"
-    write_baseline(known, baseline_path)
-    baseline = load_baseline(baseline_path)
-
-    assert not new_findings(known, baseline)
-
-    reused = [*known, ("kb/disorders/X.yaml", "environmental[2]", "Smoking")]
-    extra = new_findings(reused, baseline)
-    assert len(extra) == 1
-    assert extra[0][1] == "environmental[2]"
-
-
-def test_baseline_records_occurrence_counts(tmp_path):
-    baseline_path = tmp_path / "baseline.txt"
-    write_baseline(
-        [
-            ("kb/disorders/X.yaml", "environmental[0]", "Smoking"),
-            ("kb/disorders/X.yaml", "environmental[1]", "Smoking"),
-            ("kb/disorders/Y.yaml", "environmental[0]", "Obesity"),
-        ],
-        baseline_path,
-    )
-    baseline = load_baseline(baseline_path)
-
-    assert baseline[_baseline_key("kb/disorders/X.yaml", "Smoking")] == 2
-    assert baseline[_baseline_key("kb/disorders/Y.yaml", "Obesity")] == 1
-    assert "count<TAB>path<TAB>name" in baseline_path.read_text()
-
-
-def test_baseline_tolerates_the_pre_count_line_format(tmp_path):
-    """An older `path<TAB>name` baseline still grandfathers its entries."""
-    baseline_path = tmp_path / "baseline.txt"
-    baseline_path.write_text(
-        "# legacy header\nkb/disorders/X.yaml\tSmoking\n", encoding="utf-8"
-    )
-    baseline = load_baseline(baseline_path)
-
-    assert not new_findings(
-        [("kb/disorders/X.yaml", "environmental[0]", "Smoking")], baseline
-    )
-
-
-# --- ref-derived grandfather baseline (baseline_from_ref / resolve_baseline) ---
-
-
-def _init_git_repo(path: Path) -> None:
-    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, check=True)
-
-
-def test_baseline_from_ref_reads_kb_disorders_at_the_ref(tmp_path):
-    disorders = tmp_path / "kb" / "disorders"
-    disorders.mkdir(parents=True)
-    (disorders / "X.yaml").write_text(
-        "name: T\nenvironmental:\n- name: Smoking\n  notes: no evidence\n",
-        encoding="utf-8",
-    )
-    _init_git_repo(tmp_path)
-    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=tmp_path, check=True)
-
-    counts = baseline_from_ref("HEAD", root=tmp_path)
-    assert counts is not None
-    assert counts[_baseline_key("kb/disorders/X.yaml", "Smoking")] == 1
-
-
-def test_baseline_from_ref_returns_none_for_an_unknown_ref(tmp_path):
-    _init_git_repo(tmp_path)
-    assert baseline_from_ref("no-such-ref-deadbeef", root=tmp_path) is None
-
-
-def test_resolve_baseline_prefers_the_explicit_ref_over_env_and_committed_file(monkeypatch):
-    seen = {}
-    sentinel = Counter({"kb/x.yaml\tfoo": 3})
-
-    def fake(ref, **kw):
-        seen["ref"] = ref
-        return sentinel
-
-    monkeypatch.setattr(cee, "baseline_from_ref", fake)
-    monkeypatch.setenv(BASELINE_REF_ENV, "origin/from-env")
-    assert resolve_baseline("origin/explicit") is sentinel
-    assert seen["ref"] == "origin/explicit"
-
-
-def test_resolve_baseline_reads_the_env_var(monkeypatch):
-    seen = {}
-    sentinel = Counter({"k": 1})
-
-    def fake(ref, **kw):
-        seen["ref"] = ref
-        return sentinel
-
-    monkeypatch.setattr(cee, "baseline_from_ref", fake)
-    monkeypatch.setenv(BASELINE_REF_ENV, "origin/from-env")
-    assert resolve_baseline() is sentinel
-    assert seen["ref"] == "origin/from-env"
-
-
-def test_resolve_baseline_falls_back_when_the_ref_is_unreadable(monkeypatch):
-    monkeypatch.setattr(cee, "baseline_from_ref", lambda ref, **kw: None)
-    monkeypatch.delenv(BASELINE_REF_ENV, raising=False)
-    assert resolve_baseline("bad-ref") == load_baseline()
