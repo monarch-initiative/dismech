@@ -375,6 +375,20 @@
             font-weight: 500;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         /* Ontology term pills explain themselves on hover AND on focus
            (issues #8310, #8355). The text lives in a real element rather than a
            `title` attribute so it reaches four audiences with one copy: mouse
@@ -960,6 +974,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -968,7 +996,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1699,6 +1727,8 @@ This mechanism module involves Response to Xenobiotic Stimulus (GO:0009410). GO:
             </div>
             <div class="item-desc">This is an antifungal drug-mechanism module structured as a biological pathway, not a specific disease. Its nodes are successive biological steps of fungal cell-wall beta-1,3-glucan biosynthesis (membrane glucan synthesis -&gt; cell-wall assembly and integrity), with the intervention-conditional integrity-failure outcome recorded as a separate node, plus separate acquired- and intrinsic-resistance nodes; the echinocandin drug class that acts on the synthase step is described in the node text rather than modelled as a separate node. Disorder entries reference individual nodes via conforms_to (e.g., &#34;fungal_cell_wall_glucan_synthesis_inhibition#beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase&#34;), and their echinocandin treatments point at the inhibited node via target_mechanisms (analogous to how cell-wall-active antibiotic treatments link to &#34;bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins&#34;). Key conformance / treatment target: &#34;beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase&#34; (the fungal-specific beta-1,3-glucan synthase that every echinocandin inhibits). The two resistance nodes capture the gating knowledge that distinguishes &#34;an echinocandin is used&#34; from real drug selection — acquired FKS hotspot resistance, and intrinsic resistance in Cryptococcus, for which the glucan-synthase target is not a viable drug target. Cryptococcus disease entries should NOT declare conforms_to against the positive target node; the intrinsic-resistance node documents that negative case. Other organism-level exclusions belong in antifungal_intrinsic_resistance_gating. As a high-precision operational curation boundary, rather than a claim of biological necessity, target-node conformance requires explicit FKS-catalyzed beta-1,3-glucan synthesis with GO:0006075 and GO:0003843, plus an evidence-bearing disease echinocandin treatment edge whose treatment_effect is INHIBITS. Mere fungal beta-glucan presence, a beta-D-glucan diagnostic biomarker, or host Dectin-1 recognition is insufficient. The infectious agent remains on the disorder, and this fungus-wide molecular activity does not require a CL cell type. A target-only conformer is sufficient; downstream integrity failure or lysis should be conformed only when disease-specific intervention evidence supports that outcome. Within this shared module, the outgoing edges from the target record treatment-selection and intervention-conditional consequences in their descriptions because the schema has no conditional causal-edge type. See projects/ANTIFUNGAL.md for the broader drug-fungus strategy and the complementary ergosterol-synthesis, ergosterol-membrane, and antimetabolite antifungal modules.</div>
         </div>
+        
+
         
 
         
