@@ -1,0 +1,215 @@
+---
+name: Refresh Reference-Title Baseline
+
+# `tests/reference_title_baseline.txt` grandfathers the pre-existing backlog of
+# `reference_title` values that do not match the cited reference's cached
+# `title:` (issue #9138). It is a derived artifact:
+# `scripts/check_reference_titles.py --update-baseline` regenerates it from kb/
+# plus references_cache/.
+#
+# Nothing about a curation PR that *fixes* a reference title requires the author
+# to regenerate it -- CI grandfathers live against the base branch
+# (`--against-ref "origin/$BASE_REF"`) and never reads the committed file. So
+# the file drifts every time the backlog shrinks, and the drift surfaces only on
+# some later, unrelated PR that happens to touch src/ or tests/ and thereby
+# un-gates the full pytest suite. That is issue #8434, applied here to the
+# sibling gate; this workflow is the other half of the fix (the test now
+# skips rather than fails on shrinkage).
+#
+# Runs after any push to main that could change the finding set.
+#
+# The branch is named `auto/generate-reference-title-baseline` rather than
+# `auto/reference-title-baseline` so it behaves exactly like the sibling
+# regen branches: `claude-code-review.yml` declines agentic review of bot PRs
+# matching `auto/generate-*`, and a branch outside that glob would be a standing
+# inconsistency. It is moot in practice -- a pull_request run on a
+# GITHUB_TOKEN-pushed branch never executes any jobs -- which is exactly why the
+# approval has to come from this workflow's own final step.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kb/**/*.yaml'
+      - 'references_cache/**'
+      - 'scripts/check_reference_titles.py'
+      - 'src/dismech/schema/**'
+      - 'conf/reference_validator_config.yaml'
+  workflow_dispatch:
+
+# Let an in-flight run finish rather than killing it; queue only the newest
+# pending change. Same rationale as the page-generation workflows (issue #5198).
+concurrency:
+  group: reference-title-baseline
+  cancel-in-progress: false
+
+jobs:
+  refresh-baseline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Re-anchor on the current tip of main
+        shell: bash
+        run: |
+          # The baseline is a function of the whole tree, so the inputs and the
+          # branch base must be the SAME commit. Regenerating from this job's
+          # (possibly already-superseded) checkout and then pushing onto a
+          # fresher main is how the page-regen workflow came to revert
+          # corrections a later run had already made -- see the comment in
+          # generate-pages.yaml. Reset to the live tip instead.
+          git fetch origin main
+          git checkout -B auto/generate-reference-title-baseline origin/main
+          echo "Anchored at $(git rev-parse --short HEAD)"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.13"
+
+      - name: Install project
+        run: uv sync --dev
+
+      - name: Regenerate the baseline
+        run: uv run python scripts/check_reference_titles.py --update-baseline
+
+      - name: Check for changes
+        id: check-changes
+        shell: bash
+        run: |
+          if git diff --quiet tests/reference_title_baseline.txt; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "Baseline already matches main; nothing to do."
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            git diff --stat tests/reference_title_baseline.txt
+          fi
+
+      - name: Create or update Pull Request
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH_NAME="auto/generate-reference-title-baseline"
+          CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
+            echo "Expected to be on $BRANCH_NAME after the re-anchor step, but HEAD is $CURRENT_BRANCH." >&2
+            exit 1
+          fi
+
+          # Counts for the commit/PR body. TOTAL below counts non-comment,
+          # non-blank baseline lines, i.e. distinct grandfathered (file, reference, title)
+          # keys -- not occurrences, which live in each line's leading count
+          # column and can exceed 1.
+          ADDED=$(git diff --numstat tests/reference_title_baseline.txt | cut -f1)
+          REMOVED=$(git diff --numstat tests/reference_title_baseline.txt | cut -f2)
+
+          git add tests/reference_title_baseline.txt
+
+          TOTAL=$(grep -c -v -e '^#' -e '^$' tests/reference_title_baseline.txt || true)
+
+          git commit -m "$(cat <<EOF
+          Refresh the reference-title baseline
+
+          - $REMOVED line(s) removed, $ADDED added
+          - $TOTAL grandfathered (file, reference, title) key(s) remaining
+
+          Regenerated from the current tip of main. Lines removed are backlog
+          entries that curation has since fixed; see issues #9138 and #8434.
+          EOF
+          )"
+
+          git push --force-with-lease origin "$BRANCH_NAME"
+
+          enable_auto_merge() {
+            gh pr merge "$1" \
+              --repo "$GITHUB_REPOSITORY" \
+              --squash \
+              --auto
+          }
+
+          EXISTING_PR_NUMBER="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --json number \
+            --limit 1 \
+            --jq '.[0].number // empty')"
+
+          if [ -n "$EXISTING_PR_NUMBER" ]; then
+            echo "Updated existing baseline PR #$EXISTING_PR_NUMBER; enabling auto-merge."
+            enable_auto_merge "$EXISTING_PR_NUMBER"
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "🧹 Refresh reference-title baseline ($(date +%Y-%m-%d))" \
+            --body "$(cat <<EOF
+          ## Summary
+
+          Automated refresh of \`tests/reference_title_baseline.txt\`, the
+          grandfathered backlog for the fabricated-reference-title check
+          (issue #9138).
+
+          | | |
+          |---|---|
+          | Lines removed | $REMOVED |
+          | Lines added | $ADDED |
+          | Grandfathered keys remaining | $TOTAL |
+
+          ## Why this exists
+
+          Curation PRs that *fix* a title snippet have no reason to regenerate
+          this file: CI grandfathers live against the base branch and never reads
+          it. Without this workflow the file drifts, and the drift surfaces as a
+          confusing red test on some later unrelated PR (issue #8434).
+
+          **Removed lines are good news** -- they are backlog entries that have
+          since been fixed. Added lines are not: a genuinely new mismatched
+          title should be caught by the \`Check for new mismatched reference titles\`
+          job on the PR that introduced it, so an addition here is
+          worth a look.
+
+          ## Review
+
+          - [ ] Removals look like fixes, not deletions of evidence
+          - [ ] Any additions are explained (see above)
+          EOF
+          )"
+
+      # Load-bearing, not a formality: branch protection requires an approving
+      # review before the auto-merge armed above can fire, and a pull_request
+      # run on a GITHUB_TOKEN-pushed auto/* branch sits at
+      # conclusion=action_required with zero jobs executed -- so nothing else
+      # ever approves this PR, and pr-shepherd's sweep cannot rescue it either
+      # (it needs both an approval and a passing check). Without this step the
+      # workflow would open a PR that can never merge, leaving the baseline
+      # permanently stale -- worse than not having the workflow at all, since
+      # the test now correctly skips on staleness. See the composite action and
+      # generate-pages.yaml.
+      - name: Approve regen PR
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: ./.github/actions/approve-regen-pr
+        with:
+          branch-name: auto/generate-reference-title-baseline
+          app-id: ${{ secrets.AI4C_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.AI4C_REVIEWER_PRIVATE_KEY }}
