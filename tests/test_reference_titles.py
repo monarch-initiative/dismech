@@ -12,6 +12,8 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
+import pytest
+
 from scripts import check_reference_titles as crt
 from scripts.check_reference_titles import (
     BASELINE_REF_ENV,
@@ -31,8 +33,6 @@ from scripts.check_reference_titles import (
     write_baseline,
 )
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = ROOT / "references_cache"
 
@@ -49,20 +49,28 @@ REFERENCE_FIELDS = frozenset({"reference"})
 #: Two were written by an agent that had just verified the adjacent snippets.
 CFEOM_9111 = {
     "PMID:27513105": (
-        "Identification of a recurrent mutation in KIF21A in two Chinese "
-        "families with congenital fibrosis of the extraocular muscles.",
-        "KIF21A mutation in two Chinese families with congenital fibrosis of "
-        "the extraocular muscles type 1 and 3.",
+        (
+            "Identification of a recurrent mutation in KIF21A in two Chinese "
+            "families with congenital fibrosis of the extraocular muscles."
+        ),
+        (
+            "KIF21A mutation in two Chinese families with congenital fibrosis of "
+            "the extraocular muscles type 1 and 3."
+        ),
     ),
     "PMID:34081534": (
         "Congenital cranial dysinnervation disorders: a concept in evolution.",
         "Axonal Growth Abnormalities Underlying Ocular Cranial Nerve Disorders.",
     ),
     "PMID:39033378": (
-        "Novel variants in the oculomotor and trochlear nerve development "
-        "pathways in congenital cranial dysinnervation disorders.",
-        "Expanding the genetics and phenotypes of ocular congenital cranial "
-        "dysinnervation disorders.",
+        (
+            "Novel variants in the oculomotor and trochlear nerve development "
+            "pathways in congenital cranial dysinnervation disorders."
+        ),
+        (
+            "Expanding the genetics and phenotypes of ocular congenital cranial "
+            "dysinnervation disorders."
+        ),
     ),
 }
 
