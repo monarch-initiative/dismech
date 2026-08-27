@@ -164,12 +164,20 @@ name contains the HGNC symbol, then the node names the gene *product* instead
 entries). No new biological claims — each gene was already curated with evidence in the
 same file, and each node was already named for its lesion.
 
-`Pathophysiology` carries **both** a singular `gene:` and a multivalued `genes:` slot,
-and `_gene_lookup_keys` reads either, so a node using `gene:` was already linked. An
-initial pass that indexed only `genes:` proposed 12 edits to nodes that were already
-correctly bound; those were withdrawn before merge and are not in this change. The
-duplicate slot is a curation-consistency wart worth a separate look — nothing in the
-schema or the checks says which to use, and the KB uses both.
+`Pathophysiology` can carry a gene in **three** places — a singular `gene:`, a
+multivalued `genes:`, and `genetic_context.gene` — and `_gene_lookup_keys` reads only
+the first two. A node using `gene:` was therefore already linked, so an initial pass
+that indexed only `genes:` proposed 12 edits to nodes already correctly bound; those
+were withdrawn before merge and are not in this change. A node using
+`genetic_context.gene` is the opposite case: it looks bound in the YAML but is invisible
+to the graph builder, so adding `genes:` there is a real fix rather than a duplicate
+(`Mitochondrial_Complex_I_Deficiency_Nuclear_Type_31`, TIMMDC1, is the worked example —
+it now states the gene twice, and the second statement is the one the pathograph sees).
+
+Three slots for one fact, two of them read by the graph builder and nothing in the
+schema, docs, or checks saying which to use, is the underlying defect. It is worth a
+separate pass: either collapse the slots, or teach `_gene_lookup_keys` to read
+`genetic_context.gene` so the YAML and the graph agree.
 
 | Measure | Before | After |
 |---|---:|---:|
