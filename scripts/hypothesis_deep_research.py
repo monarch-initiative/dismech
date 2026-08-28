@@ -54,6 +54,27 @@ OPENSCIENTIST_JOB_TIMEOUT_SECONDS = 7200
 # comfortably above OPENSCIENTIST_JOB_TIMEOUT_SECONDS.
 DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 7800
 
+# Ontology term validation for the report this script generates, mirroring the
+# `dr_term_validation` variable the justfile research recipes use. Reports made
+# here suggest HP/GO/CL/UBERON/MONDO terms like every other deep-research report,
+# and nothing checked them before deep-research-client 0.2.11.
+#
+# HGNC is skipped because gene CURIEs cannot be checked reliably: `sqlite:obo:hgnc`
+# holds them under the lowercase `hgnc:` this repo uses, so an uppercase
+# `HGNC:4283` resolves to nothing and is reported as invented, while `ols:`
+# resolves the same CURIE to "mitochondrial chromosome". Both are false alarms.
+#
+# Unlike reference validation, this path does not read or write
+# `references_cache/`, so it does not need the `patch_reference_validator`
+# repairs that `scripts/run_deep_research_client.sh` applies.
+TERM_VALIDATION_ARGS = [
+    "--validate-terms",
+    "--term-cache-dir",
+    "terms_cache",
+    "--term-skip-prefix",
+    "HGNC",
+]
+
 
 class LiteralString(str):
     """Marker class for multiline YAML block scalars."""
@@ -292,6 +313,7 @@ def build_command(
         command.extend(["--var", f"{key}={value}"])
     command.extend(build_provider_args(normalized))
     command.extend(provider_default_params(normalized, extra_args))
+    command.extend(term_validation_args(extra_args))
     command.extend(
         [
             "--output",
@@ -302,6 +324,27 @@ def build_command(
     )
     command.extend(extra_args)
     return command
+
+
+def term_validation_args(extra_args: Sequence[str]) -> list[str]:
+    """Return the default term-validation flags, unless the caller set their own.
+
+    Any explicit ``--validate-terms`` or ``--term-*`` argument passed after ``--``
+    means the caller is steering term validation themselves, so the defaults step
+    aside rather than appearing twice on the command line.
+
+    Args:
+        extra_args: Arguments the caller passed through after ``--``.
+
+    Returns:
+        The default flags, or an empty list when the caller supplied their own.
+    """
+    if any(
+        str(arg).startswith("--validate-terms") or str(arg).startswith("--term-")
+        for arg in extra_args
+    ):
+        return []
+    return list(TERM_VALIDATION_ARGS)
 
 
 def provider_default_params(provider: str, extra_args: Sequence[str]) -> list[str]:
