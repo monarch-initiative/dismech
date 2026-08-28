@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1155/2024/4470326
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Epidemiology of COVID-19 Vaccine-Induced Myocarditis
