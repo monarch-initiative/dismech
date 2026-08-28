@@ -31,6 +31,7 @@ from typing import Any
 
 import yaml
 
+from dismech.research_reports import AlignmentError, align_report_provider
 from dismech.yaml_io import safe_load
 
 DEFAULT_KB_DIR = Path("kb/disorders")
@@ -455,16 +456,39 @@ def run_record(
             status = "MISSING_OUTPUT"
         else:
             status = f"ERROR_{result.returncode}"
+        detail = tail_detail(result)
+        provider_ran = normalized
+
+        # A run that fell back to another provider wrote a report named for the
+        # provider we asked for. The output path is how a provider is read back
+        # here (`existing_outputs`) exactly as it is in the justfile recipes, so
+        # the report is renamed to whoever actually produced it.
+        if status == "OK":
+            try:
+                alignment = align_report_provider(output_file, normalized)
+            except AlignmentError as error:
+                status = "ERROR_ALIGN"
+                detail = str(error)
+            else:
+                if alignment.fell_back and alignment.actual_provider:
+                    provider_ran = alignment.actual_provider
+                    output_file = alignment.report
+                    citations_file = Path(f"{output_file}.citations.md")
+                    detail = (
+                        f"{normalized} could not run this job; "
+                        f"{provider_ran} produced the report instead"
+                    )
+
         return RunResult(
             record=record,
-            provider=normalized,
+            provider=provider_ran,
             status=status,
             returncode=result.returncode,
             duration_seconds=duration,
             output_file=output_file,
             citations_file=citations_file,
             command=command,
-            detail=tail_detail(result),
+            detail=detail,
         )
     except subprocess.TimeoutExpired:
         duration = time.monotonic() - started

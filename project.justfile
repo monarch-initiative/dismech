@@ -1638,21 +1638,41 @@ dr_validation := "--validate-references --validation-cache-dir references_cache"
 #   just dr_term_validation='' research-disorder falcon Marfan_Syndrome
 dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip-prefix HGNC"
 
-# Provider fallback (`--fallback`, new in deep-research-client 0.2.11) is
-# deliberately NOT wired in here, and the reason is worth recording so it is not
-# re-derived. It would fix a real recurring annoyance -- a brief asks for falcon,
-# no EDISON_API_KEY is set, and the curator substitutes claude_code by hand and
-# writes a paragraph about it into the history record -- but the report filename
-# in every recipe below encodes the *requested* provider
-# (`<Disorder>-deep-research-<provider>.md`), and
-# `scripts/deep_research_coverage.py` reads the provider back out of that
-# filename. A silent fallback would therefore write a claude_code report named
-# `-falcon.md`, and `just research-status` would report falcon coverage that
-# does not exist.
+# Provider fallback (`--fallback`, new in deep-research-client 0.2.11): let
+# another provider take the job when the one you asked for has no credentials or
+# no credit, rather than losing the run. This is the recurring annoyance it
+# fixes -- a brief asks for falcon, no EDISON_API_KEY is set, and the curator
+# substitutes claude_code by hand and writes a paragraph about it into the
+# history record.
 #
-# Using it needs the recipes to rename the output to the provider named in the
-# report's frontmatter afterwards. Until then, pass `--fallback` yourself and
-# rename the file to match what actually ran.
+# OFF by default, and that is a judgement rather than caution. `just
+# research-missing-provider falcon` skips a disorder only when the *falcon*
+# report exists, so with fallback always on, a run over 50 disorders with no
+# EDISON key would produce 50 claude_code reports and the next run would produce
+# 50 more: falcon never becomes present, so nothing is ever skipped. Ask for a
+# fallback when you want one:
+#
+#   just dr_fallback='--fallback' research-disorder falcon Marfan_Syndrome
+#   just dr_fallback='--fallback-provider openai --fallback-provider perplexity' \
+#       research-disorder falcon Marfan_Syndrome
+#
+# What makes it safe is the alignment step every recipe runs afterwards. The
+# filename encodes the provider (`<Disorder>-deep-research-<provider>.md`) and
+# `scripts/deep_research_coverage.py` reads it back out of there, so a report
+# that fell back is renamed to the provider named in its own frontmatter, taking
+# its citations sidecar and artifacts directory with it and rewriting the
+# artifact links. `just research-status` therefore keeps telling the truth, and
+# the provider that ran is recorded in the report rather than in hand-written
+# history prose.
+#
+# The alignment step runs whether or not you asked for a fallback -- it is a
+# no-op on a report that did not fall back, since it keys on the `fell_back`
+# frontmatter flag rather than on the filename disagreeing with the provider.
+# Those disagree routinely and innocently: `research-disorder edison Foo` writes
+# `-edison.md` for a report whose provider is `falcon`, and the cyberian-codex
+# recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
+dr_fallback := ""
+dr_align := "uv run python scripts/align_research_provider.py"
 
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
 # The report is a source of *candidate* accessions only: every accession it
@@ -1677,6 +1697,7 @@ research-datasets provider disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
+    requested_provider="{{provider}}"
     echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
@@ -1689,7 +1710,12 @@ research-datasets provider disorder *args="":
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
-        {{args}}
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # Verify that datasets[].accession values resolve to real repository records.
 # Nothing else in the validation stack checks dataset accessions, so run this
@@ -1766,6 +1792,7 @@ research-disorder provider disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -1779,7 +1806,12 @@ research-disorder provider disorder *args="":
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
-        {{args}}
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # Deep research on a shared mechanism module using specified provider
 # Examples:
@@ -1835,6 +1867,7 @@ research-module provider module *args="":
     PY
     )
     output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -1850,7 +1883,12 @@ research-module provider module *args="":
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
-        {{args}}
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # Deep research on a comorbidity using specified provider
 # Examples:
@@ -1904,6 +1942,7 @@ research-comorbidity provider comorbidity *args="":
 	IFS=$'\\t' read -r disease_a_label disease_b_label disease_a_slug disease_b_slug disease_b_components disease_b_composition < "$tmpfile"
 	rm -f "$tmpfile"
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -1919,7 +1958,12 @@ research-comorbidity provider comorbidity *args="":
 	    --separate-citations "$output_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
-	    {{args}}
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$output_file" ]; then
+	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	fi
+	exit ${dr_status:-0}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
 # Asks the deep-research provider for trial-level R^2, PTE, STE, joint-model,
@@ -1943,6 +1987,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	# Filename-safe slug from the surrogate label
 	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -1955,7 +2000,12 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    --separate-citations "$output_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
-	    {{args}}
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$output_file" ]; then
+	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	fi
+	exit ${dr_status:-0}
 
 # Deep research on a disorder using cyberian with codex agent
 [group('Research')]
@@ -1972,6 +2022,7 @@ research-disorder-cyberian-codex disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
+    requested_provider="cyberian-codex"
     echo "Researching: $disease_name (cyberian-codex) -> $output_file"
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
@@ -1984,7 +2035,12 @@ research-disorder-cyberian-codex disorder *args="":
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
-        {{args}}
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # List available research providers
 [group('Research')]
