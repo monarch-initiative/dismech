@@ -44,16 +44,25 @@ The results are graded, and the grades matter when you read them:
 | Section | What it means |
 |---|---|
 | Unresolved terms | The identifier does not exist. Do not use it. |
-| Terms the report names something else | The identifier resolves to a term unrelated to what the report calls it. Usually the wrong identifier. |
+| Terms the report names something else | The identifier resolves to a term the report calls something else — a different disease, or a different term in the same ontology. Usually the wrong identifier. |
 | Terms whose name is worth a second look | The report's name is recognisably related without being the term's own name — a paraphrase, or a *related* synonym. Listed, not judged. |
 | Terms named inconsistently | The report gives one identifier more than one name of its own. |
 | Prefixes with no resolver | Not checked either way. Not evidence of anything. |
 
-Most of the middle two categories are noise on a well-behaved report — a report
-writing "distal weakness" next to `HP:0002460` ("Distal muscle weakness") is
-right, and gets flagged. Read the unresolved list first, then scan the
-"names something else" list for the one entry where the label is about a
-different disease entirely.
+Some of the middle two categories are noise on a well-behaved report — a report
+writing "distal weakness" next to `HP:0002460` (*Distal muscle weakness*) is
+right, and gets flagged. Read the unresolved list first, then work the "names
+something else" list for entries where the ontology label names **a different
+disease, or a different term in the same ontology** — a sibling, a parent, a
+near-miss.
+
+The second kind is easy to skim past and is the more common wrong-term failure.
+The CMTX report has one: it writes "areflexia" beside `HP:0001265`, which HPO
+calls *Hyporeflexia* — *Areflexia* is `HP:0001284`. Reduced reflexes and absent
+reflexes are distinct HPO terms with a real clinical distinction, so a curator
+who reads that line as paraphrase binds the wrong CURIE while writing the right
+`preferred_term`. This is the granularity problem `dismech-terms` exists to
+catch, arriving through a report rather than through a search.
 
 ## Where the results go
 

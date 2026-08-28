@@ -330,10 +330,14 @@ Two places to look, as before: a `term_validation:` frontmatter block and a
 - **Read `needs_review`, not `confabulation_rate`.** The rate measures identifier
   resolution only, so a report whose every CURIE resolves but whose labels name
   different terms still shows `0.0`.
-- **`mislabelled_terms` is where the wrong-entity bindings surface.** Each entry
-  gives the report's name and the ontology's. Most are harmless paraphrase
-  ("distal weakness" for `HP:0002460`, *Distal muscle weakness*). Look for the
-  one where the ontology label is about a different disease.
+- **`mislabelled_terms` is where the wrong bindings surface.** Each entry gives
+  the report's name and the ontology's. Some are harmless paraphrase ("distal
+  weakness" for `HP:0002460`, *Distal muscle weakness*). Look for the ones where
+  the ontology label names a **different disease, or a different term in the
+  same ontology** — a sibling, a parent, a near-miss. The second kind is easy to
+  skim past: the CMTX report writes "areflexia" beside `HP:0001265`, which HPO
+  calls *Hyporeflexia* (*Areflexia* is `HP:0001284`), and those are clinically
+  distinct.
 - `unresolvable_prefixes` means nothing was checked for that prefix — not that
   anything is wrong. `HGNC` is skipped by default; verify gene CURIEs the usual
   way.

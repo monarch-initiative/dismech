@@ -97,3 +97,39 @@ def test_caller_supplied_term_flags_win() -> None:
     assert hypothesis_deep_research.term_validation_args(["--term-offline"]) == []
     assert hypothesis_deep_research.term_validation_args(["--validate-terms"]) == []
     assert hypothesis_deep_research.term_validation_args(["--param", "x=1"]) != []
+
+
+def test_no_term_labels_keeps_the_defaults() -> None:
+    """Turning label comparison off is not taking over the rest of the config.
+
+    ``--no-term-labels`` begins ``--no-term-``, so it deliberately does not match
+    the ``--term-`` prefix that stands the defaults down: the caller still wants
+    the cache directory and the skipped prefixes.
+    """
+    assert hypothesis_deep_research.term_validation_args(["--no-term-labels"]) != []
+
+
+def test_term_validation_can_be_switched_off(tmp_path) -> None:
+    """`--no-term-validation` is the script's counterpart of `dr_term_validation=''`."""
+    record = hypothesis_deep_research.HypothesisRecord(
+        disease_slug="Long_COVID",
+        disease_name="Long COVID",
+        category="Complex",
+        hypothesis_group_id="canonical_persistence_immune_model",
+        hypothesis_label="Persistence",
+        status="EMERGING",
+        data={},
+    )
+    kwargs = {
+        "provider": "falcon",
+        "output_root": tmp_path,
+        "template": tmp_path / "t.md",
+        "extra_args": [],
+    }
+
+    assert "--validate-terms" in hypothesis_deep_research.build_command(
+        record, **kwargs
+    )
+    assert "--validate-terms" not in hypothesis_deep_research.build_command(
+        record, validate_terms=False, **kwargs
+    )

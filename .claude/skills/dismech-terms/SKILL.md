@@ -86,6 +86,11 @@ Two things the section does **not** settle, which is the whole of step 3 above:
 - whether it is the right term for the claim, as opposed to a real term named
   consistently.
 
+It *does* flag a near-miss when the report names one — the same CMTX report
+writes "areflexia" beside `HP:0001265`, which HPO calls *Hyporeflexia*
+(*Areflexia* is `HP:0001284`). Read those entries as granularity findings, not
+as paraphrase.
+
 Gene CURIEs are skipped by default there (`HGNC` uppercase does not resolve in
 `sqlite:obo:hgnc`, and `ols:` resolves it to an unrelated term), so verify those
 yourself. See
