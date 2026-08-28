@@ -47,6 +47,13 @@ predates the check -- see the Gout "Dehydration" and Myasthenia_Gravis
 "Stress" entries, which already opened their ``review_notes`` with exactly
 this sentence.
 
+The sentinel alone does not waive. An entry must also record at least
+:data:`MIN_WAIVER_WORDS` words of search after it, and that floor is enforced
+*here*, in the check that runs ungated on every PR -- not only in the test
+suite, which is path-filtered and would never run on the kb-only curation PRs
+that add waivers. A sentinel with nothing behind it stays a finding and is
+named as a thin waiver so the message is actionable.
+
 Waived entries stay visible: ``--all`` lists them under their own heading and
 ``--count`` reports them on their own line. They are dispositioned, not
 disappeared.
@@ -117,6 +124,16 @@ BASELINE_REF_ENV = "ENVIRONMENTAL_EVIDENCE_BASELINE_REF"
 # triggered by ordinary prose that happens to contain the words.
 WAIVER_SENTINEL = "left deliberately uncited."
 
+# A waiver must record the search, not merely claim one. The sentinel alone is
+# an assertion that somebody looked; this is the floor on what they wrote down.
+# Enforced here rather than only in the test suite: the tests are path-filtered
+# and do not run on a kb-only curation PR, which is exactly the shape of PR
+# that adds a waiver, so a floor that lived only in pytest would never run on
+# the changes it exists to police (dismech#9473 makes the same point).
+# The five committed waivers run 44-150 words, so this is well clear of all of
+# them while still blocking a bare sentinel.
+MIN_WAIVER_WORDS = 20
+
 
 def _has_quoted_evidence(entry: dict) -> bool:
     """True if *entry* carries at least one evidence item with a real snippet.
@@ -141,18 +158,38 @@ def _has_quoted_evidence(entry: dict) -> bool:
     return False
 
 
-def is_waived(entry: dict) -> bool:
-    """True if *entry* records a deliberate, searched-for-and-not-found decision.
+def waiver_detail(entry: dict) -> str | None:
+    """The text after the waiver sentence, or ``None`` if *entry* has no waiver.
 
     Matched on ``review_notes`` only, and only as a prefix, so the waiver is a
     deliberate act rather than something ordinary prose can trip. ``notes`` is
     disease content and is not consulted: a claim that merely *mentions* being
     uncited is not the same as a curator recording a failed search.
+
+    Returns ``""`` for a bare sentinel with nothing after it -- distinct from
+    ``None``, because "claimed a search and recorded none" and "did not claim
+    one" need different messages.
     """
     review_notes = entry.get("review_notes")
     if not isinstance(review_notes, str):
-        return False
-    return review_notes.strip().lower().startswith(WAIVER_SENTINEL)
+        return None
+    stripped = review_notes.strip()
+    if not stripped.lower().startswith(WAIVER_SENTINEL):
+        return None
+    return stripped[len(WAIVER_SENTINEL) :].strip()
+
+
+def is_waived(entry: dict) -> bool:
+    """True if *entry* records a deliberate, searched-for-and-not-found decision.
+
+    Requires both halves: the sentinel *and* at least
+    :data:`MIN_WAIVER_WORDS` of recorded search after it. A sentinel with
+    nothing behind it does not waive -- see :func:`find_thin_waivers`, which
+    reports that case specifically rather than letting it pass as an ordinary
+    uncited exposure.
+    """
+    detail = waiver_detail(entry)
+    return detail is not None and len(detail.split()) >= MIN_WAIVER_WORDS
 
 
 def _iter_environmental(data):
@@ -175,6 +212,21 @@ def find_violations(data):
             continue
         name = entry.get("name") or "<unnamed>"
         yield (f"environmental[{idx}]", name)
+
+
+def find_thin_waivers(data):
+    """Yield ``(location, name, words)`` for waivers that record no search.
+
+    These are *not* waived -- :func:`find_violations` still reports them -- but
+    they are worth naming separately, because "you wrote the sentence and
+    stopped" needs different advice from "this exposure has no evidence".
+    """
+    for idx, entry in _iter_environmental(data):
+        detail = waiver_detail(entry)
+        if detail is None or len(detail.split()) >= MIN_WAIVER_WORDS:
+            continue
+        name = entry.get("name") or "<unnamed>"
+        yield (f"environmental[{idx}]", name, len(detail.split()))
 
 
 def find_waivers(data):
@@ -201,6 +253,23 @@ def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     matching the working-tree keys the baseline is compared on.
     """
     return _scan(find_violations, scan_dir, rel_to)
+
+
+def scan_thin_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
+    """Return ``(relpath, location, name, words)`` for substance-less waivers."""
+    findings = []
+    for path in sorted(scan_dir.rglob("*.yaml")):
+        try:
+            with path.open(encoding="utf-8") as handle:
+                data = safe_load(handle)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        rel = path.relative_to(rel_to).as_posix()
+        for location, name, words in find_thin_waivers(data):
+            findings.append((rel, location, name, words))
+    return findings
 
 
 def scan_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
@@ -462,6 +531,15 @@ def main(argv=None) -> int:
         for rel, location, name in new:
             print(f"{rel}:{location}: {name!r}")
         print(f"\n{len(new)} new finding(s).")
+        thin = scan_thin_waivers()
+        if thin:
+            print()
+            print("Some of these carry a waiver sentence with nothing behind it.")
+            print(f"A waiver must record the search -- at least {MIN_WAIVER_WORDS}")
+            print("words saying which searches were run and why they failed. It is")
+            print("a recorded negative result, not a way to skip the search:")
+            for rel, location, name, words in thin:
+                print(f"  {rel}:{location}: {name!r} ({words} word(s) after the sentinel)")
         if args.against_ref or os.environ.get(BASELINE_REF_ENV):
             print("Grandfathering is unavailable when checking against a ref: add")
             print("an evidence block to the new exposure, or drop it.")

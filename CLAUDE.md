@@ -1752,9 +1752,12 @@ Left deliberately uncited.
 ```
 
 as dispositioned rather than uncited, and reports it under `just
-list-environmental-evidence-waivers` instead of as an outstanding gap. Use it
-only after a real search — say which searches you ran and why they failed, as
-the `Gout` → Dehydration and `Myasthenia_Gravis` → Stress entries do. The
+list-environmental-evidence-waivers` instead of as an outstanding gap. Say
+which searches you ran and why they failed, as the `Gout` → Dehydration and
+`Myasthenia_Gravis` → Stress entries do — **the sentence alone does not
+waive**. At least 20 words of recorded search must follow it, and that floor
+is enforced by `check-environmental-evidence` itself, which is ungated, rather
+than only by a test that a `kb/`-only PR would skip. The
 sentinel is matched on `review_notes` only, and only as a prefix: `notes:` is
 disease content and cannot waive, and prose that merely mentions the phrase
 does not trigger it. An entry carrying both a waiver and real evidence is not

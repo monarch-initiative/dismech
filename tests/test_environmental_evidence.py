@@ -17,9 +17,11 @@ from dismech.yaml_io import safe_load
 from scripts import check_environmental_evidence as cee
 from scripts.check_environmental_evidence import (
     BASELINE_REF_ENV,
+    MIN_WAIVER_WORDS,
     WAIVER_SENTINEL,
     _baseline_key,
     baseline_from_ref,
+    find_thin_waivers,
     find_violations,
     find_waivers,
     is_waived,
@@ -27,6 +29,7 @@ from scripts.check_environmental_evidence import (
     new_findings,
     resolve_baseline,
     scan_repo,
+    waiver_detail,
     write_baseline,
 )
 
@@ -122,7 +125,13 @@ def test_accepts_an_entry_with_one_quoted_item_among_empty_ones():
 # could never reach zero. The sentinel is deliberately narrow -- see the
 # negative cases below, which are the whole point of it.
 
-WAIVER = "Left deliberately uncited. Targeted PubMed searches returned nothing."
+# Long enough to clear MIN_WAIVER_WORDS, because a waiver that records no
+# search is no longer a waiver -- see test_a_bare_sentinel_does_not_waive.
+WAIVER = (
+    "Left deliberately uncited. Targeted PubMed searches for fluid intake and "
+    "recurrent attacks, and for hydration status and serum urate, returned no "
+    "study whose abstract states this claim directly."
+)
 
 
 def test_waived_entry_is_not_a_violation():
@@ -138,7 +147,7 @@ def test_waived_entry_is_reported_as_a_waiver():
 
 
 def test_waiver_matching_is_case_insensitive_and_ignores_leading_space():
-    assert is_waived({"review_notes": "  left DELIBERATELY uncited. Searched."})
+    assert is_waived({"review_notes": "  left DELIBERATELY uncited. " + WAIVER_DETAIL})
 
 
 def test_notes_cannot_waive_only_review_notes_can():
@@ -190,21 +199,42 @@ def test_waiver_sentinel_constant_is_lowercase_for_prefix_matching():
     assert WAIVER.lower().startswith(WAIVER_SENTINEL)
 
 
-# Minimum substance after the sentinel, in words. The five committed waivers
-# run 44-112 words, so this is well clear of all of them while still blocking
-# a bare sentinel. It is a floor on *effort recorded*, not a style rule.
-MIN_WAIVER_WORDS = 20
-
-
-def _waiver_detail(review_notes: str) -> str:
-    """The text after the sentinel sentence."""
-    return review_notes.strip()[len(WAIVER_SENTINEL) :].strip()
+WAIVER_DETAIL = WAIVER[len(WAIVER_SENTINEL) :].strip()
 
 
 def test_a_bare_sentinel_records_no_search():
-    # The unit case for the repo-wide test below: the sentinel alone is a
-    # *claim* that a search happened, with nothing behind it.
-    assert _waiver_detail("Left deliberately uncited.") == ""
+    # The sentinel alone is a *claim* that a search happened, with nothing
+    # behind it. "" is distinct from None: claimed-and-recorded-nothing needs
+    # a different message from did-not-claim.
+    assert waiver_detail({"review_notes": "Left deliberately uncited."}) == ""
+    assert waiver_detail({"review_notes": "Ordinary note."}) is None
+
+
+def test_a_bare_sentinel_does_not_waive():
+    # The substance floor lives in the script, not only here. The tests are
+    # path-filtered and do not run on a kb-only curation PR -- the exact shape
+    # of PR that adds a waiver -- so a floor enforced only in pytest would
+    # never run on the changes it exists to police.
+    entry = _entry("Dehydration", review_notes="Left deliberately uncited.")
+    assert not is_waived(entry)
+    assert list(find_violations({"environmental": [entry]})) == [
+        ("environmental[0]", "Dehydration")
+    ]
+    assert not list(find_waivers({"environmental": [entry]}))
+
+
+def test_a_thin_waiver_is_reported_as_thin_not_merely_uncited():
+    entry = _entry("Dehydration", review_notes="Left deliberately uncited. Looked.")
+    assert list(find_thin_waivers({"environmental": [entry]})) == [
+        ("environmental[0]", "Dehydration", 1)
+    ]
+
+
+def test_a_substantive_waiver_is_not_reported_as_thin():
+    detail = " ".join(["word"] * MIN_WAIVER_WORDS)
+    entry = _entry("Dehydration", review_notes=f"Left deliberately uncited. {detail}")
+    assert is_waived(entry)
+    assert not list(find_thin_waivers({"environmental": [entry]}))
 
 
 def test_committed_kb_waivers_say_what_was_searched():
@@ -233,7 +263,7 @@ def test_committed_kb_waivers_say_what_was_searched():
         for idx, entry in enumerate(data.get("environmental") or []):
             if not isinstance(entry, dict) or not is_waived(entry):
                 continue
-            detail = _waiver_detail(entry["review_notes"])
+            detail = waiver_detail(entry) or ""
             if len(detail.split()) < MIN_WAIVER_WORDS:
                 rel = path.relative_to(ROOT).as_posix()
                 thin.append(
