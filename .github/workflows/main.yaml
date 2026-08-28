@@ -296,13 +296,11 @@ jobs:
 
       # Ungated for the same reason as the two ratchets above: an evidence-free
       # `environmental:` exposure is added by curation PRs touching only kb/,
-      # which no src/tests path filter would catch. Same live grandfathering
-      # against the base branch, so the pre-existing backlog is not inherited
-      # and only exposures this PR adds can fail (issue #8296).
-      - name: Check for new evidence-free environmental exposures
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-        run: uv run python scripts/check_environmental_evidence.py --against-ref "origin/$BASE_REF"
+      # which no src/tests path filter would catch. Unlike those two this is a
+      # hard gate, not a ratchet -- the #8296 backlog reached zero, so there is
+      # nothing to grandfather and no base-branch ref to derive it from.
+      - name: Check for evidence-free environmental exposures
+        run: uv run python scripts/check_environmental_evidence.py
 
       # Also ungated: there is no `cache/**` path filter, so a curation PR that
       # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
@@ -429,15 +427,15 @@ jobs:
           # live content, not the committed baseline snapshot (see the fetch
           # step above).
           SNIPPET_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
-          # Same live grandfathering for the environmental-evidence ratchet, so
-          # tests/environmental_evidence_baseline.txt stays a local fallback
-          # rather than something parallel curation PRs race to update (#8296).
-          ENVIRONMENTAL_EVIDENCE_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
-          # And for the snippet-grading gate (#8184), which was the one ratchet
-          # of the three never wired up here. Without it resolve_baseline()
-          # silently takes the committed-snapshot fallback its own docstring
-          # calls the fallback, so every divergence merged since that snapshot
-          # reads as newly introduced and the gate is red for every PR.
+          # The environmental-evidence check no longer needs a var here: its
+          # backlog reached zero and the ratchet was retired, so it is a hard
+          # gate with no baseline to grandfather against (#8296).
+          # Live grandfathering for the snippet-grading gate (#8184), which
+          # went unwired here longer than its siblings. Without it
+          # resolve_baseline() silently takes the committed-snapshot fallback
+          # its own docstring calls the fallback, so every divergence merged
+          # since that snapshot reads as newly introduced and the gate is red
+          # for every PR.
           SNIPPET_GRADING_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
         run: just test-python-code
 

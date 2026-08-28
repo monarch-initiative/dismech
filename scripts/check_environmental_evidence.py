@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard against NEW `environmental:` exposures with no evidence at all.
+"""Guard against `environmental:` exposures with no evidence at all.
 
 An `Environmental` entry is optional to cite (`evidence` is not required by the
 schema), so a bare exposure -- just a `name` and usually a one-line `notes` --
@@ -15,12 +15,12 @@ is indistinguishable, to the whole validation stack, from a fully-evidenced
 exposure. See dismech issue #8296.
 
 This is deliberately *not* a curation tool: it only counts and gates, it never
-invents a citation. Backfilling the pre-existing backlog is real literature
-work (find a citable source, exact-quote snippet, `just fetch-reference` +
-`count-verified-snippets`) that belongs in prioritized curation tranches, not
-a mechanical sweep -- manufacturing citations for ~200 exposures in one pass is
-exactly the fabrication risk the evidence SOP warns against elsewhere in this
-repo.
+invents a citation. Clearing a finding is real literature work -- find a
+citable source, take an exact-quote snippet, `just fetch-reference` +
+`count-verified-snippets` -- and manufacturing a citation to silence the gate
+is exactly the fabrication risk the evidence SOP warns against elsewhere in
+this repo. Where no such source exists, record the failed search as a waiver
+rather than inventing one.
 
 Signal
 ------
@@ -66,41 +66,36 @@ Waived entries stay visible: ``--all`` lists them under their own heading and
 ``--count`` reports them on their own line. They are dispositioned, not
 disappeared.
 
-Baseline ratchet
------------------
-The pre-existing backlog is grandfathered, mirroring
-``scripts/check_snippet_length.py`` exactly:
+No baseline
+-----------
+This check shipped as a ratchet: dismech#8296 found 182 evidence-free
+exposures, so a committed baseline plus a live ``origin/main``-derived
+grandfather set kept the base branch green while the backlog was worked
+down in tranches. The backlog is now zero -- every exposure in ``kb/`` is
+either cited or carries a ``review_notes`` waiver -- so the machinery has
+nothing left to grandfather and has been removed, matching
+``scripts/check_empty_snippets.py``: a straight hard gate, no baseline file,
+no ``--against-ref``, no ``ENVIRONMENTAL_EVIDENCE_BASELINE_REF``.
 
-* ``--against-ref REF`` (env ``ENVIRONMENTAL_EVIDENCE_BASELINE_REF``) derives
-  the grandfather set *live* from ``kb/`` at a git ref -- CI sets it
-  to the base branch (``origin/main``). Nothing is stored, so the base branch
-  is green by construction and parallel merges have nothing to clobber.
-* ``tests/environmental_evidence_baseline.txt`` is the committed fallback used
-  when no ref is given or the ref can't be read (local runs, shallow
-  checkouts, forks). It is a best-effort snapshot: regenerate it with
-  ``--update-baseline`` after intentionally changing the backlog (e.g. fixing
-  entries in a curation tranche).
+Any finding is now a new finding, and the fix is to cite it or to record a
+failed search as a waiver -- not to grandfather it. If a future change
+legitimately reintroduces a backlog large enough to need one, the machinery
+is recoverable from this file's history (see the dismech#8296 sequence);
+re-adding it preemptively for a zero-item backlog would be needless
+complexity.
 
 Usage
 -----
-    python scripts/check_environmental_evidence.py                       # gate: fail on NEW ones
-    python scripts/check_environmental_evidence.py --against-ref origin/main
-    python scripts/check_environmental_evidence.py --all                 # list every finding
-    python scripts/check_environmental_evidence.py --count               # summary counts
-    python scripts/check_environmental_evidence.py --waivers             # list dispositioned entries
-    python scripts/check_environmental_evidence.py --update-baseline
+    python scripts/check_environmental_evidence.py            # gate: fail on any finding
+    python scripts/check_environmental_evidence.py --all      # list every finding
+    python scripts/check_environmental_evidence.py --count    # summary counts
+    python scripts/check_environmental_evidence.py --waivers  # list dispositioned entries
 """
 
 from __future__ import annotations
 
 import argparse
-import io
-import os
-import subprocess
 import sys
-import tarfile
-import tempfile
-from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -119,12 +114,6 @@ from dismech.yaml_io import safe_load
 # test_scan_covers_kb_beyond_disorders pins this so the scope cannot be
 # narrowed back silently.
 SCAN_DIR = ROOT / "kb"
-BASELINE_PATH = ROOT / "tests" / "environmental_evidence_baseline.txt"
-
-# When set (CI sets it to ``origin/main``), the grandfather baseline is derived
-# live from that git ref instead of the committed snapshot file -- see
-# baseline_from_ref(). Mirrors SNIPPET_BASELINE_REF in check_snippet_length.py.
-BASELINE_REF_ENV = "ENVIRONMENTAL_EVIDENCE_BASELINE_REF"
 
 # An exposure whose `review_notes` opens with this sentence is a recorded
 # failed search, not an unexamined one. See the module docstring: the sentinel
@@ -254,13 +243,14 @@ def find_waivers(data):
 def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     """Return a sorted list of ``(relpath, location, name)`` findings.
 
-    ``rel_to`` is the base the reported relative paths are computed against. It
-    defaults to :data:`ROOT` for the working tree, but :func:`baseline_from_ref`
-    scans an extracted copy of ``kb/`` under a temp dir and passes that
-    dir so the reported paths still come out as ``kb/disorders/X.yaml`` --
-    matching the working-tree keys the baseline is compared on.
+    ``rel_to`` is the base the reported relative paths are computed against.
+    It defaults to :data:`ROOT`, so findings read as ``kb/disorders/X.yaml``.
+    It is a parameter rather than a constant so a scan can be pointed at a
+    tree that is not this repository: ``test_scan_covers_kb_beyond_disorders``
+    builds a fixture under ``tmp_path`` and needs the reported paths relative
+    to that, not to :data:`ROOT`.
     """
-    return _scan(find_violations, scan_dir, rel_to)
+    return _scan((find_violations,), scan_dir, rel_to)[0]
 
 
 def scan_thin_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
@@ -282,11 +272,23 @@ def scan_thin_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
 
 def scan_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     """Return a sorted list of ``(relpath, location, name)`` waived entries."""
-    return _scan(find_waivers, scan_dir, rel_to)
+    return _scan((find_waivers,), scan_dir, rel_to)[0]
 
 
-def _scan(finder, scan_dir: Path, rel_to: Path):
-    findings = []
+def scan_all(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
+    """Return ``(findings, waivers)`` from a single walk of *scan_dir*.
+
+    Both lists come from the same ``environmental[]`` entries, differing only
+    in which side of :func:`is_waived` they keep, so calling
+    :func:`scan_repo` and :func:`scan_waivers` separately parses all of
+    ``kb/`` twice -- about 11 seconds each on the current tree, on the ungated
+    CI step and in every ``just qc``.
+    """
+    return tuple(_scan((find_violations, find_waivers), scan_dir, rel_to))
+
+
+def _scan(finders, scan_dir: Path, rel_to: Path):
+    buckets = [[] for _ in finders]
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
             with path.open(encoding="utf-8") as handle:
@@ -304,154 +306,17 @@ def _scan(finder, scan_dir: Path, rel_to: Path):
         if not isinstance(data, dict):
             continue
         rel = path.relative_to(rel_to).as_posix()
-        for location, name in finder(data):
-            findings.append((rel, location, name))
-    return findings
-
-
-def _baseline_key(rel: str, name: str) -> str:
-    # Keyed on (file, exposure name) rather than the YAML location, which
-    # shifts whenever the environmental list above it grows or reorders.
-    return f"{rel}\t{' '.join(name.split())}"
-
-
-def count_by_key(findings) -> Counter:
-    """How many times each ``(file, name)`` appears in *findings*."""
-    return Counter(_baseline_key(rel, name) for rel, _, name in findings)
-
-
-def load_baseline(path: Path = BASELINE_PATH) -> Counter:
-    """Read the baseline as ``{key: grandfathered occurrence count}``.
-
-    The count matters, the same way it does in ``check_snippet_length.py``: two
-    distinct evidence-free exposures that happen to share a name in one file
-    (e.g. two "Smoking" entries under different subtypes) must not let a third
-    evidence-free "Smoking" slip through unnoticed.
-    """
-    counts: Counter = Counter()
-    if not path.exists():
-        return counts
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line or line.startswith("#"):
-            continue
-        count, tab, key = line.partition("\t")
-        if tab and count.isdigit():
-            counts[key] = int(count)
-        else:  # tolerate a pre-count baseline
-            counts[line] = counts.get(line, 0) + 1
-    return counts
-
-
-def write_baseline(findings, path: Path = BASELINE_PATH) -> None:
-    counts = count_by_key(findings)
-    header = (
-        "# Grandfathered evidence-free `environmental:` exposures (see\n"
-        "# scripts/check_environmental_evidence.py).\n"
-        "# Each line is `count<TAB>path<TAB>name`, where count is how many\n"
-        "# evidence-free entries share that (file, exposure name) pair. An\n"
-        "# entry fails the guard if it is absent here OR appears MORE often\n"
-        "# than the count recorded. Remove entries as the backlog is fixed by\n"
-        "# curation (cite the exposure); do not add new ones. Regenerate with:\n"
-        "#   just update-environmental-evidence-baseline\n"
-    )
-    lines = [f"{counts[key]}\t{key}" for key in sorted(counts)]
-    path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
-
-
-def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
-    """Grandfather baseline derived live from a git *ref* (e.g. ``origin/main``).
-
-    Returns the per-``(file, name)`` occurrence counts of evidence-free
-    exposures as they exist in ``kb/`` at *ref* -- i.e. exactly the
-    backlog already on the base branch. Because the grandfather set is
-    computed from the base branch rather than a committed snapshot, there is
-    nothing to keep in sync and nothing for parallel merges to clobber: the
-    base branch is green by construction, and a PR fails only on exposures it
-    *adds* over the base with no evidence.
-
-    Returns ``None`` if *ref* cannot be read (no git, ref absent in a shallow
-    checkout, path missing at the ref, ...), so the caller can fall back to the
-    committed baseline.
-    """
-    scan_rel = SCAN_DIR.relative_to(ROOT).as_posix()
-    try:
-        proc = subprocess.run(
-            ["git", "-C", str(root), "archive", "--format=tar", ref, "--", scan_rel],
-            capture_output=True,
-            check=False,
-        )
-    except (FileNotFoundError, OSError) as exc:
-        print(
-            f"environmental evidence baseline: git archive for {ref!r} could not run: {exc}",
-            file=sys.stderr,
-        )
-        return None
-    if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip() or f"exit {proc.returncode}"
-        print(
-            f"environmental evidence baseline: git archive {ref!r} failed: {detail}",
-            file=sys.stderr,
-        )
-        return None
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        try:
-            with tarfile.open(fileobj=io.BytesIO(proc.stdout)) as tar:
-                tar.extractall(tmp_path, filter="data")
-        except tarfile.TarError as exc:
-            print(
-                f"environmental evidence baseline: unreadable archive for {ref!r}: {exc}",
-                file=sys.stderr,
-            )
-            return None
-        findings = scan_repo(scan_dir=tmp_path / scan_rel, rel_to=tmp_path)
-    return count_by_key(findings)
-
-
-def resolve_baseline(ref: str | None = None) -> Counter:
-    """The grandfather baseline: live from *ref* when given, else the committed file.
-
-    *ref* defaults to the ``ENVIRONMENTAL_EVIDENCE_BASELINE_REF`` environment
-    variable, which CI sets to ``origin/main``. If the ref cannot be read, fall
-    back to the committed baseline so local runs and shallow checkouts keep
-    working.
-    """
-    if ref is None:
-        ref = os.environ.get(BASELINE_REF_ENV) or None
-    if ref:
-        from_ref = baseline_from_ref(ref)
-        if from_ref is not None:
-            print(
-                f"environmental evidence baseline: grandfathered against ref {ref!r} "
-                f"({len(from_ref)} distinct exposure(s))",
-                file=sys.stderr,
-            )
-            return from_ref
-        print(
-            f"environmental evidence baseline: could not read ref {ref!r}; "
-            "falling back to the committed baseline",
-            file=sys.stderr,
-        )
-    return load_baseline()
-
-
-def new_findings(findings, baseline: Counter):
-    """Findings not covered by *baseline*, including extra reuses of a known one."""
-    seen: Counter = Counter()
-    new = []
-    for finding in findings:
-        key = _baseline_key(finding[0], finding[2])
-        seen[key] += 1
-        if seen[key] > baseline.get(key, 0):
-            new.append(finding)
-    return new
+        for bucket, finder in zip(buckets, finders):
+            for location, name in finder(data):
+                bucket.append((rel, location, name))
+    return buckets
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--check", action="store_true", help="(default) fail on non-baselined findings"
+        "--check", action="store_true", help="(default) fail on any finding"
     )
     group.add_argument("--all", action="store_true", help="list every finding")
     group.add_argument("--count", action="store_true", help="print summary counts")
@@ -460,38 +325,12 @@ def main(argv=None) -> int:
         action="store_true",
         help="list entries dispositioned by a review_notes waiver",
     )
-    group.add_argument(
-        "--update-baseline",
-        action="store_true",
-        help="rewrite the baseline from current findings",
-    )
-    parser.add_argument(
-        "--against-ref",
-        metavar="REF",
-        default=None,
-        help=(
-            "grandfather against the evidence-free exposures present in "
-            "kb/ at this git ref instead of the committed baseline "
-            f"(env: {BASELINE_REF_ENV}). CI uses origin/main so the base "
-            "branch is green by construction."
-        ),
-    )
     args = parser.parse_args(argv)
 
-    findings = scan_repo()
-
-    if args.update_baseline:
-        write_baseline(findings)
-        print(
-            f"Wrote baseline with {len(findings)} finding(s) to "
-            f"{BASELINE_PATH.relative_to(ROOT)}"
-        )
-        return 0
-
-    # Only the reporting paths need the waiver scan; the default guard path
-    # does not, and it is a second full rglob + YAML parse of kb/ on every
-    # CI run.
-    waivers = scan_waivers() if (args.waivers or args.all or args.count) else []
+    # One walk, both lists: the success message reports the waiver count, so
+    # every path needs both, and scanning kb/ twice to get them is ~11s wasted
+    # on the ungated CI step and in every `just qc`.
+    findings, waivers = scan_all()
 
     if args.waivers:
         for rel, location, name in waivers:
@@ -517,63 +356,39 @@ def main(argv=None) -> int:
         return 0
 
     if args.count:
-        baseline = resolve_baseline(args.against_ref)
         files = {rel for rel, _, _ in findings}
         print(f"total findings: {len(findings)} across {len(files)} file(s)")
-        print(
-            f"baseline: {len(baseline)} distinct exposure(s), "
-            f"{sum(baseline.values())} grandfathered occurrence(s)"
-        )
-        print(f"new (non-baselined): {len(new_findings(findings, baseline))}")
         print(f"dispositioned (review_notes waiver): {len(waivers)}")
         return 0
 
-    baseline = resolve_baseline(args.against_ref)
-    new = new_findings(findings, baseline)
-    if new:
-        print("New evidence-free `environmental:` exposure(s) detected.")
+    if findings:
+        print("Evidence-free `environmental:` exposure(s) detected.")
         print("Every environmental entry is an uncited causation claim until it")
         print("carries an `evidence:` block -- a citable PMID/DOI with a verified")
-        print("snippet (or, for a non-citable source, provenance in `notes`).")
-        print("See the evidence SOP in CLAUDE.md before adding a citation.\n")
-        for rel, location, name in new:
+        print("snippet. See the evidence SOP in CLAUDE.md before adding one.\n")
+        for rel, location, name in findings:
             print(f"{rel}:{location}: {name!r}")
-        print(f"\n{len(new)} new finding(s).")
+        print(f"\n{len(findings)} finding(s).")
         thin = scan_thin_waivers()
         if thin:
             print()
             print("Some of these carry a waiver sentence with nothing behind it.")
             print(f"A waiver must record the search -- at least {MIN_WAIVER_WORDS}")
-            print("words saying which searches were run and why they failed. It is")
-            print("a recorded negative result, not a way to skip the search:")
+            print("words saying which searches were run and why they failed:")
             for rel, location, name, words in thin:
                 print(f"  {rel}:{location}: {name!r} ({words} word(s) after the sentinel)")
-        if args.against_ref or os.environ.get(BASELINE_REF_ENV):
-            print("Grandfathering is unavailable when checking against a ref: add")
-            print("an evidence block to the new exposure, or drop it.")
-            print()
-            print("Two ways this fires without an uncited claim being added:")
-            print("  * Your branch is behind a merge that fixed these entries.")
-            print("    The grandfather set is derived from the ref, so once a")
-            print("    merge cites an exposure it stops being grandfathered --")
-            print("    and a branch still carrying the old uncited copy reads as")
-            print("    new. If the listed entries are ones you never touched,")
-            print("    this is it: rebase on the ref, do not cite them.")
-            print("  * You renamed a grandfathered exposure. Findings are keyed")
-            print("    on (file, exposure name), so a rename reads as new and")
-            print("    re-baselining will not clear it -- cite it or revert.")
-        else:
-            print("Note: findings are keyed on (file, exposure name), so *renaming* an")
-            print("already-baselined exposure reads as a new finding even though no")
-            print("uncited claim was added. If that is what happened, the fix is to")
-            print("re-baseline, not to cite.")
-            print("If a finding is genuinely unavoidable right now, run")
-            print("--update-baseline to grandfather it.")
+        print()
+        print("There is no baseline to grandfather these into: the dismech#8296")
+        print("backlog was worked to zero and the ratchet was removed. Either")
+        print("cite the exposure, or -- if you searched and found no abstract that")
+        print("states the claim -- record that in `review_notes:` beginning with")
+        print(f"'{WAIVER_SENTINEL.capitalize()}', saying which searches you ran.")
+        print("A waiver is a recorded negative result, not a way to skip the search.")
         return 1
+
     print(
-        f"OK: no new evidence-free `environmental:` exposures "
-        f"({sum(baseline.values())} occurrence(s) of {len(baseline)} distinct "
-        "exposure(s) grandfathered in baseline)."
+        f"OK: no evidence-free `environmental:` exposures "
+        f"({len(waivers)} dispositioned by a review_notes waiver)."
     )
     return 0
 
