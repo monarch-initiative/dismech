@@ -892,7 +892,13 @@ first `downstream` hop.
 
 Polarity is not absent from the KB, just not in a queryable slot. Node-level descriptors
 carry `modifier` heavily — **DECREASED 4,795, INCREASED 4,186, ABNORMAL 2,916, DYSREGULATED
-856** (plus LOSS_OF_FUNCTION 106, GAIN_OF_FUNCTION 37, ABSENT 30) — and `INCREASED`/`DECREASED`
+856** (plus LOSS_OF_FUNCTION 106, GAIN_OF_FUNCTION 37, ABSENT 30) — counting `modifier:` on
+the three ontology-bound descriptor lists that hang off a pathophysiology node
+(`biological_processes`, `molecular_functions`, `cell_types`) and nowhere else. That scope
+matters: descriptor lists elsewhere in an entry also carry `modifier:`, so a whole-file count
+is a larger number measuring a different thing, and the claim here is specifically about
+polarity attached to *pathograph nodes*. Regenerate with `uv run python
+scripts/physiomap_release_analysis.py --dismech .`. `INCREASED`/`DECREASED`
 are already bound to `PATO:0002300`/`PATO:0002301`, *the exact two terms PhysioMap uses for
 `+`/`−`*. A crude regex over edge `description` text
 (inhibit|suppress|decreas|reduc|block|impair|loss of|deplet|antagoni) matches 5,085 of 27,532
@@ -1113,7 +1119,9 @@ limits are stated inline. The release's headline counts reproduce the paper's ex
 a good integrity signal.
 
 **Part IV** figures are measured from this repo at commit `c0250519` (2026-08-28), the
-branch's merge base, by walking
+branch's merge base, and regenerate with `scripts/physiomap_release_analysis.py --dismech .`
+(the same script as Part III), which carries the directory list, the modifier-census scope,
+and the negative-language regex as named constants. Computed by walking
 `kb/{disorders,modules,comorbidities}/*.yaml`; the §4.3 cycle analysis resolves each
 `downstream` target against `pathophysiology[].name` within the same file, so it measures
 intra-entry structure only. Schema claims verified against `src/dismech/schema/dismech.yaml`

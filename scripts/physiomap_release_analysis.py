@@ -22,6 +22,9 @@ Reads only two paths inside the clone, both committed in the PhysioMap release:
 * ``web/physiomap-1.1.1.json``            — the projected causal knowledge graph
 * ``benchmarks/results/e1b_forward_pairs.tsv`` — the 866 adjudicated benchmark pairs
 
+``--dismech <repo root>`` regenerates the Part IV dismech-side counts instead, including
+the §4.1 modifier census whose scope was previously stated only in prose.
+
 Nothing is written; every figure is printed with the report section it belongs to.
 """
 
@@ -31,6 +34,7 @@ import argparse
 import collections
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -323,22 +327,161 @@ def benchmark_depth(graph: dict, rows: list[dict]) -> None:
         )
 
 
+# --------------------------------------------------------------------------------------
+# Part IV — the dismech side of the comparison
+# --------------------------------------------------------------------------------------
+
+# Directories walked for the Part IV counts. kb/groupings is excluded: a Grouping has no
+# `pathophysiology` block, so it contributes no nodes, edges or modifiers.
+KB_DIRS = ("kb/disorders", "kb/modules", "kb/comorbidities")
+
+# The modifier census counts `modifier:` on the three ontology-bound descriptor lists that
+# hang off a pathophysiology node, and nowhere else. Descriptor lists elsewhere in an entry
+# (phenotypes, biochemical, treatments, ...) also carry `modifier:`, so a whole-file count
+# is a larger number measuring a different thing. Naming the scope here is the point: the
+# figure in §4.1 is about polarity attached to *pathograph nodes*, which is what the
+# unsigned-edge argument is contrasted against.
+MODIFIER_SECTIONS = ("biological_processes", "molecular_functions", "cell_types")
+
+# Words in a `downstream[].description` that suggest the edge is negative in sign. Crude by
+# construction — it cannot separate "A inhibits B" from "A causes impaired B", which imply
+# opposite edge signs — so the report cites it as evidence that polarity language is
+# pervasive in the prose, never as a measurement of how many edges are negative.
+NEGATIVE_HINT = re.compile(
+    r"\b(inhibit|suppress|decreas|reduc|block|impair|loss of|deplet|antagoni)"
+)
+
+
+def dismech_counts(repo_root: Path) -> None:
+    header("§4 / §4.1 / §4.3 — dismech pathograph counts")
+    print(f"  directories: {', '.join(KB_DIRS)}")
+    print(
+        f"  modifier scope: pathophysiology[].{{{', '.join(MODIFIER_SECTIONS)}}}[].modifier"
+    )
+
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover - PyYAML is a project dependency
+        sys.exit("PyYAML is required; run under `uv run`.")
+
+    nodes = edges = files = neg = 0
+    modifiers: collections.Counter[str] = collections.Counter()
+    cyclic: set[str] = set()
+    self_loops: list[tuple[str, str]] = []
+
+    for directory in KB_DIRS:
+        for path in sorted((repo_root / directory).glob("*.yaml")):
+            try:
+                with path.open() as handle:
+                    entry = yaml.safe_load(handle)
+            except Exception:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            pathophysiology = entry.get("pathophysiology") or []
+            if not pathophysiology:
+                continue
+            files += 1
+            names = {p.get("name") for p in pathophysiology if isinstance(p, dict)}
+            adjacency: dict[str, set[str]] = collections.defaultdict(set)
+            for node in pathophysiology:
+                if not isinstance(node, dict):
+                    continue
+                nodes += 1
+                name = node.get("name")
+                for section in MODIFIER_SECTIONS:
+                    for item in node.get(section) or []:
+                        if isinstance(item, dict) and item.get("modifier"):
+                            modifiers[item["modifier"]] += 1
+                for edge in node.get("downstream") or []:
+                    if not isinstance(edge, dict):
+                        continue
+                    edges += 1
+                    if NEGATIVE_HINT.search((edge.get("description") or "").lower()):
+                        neg += 1
+                    target = edge.get("target")
+                    if target in names:
+                        if target == name:
+                            self_loops.append((path.name, name))
+                        else:
+                            adjacency[name].add(target)
+            if _has_cycle(names, adjacency):
+                cyclic.add(path.name)
+
+    print(f"  pathophysiology nodes: {nodes}")
+    print(f"  downstream edges:      {edges}")
+    print(f"  files with a non-empty pathophysiology block: {files}")
+    print(
+        f"  files with a multi-node cycle: {len(cyclic)} ({100 * len(cyclic) / files:.1f}%)"
+    )
+    print(f"  self-loop edges: {len(self_loops)}")
+    for name, node in self_loops:
+        print(f"     {name}: {node!r} -> itself")
+    print(f"  negative-language edge descriptions: {neg} ({100 * neg / edges:.1f}%)")
+    print("  modifier census:")
+    for name, count in modifiers.most_common():
+        print(f"     {name:22} {count:6}")
+
+
+def _has_cycle(names: set, adjacency: dict) -> bool:
+    """True if the intra-file pathograph contains a multi-node cycle (self-loops excluded)."""
+    color: dict = {}
+    stack = []
+    for start in names:
+        if color.get(start, 0) != 0:
+            continue
+        stack = [(start, iter(adjacency.get(start, ())))]
+        color[start] = 1
+        while stack:
+            node, children = stack[-1]
+            advanced = False
+            for child in children:
+                state = color.get(child, 0)
+                if state == 1:
+                    return True
+                if state == 0:
+                    color[child] = 1
+                    stack.append((child, iter(adjacency.get(child, ()))))
+                    advanced = True
+                    break
+            if not advanced:
+                color[node] = 2
+                stack.pop()
+    return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "physiomap_root", type=Path, help="Root of a PhysioMap repository clone"
+        "physiomap_root",
+        type=Path,
+        nargs="?",
+        help="Root of a PhysioMap repository clone (regenerates the Part III figures)",
+    )
+    parser.add_argument(
+        "--dismech",
+        type=Path,
+        metavar="REPO_ROOT",
+        help="Root of this repository (regenerates the Part IV dismech-side figures)",
     )
     args = parser.parse_args()
 
-    graph, rows = load(args.physiomap_root)
-    counts_and_reconciliation(graph)
-    node_anatomy(graph)
-    edge_signs_and_provenance(graph)
-    topology(graph)
-    duplicates_and_conflicts(graph)
-    benchmark_depth(graph, rows)
+    if not args.physiomap_root and not args.dismech:
+        parser.error("pass a PhysioMap clone path, --dismech <repo root>, or both")
+
+    if args.physiomap_root:
+        graph, rows = load(args.physiomap_root)
+        counts_and_reconciliation(graph)
+        node_anatomy(graph)
+        edge_signs_and_provenance(graph)
+        topology(graph)
+        duplicates_and_conflicts(graph)
+        benchmark_depth(graph, rows)
+
+    if args.dismech:
+        dismech_counts(args.dismech)
 
 
 if __name__ == "__main__":
