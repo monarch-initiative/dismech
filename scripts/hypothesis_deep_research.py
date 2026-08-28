@@ -54,6 +54,34 @@ OPENSCIENTIST_JOB_TIMEOUT_SECONDS = 7200
 # comfortably above OPENSCIENTIST_JOB_TIMEOUT_SECONDS.
 DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 7800
 
+# Ontology term validation for the report this script generates, mirroring the
+# `dr_term_validation` variable the justfile research recipes use. Reports made
+# here suggest HP/GO/CL/UBERON/MONDO terms like every other deep-research report,
+# and nothing checked them before deep-research-client 0.2.11.
+#
+# HGNC is skipped because gene CURIEs cannot be checked reliably: `sqlite:obo:hgnc`
+# holds them under the lowercase `hgnc:` this repo uses, so an uppercase
+# `HGNC:4283` resolves to nothing and is reported as invented, while `ols:`
+# resolves the same CURIE to "mitochondrial chromosome". Both are false alarms.
+#
+# Unlike reference validation, this path does not read or write
+# `references_cache/`, so it does not need the `patch_reference_validator`
+# repairs that `scripts/run_deep_research_client.sh` applies.
+#
+# Note what is still missing here, since it is the asymmetry a reader will hit:
+# this script does NOT reference-validate (no `--validate-references`), unlike
+# every justfile research recipe. That gap predates term validation. Closing it
+# means moving this script onto `scripts/run_deep_research_client.sh` first --
+# the reference path reads and writes `references_cache/` and must not run
+# unpatched.
+TERM_VALIDATION_ARGS = [
+    "--validate-terms",
+    "--term-cache-dir",
+    "terms_cache",
+    "--term-skip-prefix",
+    "HGNC",
+]
+
 
 class LiteralString(str):
     """Marker class for multiline YAML block scalars."""
@@ -277,6 +305,7 @@ def build_command(
     output_root: Path,
     template: Path,
     extra_args: Sequence[str],
+    validate_terms: bool = True,
 ) -> list[str]:
     normalized = normalize_provider(provider)
     output_file = output_file_for(record, output_root, normalized)
@@ -292,6 +321,8 @@ def build_command(
         command.extend(["--var", f"{key}={value}"])
     command.extend(build_provider_args(normalized))
     command.extend(provider_default_params(normalized, extra_args))
+    if validate_terms:
+        command.extend(term_validation_args(extra_args))
     command.extend(
         [
             "--output",
@@ -302,6 +333,33 @@ def build_command(
     )
     command.extend(extra_args)
     return command
+
+
+def term_validation_args(extra_args: Sequence[str]) -> list[str]:
+    """Return the default term-validation flags, unless the caller set their own.
+
+    Any explicit ``--validate-terms`` or ``--term-*`` argument passed after ``--``
+    means the caller is steering term validation themselves, so the defaults step
+    aside rather than appearing twice on the command line.
+
+    ``--no-term-labels`` is the one ``--term-``-prefixed spelling this does not
+    match, since it begins ``--no-term-``. That is the behaviour we want -- the
+    caller is turning label comparison off, not taking over the cache directory
+    or the skipped prefixes -- so the defaults still apply and the run validates
+    terms with labels off.
+
+    Args:
+        extra_args: Arguments the caller passed through after ``--``.
+
+    Returns:
+        The default flags, or an empty list when the caller supplied their own.
+    """
+    if any(
+        str(arg).startswith("--validate-terms") or str(arg).startswith("--term-")
+        for arg in extra_args
+    ):
+        return []
+    return list(TERM_VALIDATION_ARGS)
 
 
 def provider_default_params(provider: str, extra_args: Sequence[str]) -> list[str]:
@@ -339,6 +397,7 @@ def run_record(
     timeout_seconds: int,
     dry_run: bool,
     overwrite: bool,
+    validate_terms: bool = True,
 ) -> RunResult:
     normalized = normalize_provider(provider)
     output_file = output_file_for(record, output_root, normalized)
@@ -349,6 +408,7 @@ def run_record(
         output_root=output_root,
         template=template,
         extra_args=extra_args,
+        validate_terms=validate_terms,
     )
 
     if dry_run:
@@ -559,6 +619,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     run_parser.add_argument("--dry-run", action="store_true")
     run_parser.add_argument("--overwrite", action="store_true")
     run_parser.add_argument(
+        "--no-term-validation",
+        action="store_true",
+        help="Skip ontology term validation of the generated report.",
+    )
+    run_parser.add_argument(
         "--timeout-seconds", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT_SECONDS
     )
 
@@ -571,6 +636,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     missing_parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     missing_parser.add_argument("--dry-run", action="store_true")
     missing_parser.add_argument("--overwrite", action="store_true")
+    missing_parser.add_argument(
+        "--no-term-validation",
+        action="store_true",
+        help="Skip ontology term validation of the generated reports.",
+    )
     missing_parser.add_argument("--report-dir", type=Path, default=Path("output"))
     missing_parser.add_argument(
         "--timeout-seconds", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT_SECONDS
@@ -612,6 +682,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout_seconds=args.timeout_seconds,
             dry_run=args.dry_run,
             overwrite=args.overwrite,
+            validate_terms=not args.no_term_validation,
         )
         print_run_result(result)
         return 1 if result.status.startswith(("ERROR_", "TIMEOUT", "MISSING_")) else 0
@@ -652,6 +723,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 timeout_seconds=args.timeout_seconds,
                 dry_run=args.dry_run,
                 overwrite=args.overwrite,
+                validate_terms=not args.no_term_validation,
             )
             results.append(result)
             print_run_result(result)

@@ -878,3 +878,71 @@ Weighed against this report's own most characteristic terms: `gjb1`, `cns`, `gen
 
 All extracted references resolved successfully.
 Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 24 |
+| Resolved | 21 |
+| Unresolved (possible confabulation) | 1 |
+| Obsolete | 0 |
+| Unverifiable | 2 |
+| Terms whose name was checked | 20 |
+| Terms named correctly | 5 |
+| Terms named as a **different** term | 8 |
+| Terms whose name is worth a second look | 7 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0010674` (2 mentions) - the report calls it "MONDO"; MONDO calls it **mucopolysaccharidosis type 2**
+- `HP:0002460` (2 mentions) - the report calls it "Sign", "distal weakness"; HP calls it **Distal muscle weakness**
+- `HP:0003693` (2 mentions) - the report calls it "Manifestation", "distal amyotrophy"; HP calls it **Distal amyotrophy**
+- `HP:0003401` (2 mentions) - the report calls it "Symptom", "paresthesia"; HP calls it **Paresthesia**
+- `HP:0001761` (2 mentions) - the report calls it "Manifestation", "pes cavus"; HP calls it **Pes cavus**
+- `HP:0001265` (2 mentions) - the report calls it "Sign", "areflexia"; HP calls it **Hyporeflexia**
+- `HP:0003376` (2 mentions) - the report calls it "Sign", "steppage gait"; HP calls it **Steppage gait**
+- `HP:0000407` (2 mentions) - the report calls it "Sign/lab", "SNHL"; HP calls it **Sensorineural hearing impairment**
+
+### Unresolved terms
+
+These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:
+
+- `HP:0106487` (2 mentions), reported as "Sign", "impaired distal sensation" - HP does not contain this term
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0002401` (2 mentions) - the report calls it "Sign (episodic)", "stroke-like episode"; HP calls it **Stroke-like episode**
+- `CL:0002573` (3 mentions) - the report calls it "Tissue/cell:** myelinating Schwann cells", "myelinating Schwann cell"; CL calls it **Schwann cell**
+- `GO:0008088` (2 mentions) - the report calls it "axonal transport"; GO calls it **axo-dendritic transport**, and lists "axonal transport" among its other names
+- `UBERON:0000010` (2 mentions) - the report calls it "Peripheral nervous system", "Organ/system:** **Peripheral nervous system", "PNS"; UBERON calls it **peripheral nervous system**
+- `UBERON:0002316` (2 mentions) - the report calls it "CNS white matter", "white matter"; UBERON calls it **white matter**, and lists "CNS white matter" among its other names
+- `GO:0005783` (2 mentions) - the report calls it "ER"; GO calls it **endoplasmic reticulum**, and lists "ER" among its other names
+- `GO:0005794` (2 mentions) - the report calls it "Golgi"; GO calls it **Golgi apparatus**, and lists "Golgi" among its other names
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `HP:0002460` - called "Sign", "distal weakness"
+- `HP:0003693` - called "Manifestation", "distal amyotrophy"
+- `HP:0106487` - called "Sign", "impaired distal sensation"
+- `HP:0003401` - called "Symptom", "paresthesia"
+- `HP:0001761` - called "Manifestation", "pes cavus"
+- `HP:0001265` - called "Sign", "areflexia"
+- `HP:0003376` - called "Sign", "steppage gait"
+- `HP:0000407` - called "Sign/lab", "SNHL"
+- `HP:0002401` - called "Sign (episodic)", "stroke-like episode"
+- `CL:0002573` - called "Tissue/cell:** myelinating Schwann cells", "myelinating Schwann cell"
+- `UBERON:0000010` - called "Peripheral nervous system", "Organ/system:** **Peripheral nervous system", "PNS"
+- `UBERON:0002316` - called "CNS white matter", "white matter"
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `ORPHA`.

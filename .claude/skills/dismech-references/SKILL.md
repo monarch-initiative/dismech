@@ -68,6 +68,14 @@ For an older report without validation output, run:
 just validate-research-reference research/My_Disease-deep-research-falcon.md
 ```
 
+The same recipes also check the report's **ontology terms** (`term_validation`
+in the frontmatter, `## Term Validation` at the end of the body). That is a
+different check from the citations one and catches a different error: a report
+can have every citation verified and still name the wrong MONDO term for the
+disease. Never bind a CURIE listed under `unresolved_terms`. For an older report,
+`just validate-research-terms <report>` adds the section; see
+[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
+
 Before using any report content, check that the report describes the intended
 disease:
 

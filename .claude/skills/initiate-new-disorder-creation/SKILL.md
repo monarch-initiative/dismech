@@ -227,7 +227,9 @@ For example:
 
 You MUST read this before progressing.
 
-### Step 3a: Read the report's Reference Validation results (REQUIRED)
+### Step 3a: Read the report's validation results (REQUIRED)
+
+#### Reference validation
 
 Every `just research-*` recipe now resolves the report's citations as part of
 generating it (`deep-research-client >= 0.2.10`, backed by the same
@@ -307,6 +309,51 @@ relevance check is not a substitute for that**: references are scored against
 wrong-disease vocabulary too and scores all of its wrong-disease citations as
 on topic. See
 [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
+
+#### Term validation
+
+The same recipes also resolve every **ontology CURIE** the report suggests
+(`deep-research-client >= 0.2.11`, backed by the same `linkml-term-validator`
+`just validate-terms` runs). This is a separate check from the one above, and it
+catches a different failure: the CMTX report in
+[#9729](https://github.com/monarch-initiative/dismech/issues/9729) had 26/26
+citations verified and still offered `MONDO:0010674` — Hunter syndrome — as the
+Charcot-Marie-Tooth X-linked term.
+
+Two places to look, as before: a `term_validation:` frontmatter block and a
+`## Term Validation` section at the end of the body.
+
+**What to do with it:**
+
+- **Never bind a CURIE listed under `unresolved_terms`.** It does not exist. Find
+  the right term with the `dismech-terms` skill instead.
+- **Read `needs_review`, not `confabulation_rate`.** The rate measures identifier
+  resolution only, so a report whose every CURIE resolves but whose labels name
+  different terms still shows `0.0`.
+- **`mislabelled_terms` is where the wrong bindings surface.** Each entry gives
+  the report's name and the ontology's. Some are harmless paraphrase ("distal
+  weakness" for `HP:0002460`, *Distal muscle weakness*). Look for the ones where
+  the ontology label names a **different disease, or a different term in the
+  same ontology** — a sibling, a parent, a near-miss. The second kind is easy to
+  skim past: the CMTX report writes "areflexia" beside `HP:0001265`, which HPO
+  calls *Hyporeflexia* (*Areflexia* is `HP:0001284`), and those are clinically
+  distinct.
+- `unresolvable_prefixes` means nothing was checked for that prefix — not that
+  anything is wrong. `HGNC` is skipped by default; verify gene CURIEs the usual
+  way.
+- A clean section is **not** permission to copy terms across. Term validation
+  says a CURIE exists and is named consistently; it does not say the term is the
+  right one for your claim. Step 5 is unchanged.
+
+Reports generated before this existed have no term section. Add one:
+
+```bash
+just validate-research-terms research/DISORDER_NAME-deep-research-PROVIDER.md
+```
+
+Like the reference retro-fit, this adds the markdown section but not a
+frontmatter summary, and re-running is safe. See
+[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
 
 ### Step 3b: GeneReviews Baseline (REQUIRED when applicable)
 

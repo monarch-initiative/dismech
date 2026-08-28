@@ -1598,6 +1598,62 @@ templates_dir := "templates"
 #   just dr_validation='' research-disorder falcon Marfan_Syndrome
 dr_validation := "--validate-references --validation-cache-dir references_cache"
 
+# Ontology term validation applied to a deep-research report as it is generated
+# (needs deep-research-client >= 0.2.11 and its `terms` extra, which pulls in
+# linkml-term-validator -- the same library `just validate-terms` runs on `kb/`).
+#
+# Reports suggest ontology terms because the templates ask them to ("Suggest HPO
+# terms for each phenotype", "suggest NCIT clinical-intervention terms"). Nothing
+# checked those until now, and citation validation does not reach them: the CMTX
+# report in issue #9729 validated 26/26 citations and still offered
+# MONDO:0010674 -- Hunter syndrome -- as the term for Charcot-Marie-Tooth
+# X-linked. Every CURIE is resolved, and the name the report wrote beside it is
+# compared with the term's own label, which is what catches that class of error.
+#
+# Results are written into the report itself: a `## Term Validation` section at
+# the end of the body, and a `term_validation:` summary in the YAML frontmatter.
+#
+# Two choices worth knowing about, both settled by testing rather than taste:
+#
+#   * NO `--term-oak-config conf/oak_config.yaml`. Our config routes the prefixes
+#     reports actually cite (MONDO, HP, GO, CL, UBERON, CHEBI, NCIT) to OLS, which
+#     is what the upstream default `ols:` adapter does anyway -- but it also maps
+#     HGNC/GENO/ECTO/XCO to `sqlite:obo:`, and passing it made a research run
+#     download a 380 MB hgnc.db mid-validation. Pass it yourself for a run where
+#     ECTO or GENO terms matter and you will take the local builds.
+#   * `--term-skip-prefix HGNC`, because gene CURIEs cannot be checked reliably
+#     either way. `sqlite:obo:hgnc` holds them under the lowercase `hgnc:` this
+#     repo uses, so the uppercase `HGNC:4283` a report writes resolves to nothing
+#     and is reported as invented; through `ols:` the same CURIE comes back as
+#     "mitochondrial chromosome". Both are false alarms on a real gene (GJB1).
+#     Skipping reports the prefix as unverifiable instead. Matching is
+#     case-insensitive, so this covers `hgnc:` too.
+#
+# Like reference validation, this runs AFTER the report is written to disk, and
+# is deliberately not gated: a bad CURIE in a provider artifact is information,
+# not a reason to discard a 20-minute run. Recover a lost section with
+#   just validate-research-terms <the report that was written>
+#
+# To skip it (quick iteration, or no network):
+#   just dr_term_validation='' research-disorder falcon Marfan_Syndrome
+dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip-prefix HGNC"
+
+# Provider fallback (`--fallback`, new in deep-research-client 0.2.11) is
+# deliberately NOT wired in here, and the reason is worth recording so it is not
+# re-derived. It would fix a real recurring annoyance -- a brief asks for falcon,
+# no EDISON_API_KEY is set, and the curator substitutes claude_code by hand and
+# writes a paragraph about it into the history record -- but the report filename
+# in every recipe below encodes the *requested* provider
+# (`<Disorder>-deep-research-<provider>.md`), and
+# `scripts/deep_research_coverage.py` reads the provider back out of that
+# filename. A silent fallback would therefore write a claude_code report named
+# `-falcon.md`, and `just research-status` would report falcon coverage that
+# does not exist.
+#
+# Using it needs the recipes to rename the output to the provider named in the
+# report's frontmatter afterwards. Until then, pass `--fallback` yourself and
+# rename the file to match what actually ran.
+
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
 # The report is a source of *candidate* accessions only: every accession it
 # returns must be resolved against the repository API with
@@ -1632,6 +1688,7 @@ research-datasets provider disorder *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
+        {{dr_term_validation}} \
         {{args}}
 
 # Verify that datasets[].accession values resolve to real repository records.
@@ -1721,6 +1778,7 @@ research-disorder provider disorder *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
+        {{dr_term_validation}} \
         {{args}}
 
 # Deep research on a shared mechanism module using specified provider
@@ -1791,6 +1849,7 @@ research-module provider module *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
+        {{dr_term_validation}} \
         {{args}}
 
 # Deep research on a comorbidity using specified provider
@@ -1859,6 +1918,7 @@ research-comorbidity provider comorbidity *args="":
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
 	    {{dr_validation}} \
+	    {{dr_term_validation}} \
 	    {{args}}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
@@ -1894,6 +1954,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
 	    {{dr_validation}} \
+	    {{dr_term_validation}} \
 	    {{args}}
 
 # Deep research on a disorder using cyberian with codex agent
@@ -1922,6 +1983,7 @@ research-disorder-cyberian-codex disorder *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
+        {{dr_term_validation}} \
         {{args}}
 
 # List available research providers
@@ -1960,6 +2022,40 @@ research-providers:
 validate-research-reference +args:
     {{dr_client}} validate-references \
         --cache-dir references_cache \
+        --in-place \
+        {{args}}
+
+# Term-check a deep-research report that already exists on disk -- the retro-fit
+# counterpart of the `dr_term_validation` flags baked into the research recipes,
+# for every report generated before deep-research-client 0.2.11.
+#
+# Rewrites each report in place, replacing any previous `## Term Validation`
+# section, so it is safe to re-run. Resolved labels are cached in `terms_cache/`
+# (gitignored), so a second run over the same report is offline and instant.
+#
+# NOTE the same asymmetry `validate-research-reference` has: on a report that
+# predates term validation this adds the markdown section but NOT a
+# `term_validation:` frontmatter block. Upstream only *refreshes* a frontmatter
+# summary that is already there, so that a tool asked to check terms never
+# reformats a file's frontmatter. On a retro-fitted report, read the section at
+# the bottom.
+#
+# Examples:
+#   just validate-research-terms research/Marfan_Syndrome-deep-research-falcon.md
+#   # non-destructive preview to stdout, or JSON for tooling:
+#   scripts/run_deep_research_client.sh validate-terms research/Foo.md
+#   scripts/run_deep_research_client.sh validate-terms research/Foo.md --json out.json
+#   # re-read an already-checked report without touching the network:
+#   just validate-research-terms research/Foo.md --offline
+#
+# Accepts a glob, but prefer one report at a time, as you come to curate it.
+#
+# Term-check a deep-research report that already exists on disk.
+[group('Research')]
+validate-research-terms +args:
+    {{dr_client}} validate-terms \
+        --cache-dir terms_cache \
+        --skip-prefix HGNC \
         --in-place \
         {{args}}
 
