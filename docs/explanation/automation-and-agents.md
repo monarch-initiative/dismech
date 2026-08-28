@@ -318,8 +318,8 @@ things. Knowing which one you are invoking is the whole game.
 GitHub itself offers **"Assign agent to issue"** — currently a **Preview**
 feature, reached from the issue's assignee control. It opens a dialog with an
 optional prompt, a target repository, and an agent selector; assigning dispatches
-a coding agent (`copilot-swe-agent`, which is assignable in this repo) to work the
-issue and open a pull request.
+a coding agent (`copilot-swe-agent`, assignable wherever the organisation has the
+Copilot coding agent enabled) to work the issue and open a pull request.
 
 **There, assignment *is* the dispatch.** It is a GitHub product feature, so none
 of the Actions machinery on this page applies to it — no `if:` gate, no
