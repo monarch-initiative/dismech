@@ -1115,8 +1115,8 @@ sign and provenance distributions, scale/system/PATO/entity breakdowns, the comp
 constitutive/quantitative/modulation sets, duplicate-trait and sign-conflict checks, and the
 degree/topology analysis) and `benchmarks/results/e1b_forward_pairs.tsv` +
 `e1b_forward.json`. The §3.7 depth analysis is my own BFS over causal + production edges; its
-limits are stated inline. The release's headline counts reproduce the paper's exactly, which is
-a good integrity signal.
+limits are stated inline. The release's headline counts reproduce the paper's to within the
+two-edge causal drift noted in §3, which is a good integrity signal.
 
 **Part IV** figures are measured from this repo at commit `c0250519` (2026-08-28), the
 branch's merge base, and regenerate with `scripts/physiomap_release_analysis.py --dismech .`

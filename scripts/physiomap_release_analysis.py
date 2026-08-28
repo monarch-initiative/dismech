@@ -364,7 +364,7 @@ def dismech_counts(repo_root: Path) -> None:
     except ImportError:  # pragma: no cover - PyYAML is a project dependency
         sys.exit("PyYAML is required; run under `uv run`.")
 
-    nodes = edges = files = neg = 0
+    nodes = edges = files = neg = skipped = 0
     modifiers: collections.Counter[str] = collections.Counter()
     cyclic: set[str] = set()
     self_loops: list[tuple[str, str]] = []
@@ -374,9 +374,15 @@ def dismech_counts(repo_root: Path) -> None:
             try:
                 with path.open() as handle:
                     entry = yaml.safe_load(handle)
-            except Exception:
+            except Exception as exc:
+                # A metrics script that drops a file silently undercounts without
+                # saying so, which is the failure shape this script exists to prevent.
+                skipped += 1
+                print(f"  SKIPPED (unparsable): {path.name}: {exc}")
                 continue
             if not isinstance(entry, dict):
+                skipped += 1
+                print(f"  SKIPPED (not a mapping): {path.name}")
                 continue
             pathophysiology = entry.get("pathophysiology") or []
             if not pathophysiology:
@@ -408,16 +414,20 @@ def dismech_counts(repo_root: Path) -> None:
             if _has_cycle(names, adjacency):
                 cyclic.add(path.name)
 
+    if not files:
+        sys.exit(f"no entries with a pathophysiology block under {repo_root}")
     print(f"  pathophysiology nodes: {nodes}")
     print(f"  downstream edges:      {edges}")
     print(f"  files with a non-empty pathophysiology block: {files}")
+    print(f"  files skipped: {skipped}")
     print(
         f"  files with a multi-node cycle: {len(cyclic)} ({100 * len(cyclic) / files:.1f}%)"
     )
     print(f"  self-loop edges: {len(self_loops)}")
     for name, node in self_loops:
         print(f"     {name}: {node!r} -> itself")
-    print(f"  negative-language edge descriptions: {neg} ({100 * neg / edges:.1f}%)")
+    share = f" ({100 * neg / edges:.1f}%)" if edges else ""
+    print(f"  negative-language edge descriptions: {neg}{share}")
     print("  modifier census:")
     for name, count in modifiers.most_common():
         print(f"     {name:22} {count:6}")
@@ -426,7 +436,6 @@ def dismech_counts(repo_root: Path) -> None:
 def _has_cycle(names: set, adjacency: dict) -> bool:
     """True if the intra-file pathograph contains a multi-node cycle (self-loops excluded)."""
     color: dict = {}
-    stack = []
     for start in names:
         if color.get(start, 0) != 0:
             continue
