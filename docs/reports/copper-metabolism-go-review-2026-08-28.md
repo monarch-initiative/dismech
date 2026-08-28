@@ -1,7 +1,10 @@
 # Copper Metabolism Disorders — GO Pathway Annotation Review (2026-08-28)
 
 Review of every KB entry involving disorders of copper metabolism, focused on
-how Gene Ontology terms are used to describe the disease pathways.
+how Gene Ontology terms are used to describe the disease pathways. This document
+records both the review and the curation pass that acted on it: every finding
+below was fixed in the same-dated pass, and the "Fix applied" notes and the
+Validation section at the end record what changed.
 
 ## Scope
 
@@ -73,10 +76,18 @@ canonical label, including recent GO additions.
    transport*, and `GO:0006879` — consistent with the grouping's decision that
    its proximal lesion is iron export despite the ceruloplasmin connection.
 
-## Findings
+## Findings and fixes applied
 
-Ranked by impact on the machine-readable pathway description. None is a
-validation failure; all files pass the current term contract.
+Every finding below was **fixed** in the same-dated curation pass (commit on
+`claude/copper-metabolism-disorders-w3e4il`); the "Fix applied" note under each
+records what changed. All eight edited entries pass `just validate-disorders`
+(schema + terms + reference snippets), the duplicate-key and entity-ref checks,
+and the offline title/grading/length/hyphen/environmental gates. Candidate GO
+terms were verified against OLS before binding, and matching history records
+were added under `history/disorders/`.
+
+Ranked by impact on the machine-readable pathway description. None was a
+validation failure; all files passed the term contract before and after.
 
 ### 1. Wilson disease GO descriptors carry no direction modifiers
 
@@ -92,6 +103,12 @@ for the "ATP7B Copper-Trafficking Defect", "Impaired Biliary Copper
 Excretion", and "Impaired Ceruloplasmin Loading" nodes. Menkes' apex node
 ("ATP7A-mediated copper export failure", `GO:0006825` unmodified) has the same
 gap even though its child nodes are modified.
+
+**Fix applied.** `DECREASED` added to `GO:0006825` and `GO:0140581` on the three
+Wilson ATP7B nodes and to the Menkes apex node (which also gained the
+`GO:0140581` copper-transporter MF, `DECREASED`). Downstream oxidative-stress
+and homeostasis nodes across both entries received `INCREASED`/`ABNORMAL`
+modifiers to match.
 
 ### 2. One GO triple copy-pasted across mechanistically distinct nodes
 
@@ -109,6 +126,14 @@ the same pattern in miniature: the identical iron BP pair is stamped onto all
 three of its nodes, with `modifier: ABNORMAL` uniformly, so the ferroxidase
 node and the two accumulation nodes differ only by the MF binding.
 
+**Fix applied.** The Wilson biliary-excretion node now binds `GO:0035434`
+*copper ion transmembrane transport* (`DECREASED`) with `GO:0016324` *apical
+plasma membrane* as the canalicular CC, replacing the Golgi triple. The
+aceruloplasminemia nodes were left on the shared iron pair but are now
+differentiated by `biological_scale` (MOLECULAR / ORGANISM / TISSUE); their
+`ABNORMAL` homeostasis modifier is correct under the finding-5 convention, with
+iron level carried by the `INCREASED` iron `chemical_entities`.
+
 ### 3. The treatment-targeted hub nodes have no ontology grounding at all
 
 Wilson's "Hepatic Copper Accumulation" and "Systemic Copper Distribution" are
@@ -120,6 +145,10 @@ specific `GO:0006878` *intracellular copper ion homeostasis*, not yet in the
 cache) with an `INCREASED`/`ABNORMAL` modifier, and `GO:0046688` *response to
 copper ion* for the downstream injury claims. As curated, an export of these
 nodes is free text only.
+
+**Fix applied.** "Hepatic Copper Accumulation" now binds `GO:0006878`
+*intracellular copper ion homeostasis* (`ABNORMAL`) and "Systemic Copper
+Distribution" binds `GO:0055070` *copper ion homeostasis* (`ABNORMAL`).
 
 ### 4. Cuproenzymes are named in prose but their molecular functions are never bound
 
@@ -146,8 +175,15 @@ aceruloplasminemia). Concretely:
   ferroxidase activity by different routes, and a shared MF binding would make
   that convergence queryable.
 
-(The candidate CURIEs are deliberately not asserted here; any addition must go
-through OAK lookup and `just validate-terms` per the term contract.)
+**Fix applied.** All four cuproenzyme MFs were verified against OLS and bound
+(`DECREASED`): Menkes lysyl oxidase `GO:0004720`, dopamine β-monooxygenase
+`GO:0004500`, cytochrome-c oxidase `GO:0004129`, and tyrosinase `GO:0004503`
+(with melanin biosynthesis `GO:0042438` on the hair node); Wilson's
+ceruloplasmin-loading node gained the shared `GO:0004322` *ferroxidase activity*
+binding, making its convergence with aceruloplasminemia queryable. New
+mechanistic citations were added for the previously prose-only claims:
+`PMID:32381719` (Elesclomol/COX in Menkes) and `PMID:18650808`
+(ATP7A→tyrosinase in melanosomes).
 
 ### 5. Inconsistent modifier semantics on homeostasis terms
 
@@ -160,6 +196,12 @@ means homeostasis has failed, not diminished). A convention worth adopting
 KB-wide: homeostasis-class terms take `ABNORMAL`/`DYSREGULATED`, and
 directionality is carried by the transport/level-specific binding or the node
 itself.
+
+**Fix applied.** The convention was adopted across the copper set: Menkes
+"Systemic copper deficiency" changed from `DECREASED` to `ABNORMAL` on
+`GO:0055070`, and the Wilson and MEDNIK homeostasis nodes were made consistent.
+Direction now rides on the copper-transport MF/BP bindings and the copper
+`chemical_entities` level, not on the homeostasis process term.
 
 ### 6. Menkes OXPHOS binding sits in mild tension with its own cited evidence
 
@@ -175,44 +217,70 @@ the deficiency-driven cuproenzyme node it is attached to. Worth re-homing that
 evidence item and deciding whether OXPHOS merits a `DECREASED` modifier backed
 by COX-specific human data.
 
+**Fix applied.** The misplaced `PMID:27226607` item was removed from the
+cuproenzyme node (it remains, correctly, on the redox node) and replaced with
+`PMID:32381719`, which attributes the Menkes mitochondrial energy deficit
+specifically to cytochrome c oxidase dysfunction. `GO:0006119` oxidative
+phosphorylation now carries `DECREASED`, grounded on that COX-specific evidence
+plus the new `GO:0004129` cytochrome-c-oxidase MF.
+
 ### 7. Secondary observations (non-GO)
 
-- **Cell-death edge direction.** Wilson models `Hepatocyte Injury →
-  Cuproptosis` and `→ Ferroptosis` (death programs as consequences/leaf
-  nodes). The entry's own hypothesis files
-  (`kb/hypotheses/Wilsons_Disease/cuproptosis_model/`) treat cuproptosis as a
-  *mechanism of* hepatocyte injury, i.e. the reverse arrow from copper
-  accumulation. A defensible modeling choice, but the graph and the hypothesis
-  register currently point in opposite directions.
-- **ICIMD classification is inconsistent across the grouping.** The grouping's
-  rationale appeals to all four members falling in the ICIMD "Copper" group,
-  but only Wilson carries `classifications.icimd_category: copper_metabolism`.
-  Menkes has a `harrisons_chapter` block only; MEDNIK, Huppke-Brendel, and
-  aceruloplasminemia have no `classifications` block at all.
-- **`biological_scale` is untagged** on every node in the four grouping
-  members (only SCO2 is partially tagged). Optional, but the copper set would
-  tag cleanly (MOLECULAR pump defect → CELLULAR accumulation → TISSUE/ORGANISM
-  injury).
-- Wilson's `prevalence` records still populate the deprecated `percentage`
-  field alongside the structured slots (legacy-tolerated, but new edits should
-  not extend it).
+- **Cell-death edge direction.** Wilson previously modeled `Hepatocyte Injury →
+  Cuproptosis` and `→ Ferroptosis` (death programs as leaf consequences), while
+  the entry's own hypothesis files treat cuproptosis as a *mechanism of*
+  hepatocyte injury. **Fixed:** the two death nodes are now wired
+  `Hepatic Copper Accumulation → Cuproptosis → Hepatocyte Injury` (with
+  `PMID:35298263` grounding copper's direct binding to lipoylated TCA proteins)
+  and `Ferroptosis → Hepatocyte Injury` (with `PMID:41966025`), so the graph and
+  the hypothesis register now agree. The former leaf edges were removed.
+- **ICIMD classification was inconsistent across the grouping.** **Fixed:**
+  Menkes and MEDNIK gained `classifications.icimd_category: copper_metabolism`;
+  aceruloplasminemia gained an `iron_metabolism` classification recording why it
+  is iron-primary. Huppke-Brendel was **deliberately left unclassified** on the
+  ICIMD axis — its proximal lesion is the acetyl-CoA transporter and its low
+  copper is explicitly secondary, so a `copper_metabolism` tag would contradict
+  the entry's own framing; its placement between the acetylation/CDG and copper
+  groups is a genuine curator decision, not an omission to paper over. This means
+  the grouping's rationale sentence claiming all four fall in the ICIMD Copper
+  group is itself slightly overstated for Huppke-Brendel and is worth softening.
+- **`biological_scale`** is now tagged on every node in all eight entries
+  (MOLECULAR pump/enzyme defect → CELLULAR → TISSUE/ORGANISM injury).
+- Wilson's deprecated `prevalence.percentage` fields were removed; the verbatim
+  source phrasing was preserved in `notes`.
 - The comorbidity `com_Wilsons_Disease__Osteoporosis` binds `GO:0046849`
-  *bone remodeling* correctly (label verified).
+  *bone remodeling* correctly (label verified); left unchanged.
 
-## Suggested follow-ups
+## Literature added
 
-1. Add direction modifiers to Wilson's (and Menkes' apex) copper GO bindings —
-   small, mechanical, high value for exports (finding 1).
-2. Differentiate Wilson's first three nodes: `GO:0035434` + a canalicular CC
-   on the biliary-excretion node (finding 2).
-3. Ground the two Wilson hub nodes and add the cuproenzyme MFs after OAK
-   validation (findings 3–4), including the shared ferroxidase binding with
-   aceruloplasminemia.
-4. Agree a homeostasis-term modifier convention and re-home the misplaced
-   Menkes evidence item (findings 5–6).
-5. Backfill `icimd_category: copper_metabolism` on Menkes, MEDNIK, and
-   Huppke-Brendel (and an iron-metabolism classification for
-   aceruloplasminemia) so the classification matches the grouping's rationale.
+- `PMID:35298263` (Tsvetkov 2022, *Science*) — copper binding to lipoylated TCA
+  proteins; grounds the rewired Wilson cuproptosis edge.
+- `PMID:32381719` (Guthrie 2020, *Science*) — Elesclomol/COX rescue in a Menkes
+  model; grounds the Menkes cytochrome-c-oxidase and OXPHOS annotations.
+- `PMID:18650808` (Setty 2008, *Nature*) — ATP7A sustains melanosomal tyrosinase;
+  grounds the Menkes hair-node tyrosinase/melanin bindings.
+- `PMID:42018271` (2026) — January 2026 FDA first approval of copper histidinate
+  (ZYCUBO) for pediatric Menkes disease, added to the treatment.
+- `NCT04537377` (VTX-801) and `NCT04884815` (UX701) — the two active Wilson
+  disease AAV gene-therapy trials, added as `clinical_trials`.
 
-No changes were made to KB content in this review; all findings above are
-recommendations.
+## Remaining follow-up (not in this pass)
+
+- Soften the `Disorders_of_Copper_Metabolism` grouping rationale's claim that all
+  four members fall in the ICIMD "Copper" group, given Huppke-Brendel's
+  acetyl-CoA-transporter primary lesion (see finding 7).
+- Earlier suggested items now **done** in this pass: direction modifiers
+  (finding 1), node differentiation (finding 2), hub-node grounding and
+  cuproenzyme MFs (findings 3–4), the homeostasis-modifier convention and the
+  re-homed Menkes evidence item (findings 5–6), and the ICIMD/`biological_scale`
+  backfill (finding 7).
+
+## Validation
+
+All eight edited entries pass `just validate-disorders` (schema + terms +
+reference snippets; 503/535 snippets verified, the remainder skipped by prefix),
+`just check-duplicate-keys`, `just check-entity-refs`, and the offline
+title/grading/length/hyphen/environmental gates. New GO terms were verified
+against OLS before binding, new reference titles match their cache frontmatter,
+and one `history/disorders/` record was added per edited entry
+(`just validate-history-all` clean).
