@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard against NEW `environmental:` exposures with no evidence at all.
+"""Guard against `environmental:` exposures with no evidence at all.
 
 An `Environmental` entry is optional to cite (`evidence` is not required by the
 schema), so a bare exposure -- just a `name` and usually a one-line `notes` --
@@ -15,12 +15,12 @@ is indistinguishable, to the whole validation stack, from a fully-evidenced
 exposure. See dismech issue #8296.
 
 This is deliberately *not* a curation tool: it only counts and gates, it never
-invents a citation. Backfilling the pre-existing backlog is real literature
-work (find a citable source, exact-quote snippet, `just fetch-reference` +
-`count-verified-snippets`) that belongs in prioritized curation tranches, not
-a mechanical sweep -- manufacturing citations for ~200 exposures in one pass is
-exactly the fabrication risk the evidence SOP warns against elsewhere in this
-repo.
+invents a citation. Clearing a finding is real literature work -- find a
+citable source, take an exact-quote snippet, `just fetch-reference` +
+`count-verified-snippets` -- and manufacturing a citation to silence the gate
+is exactly the fabrication risk the evidence SOP warns against elsewhere in
+this repo. Where no such source exists, record the failed search as a waiver
+rather than inventing one.
 
 Signal
 ------
@@ -243,13 +243,14 @@ def find_waivers(data):
 def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     """Return a sorted list of ``(relpath, location, name)`` findings.
 
-    ``rel_to`` is the base the reported relative paths are computed against. It
-    defaults to :data:`ROOT` for the working tree, but :func:`baseline_from_ref`
-    scans an extracted copy of ``kb/`` under a temp dir and passes that
-    dir so the reported paths still come out as ``kb/disorders/X.yaml`` --
-    matching the working-tree keys the baseline is compared on.
+    ``rel_to`` is the base the reported relative paths are computed against.
+    It defaults to :data:`ROOT`, so findings read as ``kb/disorders/X.yaml``.
+    It is a parameter rather than a constant so a scan can be pointed at a
+    tree that is not this repository: ``test_scan_covers_kb_beyond_disorders``
+    builds a fixture under ``tmp_path`` and needs the reported paths relative
+    to that, not to :data:`ROOT`.
     """
-    return _scan(find_violations, scan_dir, rel_to)
+    return _scan((find_violations,), scan_dir, rel_to)[0]
 
 
 def scan_thin_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
@@ -271,11 +272,23 @@ def scan_thin_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
 
 def scan_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     """Return a sorted list of ``(relpath, location, name)`` waived entries."""
-    return _scan(find_waivers, scan_dir, rel_to)
+    return _scan((find_waivers,), scan_dir, rel_to)[0]
 
 
-def _scan(finder, scan_dir: Path, rel_to: Path):
-    findings = []
+def scan_all(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
+    """Return ``(findings, waivers)`` from a single walk of *scan_dir*.
+
+    Both lists come from the same ``environmental[]`` entries, differing only
+    in which side of :func:`is_waived` they keep, so calling
+    :func:`scan_repo` and :func:`scan_waivers` separately parses all of
+    ``kb/`` twice -- about 11 seconds each on the current tree, on the ungated
+    CI step and in every ``just qc``.
+    """
+    return tuple(_scan((find_violations, find_waivers), scan_dir, rel_to))
+
+
+def _scan(finders, scan_dir: Path, rel_to: Path):
+    buckets = [[] for _ in finders]
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
             with path.open(encoding="utf-8") as handle:
@@ -293,9 +306,10 @@ def _scan(finder, scan_dir: Path, rel_to: Path):
         if not isinstance(data, dict):
             continue
         rel = path.relative_to(rel_to).as_posix()
-        for location, name in finder(data):
-            findings.append((rel, location, name))
-    return findings
+        for bucket, finder in zip(buckets, finders):
+            for location, name in finder(data):
+                bucket.append((rel, location, name))
+    return buckets
 
 
 def main(argv=None) -> int:
@@ -313,11 +327,10 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
-    findings = scan_repo()
-    # Scanned on every path, unlike the ratchet version this replaced, because
-    # the success message now reports the waiver count -- with no backlog left
-    # to report, "0 findings, 5 dispositioned" is the whole state.
-    waivers = scan_waivers()
+    # One walk, both lists: the success message reports the waiver count, so
+    # every path needs both, and scanning kb/ twice to get them is ~11s wasted
+    # on the ungated CI step and in every `just qc`.
+    findings, waivers = scan_all()
 
     if args.waivers:
         for rel, location, name in waivers:
