@@ -1269,6 +1269,13 @@ gen-browser-data:
 check-browser-links:
     uv run python scripts/check_browser_data_links.py
 
+# Same gate for the computational-models index, which generate-pages builds and
+# commits alongside app/data.js. Kept as a recipe so a curator can reproduce the
+# CI failure with the command CI ran.
+[group('Browser')]
+check-models-links:
+    uv run python scripts/check_browser_data_links.py --data app/models/data.js
+
 # Generate discussions browser data.js from disorder + module discussions
 [group('Browser')]
 gen-discussions-data:
