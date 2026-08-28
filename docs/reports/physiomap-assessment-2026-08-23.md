@@ -20,7 +20,7 @@ conflating them is misleading:
 Nothing here modifies a KB entry, schema file, or cache.
 
 **Bottom line.** PhysioMap and dismech are close to *structural duals*, and the difference
-is not subject matter — it is what an edge means and what a node names. dismech has ~10×
+is not subject matter — it is what an edge means and what a node names. dismech has over 11×
 PhysioMap's edge count but cannot run PhysioMap's central inference, because dismech causal
 edges carry **directness without polarity** and dismech nodes are **file-scoped strings
 rather than a shared variable namespace**. Those are two separable gaps, and the first is
@@ -502,10 +502,17 @@ The hematocrit flag is treated in §3.4, because it contradicts released content
 
 Everything in this part is computed by me from the published artifact — the repo cloned from
 `bio-ontology-research-group/physiomap`, with figures derived from
-`web/physiomap-1.1.1.json` and `benchmarks/results/`. Counts reconcile with the paper
-exactly (1,699 nodes, 2,268 causal, 85 production, 4 constitution, 9 quantitative-identity,
-19 modulation, largest SCC 213, 1,448 SCCs), which is a good integrity signal for the
-release.
+`web/physiomap-1.1.1.json` and `benchmarks/results/`. The release holds 1,699 nodes, 2,268
+causal, 85 production, 4 constitution, 9 quantitative-identity and 19 modulation relations,
+largest SCC 213, 1,448 SCCs.
+
+Those reconcile with the paper on every count **except causal influence, where the release
+has two fewer than the paper reports**: §1.8 gives 2,270 causal-influence axioms and 2,387
+projected relation instances (2,270 + 85 + 4 + 9 + 19 = 2,387, so the paper is internally
+consistent), while the release sums to 2,385. A two-edge drift between a preprint and its
+release is small and unremarkable in itself — text and artifact are cut at different moments —
+but it is worth stating precisely rather than rounding to "identical", particularly in a
+document whose subject is provenance discipline. Every other figure below matches.
 
 ### 3.1 A node is an (entity, quality, context, scale, system) tuple
 
@@ -545,7 +552,19 @@ molecular tier is *thinner* than dismech's; it is more physiological, not more m
 | Immune / inflammation | 68 | | Connect-isolated (curated) | 111 |
 | Mineral / bone | 31 | | West (respiratory) | 106 |
 | Fluid / electrolyte | 11 | | Guyton & Hall extraction | 101 |
-| Unassigned | 5 | | *Guyton core (curated)* | *26* |
+| Unassigned | 5 | | Molecular/cellular module | 84 |
+| | | | Guyton-Hall textbook | 71 |
+| | | | Other | 45 |
+| | | | Phenotype-connection fan-out | 43 |
+| | | | *Guyton core (curated)* | *26* |
+| | | | AOP-Wiki import | 26 |
+| | | | SIGNOR import | 22 |
+| | | | Curated (G. Gkoutos) | 3 |
+
+The systems column is the complete 10-value enum; the provenance column is all 17 lines.
+Note that Guyton-derived textbook content is split across two labels — `Guyton & Hall
+extraction` (101) and `Guyton-Hall textbook` (71), so 172 edges in total — distinct from the
+26-edge hand-curated `Guyton core`.
 
 55% of traits are metabolic/hepatic and the largest single edge source is IEM enzyme
 connections, against 26 edges for the Guyton core the paper's figure showcases.
@@ -714,8 +733,11 @@ hepatocyte apolipoprotein E secretion rate     --[-]--> plasma triglyceride conc
 ```
 
 The archetype is MCAD/ACADM activity: **out-degree 25, in-degree 0** — an enzyme fanning out
-to two dozen analytes, caused by nothing. The other top sources are the same shape (VLCAD 11,
-BCKDH 10, DPYD 10, transaldolase 9, CPT2 8).
+to two dozen analytes, caused by nothing. The next top sources are mostly the same shape
+(VLCAD 11, BCKDH 10, DPYD 10, transaldolase 9, CPT2 8, LCAT 8) — with one exception worth
+noting: `Bruton's tyrosine kinase (BTK) catalytic activity` also sits at out-degree 11, and
+is an immunodeficiency gene rather than a metabolic enzyme, so the fan pattern is not
+exclusively IEM.
 
 So PhysioMap is **two graphs sharing a namespace**:
 
@@ -745,23 +767,41 @@ BFS from each lesion variable over causal + production edges:
 
 | | Pairs | Share |
 |---|---:|---:|
-| **Unreachable** from the lesion at any depth | **484** | 55.9% |
-| Reachable | 355 | 41.0% |
-| Lesion id not in the projected graph | 27 | 3.1% |
+| **Unreachable** from the lesion at any depth | **492** | 56.8% |
+| Reachable | 374 | 43.2% |
+| Lesion id not resolvable | 0 | — |
 
-Among the 355 reachable, **155 (43.7%) are a single hop**, 54% within two, 72% within four.
+Among the 374 reachable, **161 (43.0%) are a single hop**, 53.5% within two, 70.1% within
+four.
+
+**Parsing note.** 27 of the 866 rows carry *two* semicolon-separated lesion variables in
+`primary_intervention` — e.g. ARSA → `arsa_activity -; arylsulfatase_a_activity -`, and
+likewise CTNS, KYNU, PKLR. These are exactly the four genes the paper excludes from the
+*inverse* benchmark for having two primary lesion variables (§1.8). Every constituent id
+resolves in the graph. The figures above split on `;` and take a pair as reachable at the
+**minimum** distance over its lesion variables, which matches the paper's "one or more
+primary lesion variables" specification. Counting only the first lesion instead gives 369
+reachable / 497 unreachable / 157 one-hop — the conclusions are identical either way.
+Two of these multi-lesion rows exist *because* of duplication: ARSA is one of the five
+duplicate-trait groups in §3.8, where `arsa_activity` and `arylsulfatase_a_activity` are the
+same trait under two ids.
 
 1. **Most abstentions are absence of a path, not feedback-induced indeterminacy.** The solver
-   abstained on 695 pairs; at least 484 have no directed route at all.
+   abstained on 695 pairs; 492 have no directed route at all.
 2. **The determinate set is plausibly concentrated at depth 1.** The solver committed on 171
-   pairs; there are 155 one-hop reachable pairs — consistent with determinacy being mostly
+   pairs; there are 161 one-hop reachable pairs — consistent with determinacy being mostly
    the near-definitional enzyme→analyte edges of §3.2.
 
+The reachability count corroborates itself against the paper: the shortest-path rule returns
+a direction exactly when a path exists, and the paper reports **375** such directions against
+the **374** reachable pairs found here — a one-pair gap, which is about as close as an
+independent reconstruction from the web payload can be expected to land.
+
 **Consistent-with, not proven.** The release does not publish per-pair determinacy labels, so
-I cannot confirm the 171 determinate *are* the 155 one-hop pairs plus 16. My BFS also
-reconstructs reachability from the web payload (355) rather than the solver's own graph, and
-the paper reports 375 shortest-path directions; the ~20-pair gap is explained by the 27
-unresolvable lesion ids and possibly by quantitative-identity edges I did not traverse.
+I cannot confirm the 171 determinate pairs *are* the 161 one-hop pairs plus 10; the counts
+permit it but do not establish it. My BFS also reconstructs reachability from the projected
+web payload rather than from the solver's own graph, and does not traverse
+quantitative-identity edges.
 
 This does **not** undercut the abstention result (§1.8): that permutation test was restricted
 to pairs where the shortest-path rule returned a direction — i.e. reachable pairs — so
@@ -773,8 +813,10 @@ the *coverage* figure, not the significance of the concentration result.
 Minor, and recorded because dismech would hit the same class of problem if it built a shared
 trait namespace (§4.2).
 
-- **Exact duplicate traits.** Grouping nodes by (entity IRI, quality IRI) finds 195 colliding
-  pairs, but nearly all are legitimate context distinctions the web payload does not expose —
+- **Exact duplicate traits.** Grouping the 1,568 nodes that carry *both* an `entity_iri` and a
+  `quality_iri` by that pair finds 195 groups with more than one member (grouping all 1,699
+  nodes regardless gives 202; requiring only `entity_iri` gives 196 — the conclusion below is
+  identical under all three). Nearly all are legitimate context distinctions the web payload does not expose —
   `plasma_phenylalanine` and `csf_phenylalanine` share `CHEBI:28044` + `PATO:0000033` and
   differ only in context, which is what the trait definition's context conjunct is for.
   Filtering to collisions that *also* share an identical label leaves **5 genuine duplicate
@@ -807,14 +849,22 @@ trait namespace (§4.2).
 
 ## 4. Structural comparison
 
-Counts measured from this repo at commit `4b2f90c` (2,071 KB files: 1,928 disorders, 123
-modules, 20 comorbidities).
+Counts measured from this repo at **`c0250519` (2026-08-28)**, the branch's merge base.
 
-| | PhysioMap v1.1.1 | dismech (2026-08-23) |
+An earlier revision of this report measured at `4b2f90c` and mislabelled that column
+`2026-08-23`; `4b2f90c` is in fact dated **2026-08-11**, and the KB grew substantially in the
+intervening fortnight (11,923 → 15,296 nodes, 22,564 → 27,532 edges). Every figure below has
+been recomputed at the current base so the document carries one vintage. No conclusion
+changed: the cyclic-file share moved 1.4% → 1.5%, the description-regex share 18.3% → 18.5%,
+and both self-loops are still present. The one materially different row is the
+gain/loss-of-function modifier census in §4.1, which was 5/4 at the older commit and is now
+37/106 — no longer a rounding error, and worth knowing before citing it.
+
+| | PhysioMap v1.1.1 | dismech (`c0250519`, 2026-08-28) |
 |---|---|---|
 | Organizing axis | one shared physiology, disease-agnostic | per-disease entries + reusable modules |
-| Nodes | 1,699 traits | **11,923** pathophysiology nodes |
-| Causal edges | 2,387 projected relations | **22,564** `downstream` edges |
+| Nodes | 1,699 traits | **15,296** pathophysiology nodes |
+| Causal edges | 2,385 projected relations | **27,532** `downstream` edges |
 | Node identity | global EQ-pattern OWL class | free-text `name`, **scoped to its file** |
 | Edge polarity | signed (`+`/`-`/`0`/`?`), semantically load-bearing | **absent** |
 | Edge typing | 5 SCM-distinct types | `causal_link_type` = *directness* only |
@@ -832,7 +882,7 @@ dismech already commits to edge polarity in two places:
 - `EnvironmentalMechanismTarget.environmental_effect` → `TRIGGERS`, `EXACERBATES`,
   `PREDISPOSES`, `PROTECTS_AGAINST`, `MODULATES`
 
-But `CausalEdge` — the 22,564-edge backbone — carries only `target`, `description`,
+But `CausalEdge` — the 27,532-edge backbone — carries only `target`, `description`,
 `evidence`, `hypothesis_groups`, `causal_link_type`, `intermediate_mechanisms`. There is no
 slot for whether A *raises* or *lowers* B.
 
@@ -841,12 +891,12 @@ mechanism edge out of it is not. Any signed traversal of a dismech pathograph di
 first `downstream` hop.
 
 Polarity is not absent from the KB, just not in a queryable slot. Node-level descriptors
-carry `modifier` heavily — **DECREASED 3,520, INCREASED 3,394, ABNORMAL 2,355, DYSREGULATED
-715** (plus ABSENT 23, GAIN_OF_FUNCTION 5, LOSS_OF_FUNCTION 4) — and `INCREASED`/`DECREASED`
+carry `modifier` heavily — **DECREASED 4,795, INCREASED 4,186, ABNORMAL 2,916, DYSREGULATED
+856** (plus LOSS_OF_FUNCTION 106, GAIN_OF_FUNCTION 37, ABSENT 30) — and `INCREASED`/`DECREASED`
 are already bound to `PATO:0002300`/`PATO:0002301`, *the exact two terms PhysioMap uses for
 `+`/`−`*. A crude regex over edge `description` text
-(inhibit|suppress|decreas|reduc|block|impair|loss of|deplet|antagoni) matches 4,124 of 22,564
-edges (18.3%). Treat that only as evidence that polarity language is pervasive in the prose —
+(inhibit|suppress|decreas|reduc|block|impair|loss of|deplet|antagoni) matches 5,085 of 27,532
+edges (18.5%). Treat that only as evidence that polarity language is pervasive in the prose —
 the regex cannot distinguish "A inhibits B" from "A causes impaired B", and the two imply
 *opposite* edge signs. A reason to look, not a measurement.
 
@@ -865,7 +915,7 @@ duplicate module content.
 PhysioMap's traits are globally identified classes in one namespace, which is what lets 1,699
 nodes form a single coupled system with a 213-trait feedback component.
 
-Consequence: **dismech's 22,564 edges do not compose into one graph.** They are ~2,000
+Consequence: **dismech's 27,532 edges do not compose into one graph.** They are ~2,500
 disjoint per-disease graphs joined by manual anchors. Signing the edges would make each
 *entry* traversable; it would not by itself produce a whole-body physiology. That is a much
 larger undertaking and should not be smuggled in as a side effect of adding a sign slot.
@@ -877,21 +927,21 @@ reconciles duplicates as an explicit pipeline step and still ships six.
 
 PhysioMap's solver is elaborate because feedback is unavoidable in whole-body physiology: a
 213-trait SCC forces the Cramer's-rule test and the 16-trait expansion cap. Would dismech
-inherit that complexity? Measured over the 2,045 KB files with a `pathophysiology` block,
+inherit that complexity? Measured over the 2,517 KB files with a `pathophysiology` block,
 resolving `downstream` targets within each file:
 
 | | Count | Share |
 |---|---:|---:|
-| Files with a genuine multi-node feedback cycle | **29** | 1.4% |
+| Files with a genuine multi-node feedback cycle | **37** | 1.5% |
 | Self-loop edges (a node listing itself as `downstream`) | **2** | — |
-| Files whose pathograph is acyclic | 2,014 | 98.6% |
+| Files whose pathograph is acyclic | 2,480 | 98.5% |
 
-The 29 cyclic files are where you would expect real feedback — `Alzheimer_Disease`,
+The 37 cyclic files are where you would expect real feedback — `Alzheimer_Disease`,
 `Chronic_Kidney_Disease`, `Idiopathic_Pulmonary_Fibrosis`, `Abdominal_Aortic_Aneurysm`,
 `Aortic_Valve_Stenosis`, `Epilepsy`, `Alopecia_Areata` — self-amplifying vicious circles, not
 modeling accidents.
 
-This substantially strengthens R1. For 98.6% of entries, signed propagation is plain
+This substantially strengthens R1. For 98.5% of entries, signed propagation is plain
 topological sign algebra over `{+, -, 0, ?}` — no Jacobian, no SCC decomposition, no
 determinant test. PhysioMap's hard machinery would be needed for a couple of dozen entries,
 and its conservative fallback (abstain when unresolved) is acceptable for those in a first
@@ -940,7 +990,7 @@ Design notes, now grounded in the release rather than just the paper:
   applies to phenotype `frequency:` and to model-link vs. readout evidence. PhysioMap goes
   further and makes evidence class an *admission gate* (§1.6/§2.6): associational evidence
   cannot license a causal edge at all. That is worth considering for a signed dismech edge.
-- Retrofitting 22,564 edges is not proposed. Curate forward and backfill opportunistically; a
+- Retrofitting 27,532 edges is not proposed. Curate forward and backfill opportunistically; a
   mechanically-inferred backfill from description text would be exactly the plausible-looking
   fabrication the repo's evidence SOP exists to prevent.
 
@@ -1016,8 +1066,8 @@ presupposes R1 and the §4.2 namespace work.
    alongside `TreatmentMechanismTarget` / `EnvironmentalMechanismTarget` / `ModelMechanismLink`?
    The existing three all sign their edges; `CausalEdge` is the odd one out, which weakly argues
    for putting it on `CausalEdge` itself.
-3. ~~Does the dismech pathograph have feedback cycles today?~~ **Answered in §4.3:** 29 of 2,045
-   files (1.4%), plus 2 self-loops that look like curation errors.
+3. ~~Does the dismech pathograph have feedback cycles today?~~ **Answered in §4.3:** 37 of 2,517
+   files (1.5%), plus 2 self-loops that look like curation errors.
 4. Should a self-loop `downstream` edge be a test failure? (§4.3 — two exist today.)
 5. `conforms_to` anchors are the only existing cross-file node identity. Are they dense enough
    to seed a shared trait namespace, or is §4.2 genuinely a from-scratch effort?
@@ -1045,7 +1095,16 @@ and admission rules), and `benchmarks/results/expert_gold_review.tsv` +
 class counts are computed over all 2,358 `causal_edges` in the benchmark YAML. Reviewer
 comments are quoted verbatim, lightly truncated where marked.
 
-**Part III** is my own computation from `web/physiomap-1.1.1.json` (node/edge inventories,
+**Part III** is reproducible: `scripts/physiomap_release_analysis.py` regenerates every
+figure in it from a PhysioMap clone (`uv run python scripts/physiomap_release_analysis.py
+<clone>`). That script exists because the first revision of this report got §3.7 wrong — it
+read `primary_intervention` as a single identifier when 27 of the 866 rows carry two
+semicolon-separated lesion variables — and a committed script makes that class of error
+checkable rather than trusted. It follows the precedent in
+[`experiments/README.md`](../../experiments/README.md): scripts that compute metrics are
+committed alongside so numbers can be regenerated rather than trusted.
+
+Part III computes from `web/physiomap-1.1.1.json` (node/edge inventories,
 sign and provenance distributions, scale/system/PATO/entity breakdowns, the complete
 constitutive/quantitative/modulation sets, duplicate-trait and sign-conflict checks, and the
 degree/topology analysis) and `benchmarks/results/e1b_forward_pairs.tsv` +
@@ -1053,7 +1112,8 @@ degree/topology analysis) and `benchmarks/results/e1b_forward_pairs.tsv` +
 limits are stated inline. The release's headline counts reproduce the paper's exactly, which is
 a good integrity signal.
 
-**Part IV** figures are measured from this repo at commit `4b2f90c` by walking
+**Part IV** figures are measured from this repo at commit `c0250519` (2026-08-28), the
+branch's merge base, by walking
 `kb/{disorders,modules,comorbidities}/*.yaml`; the §4.3 cycle analysis resolves each
 `downstream` target against `pathophysiology[].name` within the same file, so it measures
 intra-entry structure only. Schema claims verified against `src/dismech/schema/dismech.yaml`
