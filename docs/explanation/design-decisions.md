@@ -112,6 +112,59 @@ This graph backs the rendered pathographs and the computational-model integratio
 (see [computational models](computational-models.md)).
 
 
+### 3a. Cancer granularity ladder (2026-08-28)
+
+**Decision.** Somatic cancer entries follow an explicit **granularity ladder**. The
+generic §3 rule ("separate file only for a distinct MONDO identity and a substantially
+independent mechanism") was written for Mendelian disease; cancer needs its own clause
+because the field's own taxonomy is layered — a histogenesis backbone with molecular
+alterations *promoted* into entity definitions case by case (WHO Classification of
+Tumours 5th ed. / cIMPACT-NOW integrated diagnosis, WHO-HAEM5 and ICC 2022, ICD-O,
+OncoTree) — and because most of the KB's precision-oncology entries sit *below* MONDO's
+granularity, which the Mendelian rule never contemplated.
+
+| Level | Represent as | Rule |
+|---|---|---|
+| **L1 Organ/system pool** ("lung cancer", "lymphoma") | Lean umbrella `Disease` entry or a `Grouping` | Never the curation target for mechanism content; every pathophysiology node must hold for all members |
+| **L2 Histologic entity** (PDAC, SCLC, DLBCL, osteosarcoma) | `Disease` entry — **the default level for a new cancer entry** | The WHO blue-book / ICD-O morphology level; anchor to the entity's MONDO term |
+| **L3 Molecularly defined entity** (IDH-wildtype glioblastoma, APL with PML::RARA, NPM1-mutant AML, Ewing sarcoma) | `Disease` entry | Create when WHO/ICC defines the entity molecularly — the field has already made the promotion call, and MONDO nearly always has the term |
+| **L4 Biomarker/therapy stratum** (EGFR-mutant NSCLC, MSI-H CRC, TNBC, FLT3-mutant AML) | Default: `has_subtypes` on the L2/L3 entry. **Promote to its own entry** only when it passes the disjunction test (issue #7082): ≥2 pathophysiology nodes not true of sibling strata **and** a distinct first-line therapy or diagnostic pathway | On promotion: (a) file a MONDO NTR; until granted, anchor `disease_term` to the parent term but record `mapping_predicate: skos:narrowMatch` in `mappings.mondo_mappings` with a justification — never a bare parent-term reuse presented as exact; (b) record non-disjointness with sibling strata (e.g. FLT3×NPM1 AML, MSI-H×BRAF-V600E CRC) in `notes` and grouping `differentiating_mechanisms`; (c) add or extend the covering `Grouping` (`Molecularly_Defined_NSCLC_Subtypes` is the worked precedent); (d) the parent's `has_subtypes` keeps a *pointer* subtype naming the split file rather than a divergent copy |
+| **L5 Variant tier** (exon 19 del vs L858R vs T790M) | `has_subtypes` inside the L4 entry | Never its own file. Exception: a variant *is* the L4 stratum when therapy is variant-specific (KRAS G12C is the stratum because sotorasib/adagrasib are G12C-covalent; "KRAS-mutant NSCLC" would be the wrong grain) |
+| **Stage / metastasis** | `stages:` on the parent entry, progression records, and `conforms_to` on the `invasion_and_metastasis` module | **Never a `Disease` entry.** TNM stage is orthogonal to taxonomy in every classification system |
+| **Etiologic stratum** (HPV± oropharyngeal SCC, EBV-associated gastric cancer) | Case-by-case via the same L4 promotion test | HPV-positive oropharyngeal SCC passes (distinct mechanism, AJCC 8 stages it separately); EBV-GC is a TCGA molecular subgroup and sits closer to a subtype |
+| **Tissue-agnostic biomarker indication** (NTRK fusion-positive cancer) | One MONDO-anchored entry per biomarker, categorized `Tumor-Agnostic Indication` | Do not also stamp it as a subtype of every organ cancer; organ-specific entries reference it |
+| **Pathway / hallmark biology** (MAPK, PI3K, the Hanahan–Weinberg hallmarks) | `kb/modules/` + mechanism `Grouping` only | **Never a `Disease` entry** — pathways recur across entities and across the cancer/non-cancer boundary (cf. RASopathies) |
+
+**Germline cancer-predisposition syndromes** (Li-Fraumeni, Lynch, FAP, VHL, HBOC…) are
+Mendelian diseases and stay under the plain §3 rules; this clause governs the somatic
+neoplasm entries only. The associated somatic cancer remains a separate entry
+(Lynch vs MSI-H CRC, Gorlin vs basal cell carcinoma).
+
+**Rationale.** Neither variants, genes, nor pathways can serve as the primary axis: the
+same lesion is a different disease in a different lineage (BRAF V600E melanoma responds
+to BRAF inhibition; BRAF V600E CRC does not, via EGFR feedback — modeled in the KB's own
+entry), yet a single lesion *can* define an entity when it is the initiating, universal,
+lineage-bound driver (CML, APL, Ewing). The KB's biomarker-stratum entries are retained
+— they carry exactly the distinct mechanism + therapy content that justifies a
+mechanism-first split and that `has_subtypes` cannot scope (no `subtype:` discriminator
+exists on `Pathophysiology` or `Treatment`) — but new ones must earn promotion rather
+than default to it. This supersedes the informal "Molecular Subtypes as Discrete
+Entities" policy in `projects/CANCER.md` and resolves the cancer buckets (A/B) of issue
+#5121 non-uniformly: driver strata stay split under the anchoring convention above;
+"Metastatic X" stage entries are folded into their parents (enacted in the same PR as
+this decision — the ten former `Metastatic_*` entries are now `stages` + merged content
+on their histologic parents, with `Cutaneous_Melanoma` and `Breast_Carcinoma` created as
+previously missing parent rungs).
+
+**Origin.** Issues [#306](https://github.com/monarch-initiative/dismech/issues/306),
+[#3881](https://github.com/monarch-initiative/dismech/issues/3881),
+[#5121](https://github.com/monarch-initiative/dismech/issues/5121),
+[#7082](https://github.com/monarch-initiative/dismech/issues/7082); full review in
+[cancer-taxonomy-granularity-review-2026-08-28](../reports/cancer-taxonomy-granularity-review-2026-08-28.md).
+Enacted at maintainer direction (@cmungall, 2026-08-28 session). **Still open:** the
+MONDO NTR list for promoted strata; creating remaining missing L2 parents (e.g.
+`Lung_Adenocarcinoma`); structural overlap annotation between non-disjoint strata.
+
 ## 4. Ontology constraints
 
 **Decision.** Term validation is restricted to an explicit, curated set of ontologies.
