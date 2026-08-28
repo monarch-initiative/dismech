@@ -393,6 +393,33 @@ def _is_known_kind(kind: str) -> bool:
     return kind == DISEASE_KIND or kind in SECTION_KEYS or kind in SINGLETON_SECTIONS
 
 
+def downstream_self_loop_errors(data: dict) -> list[str]:
+    """A pathophysiology node's ``downstream`` list may not target itself.
+
+    ``downstream`` asserts causal progression from one mechanism node to
+    another; a node cannot progress to itself, so a self-referencing edge is
+    never meaningful. ``target`` is exempt from the ``<kind>#<name>`` grammar
+    (it holds plain node names), so a self-loop resolves fine under
+    ``entity_ref_errors`` and is invisible to every other check (#9896).
+    """
+    if not isinstance(data, dict):
+        return []
+    errors: list[str] = []
+    for i, item in enumerate(data.get("pathophysiology", []) or []):
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if not name:
+            continue
+        for j, edge in enumerate(item.get("downstream", []) or []):
+            if isinstance(edge, dict) and edge.get("target") == name:
+                errors.append(
+                    f"pathophysiology[{i}].downstream[{j}] targets itself "
+                    f"({name!r}); a node cannot cause itself"
+                )
+    return errors
+
+
 def entity_ref_errors(data: dict) -> list[str]:
     """Every entity-reference problem in one loaded entry.
 
@@ -400,7 +427,9 @@ def entity_ref_errors(data: dict) -> list[str]:
     (``test_entity_ref_foreign_keys``) and the ungated CI check
     (``scripts/check_entity_refs.py``) cannot drift apart -- two copies of a
     rule eventually disagree, which is the argument this module was created
-    on (#9193).
+    on (#9193). Also includes ``downstream_self_loop_errors``, a related but
+    distinct rule: a causal edge that resolves fine but targets its own
+    source node.
 
     Messages name the dotted path within the document rather than a file, so a
     caller can prefix whatever locator it has. Returns an empty list for an
@@ -408,7 +437,7 @@ def entity_ref_errors(data: dict) -> list[str]:
     """
     if not isinstance(data, dict):
         return []
-    errors: list[str] = []
+    errors: list[str] = list(downstream_self_loop_errors(data))
     item_names = {ref.split("#", 1)[1] for ref in entity_ref_index(data)}
     for site in iter_entity_refs(data):
         parsed = parse_entity_ref(site.ref)
