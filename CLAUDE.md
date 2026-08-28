@@ -1179,6 +1179,30 @@ Use OAK to search for terms:
 uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 ```
 
+**Devices are not clinical actions, and NCIT has terms for both.** `TreatmentTerm` is
+rooted at `NCIT:C25218` (Clinical Intervention or Procedure), so a term naming the
+*equipment* is unreachable no matter how exactly it matches the treatment's name. The
+worked case is cochlear implantation: `NCIT:C157820` "Cochlear Implant" is the obvious
+term, is defined as "a two part electronic device...", has **no** `C25218` ancestor, and
+fails validation. Bind the clinical action instead — `NCIT:C15329` (Surgical Procedure)
+for the implantation itself — and carry the specificity in `preferred_term`
+(`cochlear device implantation`). This is exactly the case
+[`preferred_term` vs Ontology Term Labels](#preferred_term-vs-ontology-term-labels)
+describes, and it generalizes: hearing aids, pumps, stents, and shunts all have NCIT
+device terms that cannot be used here.
+
+Two things follow that are easy to get wrong:
+
+- **`preferred_term` must not just echo the ontology label.** A treatment bound to
+  `NCIT:C15315` whose `preferred_term` is `Rehabilitation` has thrown away every bit of
+  information the binding lost. That is the failure the specificity rule exists to
+  prevent.
+- **A divergent binding is not automatically drift.** A treatment that bundles
+  amplification *or* implantation *with* rehabilitation is genuinely a rehabilitation
+  intervention, and one whose disease has no reported surgical case should not assert
+  a surgical term. Check what the treatment actually is before normalizing it to the
+  majority binding, and record the reason in `notes` when you leave one alone.
+
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
 Treatment terms describe the **medical action** (e.g., Pharmacotherapy, chemotherapy,
