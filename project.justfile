@@ -1054,25 +1054,29 @@ list-short-snippets:
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
 
-# Guard against NEW evidence-free `environmental:` exposures in kb/ --
+# Guard against evidence-free `environmental:` exposures in kb/ --
 # an entry with no `evidence:` block is an uncited causation claim that
 # `just validate`/`validate-terms`/`count-verified-snippets` cannot see, since
-# `evidence` is optional on the class (#8296). The pre-existing backlog is
-# grandfathered against origin/main (like CI), so this fails only on new ones.
+# `evidence` is optional on the class (#8296).
+# The #8296 backlog was worked to zero, so this is a hard gate rather than a
+# ratchet: an exposure that genuinely cannot be cited carries a `review_notes:`
+# waiver instead (see `just list-environmental-evidence-waivers`).
 [group('QC')]
 check-environmental-evidence:
-    uv run python scripts/check_environmental_evidence.py --against-ref origin/main
+    uv run python scripts/check_environmental_evidence.py
 
-# List every evidence-free `environmental:` exposure, baselined or not (triage view).
+# List every evidence-free `environmental:` exposure (triage view). Waived
+# entries are excluded; see `list-environmental-evidence-waivers`.
 [group('QC')]
 list-environmental-evidence-gaps:
     uv run python scripts/check_environmental_evidence.py --all
 
-# Regenerate the environmental-evidence baseline after intentionally changing
-# the backlog (e.g. citing exposures in a curation tranche). Review the diff.
+# List exposures dispositioned by a `review_notes:` waiver -- a recorded failed
+# search rather than an unexamined gap. These are excluded from the gap list
+# above, so this is how they stay visible (#8296).
 [group('QC')]
-update-environmental-evidence-baseline:
-    uv run python scripts/check_environmental_evidence.py --update-baseline
+list-environmental-evidence-waivers:
+    uv run python scripts/check_environmental_evidence.py --waivers
 
 # Guard against evidence snippets that merely quote the cited paper's title,
 # which records that a question was examined rather than what was found (#8374).
