@@ -438,16 +438,18 @@ verification cache. `geo:` is migrated; the remaining prefixes follow one at a t
   file is the verification** — the fetcher writes one only after the repository returned a
   record — and it is committed with the `datasets:` block.
 - All 919 `geo:` accessions in `kb/` were backfilled, so the check is offline in CI.
-- **`geo` stays in `skip_prefixes` until two evidence snippets are fixed.** Removing it
-  also hands the validator `datasets[].title` (a title slot adjacent to a reference field)
-  and any `GEO:`-cited snippet. Against the complete backfilled cache that would have
-  failed 32 records. The 30 title failures are fixed: an audit of all 951 `geo:` records
-  found 30 whose curated title paraphrased or replaced GEO's own, and each is now the
-  verbatim repository title (951/951 match). **`datasets[].title` is the repository's
-  title, copied exactly** — the curator's own summary belongs in `description`, and the
-  title keeps the repository's typos, for the same reason a snippet never corrects its
-  source. Two snippet failures remain (`GEO:GSE316127`, `GEO:GSE289185`), one a reordered
-  paraphrase of a cached sentence and one quoting GEO's uncached "overall design" field.
+- **`geo` and `GEO` have been removed from `skip_prefixes`**, so the validator now checks
+  GEO records like any other reference — the accession must resolve, a `GEO:`-cited
+  snippet must be an exact quote from the cached summary, and `datasets[].title` must be
+  the repository's own title (a title slot adjacent to a reference field is compared with
+  the fetched record). **`datasets[].title` is the repository's title, copied exactly** —
+  the curator's summary belongs in `description`, and the title keeps the repository's
+  typos, for the same reason a snippet never corrects its source. Turning this on was a
+  curation pass, not a config change: it required fixing 32 records — 30 titles that
+  paraphrased or replaced GEO's own (of 951; now 951/951 match) and 2 evidence snippets,
+  one a reordered paraphrase of a sentence that was in the cache all along
+  (`GEO:GSE289185`) and one quoting GEO's uncached "overall design" field
+  (`GEO:GSE316127`). KB-wide, 133,610 of 138,867 snippets verify with zero GEO failures.
 - **`cache/dataset_accessions.json` is frozen.** No script, module, test, workflow, or
   recipe reads or writes it, enforced by
   `test_no_automation_touches_the_frozen_dataset_cache`. It remains in git only until the
@@ -482,12 +484,13 @@ cached there now is, so a dataset record *may* carry evidence quoting it and cit
 `GEO:<ID>` (worked example: `Acne_Vulgaris`). This does not license bulk evidence
 generation; the §6 exact-quote rule is unchanged.
 
-**Follow-ups.** (1) Fix the two remaining dataset evidence snippets, then remove
-`geo`/`GEO` from `skip_prefixes` so GEO records are validated like every other reference. (2) Give the remaining prefixes a fetcher, highest-volume first (`ega` 382,
-`massive` 120, `metabolomics_workbench` 81, `dbgap` 71), adding each to
-`REFERENCE_CACHED_PREFIXES`; lrv ships a `BIOPROJECT` source already, and its generic
-`json_api` source may cover others without new code. (3) Delete the frozen blob once open
-PRs have drained.
+**Follow-ups.** (1) Give the remaining prefixes a fetcher, highest-volume first (`ega`
+382, `massive` 120, `metabolomics_workbench` 81, `dbgap` 71), adding each to
+`REFERENCE_CACHED_PREFIXES` and removing it from `skip_prefixes`; lrv ships a
+`BIOPROJECT` source already, and its generic `json_api` source may cover others without
+new code. Budget each migration as a backfill *plus* whatever the newly-enabled title and
+snippet checks surface — it is a curation pass, not a config edit. (2) Delete the frozen
+blob once open PRs have drained.
 
 
 ## 7. Curation process & governance

@@ -171,27 +171,31 @@ writes it only if the repository returned something. So:
 All 919 `geo:` accessions in `kb/` are backfilled, so a run over an untouched
 file makes no network calls.
 
-### Still to do: take `geo` out of `skip_prefixes`
+### GEO records are validated, not skipped
 
-Removing `geo` / `GEO` from `skip_prefixes` hands snippet **and title** checking
-of dataset records to `linkml-reference-validator`, which is the point of
-caching them. Two things had to be true first.
+`geo` and `GEO` have been removed from `skip_prefixes`, so
+`linkml-reference-validator` now checks a GEO dataset record like any other
+reference. Two rules follow, and both are enforced:
 
-**Titles — done.** `datasets[].title` sits next to a reference field, so the
-validator compares it with the fetched record. An audit of all 951 `geo:`
-records against the backfilled cache found 30 whose curated title paraphrased or
-replaced GEO's own; all 30 are now GEO's verbatim title and the audit is clean
-(951/951). Keep it that way: **`datasets[].title` is the repository's title,
-copied exactly.** Your own summary of the dataset goes in `description`. The
-title even keeps the repository's typos — `geo:GSE301492` carries GEO's
-misspelled "Reed-Stenberg", for the same reason an evidence snippet never
+**`datasets[].title` is the repository's title, copied exactly.** It is a title
+slot adjacent to a reference field, so the validator compares it with the
+fetched record. Your own summary of what the dataset contains goes in
+`description`. Copy the title even when it is wrong — `geo:GSE301492` carries
+GEO's misspelled "Reed-Stenberg" — for the same reason an evidence snippet never
 "corrects" the source it quotes.
 
-**Snippets — 2 outstanding.** Two evidence items citing a `GEO:` record quote
-text that is not in the cached summary (`GEO:GSE316127`, `GEO:GSE289185`). One
-is a reordered paraphrase of a sentence that *is* in the cache; the other quotes
-what looks like GEO's "overall design" field, which the fetcher does not cache.
-Until both are fixed, `geo` stays in `skip_prefixes`.
+**A `GEO:`-cited snippet must be an exact quote from the cached summary.** The
+summary is the abstract-length text in `references_cache/GEO_<ID>.md`; GEO's
+"overall design" field is *not* cached, so a quote taken from the GEO web page
+may not be quotable here. Pick a sentence from the cache file.
+
+Enabling this was a curation pass, not a config change. It required correcting
+**30 dataset titles** that paraphrased or replaced GEO's own (of 951 records;
+e.g. `Bbs8-deficient mouse retinal pigment epithelium transcriptomics` against
+GEO's `Transcriptome profile of Bbs8/TTC8 Knockout mouse RPE Tissue`), and **2
+evidence snippets** — one a reordered paraphrase of a sentence that was in the
+cache all along, one quoting the uncached "overall design" field. Expect the
+same shape of work when migrating the next prefix.
 
 Other prefixes (EGA, MassIVE, dbGaP, PRIDE, MetaboLights, …) still resolve
 against their repository API on every run and cache nothing. Migrating one means

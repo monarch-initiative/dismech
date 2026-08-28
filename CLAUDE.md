@@ -443,9 +443,7 @@ only the verifier catches nonexistent ones.
 #### A dataset accession is a reference (`geo:` first)
 
 `Dataset.accession` carries `implements: linkml:authoritative_reference` — it
-always *was* a reference slot; `conf/reference_validator_config.yaml` just lists
-the dataset prefixes under `skip_prefixes`. `geo:` now behaves like a reference
-where it counts, in how it is verified and stored:
+always *was* a reference slot, and `geo:` is now treated as one end to end:
 
 - `just verify-datasets` resolves a `geo:` accession by asking the reference
   fetcher for it, which writes `references_cache/GEO_<ID>.md` — one file per
@@ -453,15 +451,24 @@ where it counts, in how it is verified and stored:
   `datasets:` block**, exactly as you would a `PMID_*.md`.
 - A cache file present *is* the verification. All 919 `geo:` accessions in `kb/`
   are backfilled, so a run over an untouched file makes no network calls.
-- Because the GEO summary is cached, a dataset record **can** carry real
-  `evidence:` quoting it and citing `GEO:<ID>` (`Acne_Vulgaris` is the worked
-  example). Quote it exactly anyway: `geo` is still in `skip_prefixes`, so the
-  validator does not yet check those snippets for you. This does not license
-  bulk-generated evidence (see below).
+- `geo` has been removed from `skip_prefixes`, so
+  `linkml-reference-validator` now checks GEO records like any other reference.
+  Two consequences:
+  - **`datasets[].title` must be the repository's own title, copied exactly** —
+    it is a title slot next to a reference field, so the validator compares it
+    with the fetched record. Your summary of what the dataset contains goes in
+    `description`. Copy the title even when it is wrong: `geo:GSE301492` carries
+    GEO's misspelled "Reed-Stenberg", for the same reason a snippet never
+    corrects the source it quotes.
+  - A dataset record **can** carry real `evidence:` quoting the cached summary
+    and citing `GEO:<ID>` (`Acne_Vulgaris` is the worked example), and that
+    snippet is now exact-quote validated. This does not license bulk-generated
+    evidence (see below).
 - Other prefixes (EGA, MassIVE, dbGaP, PRIDE…) still resolve against their
-  repository API on every run and cache nothing. Migrating one means giving it a
-  fetcher and adding it to `REFERENCE_CACHED_PREFIXES` in
-  `scripts/verify_dataset_accessions.py`.
+  repository API on every run, cache nothing, and stay in `skip_prefixes`.
+  Migrating one means giving it a fetcher, adding it to
+  `REFERENCE_CACHED_PREFIXES` in `scripts/verify_dataset_accessions.py`,
+  backfilling the cache, and fixing what the newly-enabled checks surface.
 
 **`cache/dataset_accessions.json` is frozen. Never read, write, or edit it.**
 It was a single shared JSON blob rewritten in full by every verifier run — so
