@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1054,25 +1054,29 @@ list-short-snippets:
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
 
-# Guard against NEW evidence-free `environmental:` exposures in kb/ --
+# Guard against evidence-free `environmental:` exposures in kb/ --
 # an entry with no `evidence:` block is an uncited causation claim that
 # `just validate`/`validate-terms`/`count-verified-snippets` cannot see, since
-# `evidence` is optional on the class (#8296). The pre-existing backlog is
-# grandfathered against origin/main (like CI), so this fails only on new ones.
+# `evidence` is optional on the class (#8296).
+# The #8296 backlog was worked to zero, so this is a hard gate rather than a
+# ratchet: an exposure that genuinely cannot be cited carries a `review_notes:`
+# waiver instead (see `just list-environmental-evidence-waivers`).
 [group('QC')]
 check-environmental-evidence:
-    uv run python scripts/check_environmental_evidence.py --against-ref origin/main
+    uv run python scripts/check_environmental_evidence.py
 
-# List every evidence-free `environmental:` exposure, baselined or not (triage view).
+# List every evidence-free `environmental:` exposure (triage view). Waived
+# entries are excluded; see `list-environmental-evidence-waivers`.
 [group('QC')]
 list-environmental-evidence-gaps:
     uv run python scripts/check_environmental_evidence.py --all
 
-# Regenerate the environmental-evidence baseline after intentionally changing
-# the backlog (e.g. citing exposures in a curation tranche). Review the diff.
+# List exposures dispositioned by a `review_notes:` waiver -- a recorded failed
+# search rather than an unexamined gap. These are excluded from the gap list
+# above, so this is how they stay visible (#8296).
 [group('QC')]
-update-environmental-evidence-baseline:
-    uv run python scripts/check_environmental_evidence.py --update-baseline
+list-environmental-evidence-waivers:
+    uv run python scripts/check_environmental_evidence.py --waivers
 
 # Guard against evidence snippets that merely quote the cited paper's title,
 # which records that a question was examined rather than what was found (#8374).
@@ -1092,6 +1096,48 @@ list-title-snippets:
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
 
+# Guard against one quoted sentence carrying two different `evidence_source`
+# values in the same file -- `evidence_source` describes the cited publication,
+# not the block the quote was pasted into, so a file that says both is
+# self-contradicting (#8184). Grandfathered against origin/main like the length
+# and title checks.
+[group('QC')]
+check-snippet-grading:
+    uv run python scripts/check_snippet_grading.py --against-ref origin/main
+
+# List every snippet-grading divergence, baselined or not (triage view).
+# `--fields all` adds the `supports` divergences, which are NOT gated -- see the
+# script docstring for why (they are overwhelmingly correct curation).
+[group('QC')]
+list-snippet-grading *args="":
+    uv run python scripts/check_snippet_grading.py --all {{args}}
+
+# Regenerate the snippet-grading baseline after intentionally changing the set
+# (e.g. reconciling backlog divergences). Review the diff before committing.
+[group('QC')]
+update-snippet-grading-baseline:
+    uv run python scripts/check_snippet_grading.py --update-baseline
+
+# Guard against reference titles that name a paper other than the one cited --
+# a correct PMID with a verified snippet and an invented `reference_title`,
+# which every other gate is structurally blind to because each checks a
+# different field (#9138). Compared against the `title:` already in that
+# reference's cache frontmatter, so it is offline and needs no network.
+# Grandfathered against origin/main the same way the snippet ratchets are.
+[group('QC')]
+check-reference-titles:
+    uv run python scripts/check_reference_titles.py --against-ref origin/main
+
+# List every mismatching reference title, baselined or not (triage view).
+[group('QC')]
+list-reference-title-mismatches:
+    uv run python scripts/check_reference_titles.py --all
+
+# Regenerate the reference-title baseline after intentionally changing the set
+# (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-reference-title-baseline:
+    uv run python scripts/check_reference_titles.py --update-baseline
 # Guard against evidence items with an empty/whitespace-only `snippet`, which
 # pass `linkml-reference-validator`/`count-verified-snippets` vacuously
 # (#8550). `supports: NO_EVIDENCE` items are exempt (checked, not relevant --

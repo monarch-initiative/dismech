@@ -183,6 +183,41 @@ If a verbatim quote fails near brackets, read the reason printed by
 `count-verified-snippets`. Do not change the global patterns to accommodate one
 snippet without replaying validation across the KB.
 
+### Read the title off the cache, never from memory
+
+`reference_title` (on an `EvidenceItem`) and `title` (on a top-level
+`references:` entry) name the paper you cited, and until #9138 nothing checked
+them. The failure mode that exposed is specific: **correct PMID, verified
+snippet, invented title.** Each gate reads a different field — `linkml-validate`
+confirms the slot is a string, `count-verified-snippets` and
+`validate-references` check the *snippet*, `validate-terms` checks ontology
+terms, and `check_title_snippets` (despite the name) asks whether a snippet
+quotes a title. None of them reads the title.
+
+On PR #9111 three of twenty `(reference, reference_title)` pairs named papers
+that do not exist. Two were written by an agent that had just verified the
+adjacent snippets as exact substrings of the cached text, then wrote the titles
+beside them from memory. Being rigorous about the quote and careless about the
+citation attached to it is a distinct failure mode, and these values are not
+inert — they render on the disorder page and flow into the cx2 and SEPIO
+exports.
+
+The correct title is already on disk, in the reference's cache frontmatter:
+
+```bash
+head -5 references_cache/PMID_34081534.md
+# ---
+# reference_id: PMID:34081534
+# title: Axonal Growth Abnormalities Underlying Ocular Cranial Nerve Disorders.
+```
+
+Copy it from there. `just check-reference-titles` gates new mismatches (offline,
+similarity-based, so punctuation, dashes, diacritics and source-XML markup do
+not trip it) and prints the cached title in the failure message, so the fix is a
+copy-paste. `just list-reference-title-mismatches` is the triage view;
+`scripts/find_missing_reference_titles.py` is the complementary check for
+*absent* titles.
+
 ## Frequency claims
 
 A phenotype `frequency:` value is a separate quantitative claim from the

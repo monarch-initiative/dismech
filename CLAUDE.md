@@ -1728,6 +1728,7 @@ a file path:
 just check-folded-hyphens
 just check-snippet-length
 just check-title-snippets
+just check-snippet-grading
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
@@ -1735,11 +1736,47 @@ just check-source-defect-claims  # report-only
 ```
 
 They catch folded-scalar word corruption, non-propositional short snippets,
-paper titles used as findings, environmental claims without entry-level
-evidence, duplicate YAML keys, broken `<kind>#<name>` entity references, and
-prose claims about defective sources that the cache contradicts. The first four
-use baselines; do not update a baseline to admit a defect introduced by the
-current change.
+paper titles used as findings, one quoted sentence graded with two different
+`evidence_source` values in the same file, environmental claims without
+entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
+references, and prose claims about defective sources that the cache
+contradicts. The first four use baselines; do not update a baseline to admit a
+defect introduced by the current change. `check-environmental-evidence` had one
+too, until the #8296 backlog reached zero and it became a hard gate -- an
+exposure that genuinely cannot be cited now carries a `review_notes:` waiver
+instead of a baseline row (see below).
+
+**When an exposure genuinely cannot be cited, say so in `review_notes:`.**
+`check-environmental-evidence` treats an `environmental[]` entry whose
+`review_notes` *begins* with the sentence
+
+```
+Left deliberately uncited.
+```
+
+as dispositioned rather than uncited, and reports it under `just
+list-environmental-evidence-waivers` instead of as an outstanding gap. Say
+which searches you ran and why they failed, as the `Gout` → Dehydration and
+`Myasthenia_Gravis` → Stress entries do — **the sentence alone does not
+waive**. At least 20 words of recorded search must follow it, and that floor
+is enforced by `check-environmental-evidence` itself, which is ungated, rather
+than only by a test that a `kb/`-only PR would skip. The
+sentinel is matched on `review_notes` only, and only as a prefix: `notes:` is
+disease content and cannot waive, and prose that merely mentions the phrase
+does not trigger it. An entry carrying both a waiver and real evidence is not
+reported as waived — the evidence supersedes it. This exists so that "searched,
+found nothing quotable" is a recordable answer rather than a permanent backlog
+item; it is not a way to skip the search (#8296).
+
+`check-snippet-grading` (#8184) is the one to know about when copying an
+evidence item into a second block: `evidence_source` classifies the cited
+*publication*, so it cannot change because the quote moved. Re-grading a copied
+quote is the defect. Note it is keyed on the **quoted sentence**, not the PMID —
+one paper legitimately carries several values across different sentences, which
+is what "If a paper mixes sources, split evidence items" above already asks for.
+`supports` is deliberately *not* gated: it is claim-relative, so the same
+sentence correctly reads `SUPPORT` for one claim and `PARTIAL` for another
+(`just list-snippet-grading --fields all` shows those as a triage view).
 
 **Why the entity-ref check is a CI step and not just a test.** The same rules
 run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
