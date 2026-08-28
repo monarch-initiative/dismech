@@ -31,6 +31,7 @@ from typing import Any
 
 import yaml
 
+from dismech.research_reports import AlignmentError, align_report_provider
 from dismech.yaml_io import safe_load
 
 DEFAULT_KB_DIR = Path("kb/disorders")
@@ -455,16 +456,57 @@ def run_record(
             status = "MISSING_OUTPUT"
         else:
             status = f"ERROR_{result.returncode}"
+        detail = tail_detail(result)
+        provider_ran = normalized
+
+        # A run that fell back to another provider wrote a report named for the
+        # provider we asked for. The output path is how a provider is read back
+        # here (`existing_outputs`) exactly as it is in the justfile recipes, so
+        # the report is renamed to whoever actually produced it.
+        #
+        # Gated on the report existing rather than on the run succeeding, which
+        # is what the justfile recipes do and for the same reason: the client
+        # writes the report BEFORE validating it and exits 3 when validation
+        # fails, so an ERROR_3 run leaves a real report on disk. Aligning only
+        # on OK would leave exactly that report misnamed.
+        if output_ok:
+            try:
+                alignment = align_report_provider(output_file, normalized)
+            except AlignmentError as error:
+                # Do not overwrite a status that already records a real failure:
+                # an ERROR_3 run failed validation, and that is the more useful
+                # thing to report. Only a run that otherwise succeeded becomes
+                # ERROR_ALIGN.
+                if status == "OK":
+                    status = "ERROR_ALIGN"
+                    detail = str(error)
+                else:
+                    detail = f"{detail}; alignment failed: {error}".lstrip("; ")
+            else:
+                if alignment.fell_back and alignment.actual_provider:
+                    provider_ran = alignment.actual_provider
+                    output_file = alignment.report
+                    citations_file = Path(f"{output_file}.citations.md")
+                    fallback_note = (
+                        f"{normalized} could not run this job; "
+                        f"{provider_ran} produced the report instead"
+                    )
+                    detail = (
+                        f"{fallback_note}; {detail}".rstrip("; ")
+                        if detail
+                        else fallback_note
+                    )
+
         return RunResult(
             record=record,
-            provider=normalized,
+            provider=provider_ran,
             status=status,
             returncode=result.returncode,
             duration_seconds=duration,
             output_file=output_file,
             citations_file=citations_file,
             command=command,
-            detail=tail_detail(result),
+            detail=detail,
         )
     except subprocess.TimeoutExpired:
         duration = time.monotonic() - started
