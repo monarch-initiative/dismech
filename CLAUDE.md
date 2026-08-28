@@ -497,6 +497,34 @@ Use this when there is no individual item to name, including a knowledge gap
 attached to an intentionally empty section. A bare section name such as
 `clinical_burden` is not valid entity-reference syntax.
 
+### Cancer Entry Granularity
+
+Somatic cancer entries follow the **granularity ladder** ratified in design
+decisions §3a (`docs/explanation/design-decisions.md`) — consult it before
+creating any new cancer/neoplasm entry. The short version:
+
+- **Default level for a new cancer entry is the histologic entity** (the WHO
+  blue-book / ICD-O morphology level: PDAC, SCLC, DLBCL), or the
+  **WHO/ICC-defined molecular entity** where the field defines one
+  (IDH-wildtype glioblastoma, NPM1-mutant AML).
+- **Biomarker/therapy strata** (EGFR-mutant NSCLC, MSI-H CRC, TNBC) default to
+  `has_subtypes` on the parent; promote to a separate entry only with ≥2
+  stratum-specific pathophysiology nodes **and** a distinct first-line therapy
+  or diagnostic pathway. A promoted stratum without its own MONDO term anchors
+  to the parent term with `mapping_predicate: skos:narrowMatch` in
+  `mappings.mondo_mappings` (never bare parent-term reuse), records overlap
+  with non-disjoint sibling strata, and is covered by a `Grouping`.
+- **Variant tiers** (exon 19 del vs L858R) are `has_subtypes` inside the
+  stratum entry — unless therapy is variant-specific (KRAS G12C).
+- **Stage is never an entry.** Metastatic/advanced disease is `stages:` on the
+  parent plus `conforms_to` on the `invasion_and_metastasis` module — do not
+  create `Metastatic_X` entries.
+- **Pathways/hallmarks are never entries** — they live in `kb/modules/` and
+  mechanism groupings.
+- **Germline predisposition syndromes** (Li-Fraumeni, Lynch) follow the plain
+  Mendelian lump/split rules; keep them separate from the somatic cancer
+  entries they predispose to.
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
