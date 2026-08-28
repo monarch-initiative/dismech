@@ -1181,15 +1181,44 @@ uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 
 **Devices are not clinical actions, and NCIT has terms for both.** `TreatmentTerm` is
 rooted at `NCIT:C25218` (Clinical Intervention or Procedure), so a term naming the
-*equipment* is unreachable no matter how exactly it matches the treatment's name. The
-worked case is cochlear implantation: `NCIT:C157820` "Cochlear Implant" is the obvious
-term, is defined as "a two part electronic device...", has **no** `C25218` ancestor, and
-fails validation. Bind the clinical action instead — `NCIT:C15329` (Surgical Procedure)
-for the implantation itself — and carry the specificity in `preferred_term`
+*equipment* cannot be the `term:` of a `TreatmentTerm`, no matter how exactly it matches
+the treatment's name. The worked case is cochlear implantation: `NCIT:C157820` "Cochlear
+Implant" is the obvious term, is defined as "a two part electronic device...", and has
+**no** `C25218` ancestor. Bind the clinical action instead — `NCIT:C15329` (Surgical
+Procedure) for the implantation itself — and carry the specificity in `preferred_term`
 (`cochlear device implantation`). This is the case the
 [Ontology Term Contract](#ontology-term-contract) covers — `preferred_term` may be more
 specific than the best available ontology term — and it generalizes: hearing aids,
-pumps, stents, and shunts all have NCIT device terms that cannot be used here.
+pumps, stents, and shunts all have NCIT device terms that cannot sit in that slot.
+
+**Better still, keep the device term queryable.** `preferred_term` is free text, so
+binding the action alone throws the device concept away. Attach it as a `qualifiers`
+predicate-value pair instead — `NCIT:C16830` (Medical Device) as the predicate,
+the device term as the value — which validates today and leaves `NCIT:C157820`
+searchable:
+
+```yaml
+  treatment_term:
+    preferred_term: cochlear device implantation
+    term:
+      id: NCIT:C15329
+      label: Surgical Procedure
+    qualifiers:
+    - predicate:
+        preferred_term: medical device
+        term:
+          id: NCIT:C16830
+          label: Medical Device
+      value:
+        preferred_term: cochlear implant
+        term:
+          id: NCIT:C157820
+          label: Cochlear Implant
+```
+
+Worked examples: `Labyrinthitis`, `Otofacial_Neurodevelopmental_Syndrome`,
+`Autosomal_Recessive_Nonsyndromic_Hearing_Loss_104`,
+`Jervell_and_Lange-Nielsen_Syndrome_1`.
 
 Two things follow that are easy to get wrong:
 
