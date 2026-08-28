@@ -47,6 +47,14 @@ predates the check -- see the Gout "Dehydration" and Myasthenia_Gravis
 "Stress" entries, which already opened their ``review_notes`` with exactly
 this sentence.
 
+A waiver is a claim that a search happened, so it is only as good as that
+search. One waiver in the first round of dismech#8296's waiver PR asserted
+that no quotable source existed for ultraviolet exposure in pemphigus
+erythematosus; review found PMID:6531279, a photo-provocation study in that
+exact disease with a retrievable abstract, from a one-line PubMed query.
+That entry is cited now, not waived. Search properly before reaching for
+this.
+
 The sentinel alone does not waive. An entry must also record at least
 :data:`MIN_WAIVER_WORDS` words of search after it, and that floor is enforced
 *here*, in the check that runs ungated on every PR -- not only in the test
@@ -130,8 +138,8 @@ WAIVER_SENTINEL = "left deliberately uncited."
 # and do not run on a kb-only curation PR, which is exactly the shape of PR
 # that adds a waiver, so a floor that lived only in pytest would never run on
 # the changes it exists to police (dismech#9473 makes the same point).
-# The five committed waivers run 44-150 words, so this is well clear of all of
-# them while still blocking a bare sentinel.
+# The committed waivers run 44-150 words, so this is well clear of all of them
+# while still blocking a bare sentinel.
 MIN_WAIVER_WORDS = 20
 
 
