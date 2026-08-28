@@ -1186,17 +1186,21 @@ worked case is cochlear implantation: `NCIT:C157820` "Cochlear Implant" is the o
 term, is defined as "a two part electronic device...", has **no** `C25218` ancestor, and
 fails validation. Bind the clinical action instead — `NCIT:C15329` (Surgical Procedure)
 for the implantation itself — and carry the specificity in `preferred_term`
-(`cochlear device implantation`). This is exactly the case
-[`preferred_term` vs Ontology Term Labels](#preferred_term-vs-ontology-term-labels)
-describes, and it generalizes: hearing aids, pumps, stents, and shunts all have NCIT
-device terms that cannot be used here.
+(`cochlear device implantation`). This is the case the
+[Ontology Term Contract](#ontology-term-contract) covers — `preferred_term` may be more
+specific than the best available ontology term — and it generalizes: hearing aids,
+pumps, stents, and shunts all have NCIT device terms that cannot be used here.
 
 Two things follow that are easy to get wrong:
 
-- **`preferred_term` must not just echo the ontology label.** A treatment bound to
-  `NCIT:C15315` whose `preferred_term` is `Rehabilitation` has thrown away every bit of
-  information the binding lost. That is the failure the specificity rule exists to
-  prevent.
+- **When the binding is broader than the treatment, `preferred_term` must not echo the
+  ontology label.** A treatment named `Cochlear Implantation and Auditory Rehabilitation`
+  bound to `NCIT:C15315` whose `preferred_term` is just `Rehabilitation` has thrown away
+  every bit of information the binding lost. This is *not* a rule against ever matching
+  the label: where the term already says what the treatment is, echoing it is correct
+  and is what `dismech-terms` recommends (`preferred_term: Pharmacotherapy` against
+  `NCIT:C15986` is right). The test is whether the label is narrower than, or as narrow
+  as, the treatment being described.
 - **A divergent binding is not automatically drift.** A treatment that bundles
   amplification *or* implantation *with* rehabilitation is genuinely a rehabilitation
   intervention, and one whose disease has no reported surgical case should not assert
