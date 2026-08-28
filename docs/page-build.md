@@ -131,8 +131,9 @@ Three mechanisms now close that gap:
    stale KB against its own matching stale pages, finds perfect agreement, and
    reports clean. Re-anchoring makes `kb/` current while keeping this build's
    rendered pages, which is exactly the mismatch the check is looking for. It
-   also puts the aggregates (`app/data.js`, dashboard, pathographs, schema docs —
-   all generated *after* this step, deliberately) on current data.
+   also puts the aggregates (`app/data.js`, `app/models/data.js`, dashboard,
+   pathographs, `elements/`, schema docs — all generated *after* this step,
+   deliberately) on current data.
 
    And it stops the regen PR conflicting. A branch built at a stale checkout
    collides with any later regen that touched the same page; that is what left
