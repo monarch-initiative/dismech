@@ -1668,6 +1668,11 @@ dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip
 # The alignment step runs whether or not you asked for a fallback -- it is a
 # no-op on a report that did not fall back, since it keys on the `fell_back`
 # frontmatter flag rather than on the filename disagreeing with the provider.
+# It runs on any run that left a report behind, not only a successful one,
+# because the client writes the report before validating it and exits 3 when
+# validation fails. If the client fails AND alignment then refuses, the recipe
+# exits on the alignment error rather than the client's status; both are printed,
+# but the exit code is the second one.
 # Those disagree routinely and innocently: `research-disorder edison Foo` writes
 # `-edison.md` for a report whose provider is `falcon`, and the cyberian-codex
 # recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.

@@ -67,7 +67,13 @@ class Alignment:
 
     @property
     def fell_back(self) -> bool:
-        """Whether this report was produced by a fallback provider."""
+        """Whether the report had to be renamed.
+
+        Not quite the same claim as the frontmatter flag of that name, which
+        upstream sets whenever any attempt failed. A run that retried and then
+        succeeded with the provider originally asked for sets the flag while
+        leaving the filename true, so nothing moves and this reads False.
+        """
         return self.renamed_from is not None
 
 
@@ -95,6 +101,34 @@ def read_frontmatter(path: Path) -> dict:
         return {}
     parsed = safe_load(block)
     return parsed if isinstance(parsed, dict) else {}
+
+
+def provider_slug(actual: str) -> str:
+    """Return a provider name usable as part of a filename.
+
+    Args:
+        actual: The provider named in the report's frontmatter.
+
+    Returns:
+        The name, stripped and lowercased. Lowercase because that is how the
+        repository writes provider slugs (``hypothesis_deep_research`` lowercases
+        when it builds an output path) and how it reads them back
+        (``deep_research_coverage.normalize_provider``); a mixed-case rename
+        would produce a path a later existence check would not find.
+
+    Raises:
+        AlignmentError: If the name is empty or contains a path separator.
+            ``Path.with_name`` rejects a separator with a ``ValueError``, which
+            would escape as a traceback rather than as one of this module's
+            refusals.
+    """
+    slug = actual.strip()
+    if not slug or "/" in slug or "\\" in slug or slug in {".", ".."}:
+        raise AlignmentError(
+            f"{actual!r} is not usable as a provider name in a filename, so the "
+            "report cannot be renamed to it."
+        )
+    return slug.lower()
 
 
 def retarget_path(path: Path, requested: str, actual: str) -> Path:
@@ -126,6 +160,7 @@ def retarget_path(path: Path, requested: str, actual: str) -> Path:
         >>> retarget_path(Path("kb/hypotheses/Long_COVID/g/falcon.md"), "falcon", "openai")
         PosixPath('kb/hypotheses/Long_COVID/g/openai.md')
     """
+    actual = provider_slug(actual)
     stem = path.stem
     index = stem.rfind(requested)
     if index == -1:
@@ -212,6 +247,7 @@ def align_report_provider(
             "report cannot be renamed to whoever wrote it."
         )
 
+    actual = provider_slug(actual)
     new_report = retarget_path(report, requested, actual)
     if new_report == report:
         return Alignment(

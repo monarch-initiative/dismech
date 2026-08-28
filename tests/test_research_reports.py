@@ -218,6 +218,39 @@ def test_retarget_path_replaces_only_the_trailing_slug() -> None:
     )
 
 
+def test_a_provider_name_that_is_a_path_is_refused(tmp_path: Path) -> None:
+    """`Path.with_name` would raise ValueError, which is not one of our refusals."""
+    report = write_report(
+        tmp_path,
+        "Foo-deep-research-falcon.md",
+        "---\nprovider: ../evil\nfell_back: true\n---\n\nbody\n",
+    )
+
+    with pytest.raises(AlignmentError, match="not usable as a provider name"):
+        align_report_provider(report, "falcon")
+
+    assert report.exists()
+
+
+def test_the_rename_target_is_lowercased(tmp_path: Path) -> None:
+    """The repo writes provider slugs lowercase and reads them case-insensitively.
+
+    `hypothesis_deep_research.output_file_for` lowercases when it builds a path,
+    so a mixed-case rename there would produce a file a later existence check
+    would not find.
+    """
+    report = write_report(
+        tmp_path,
+        "Foo-deep-research-falcon.md",
+        "---\nprovider: Claude_Code\nfell_back: true\n---\n\nbody\n",
+    )
+
+    alignment = align_report_provider(report, "falcon")
+
+    assert alignment.report == tmp_path / "Foo-deep-research-claude_code.md"
+    assert alignment.actual_provider == "claude_code"
+
+
 def test_every_research_recipe_aligns_the_provider_after_running() -> None:
     """A recipe that can fall back must also fix the name, or coverage lies."""
     fallback_flags = JUSTFILE.count("{{dr_fallback}}")

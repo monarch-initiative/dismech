@@ -179,3 +179,80 @@ def test_run_record_dry_run_does_not_create_output(tmp_path: Path) -> None:
     assert result.status == "DRY_RUN"
     assert result.provider == "openscientist"
     assert not result.output_file.exists()
+
+
+FELL_BACK_REPORT = """---
+provider: claude_code
+fell_back: true
+requested_provider: falcon
+---
+
+# Report
+"""
+
+
+def _run_with(monkeypatch, tmp_path: Path, returncode: int):
+    """Run one hypothesis job whose client wrote a fallback report and exited.
+
+    The client writes the report before it validates it, so a validation
+    failure exits 3 with a real report already on disk.
+    """
+    import subprocess
+
+    kb_dir = tmp_path / "kb" / "disorders"
+    output_root = tmp_path / "kb" / "hypotheses"
+    template = tmp_path / "templates" / "hypothesis.md"
+    kb_dir.mkdir(parents=True)
+    template.parent.mkdir(parents=True)
+    template.write_text("Hypothesis {hypothesis_group_id}\n", encoding="utf-8")
+    write_disorder(kb_dir)
+    record = hypothesis_deep_research.find_hypothesis(
+        kb_dir, "Long_COVID", "canonical_persistence_immune_model"
+    )
+    written = hypothesis_deep_research.output_file_for(record, output_root, "falcon")
+
+    def fake_run(command, **kwargs):
+        written.parent.mkdir(parents=True, exist_ok=True)
+        written.write_text(FELL_BACK_REPORT, encoding="utf-8")
+        return subprocess.CompletedProcess(command, returncode, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    return hypothesis_deep_research.run_record(
+        record,
+        provider="falcon",
+        output_root=output_root,
+        template=template,
+        extra_args=[],
+        timeout_seconds=10,
+        dry_run=False,
+        overwrite=True,
+    ), output_root
+
+
+def test_a_fallback_report_is_renamed_on_a_successful_run(
+    monkeypatch, tmp_path: Path
+) -> None:
+    result, output_root = _run_with(monkeypatch, tmp_path, 0)
+
+    assert result.status == "OK"
+    assert result.provider == "claude_code"
+    assert result.output_file.name == "claude_code.md"
+    assert result.output_file.exists()
+
+
+def test_a_fallback_report_is_renamed_when_validation_failed(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Exit 3 means validation failed, not that the report is missing.
+
+    Aligning only on a zero exit would leave that report named for the provider
+    that could not run, and `existing_outputs` reads the provider straight out
+    of the filename.
+    """
+    result, output_root = _run_with(monkeypatch, tmp_path, 3)
+
+    assert result.status == "ERROR_3", "the validation failure must still be reported"
+    assert result.provider == "claude_code"
+    assert result.output_file.name == "claude_code.md"
+    assert result.output_file.exists()
+    assert not (result.output_file.parent / "falcon.md").exists()
