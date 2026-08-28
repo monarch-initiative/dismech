@@ -175,8 +175,8 @@ Whole-KB scan of `kb/disorders/` + `kb/modules/`:
 | Nodes whose *name* matches a directional lexicon | 6,377 (41.7%) |
 | Nodes tagged `biological_scale` | 6,720 (44.0%) |
 | Edges carrying `hypothesis_groups` | 1,715 (6.2%) |
-| `computational_models` objects across the KB | 67 in 26 entries |
-| …of which `model_type: BOOLEAN_NETWORK` | **1** (Fanconi anemia, FA/BRCA, PMID:22267503) |
+| `computational_models` objects across the KB | 67 in 26 entries (71 in 28 after the stage-3 curation below) |
+| …of which `model_type: BOOLEAN_NETWORK` | **1** at survey time (Fanconi anemia, FA/BRCA, PMID:22267503); **5** after stage 3 |
 
 ### 2.1 The two structural findings that shape everything else
 
@@ -243,7 +243,8 @@ choice that happens to be orthogonal to what makes Boolean dynamics informative.
 4. **The one existing `BOOLEAN_NETWORK` entry is inert** — no `model_format`, no
    `model_id`, no `repository_url`, no `modeled_mechanisms`. It is a bare literature
    citation, and is exactly the "disconnected list entry" failure mode CLAUDE.md warns
-   about.
+   about. *(Resolved 2026-08-28: it now carries two `modeled_mechanisms` links — see
+   the stage-3 note below.)*
 
 ---
 
@@ -421,11 +422,37 @@ work pays off.
 | **0** | Open the design-decision issue for `CausalEdge.causal_effect`; tag `@cmungall` | — | Unblocks Track B |
 | **1** | A1 `ModelFormatEnum` + backfill; A5 repair the FA/BRCA entry | — | Fixes the known `model_format` mess; the one Boolean entry stops being inert |
 | **2** | A2 artifact convention, A3 discrete thresholds, A4 CoLoMoTo runner | 1 | Boolean models become *runnable in-repo*, joining the four ODE models |
-| **3** | Curate 3–5 Disease Maps Boolean models (RA-FLS, C19DMap submodel, PD-map) with `modeled_mechanisms` | 2 | Real content; validates the pipeline against externally published models |
+| **3** ✅ | Curate 3–5 Disease Maps Boolean models (RA-FLS, C19DMap submodel, PD-map) with `modeled_mechanisms` | — | Real content; validates the pipeline against externally published models |
 | **4** | Schema: `causal_effect` + `CausalEffectEnum`; double-negation lint; default backfill | 0 | Signed causal spine — valuable for KGX/BioLink independently |
 | **5** | `logical_export.py` → SBML-qual, MPBN semantics; consistency + reachability checks over the KB | 4 | Curation-defect detection; treatment-perturbation queries |
 | **6** | Hypothesis-group model comparison pilot on the 6.2% tagged edges | 5 | The distinctive research contribution |
 | **7** | *(exploratory)* feedback-loop curation worklist; PhysiBoSS-style composition using `biological_scale` | 5 | Where genuine Boolean dynamics would start to pay off |
+
+### Stage 3 status — done (2026-08-28)
+
+Five `BOOLEAN_NETWORK` models are now curated and pathograph-linked, ahead of stages 1–2
+(the curation does not depend on the `ModelFormatEnum` or the runner):
+
+| Entry | Model | PMID | Links |
+|---|---|---|---:|
+| `Rheumatoid_Arthritis` | RA-FLS large-scale Boolean model | 37454172 | 3 |
+| `Parkinsons_Disease` | PD map cohort-specific probabilistic Boolean models | 39429779 | 2 |
+| `COVID-19` | C19DMap SBML-qual model collection (FAIRDOMHub 714) | 34664389 | 1 |
+| `COVID-19` | Type 1 interferon signalling Boolean model | 38414974 | 2 |
+| `Fanconi_Anemia` | FA/BRCA pathway Boolean model *(A5 repair)* | 22267503 | 2 |
+
+All five record `model_format: SBML-qual` except the 2012 FA/BRCA model, where the format
+and repository are left unset with the reason recorded in `notes` rather than guessed.
+Four of the five carry a `repository_url`. Ten `modeled_mechanisms` links were added in
+total, four of them `PARTIALLY_RECAPITULATES` with `LOW`/`MODERATE` fidelity where the
+Boolean model addresses a molecular pathway rather than the tissue- or organism-scale node
+it is linked to — the honest grading matters more here than link count.
+
+This also produced the first worked instances of the §5.2 claim that dismech node typing
+already matches the input/output structure of published Boolean disease models: the type 1
+IFN model's four output nodes (viral replication, antiviral response, inflammation, IFNA1
+secretion) and the RA-FLS model's five phenotype submodels are curated as `readouts` on the
+links, grounding phenotype-level Boolean outputs against dismech pathophysiology nodes.
 
 Stages 1–3 are Track A and can proceed immediately and independently. Stage 4 is worth
 doing on its own merits. Stages 5–7 are where the research value is, and are gated on 4.
