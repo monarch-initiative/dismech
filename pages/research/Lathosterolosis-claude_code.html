@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lathosterolosis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Lathosterolosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Lathosterolosis</h1>
+                
+                <p class="report-subtitle">Lathosterolosis: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0011816" target="_blank" rel="noopener noreferrer">MONDO:0011816</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">21 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Lathosterolosis: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Lathosterolosis (LATHOS) is an ultra-rare, autosomal recessive inborn error of post-squalene cholesterol biosynthesis caused by deficiency of sterol-C5-desaturase (lathosterol oxidase), which catalyzes the penultimate step of cholesterol synthesis — dehydrogenation of lathosterol to 7-dehydrocholesterol (7-DHC). It presents as a multiple-congenital-anomaly/intellectual-disability syndrome with a phenotype that overlaps substantially with Smith-Lemli-Opitz syndrome (SLOS), the biosynthetic-pathway neighbor caused by 7-dehydrocholesterol reductase (DHCR7) deficiency one step downstream (<a href="https://en.wikipedia.org/wiki/Lathosterolosis">Wikipedia</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3897790/">PMC3897790</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM disease:</strong> #607330 (LATHOS) (<a href="https://omim.org/entry/607330">OMIM</a>)
+- <strong>OMIM gene:</strong> <em>602286 (SC5D, formerly SC5DL) (<a href="https://www.omim.org/entry/602286">OMIM</a>)
+- </em><em>Orphanet:</em><em> <a href="https://bioregistry.io/ORPHA:46059" target="_blank" rel="noopener noreferrer">ORPHA:46059</a> (<a href="https://www.orpha.net/en/disease/detail/46059">Orphanet</a>)
+- </em><em>MONDO:</em><em> <a href="http://purl.obolibrary.org/obo/MONDO_0011816" target="_blank" rel="noopener noreferrer">MONDO:0011816</a>
+- </em><em>MedGen:</em><em> C1846421
+- </em><em>Gene location:</em><em> SC5D, 11q23.3 (per GeneReviews; some sources cite 11q23.3-q24.1)
+- </em><em>Synonyms/alt names:</em>* Sterol-C5-desaturase deficiency; SC5D deficiency; lathosterol oxidase deficiency; 3β-hydroxysteroid-Δ5-desaturase deficiency</p>
+<p><strong>Nature of evidence base.</strong> All information derives from aggregated case reports (individual-patient case series and reviews), not large disease registries or EHR aggregation — the condition is defined almost entirely by a handful of published cases plus a knockout mouse model and, more recently, cell-line (CRISPR knockout) mechanistic work.</p>
+<p>Sources: <a href="https://omim.org/entry/607330">OMIM #607330</a>, <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://www.orpha.net/en/disease/detail/46059">Orphanet ORPHA:46059</a>, <a href="https://rarediseases.info.nih.gov/diseases/9711/lathosterolosis">GARD</a></p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause.</strong> Biallelic pathogenic variants in <em>SC5D</em> (11q23.3), encoding lathosterol oxidase (EC 1.14.19.20), an ER-membrane iron-dependent oxidoreductase of the sterol desaturase family. Loss of enzymatic activity blocks the lathosterol→7-DHC step, causing lathosterol accumulation with variably reduced downstream cholesterol synthesis (<a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=SC5D">GeneCards SC5D</a>; <a href="https://reactome.org/content/detail/R-HSA-195662">Reactome R-HSA-195662</a>).</p>
+<p><strong>Genetic risk factors.</strong> Purely monogenic/Mendelian — no known susceptibility loci or modifier genes have been reported; the extreme rarity (fewer than a dozen molecularly confirmed patients worldwide as of 2023) precludes genotype-phenotype correlation studies. Reported pathogenic alleles include:
+- p.Arg29Gln (R29Q) and p.Gly211Asp (G211D) — original index patient, compound heterozygous (Brunetti-Pierri et al. 2002, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/12189593/">12189593</a>)
+- p.Lys148Glu (K148E) and p.Asp210Glu (D210E) — Rossi et al. 2007 fetal case, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/17853487/">17853487</a>
+- p.Pro160Arg (c.479C&gt;G) and p.Asp210Glu (c.630C&gt;A) — Anderson et al. 2019, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/30097991/">30097991</a>
+- p.Asn71Ile (c.212A&gt;T) and p.Gln72* nonsense (c.214C&gt;T) — Yaplito-Lee/Verma et al. 2020, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/33204591/">33204591</a>
+- p.Leu219Ser (biallelic missense, c.656T&gt;C) — Söbü et al. 2023, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/36607840/">36607840</a></p>
+<p>Population frequency data are sparse; individual reported SC5D variants appear in gnomAD only as ultra-rare singletons (e.g., allele frequency ~7×10⁻⁶ for specific alleles such as rs104894297), consistent with a disease affecting well under 1 in 1,000,000 births, though under-ascertainment of mild cases is suspected.</p>
+<p><strong>Environmental/infectious risk factors.</strong> None identified — this is a pure inborn metabolic error with no known environmental trigger, teratogen interaction, or infectious contribution.</p>
+<p><strong>Protective factors.</strong> None reported (genetic or environmental); no protective alleles or exposures are documented.</p>
+<p><strong>Gene-environment interaction.</strong> Not applicable/undocumented; disease expressivity variation (from prenatal-lethal to mild adult-surviving phenotypes) is presumed related to residual enzyme activity from the specific allele combination rather than to environmental modulation.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/12189593/">PubMed 12189593</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17853487/">17853487</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30097991/">30097991</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33204591/">33204591</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36607840/">36607840</a></p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Lathosterolosis spans a continuum from prenatal-lethal multiple-malformation syndrome to a mild, largely neurodevelopmental/ophthalmologic phenotype recognized only in later childhood. GeneReviews summarizes: <em>"global developmental delays, intellectual disability, microcephaly, characteristic facial features... bilateral cataracts; digit anomalies... and variable liver disease ranging from asymptomatic elevation of liver enzymes to cirrhosis and liver failure"</em> (<a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">NBK597809</a>).</p>
+<h3>Craniofacial</h3>
+<ul>
+<li>Microcephaly (congenital; suggested term: <strong><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></strong> Microcephaly)</li>
+<li>Bitemporal narrowing (<strong><a href="http://purl.obolibrary.org/obo/HP_0000341" target="_blank" rel="noopener noreferrer">HP:0000341</a></strong>)</li>
+<li>Sloping/narrow forehead (<strong><a href="http://purl.obolibrary.org/obo/HP_0000340" target="_blank" rel="noopener noreferrer">HP:0000340</a></strong>)</li>
+<li>Ptosis (<strong><a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a></strong>)</li>
+<li>Puffy cheeks</li>
+<li>Micrognathia (<strong><a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a></strong>)</li>
+<li>Epicanthal folds (<strong><a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" rel="noopener noreferrer">HP:0000286</a></strong>)</li>
+<li>Downslanting palpebral fissures (<strong><a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" rel="noopener noreferrer">HP:0000494</a></strong>)</li>
+<li>Anteverted nares (<strong><a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" rel="noopener noreferrer">HP:0000463</a></strong>)</li>
+<li>Broad/bulbous nasal tip (<strong><a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" rel="noopener noreferrer">HP:0000414</a></strong>)</li>
+<li>Long philtrum (<strong><a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" rel="noopener noreferrer">HP:0000343</a></strong>)</li>
+<li>High-arched palate (<strong><a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" rel="noopener noreferrer">HP:0000218</a></strong>)</li>
+<li>Cleft palate — reported in the mouse model and general SC5D-mutant craniofacial literature, but notably <strong>absent</strong> in the human index case series reviewed in PMC3897790, distinguishing it somewhat from SLOS</li>
+</ul>
+<h3>Ocular</h3>
+<ul>
+<li>Bilateral (or unilateral) posterior cataracts (<strong><a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" rel="noopener noreferrer">HP:0000519</a></strong>/<a href="http://purl.obolibrary.org/obo/HP_0000665" target="_blank" rel="noopener noreferrer">HP:0000665</a>) — a relatively distinguishing feature versus SLOS, present in most surviving cases including the "relatively mild" Anderson et al. 2019 patient, who presented at age 5 with cataracts and learning difficulties and had a full-scale IQ of 64 at age 11 (<a href="https://pubmed.ncbi.nlm.nih.gov/30097991/">PubMed 30097991</a>)</li>
+<li>Microcornea (<strong><a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" rel="noopener noreferrer">HP:0000482</a></strong>)</li>
+<li>Corneal stromal opacity (<strong><a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" rel="noopener noreferrer">HP:0007957</a></strong>)</li>
+</ul>
+<h3>Neurological</h3>
+<ul>
+<li>Global developmental delay / intellectual disability (<strong><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></strong>/<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>) — present in essentially all reported living patients, variable severity from mild learning difficulty to severe delay</li>
+<li>Hypotonia (<strong><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></strong>) — in most cases</li>
+<li>Seizures (<strong><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></strong>) — reported in the 2023 case (8-month-old with seizures and brain atrophy, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/36607840/">36607840</a>)</li>
+<li>Cerebellar cortical atrophy, cerebral calcification, Chiari malformation, myoclonus — reported in the aggregate GARD symptom list</li>
+</ul>
+<h3>Skeletal/limb</h3>
+<ul>
+<li>Postaxial polydactyly (upper and/or lower limb, predominantly feet) (<strong><a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" rel="noopener noreferrer">HP:0100259</a></strong>/<a href="http://purl.obolibrary.org/obo/HP_0012470" target="_blank" rel="noopener noreferrer">HP:0012470</a>)</li>
+<li>Bilateral 2nd–3rd or 2nd–4th toe syndactyly (<strong><a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" rel="noopener noreferrer">HP:0001770</a></strong>)</li>
+<li>Bilateral clubfoot/talipes (<strong><a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" rel="noopener noreferrer">HP:0001762</a></strong>)</li>
+<li>5th finger clinodactyly (<strong><a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" rel="noopener noreferrer">HP:0030084</a></strong>)</li>
+</ul>
+<h3>Hepatic</h3>
+<ul>
+<li>Elevated liver transaminases (asymptomatic to marked): e.g., ALT 321–364 IU/L, GGT 317–414 U/L in the Verma/Yaplito-Lee case (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7653246/">PMC7653246</a>)</li>
+<li>Progressive fibrosis to cirrhosis and liver failure in severe cases (Fibroscan 15.6 kPa vs. normal 2.5–8.5 kPa in one case)</li>
+<li>This spectrum is the principal severity-determining organ system: prognosis tracks liver involvement more than any other feature</li>
+</ul>
+<h3>Other/systemic</h3>
+<ul>
+<li>Failure to thrive (<strong><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></strong>)</li>
+<li>Kidney anomalies (<strong><a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" rel="noopener noreferrer">HP:0000077</a></strong>)</li>
+<li>Hearing impairment (<strong><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></strong>)</li>
+<li>Thrombocytopenia (<strong><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a></strong>)</li>
+<li>Lysosomal/mucolipidosis-like storage — lamellar cytoplasmic inclusions on ultrastructural/histopathological exam (Rossi et al. 2007, PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/17853487/">17853487</a>), a distinctive secondary storage phenomenon</li>
+<li>Neural tube defect and prenatal liver involvement reported in a fetal case (Rossi et al. 2007)</li>
+</ul>
+<p><strong>Onset:</strong> Congenital/neonatal for the classic severe phenotype (recognizable pattern of malformation at birth); later childhood presentation (age ~5–8 years, via cataracts/learning difficulty) in mild cases — indicating a true clinical spectrum rather than a single fixed presentation.</p>
+<p><strong>Progression:</strong> Variable — stable/mild in some, progressive hepatic fibrosis/cirrhosis in others. Neurodevelopmental impairment appears nonprogressive once established but is present from early childhood in nearly all cases.</p>
+<p><strong>Frequency (population-level):</strong> With only ~7 molecularly confirmed reported patients as of the most recent GeneReviews update, per-symptom frequency percentages are not statistically meaningful; qualitative frequency terms ("most," "all reported," "variable") are used throughout the literature instead of numeric percentages.</p>
+<p><strong>Quality of life impact:</strong> Not formally studied with validated instruments (no EQ-5D/SF-36 data identified); qualitatively, developmental/intellectual disability and progressive liver disease are the dominant drivers of long-term burden, with milder patients able to reach adulthood.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://www.orpha.net/en/disease/detail/46059">Orphanet ORPHA:46059</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3897790/">PMC3897790</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7653246/">PMC7653246</a>, <a href="https://rarediseases.info.nih.gov/diseases/9711/lathosterolosis">GARD</a>, PMIDs 12189593, 17853487, 24142275, 30097991, 31259789, 33204591, 36607840</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> SC5D (<a href="https://bioregistry.io/HGNC:10547" target="_blank" rel="noopener noreferrer">HGNC:10547</a>; formerly SC5DL), OMIM *602286, chromosome 11q23.3, encoding lathosterol oxidase / sterol-C5-desaturase (UniProt O75845).</p>
+<p><strong>Variant spectrum:</strong> All reported disease alleles to date are <strong>missense</strong> or one <strong>nonsense</strong> variant, in compound-heterozygous or (rarely) homozygous configuration — no large deletions/duplications have been identified by deletion/duplication analysis in the diagnosed cases (per GeneReviews). Representative pathogenic variants (NM_006918 transcript numbering where given):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Study</th>
+<th>Variant 1</th>
+<th>Variant 2</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Brunetti-Pierri 2002 (index case)</td>
+<td>p.R29Q</td>
+<td>p.G211D</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12189593/">12189593</a></td>
+</tr>
+<tr>
+<td>Rossi 2007 (fetal case)</td>
+<td>p.K148E</td>
+<td>p.D210E</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17853487/">17853487</a></td>
+</tr>
+<tr>
+<td>Anderson 2019 (mild case)</td>
+<td>c.479C&gt;G p.(P160R)</td>
+<td>c.630C&gt;A p.(D210E)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30097991/">30097991</a></td>
+</tr>
+<tr>
+<td>Yaplito-Lee/Verma 2020</td>
+<td>c.212A&gt;T p.(N71I)</td>
+<td>c.214C&gt;T p.(Q72*)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33204591/">33204591</a></td>
+</tr>
+<tr>
+<td>Söbü 2023</td>
+<td>c.656T&gt;C p.(L219S)</td>
+<td>(biallelic, homozygous)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36607840/">36607840</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note: p.D210E recurred independently in two unrelated families (Rossi 2007 and Anderson 2019), suggesting it may be a recurrent or mutational-hotspot allele, though this has not been formally established as a founder variant.</p>
+<p><strong>Variant classification:</strong> Per ClinVar, several SC5D variants are submitted with classifications ranging from pathogenic to variants of uncertain significance (e.g., RCV000401412, RCV000340453); given the extreme rarity of ascertained cases, ACMG/AMP classification confidence intervals are wide, and functional/fibroblast enzyme assay confirmation (elevated lathosterol, blocked conversion to 7-DHC) remains the most robust classification evidence.</p>
+<p><strong>Population/allele frequency:</strong> Individual SC5D pathogenic alleles are essentially private, ultra-rare variants in gnomAD (allele frequency ~7×10⁻⁶ reported for specific alleles such as rs104894297 and rs1313359281) — consistent with autosomal recessive disease well below 1:1,000,000 birth prevalence, though possible underascertainment of milder cases is repeatedly flagged in the literature.</p>
+<p><strong>Somatic vs. germline:</strong> Exclusively germline; no somatic/mosaic cases reported.</p>
+<p><strong>Functional consequences:</strong> Missense variants are presumed to reduce or abolish lathosterol-oxidase catalytic activity (loss-of-function mechanism), confirmed functionally via fibroblast sterol profiling (elevated lathosterol, near-absent conversion to 7-DHC) rather than by direct enzymatic assay of recombinant protein in most reports.</p>
+<p><strong>Modifier genes:</strong> None identified.</p>
+<p><strong>Epigenetics/chromosomal abnormalities:</strong> No epigenetic or large chromosomal (aneuploidy/translocation) mechanism has been reported; disease is exclusively due to point/small-indel-type coding variants in SC5D.</p>
+<p><strong>Molecular mechanism (protein level):</strong> SC5D/lathosterol oxidase is an ER-membrane, iron-binding, C-5(6) sterol desaturase (EC 1.14.19.20) that introduces a Δ5,6 double bond into lathosterol to yield 7-dehydrocholesterol — the penultimate step of the Kandutsch–Russell branch of cholesterol biosynthesis, immediately upstream of the DHCR7-catalyzed step defective in Smith-Lemli-Opitz syndrome (<a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=SC5D">GeneCards</a>; <a href="https://reactome.org/content/detail/R-HSA-195662">Reactome R-HSA-195662</a>).</p>
+<p>Suggested ontology bindings: <strong><a href="https://bioregistry.io/HGNC:10547" target="_blank" rel="noopener noreferrer">HGNC:10547</a></strong> (SC5D); <strong><a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a></strong> (cholesterol biosynthetic process); <strong><a href="http://purl.obolibrary.org/obo/GO_0016132" target="_blank" rel="noopener noreferrer">GO:0016132</a></strong> (brassinosteroid — n/a) — more precisely <strong><a href="http://purl.obolibrary.org/obo/GO_0000247" target="_blank" rel="noopener noreferrer">GO:0000247</a></strong> (C-5 sterol desaturase activity) and <strong><a href="http://purl.obolibrary.org/obo/GO_0000253" target="_blank" rel="noopener noreferrer">GO:0000253</a></strong> (3-keto-sterol reductase — n/a, adjacent pathway step); protein term <strong><a href="http://purl.obolibrary.org/obo/CHEBI_17168" target="_blank" rel="noopener noreferrer">CHEBI:17168</a></strong> (lathosterol) → <strong><a href="http://purl.obolibrary.org/obo/CHEBI_17759" target="_blank" rel="noopener noreferrer">CHEBI:17759</a></strong> (7-dehydrocholesterol) → <strong><a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a></strong> (cholesterol).</p>
+<p>Sources: <a href="https://www.omim.org/entry/602286">OMIM *602286</a>, <a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=SC5D">GeneCards SC5D</a>, <a href="https://www.uniprot.org/uniprotkb/O75845/entry">UniProt O75845</a>, <a href="https://reactome.org/content/detail/R-HSA-195662">Reactome R-HSA-195662</a>, PMIDs 12189593, 17853487, 30097991, 33204591, 36607840</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Lathosterolosis is a purely monogenic inborn error of metabolism; no environmental factors (toxins, occupational exposures), lifestyle factors, or infectious agents have been implicated as causal or risk-modifying in any published report. This section is essentially <strong>not applicable</strong> for this disease — a search of CTD/TOXNET-type literature and the primary case reports returned no gene-environment or exposure findings.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Molecular pathway</h3>
+<p>SC5D acts in the post-squalene, post-lanosterol segment of the Kandutsch–Russell cholesterol biosynthetic pathway (KEGG map00100, "Steroid biosynthesis"), immediately downstream of lanosterol 14α-demethylase (CYP51A1) and upstream of 7-dehydrocholesterol reductase (DHCR7). Loss of SC5D activity blocks lathosterol → 7-dehydrocholesterol conversion, causing:
+1. <strong>Substrate accumulation</strong>: marked elevation of lathosterol (and, to lesser degree, its metabolites 24-dehydrolathosterol and zymostenol) in plasma, fibroblasts, and tissues.
+2. <strong>Product deficiency</strong>: reduced flux to 7-DHC and downstream cholesterol, though — importantly — total plasma cholesterol is typically <strong>normal</strong>, distinguishing lathosterolosis biochemically from SLOS, where cholesterol is characteristically low (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3897790/">PMC3897790</a>).</p>
+<h3>Causal chain — from initial defect to clinical manifestation</h3>
+<p>Loss-of-function SC5D variant → reduced/absent lathosterol oxidase activity → lathosterol accumulation + reduced distal-pathway sterol flux → (a) direct lathosterol/intermediate cytotoxicity and lysosomal storage-like lamellar inclusions; (b) impaired cholesterol-dependent Hedgehog signaling during embryogenesis (cholesterol is required for post-translational modification and signaling range of Sonic hedgehog, SHH) → limb patterning defects (polydactyly, syndactyly), craniofacial malformation, and CNS developmental anomalies; (c) hepatocyte lipid/sterol stress → progressive liver injury/fibrosis/cirrhosis.</p>
+<p>The Krakowiak et al. 2003 mouse knockout study (PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/12812989/">12812989</a>) established that malformations in <em>Sc5d</em>-null mice — stillbirth, cleft palate, micrognathia, and limb defects — occur despite normal/near-normal residual cholesterol in some tissues, arguing that <strong>reduced cholesterol availability during embryogenesis, rather than lathosterol toxicity per se, drives the malformation phenotype</strong>, while intracellular sterol/lathosterol storage represents an additional, largely postnatal pathology (a distinct storage-disease-like component).</p>
+<h3>Cellular/mechanistic detail from recent (2024) work</h3>
+<p>A CRISPR-Cas9 SC5D-knockout HepG2 hepatoma cell model (part of a broader CYP51A1/DHCR24/SC5D knockout comparison, PMC11387598, 2024) found:
+- ~100-fold accumulation of lathosterol, with secondary elevation of 24-dehydrolathosterol (~10-fold) and zymostenol (~6-fold)
+- Slower proliferation and G0/G1 cell-cycle arrest, especially under lipid-depleted conditions
+- Activation of ER-stress (XBP1) and SREBF1/2 (cholesterol/lipid-sensing) transcriptional programs, with CCND1/EGR1 modulation of the G1/S transition
+- Upregulated fatty-acid metabolism and PPAR-signaling genes (FADS2, ELOVL6, HSD17B12, CYP2J2), suggesting a compensatory metabolic shift when sterol synthesis is blocked</p>
+<p>This is the most direct recent (2024) molecular-mechanism evidence and is classified as <strong>IN_VITRO/cell-line</strong> evidence — it models a plausible hepatocellular contribution to the clinical liver phenotype but has not been directly confirmed in patient liver tissue.</p>
+<h3>Immune/tissue-damage mechanisms</h3>
+<p>No autoimmune or classical inflammatory mechanism is implicated. Tissue injury appears driven by (1) developmental morphogen (Hedgehog) signaling disruption during embryogenesis and (2) chronic sterol/lipid metabolic stress in postnatal hepatocytes leading to fibrosis.</p>
+<h3>Suggested ontology terms</h3>
+<ul>
+<li><strong><a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a></strong> cholesterol biosynthetic process</li>
+<li><strong><a href="http://purl.obolibrary.org/obo/GO_0016125" target="_blank" rel="noopener noreferrer">GO:0016125</a></strong> sterol metabolic process</li>
+<li><strong><a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" rel="noopener noreferrer">GO:0007224</a></strong> smoothened signaling pathway (Hedgehog pathway proxy)</li>
+<li><strong><a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a></strong> response to endoplasmic reticulum stress</li>
+<li><strong><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a></strong> hepatocyte</li>
+<li><strong><a href="http://purl.obolibrary.org/obo/CL_0000586" target="_blank" rel="noopener noreferrer">CL:0000586</a></strong> germ cell / <strong><a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" rel="noopener noreferrer">CL:0000047</a></strong> neural stem cell (embryonic limb/CNS morphogenesis context — refine per specific node)</li>
+<li><strong><a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a></strong> liver; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002101" target="_blank" rel="noopener noreferrer">UBERON:0002101</a></strong> limb; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000411" target="_blank" rel="noopener noreferrer">UBERON:0000411</a></strong> vertebrate limb bud</li>
+</ul>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3897790/">PMC3897790</a>, Krakowiak et al. 2003 PMID <a href="https://pubmed.ncbi.nlm.nih.gov/12812989/">12812989</a> (Human Molecular Genetics), <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11387598/">PMC11387598 (2024, iScience)</a>, <a href="https://reactome.org/content/detail/R-HSA-195662">Reactome R-HSA-195662</a></p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level (primary):</strong>
+- <strong>Liver</strong> — the dominant morbidity/mortality-determining organ; ranges from asymptomatic transaminitis to cirrhosis/liver failure (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>)
+- <strong>Eye/lens</strong> — cataracts (<a href="http://purl.obolibrary.org/obo/UBERON_0000965" target="_blank" rel="noopener noreferrer">UBERON:0000965</a> lens of camera-type eye)
+- <strong>CNS/brain</strong> — developmental delay, seizures, cerebellar atrophy, calcifications, Chiari malformation (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain; <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> cerebellum)
+- <strong>Skeletal system, especially craniofacial and limb</strong> — micrognathia, malformed facies, polydactyly/syndactyly, clubfoot (<a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> face; <a href="http://purl.obolibrary.org/obo/UBERON_0002101" target="_blank" rel="noopener noreferrer">UBERON:0002101</a> limb)
+- <strong>Kidney</strong> — structural anomalies (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>)
+- <strong>Ear</strong> — hearing impairment (<a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a>)</p>
+<p><strong>Secondary/complication-level involvement:</strong> Hematologic (thrombocytopenia), consistent with hepatic synthetic/portal-hypertension sequelae in severe cases.</p>
+<p><strong>Body systems:</strong> Hepatobiliary, skeletal/musculoskeletal, ophthalmologic, nervous, urogenital, integumentary (in the mouse model — skin barrier).</p>
+<p><strong>Tissue/cell level:</strong>
+- Hepatocytes (<a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>) — lipid/sterol storage, fibrosis
+- Lens epithelial cells — cataract formation
+- Chondrocytes/osteoblasts in limb bud mesenchyme — polydactyly/limb patterning (Hedgehog-dependent)
+- Neural progenitor cells — CNS developmental anomalies</p>
+<p><strong>Subcellular level:</strong>
+- Endoplasmic reticulum (site of SC5D enzymatic activity; <a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a> ER membrane)
+- Lysosome-like storage vesicles — lamellar inclusions on electron microscopy (mucolipidosis-like storage), suggesting secondary lysosomal/autophagic pathway involvement (<a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a> lysosome)</p>
+<p><strong>Localization/laterality:</strong> Cataracts and limb anomalies reported as both unilateral and bilateral across cases; no consistent lateralization pattern.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3897790/">PMC3897790</a>, Rossi et al. 2007 PMID <a href="https://pubmed.ncbi.nlm.nih.gov/17853487/">17853487</a></p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Congenital for the classic multiple-malformation phenotype (recognizable at birth or prenatally via ultrasound anomalies in the most severe/fetal cases); however, milder patients are first recognized later — bilateral cataracts and learning difficulty identified around age 5 years in the Anderson et al. 2019 patient, and seizures/brain atrophy noted at 8 months in the Söbü et al. 2023 patient.</p>
+<p><strong>Onset pattern:</strong> Generally insidious for the neurodevelopmental/hepatic components; can be acute in fetal/perinatal lethal presentations (stillbirth in the mouse model and presumably in the most severe human end of the spectrum, though a live-born severely affected human case has not been separately documented as stillborn in the literature reviewed here — the mouse null is embryonic/perinatal lethal).</p>
+<p><strong>Progression:</strong>
+- Liver disease is the most clearly progressive feature — documented natural progression from elevated transaminases to fibrosis (Fibroscan-confirmed) to cirrhosis/liver failure in the most severe reported cases, with two cases requiring/undergoing liver transplantation (per GeneReviews management section, citing Ho et al. 2014 and related cases).
+- Neurodevelopmental impairment is present from early life and is not clearly progressive once established (static encephalopathy-like course), though seizures may emerge later.
+- With simvastatin treatment, biochemical (lathosterol) normalization and histologic (fibrosis) improvement have been documented over a ~2-year follow-up in one case (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7653246/">PMC7653246</a>).</p>
+<p><strong>Disease course pattern:</strong> Chronic, with a spectrum from static/stable (mild cases reaching adulthood) to progressive hepatic deterioration (severe cases).</p>
+<p><strong>Critical periods:</strong> Embryonic/fetal period is critical for the Hedgehog-signaling-dependent malformation component (limb, craniofacial, neural tube); this window is not modifiable postnatally. Early childhood appears to be a window where statin therapy has been trialed with apparent biochemical and modest developmental benefit, though causality is unproven (single-patient experience, per GeneReviews).</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7653246/">PMC7653246</a>, PMID <a href="https://pubmed.ncbi.nlm.nih.gov/36607840/">36607840</a></p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong> Extremely rare — GeneReviews states only <strong>seven individuals</strong> have been molecularly/biochemically confirmed and reported in the literature to date (as of its most recent update), with likely underdiagnosis of milder phenotypes given nonspecific presentation (learning difficulty + cataracts). No formal prevalence or incidence estimate (cases per 100,000) exists; the disease is best characterized as "ultra-rare, case-report-level" rather than registry-quantified.</p>
+<p><strong>Inheritance pattern:</strong> Autosomal recessive (<strong><a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a></strong>). For carrier (heterozygous) × carrier matings: 25% affected, 50% carrier, 25% unaffected/non-carrier per pregnancy (Mendelian expectation, per GeneReviews).</p>
+<p><strong>Penetrance:</strong> Full penetrance is presumed for biallelic loss-of-function combinations causing the classic severe phenotype; however, the existence of "relatively mild" cases identified only via cataracts/learning difficulty in later childhood suggests substantial variable expressivity depending on residual enzyme activity from specific missense combinations (e.g., hypomorphic alleles like p.D210E, recurrent across two unrelated mild-to-moderate cases).</p>
+<p><strong>Expressivity:</strong> Highly variable — from prenatal/perinatal-lethal multiple-malformation syndrome to a mild neurodevelopmental/ophthalmologic phenotype recognized in later childhood; likely genotype-dependent (missense vs. nonsense, position/severity of the substitution) though formal genotype-phenotype correlation has not been statistically established given small case numbers.</p>
+<p><strong>Genetic anticipation:</strong> Not applicable — not a repeat-expansion disorder.</p>
+<p><strong>Germline mosaicism, founder effects:</strong> Not documented in the literature reviewed; p.D210E's recurrence in two unrelated families (Rossi 2007, Anderson 2019) could suggest a mutational hotspot, but no formal founder-haplotype study has been published.</p>
+<p><strong>Consanguinity:</strong> Not specifically flagged as a major risk factor across the reported cases reviewed (most cases were compound heterozygous, implying non-consanguineous or at least non-obviously consanguineous unions in most families, though this is not exhaustively confirmed here).</p>
+<p><strong>Carrier frequency:</strong> Not established at a population level; individual known pathogenic SC5D alleles are present in gnomAD only as private/ultra-rare variants (allele frequency on the order of 10⁻⁶), consistent with a carrier frequency far below that of common recessive conditions.</p>
+<p><strong>Population demographics:</strong> No specific ethnic or geographic enrichment has been reported; cases have been described in multiple ancestries/countries (Italy — Brunetti-Pierri/Rossi groups; UK — Anderson et al.; Hong Kong — Ho et al.; USA — Prasun et al.; Australia — Yaplito-Lee/Verma et al.; Turkey — Söbü et al.), suggesting pan-ethnic occurrence without an identified founder population.</p>
+<p><strong>Sex ratio:</strong> No consistent sex predominance reported across the small case series (both male and female patients described).</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://www.orpha.net/en/disease/detail/46059">Orphanet ORPHA:46059</a></p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical/biochemical tests</h3>
+<ul>
+<li><strong>Plasma sterol profiling (GC/MS)</strong> — the primary diagnostic biochemical test: markedly elevated lathosterol (reported values as high as 54–82 μmol/L vs. normal &lt;10–18 μmol/L depending on the reference lab), with <strong>normal or low 7-dehydrocholesterol and normal total cholesterol</strong> — this normal-cholesterol pattern is a key distinguishing feature from SLOS.</li>
+<li>Fibroblast sterol analysis — demonstrates block in lathosterol→7-DHC conversion; filipin staining may show a "variant" cholesterol storage pattern.</li>
+<li>Liver enzymes (ALT, GGT) — elevated in hepatic involvement; used for both diagnosis and longitudinal monitoring.</li>
+<li>Fibroscan/elastography — used to quantify and monitor hepatic fibrosis (e.g., 15.6 kPa vs. normal 2.5–8.5 kPa in one reported case).</li>
+<li>Histopathology/electron microscopy — lamellar cytoplasmic inclusions (mucolipidosis-like lysosomal storage pattern) on liver or other tissue biopsy.</li>
+</ul>
+<h3>Genetic testing</h3>
+<ul>
+<li><strong>Single-gene SC5D sequencing</strong> or <strong>multigene sterol-biosynthesis-disorder panel</strong> (including SC5D, DHCR7, DHCR24, MSMO1, CYP51A1, LSS, and related genes) or <strong>exome/genome sequencing</strong> — GeneReviews states sequence analysis detects essentially all known pathogenic variants; no deletion/duplication (CNV) pathogenic variant has yet been identified in this gene for this disease.</li>
+<li>Chromosomal microarray/karyotype: not informative (this is a point-variant, not a CNV, disorder).</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>The central differential is <strong>Smith-Lemli-Opitz syndrome (SLOS, DHCR7 deficiency)</strong>, sharing developmental delay, microcephaly, and facial dysmorphism, but distinguishable because:
+- Cataracts and liver disease are common in lathosterolosis but relatively uncommon in SLOS
+- Cholesterol is typically low in SLOS but normal in lathosterolosis
+- 7-DHC is markedly elevated in SLOS but normal in lathosterolosis
+- Cleft palate is common in SLOS but was absent across the reviewed lathosterolosis case series</p>
+<p>Other differentials in the sterol-biosynthesis-disorder category: squalene synthase deficiency, lanosterol synthase deficiency, desmosterolosis (DHCR24 deficiency), CHILD syndrome (NSDHL), and CK syndrome/other X-linked sterol disorders (per GeneReviews).</p>
+<h3>Screening</h3>
+<p>No newborn screening or population carrier-screening program exists for this ultra-rare condition; diagnosis is case-by-case based on clinical suspicion (malformation pattern, cataracts + developmental delay + liver disease) followed by targeted sterol/molecular testing.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3897790/">PMC3897790</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7653246/">PMC7653246</a></p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Survival/mortality:</strong> No formal survival statistics exist given the tiny case count. GeneReviews notes prognosis depends heavily on liver disease severity: individuals with mild hepatic involvement may reach adulthood, while those with progressive cirrhosis/liver failure have poorer outcomes; two reported cases underwent (or were candidates for) liver transplantation, after which plasma lathosterol normalized and quality of life reportedly improved.</p>
+<p><strong>Morbidity:</strong> Chronic developmental/intellectual disability is near-universal among survivors; hepatic morbidity (fibrosis/cirrhosis) is the dominant driver of serious long-term complications and mortality risk.</p>
+<p><strong>Prognostic factors:</strong> Degree of residual SC5D enzymatic activity (genotype-dependent), severity/timing of liver disease onset, and response to statin therapy appear to be the principal modifiers of outcome, though this is based on very limited case experience rather than statistically validated prognostic modeling.</p>
+<p><strong>Complications:</strong> Cirrhosis, liver failure (requiring transplantation in severe cases), thrombocytopenia (likely secondary to portal hypertension/hypersplenism in advanced liver disease), seizures, hearing impairment.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7653246/">PMC7653246</a></p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy</h3>
+<ul>
+<li><strong>Simvastatin</strong> (HMG-CoA reductase inhibitor), dosed roughly <strong>0.2–1 mg/kg/day</strong>, is the principal reported targeted therapy. Rationale: inhibiting upstream HMG-CoA reductase reduces overall flux through the sterol pathway, thereby lowering substrate (lathosterol) accumulation.</li>
+<li>Ho et al. 2014: simvastatin normalized blood lathosterol and was associated with improved neurodevelopmental profile (<a href="https://pubmed.ncbi.nlm.nih.gov/24142275/">PMID 24142275</a>).</li>
+<li>Yaplito-Lee/Verma et al. 2020 (PMC7653246): simvastatin 5→10 mg/day (0.2→0.4 mg/kg/day) normalized plasma lathosterol, reduced ALT (364→69 IU/L) and GGT (414→136 U/L) over 2 years, and improved liver fibrosis on Fibroscan (15.6→12.8 kPa) — the most detailed documented biochemical/hepatic response to date.</li>
+<li>Prasun et al. 2019: first documented therapeutic statin trial in this specific patient, reducing lathosterol from 81.6 to 7.2 μmol/L within 4 weeks at 1 mg/kg/day, with developmental quotient improvement from 55 to 64 (causality uncertain, single-case).</li>
+<li>GeneReviews explicitly notes: efficacy remains <strong>unproven in controlled trials</strong> — all evidence is single-patient, uncontrolled, observational.</li>
+<li>Creatine kinase monitoring is used for statin-related myopathy surveillance in the pediatric off-label use context.</li>
+</ul>
+<h3>Advanced/definitive therapy</h3>
+<ul>
+<li><strong>Liver transplantation</strong> — used in at least two reported cases with progressive/severe hepatic failure, resulting in normalization of plasma lathosterol (since the graft liver has functional SC5D) and reported improvement in quality of life. This is the only "curative" intervention for the hepatic component but does not address extrahepatic (CNS, skeletal) manifestations, which are fixed by the time of any intervention.</li>
+<li>No gene therapy, enzyme replacement, RNA-based therapy, or cell therapy has been developed or trialed for this condition — it remains an off-label small-molecule (statin) management approach plus organ transplantation for end-stage liver disease.</li>
+</ul>
+<h3>Supportive/rehabilitative care</h3>
+<ul>
+<li>Developmental/early intervention therapy for intellectual disability</li>
+<li>Ophthalmology management (cataract surgery as needed) — suggested NCIT term: <strong>NCIT:C15329</strong> (Surgical Procedure) for cataract extraction</li>
+<li>Orthopedic intervention for limb anomalies (e.g., polydactyly correction, clubfoot management) — <strong>NCIT:C16186</strong> (Orthopedic Surgical Procedure)</li>
+<li>Hepatology coordination/monitoring</li>
+<li>Educational support services</li>
+</ul>
+<h3>Surveillance (per GeneReviews management guidelines)</h3>
+<ul>
+<li>Developmental milestone assessment at each visit</li>
+<li>Annual ophthalmology evaluation</li>
+<li>Liver enzymes at each visit; liver imaging every 6 months</li>
+</ul>
+<h3>Suggested treatment ontology terms</h3>
+<ul>
+<li><strong>NCIT:C15986</strong> Pharmacotherapy (simvastatin) with <code>therapeutic_agent</code> → <strong><a href="http://purl.obolibrary.org/obo/CHEBI_9150" target="_blank" rel="noopener noreferrer">CHEBI:9150</a></strong> simvastatin</li>
+<li><strong>NCIT:C15289</strong> Organ Transplantation (liver transplantation)</li>
+<li><strong>NCIT:C15302</strong> Physical Therapy / <strong>NCIT:C121351</strong> Occupational Therapy (developmental support)</li>
+<li><strong>NCIT:C15240</strong> Genetic Counseling</li>
+</ul>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7653246/">PMC7653246</a>, PMID <a href="https://pubmed.ncbi.nlm.nih.gov/24142275/">24142275</a>, PMID <a href="https://pubmed.ncbi.nlm.nih.gov/31259789/">31259789</a> (Prasun et al., "Lathosterolosis: An Extremely Rare Inherited Condition Associated With Progressive Liver Disease")</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> None possible for de novo occurrence given the recessive Mendelian mechanism; no vaccination, risk-factor modification, or environmental intervention applies (this is not an environmentally modifiable disease).</p>
+<p><strong>Secondary prevention / screening:</strong>
+- Carrier testing for at-risk family members once familial pathogenic variants are identified (per GeneReviews genetic counseling section)
+- Prenatal diagnosis (chorionic villus sampling/amniocentesis with molecular testing) and preimplantation genetic testing (PGT) are technically available once the familial SC5D variants are known
+- No population-based newborn or carrier screening program exists given the extreme rarity</p>
+<p><strong>Genetic counseling:</strong> Standard autosomal recessive counseling — 25% recurrence risk per pregnancy for carrier couples; GeneReviews explicitly recommends DNA banking of affected individuals' samples given the likelihood that testing methodology will continue to improve for this rare condition.</p>
+<p><strong>Tertiary prevention:</strong> Early biochemical/molecular diagnosis followed by simvastatin initiation and close hepatology surveillance is the closest analog to tertiary prevention (aiming to slow or prevent progression to cirrhosis), though as noted, efficacy is not established in controlled trials.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/sites/books/NBK597809/">GeneReviews NBK597809</a></p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring veterinary/companion-animal or wildlife cases of SC5D-deficiency disease have been reported in the literature reviewed (no OMIA entry or veterinary case series identified). All non-human data derive from <strong>engineered laboratory models</strong> (see Section 15) rather than natural disease.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mouse (Mus musculus) — primary model</h3>
+<ul>
+<li><strong>Sc5d knockout mouse</strong> (targeted homologous recombination in ES cells; Krakowiak et al. 2003, PMID <a href="https://pubmed.ncbi.nlm.nih.gov/12812989/">12812989</a>, <em>Human Molecular Genetics</em>): <em>Sc5d⁻/⁻</em> pups are <strong>stillborn</strong>, with micrognathia, cleft palate, and limb-patterning defects (postaxial polydactyly), plus elevated tissue/serum lathosterol and reduced cholesterol.</li>
+<li><strong>Phenotype recapitulation:</strong> High fidelity for the craniofacial/limb malformation spectrum (micrognathia, abnormal nasal structure, cleft palate, postaxial polydactyly), and for the core biochemical signature (elevated lathosterol, reduced cholesterol). The paper's central conclusion — that malformations are driven more by <strong>reduced cholesterol</strong> (impairing Hedgehog signaling) than by lathosterol accumulation per se — was a key mechanistic insight informing understanding of the human disease and of SLOS more broadly.</li>
+<li><strong>Limitation:</strong> The mouse model is embryonic/perinatal lethal (stillborn), so it cannot model the postnatal, milder end of the human clinical spectrum (later-childhood cataracts/learning-difficulty presentation) or the progressive liver disease course seen in surviving human patients — this is a clear human-model fidelity gap between the severe (embryonic-lethal, mouse-modeled) and mild (postnatally surviving, human-only) ends of the phenotypic spectrum.</li>
+<li>A related <strong>keratinocyte-specific Sc5d-deleted mouse model</strong> was used to study attenuation of UVR-induced vitamin D3 synthesis in skin, reflecting the enzyme's additional dermatologic/vitamin-D-synthesis role (a tissue-specific, disease-adjacent application rather than a direct disease model) — Sigma-Aldrich/ScienceDirect summary.</li>
+</ul>
+<h3>Cell-based / in vitro models</h3>
+<ul>
+<li><strong>CRISPR-Cas9 SC5D-knockout HepG2 hepatoma cell line</strong> (2024, PMC11387598) — models cholesterol-pathway disruption at the hepatocyte level; recapitulates lathosterol/24-dehydrolathosterol/zymostenol accumulation and reveals downstream ER-stress (XBP1), SREBF, cell-cycle, and fatty-acid-metabolism pathway perturbations. This is the most direct available cellular model of the hepatic component of human disease, though it has not been benchmarked against patient liver tissue for fidelity.</li>
+<li>Patient-derived skin fibroblasts (used diagnostically across essentially all reported human cases) also serve as a natural "disease-in-a-dish" model confirming the enzymatic block (lathosterol accumulation, blocked 7-DHC synthesis) and abnormal filipin-staining cholesterol storage pattern.</li>
+</ul>
+<h3>Applications</h3>
+<p>The mouse model has been central to (1) confirming SC5D as the causal gene in parallel with human genetic discovery, (2) establishing the "cholesterol deficiency vs. lathosterol toxicity" mechanistic question central to understanding both lathosterolosis and SLOS pathogenesis via Hedgehog signaling, and (3) providing embryonic material for developmental-biology dissection of limb/craniofacial patterning defects. The HepG2 knockout model is beginning to open a route to studying hepatocyte-intrinsic disease mechanisms and potential pharmacologic (e.g., statin) rescue at a cellular level.</p>
+<p>Sources: Krakowiak et al. 2003, PMID <a href="https://pubmed.ncbi.nlm.nih.gov/12812989/">12812989</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11387598/">PMC11387598 (2024)</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S0960076017300821">ScienceDirect keratinocyte Sc5d model</a></p>
+<hr />
+<h2>Summary Table — Key Ontology Term Suggestions for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0011816" target="_blank" rel="noopener noreferrer">MONDO:0011816</a>; <a href="https://bioregistry.io/OMIM:607330" target="_blank" rel="noopener noreferrer">OMIM:607330</a>; <a href="https://bioregistry.io/ORPHA:46059" target="_blank" rel="noopener noreferrer">ORPHA:46059</a></td>
+</tr>
+<tr>
+<td>Gene</td>
+<td>hgnc:10547 (SC5D)</td>
+</tr>
+<tr>
+<td>Molecular function</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0000247" target="_blank" rel="noopener noreferrer">GO:0000247</a> (C-5 sterol desaturase activity)</td>
+</tr>
+<tr>
+<td>Biological process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a> (cholesterol biosynthetic process); <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" rel="noopener noreferrer">GO:0007224</a> (smoothened/Hedgehog signaling)</td>
+</tr>
+<tr>
+<td>Cellular component</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a> (endoplasmic reticulum membrane)</td>
+</tr>
+<tr>
+<td>Chemicals</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_17168" target="_blank" rel="noopener noreferrer">CHEBI:17168</a> (lathosterol); <a href="http://purl.obolibrary.org/obo/CHEBI_17759" target="_blank" rel="noopener noreferrer">CHEBI:17759</a> (7-dehydrocholesterol); <a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a> (cholesterol); <a href="http://purl.obolibrary.org/obo/CHEBI_9150" target="_blank" rel="noopener noreferrer">CHEBI:9150</a> (simvastatin)</td>
+</tr>
+<tr>
+<td>Phenotypes (HP)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a> microcephaly; <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" rel="noopener noreferrer">HP:0000519</a>/0000665 cataract; <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> global developmental delay; <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" rel="noopener noreferrer">HP:0100259</a>/0012470 postaxial polydactyly; <a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" rel="noopener noreferrer">HP:0001770</a> syndactyly; <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" rel="noopener noreferrer">HP:0001762</a> talipes; <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a> micrognathia; <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> seizure</td>
+</tr>
+<tr>
+<td>Cell types</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> hepatocyte</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> liver; <a href="http://purl.obolibrary.org/obo/UBERON_0000965" target="_blank" rel="noopener noreferrer">UBERON:0000965</a> lens; <a href="http://purl.obolibrary.org/obo/UBERON_0002101" target="_blank" rel="noopener noreferrer">UBERON:0002101</a> limb; <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> face</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15986 Pharmacotherapy; NCIT:C15289 Organ Transplantation</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Notes on Evidence Gaps for Curation</h2>
+<ul>
+<li><strong>No large-scale registry or systematic-review-level prevalence data exist</strong> — all epidemiology is case-report aggregation (n≈7–10 reported patients total worldwide).</li>
+<li><strong>No controlled treatment trial</strong> — simvastatin efficacy claims all derive from single-patient, uncontrolled observational reports; this should be flagged explicitly if curated (<code>derivation_basis</code>/evidence caveats).</li>
+<li><strong>Human-model mismatch</strong>: the Sc5d-null mouse is embryonic/perinatal lethal and does not model the surviving, milder human phenotype spectrum — a good candidate for a <code>HUMAN_MODEL_MISMATCH</code> discussion if curated per the dismech schema conventions.</li>
+<li>Full-text access to several primary PMIDs (12189593, 12812989, 24142275, 17853487, 31259789, 30097991) was limited by publisher access barriers during this research; abstracts were retrieved via Europe PMC and secondary reviews (GeneReviews, PMC3897790, PMC7653246) that quote and cite them — exact-quote verification against the primary abstract/full text is still recommended before using any of the above as curated evidence snippets.</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>11</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Late-Onset_Pompe_Disease-falcon.html">← Late-Onset Pompe Disease (Falcon)</a>
+                
+                
+                <a href="Lathyrism-falcon.html">Lathyrism (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Lathosterolosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Lathosterolosis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
