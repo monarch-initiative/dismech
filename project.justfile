@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-gene-activity-grounding check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -760,6 +760,22 @@ qc-deep-research-strict:
 [group('QC')]
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
+
+# Ratchet on genetic[].mechanism_activity_grounding: a gene wired into the
+# pathograph whose landing node names no molecular function. Grandfathers
+# against origin/main in CI (GENE_ACTIVITY_BASELINE_REF), else against
+# tests/gene_activity_grounding_baseline.txt.
+# Fail on genes newly landing on a node with no molecular_functions
+[group('QC')]
+check-gene-activity-grounding *args="":
+    uv run python scripts/check_gene_activity_grounding.py {{args}}
+
+# Only ever to REMOVE fixed entries, or to grandfather a node that genuinely
+# has no single molecular function -- say which in the PR.
+# Rewrite tests/gene_activity_grounding_baseline.txt from the current tree
+[group('QC')]
+update-gene-activity-baseline:
+    uv run python scripts/check_gene_activity_grounding.py --update-baseline
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
