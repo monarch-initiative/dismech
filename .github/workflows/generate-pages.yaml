@@ -7,6 +7,12 @@ on:
     paths:
       - 'kb/disorders/*.yaml'
       - 'kb/comorbidities/*.yaml'
+      # This run owns app/models/data.js, and ModelsExporter reads module YAML
+      # and the perturb configs as well as kb/disorders. Without these two, a
+      # module-level computational model or a new config would only reach the
+      # index via the daily full rebuild.
+      - 'kb/modules/*.yaml'
+      - 'models/**'
       # Grouping pages are handled by generate-grouping-pages.yaml (they re-parse
       # every disorder and so run on their own, less-frequent schedule).
       # Deep-research reports render to per-report pages under pages/research/
@@ -57,6 +63,10 @@ jobs:
       # The derived artifacts this workflow owns. Change-detection and `git add`
       # must agree on this list: a path missing from the first makes the run
       # skip its PR, and one missing from the second silently never updates.
+      # Both consumers expand it UNQUOTED on purpose -- they need word
+      # splitting into separate pathspecs. Do not add quotes: "$BUILT_PATHS"
+      # is one path that does not exist, which silently matches nothing.
+      # A bash array would be the usual fix but cannot cross a step boundary.
       BUILT_PATHS: >-
         pages/ app/data.js app/models/data.js pathographs/ dashboard/ elements/
 
@@ -308,9 +318,7 @@ jobs:
         run: just gen-models-data
 
       - name: Verify models browser data links resolve to rendered pages
-        run: |
-          uv run python scripts/check_browser_data_links.py \
-            --data app/models/data.js
+        run: just check-models-links
 
       - name: Generate pathograph artifact
         run: just gen-pathographs
