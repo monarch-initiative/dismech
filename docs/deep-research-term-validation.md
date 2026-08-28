@@ -240,23 +240,17 @@ Review the resulting `cache/` diff before committing it, and run
 `just normalize-cache` and `just check-term-cache-integrity` as you would for any
 other cache change.
 
-## Also in 0.2.11, and not adopted
+## Also in 0.2.11
 
-Two other changes arrived in the same release. Neither is wired in, for reasons
-worth stating rather than leaving to be rediscovered.
+Two other changes arrived in the same release.
 
 **Provider fallback** (`--fallback`) lets a run hand off to another provider when
 the chosen one has no credentials or credit, and records which provider actually
-produced the report. That would replace a paragraph curators currently write by
-hand into history records — falcon was asked for, no `EDISON_API_KEY` was set,
-`claude_code` was substituted. But every research recipe names its output
-`<Disorder>-deep-research-<provider>.md` using the *requested* provider, and
-`scripts/deep_research_coverage.py` reads the provider back out of that filename.
-A silent fallback would write a `claude_code` report named `-falcon.md`, and
-`just research-status` would then report falcon coverage that does not exist.
-Adopting it means renaming the output to the provider named in the report's
-frontmatter after the run. Until then, pass `--fallback` yourself and rename the
-file to match what ran.
+produced the report. It is wired in as an opt-in, with an alignment step that
+renames a report that fell back to the provider named in its own frontmatter —
+otherwise a `claude_code` report would keep the `-falcon.md` name that
+`scripts/deep_research_coverage.py` reads coverage out of. See
+[`docs/deep-research-provider-fallback.md`](deep-research-provider-fallback.md).
 
 **Auth and billing failures are now non-retryable, and "available" means
 reachable.** Nothing in this repo reads provider availability programmatically —

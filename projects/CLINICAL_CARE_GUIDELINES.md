@@ -16,18 +16,17 @@ diseases:
   - Heart_Failure
   - Chronic_Kidney_Disease
   - Lymphoma
-  - Metastatic_Prostate_Cancer
+  - Prostate_Adenocarcinoma
   - Coronary_Artery_Disease
   - Osteoporosis
   - Asthma
   - Atrial_Fibrillation
   - Liver_Cirrhosis
   - MSI_High_Colorectal_Cancer
-  - Metastatic_Colorectal_Cancer
+  - Colon_Adenocarcinoma
   - Myocardial_Infarction
   - Tuberculosis
   - Hepatocellular_Carcinoma
-  - Metastatic_HCC
   - Hepatitis_B
   - Cervical_Cancer
   - Small_Cell_Lung_Cancer
@@ -46,7 +45,6 @@ diseases:
   - Obstructive_Sleep_Apnea
   - Gastroesophageal_Reflux_Disease
   - Ischemic_Stroke
-  - Metastatic_Renal_Cell_Carcinoma
   - Multiple_Myeloma
   - Renal_Cell_Carcinoma
   - Multiple_Sclerosis
@@ -61,6 +59,8 @@ diseases:
   - Friedreich_Ataxia
   - Phenylketonuria
 ---
+
+> **Note (2026-08-28):** the `Metastatic_*` entries named in this project were folded into their histologic parent entries per design decisions §3a (Metastatic_Prostate_Cancer → Prostate_Adenocarcinoma, Metastatic_Colorectal_Cancer → Colon_Adenocarcinoma, Metastatic_HCC → Hepatocellular_Carcinoma, Metastatic_Renal_Cell_Carcinoma → Renal_Cell_Carcinoma). Historical tables below retain the old names.
 
 # Clinical Care Guideline Collection
 

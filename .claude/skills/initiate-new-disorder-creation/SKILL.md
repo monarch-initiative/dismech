@@ -125,6 +125,20 @@ Depending on user preference, use one or more of the following commands
 
 Use the filesystem-friendly name here.
 
+**If the provider you were asked to use is unavailable**, do not substitute one
+by hand and write a paragraph about it into the history record — six committed
+records already do that, and the substitution is invisible to every query. Ask
+for a fallback and let the run record it:
+
+```bash
+just dr_fallback='--fallback' research-disorder falcon DISORDER_NAME
+```
+
+The report is then renamed to whoever actually produced it, and carries
+`fell_back`, `requested_provider` and `provider_attempts` in its frontmatter. Say
+in the history record which report you used; the report says who wrote it. See
+[`docs/deep-research-provider-fallback.md`](../../../docs/deep-research-provider-fallback.md).
+
 `claude_code` needs **no separate API key**. It wraps the local `claude` CLI as
 a subprocess (`claude --print --output-format json`), reusing the Claude Code
 credential that is already present — `CLAUDE_CODE_OAUTH_TOKEN` is exported in
