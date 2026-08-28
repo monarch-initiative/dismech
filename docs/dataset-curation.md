@@ -173,28 +173,25 @@ file makes no network calls.
 
 ### Still to do: take `geo` out of `skip_prefixes`
 
-Removing `geo` / `GEO` from `skip_prefixes` would hand snippet **and title**
-checking of dataset records to `linkml-reference-validator`, which is the point
-of caching them. It is not done yet because it is a content change, not a
-tooling one. Measured against the complete backfilled cache, it would newly
-fail **32 records**:
+Removing `geo` / `GEO` from `skip_prefixes` hands snippet **and title** checking
+of dataset records to `linkml-reference-validator`, which is the point of
+caching them. Two things had to be true first.
 
-- **30 dataset titles that paraphrase GEO's own title** (of 951 checked; 921
-  match). `datasets[].title` sits next to a reference field, so the validator
-  compares it with the fetched record. Examples: `Bbs8-deficient mouse retinal
-  pigment epithelium transcriptomics` against GEO's `Transcriptome profile of
-  Bbs8/TTC8 Knockout mouse RPE Tissue`; `Single-nucleus RNA sequencing of
-  chromosomal-instability-linked immune states in esophageal adenocarcinoma`
-  against a GEO title sharing none of those words. One is the reverse case — a
-  curator silently *corrected* GEO's misspelled "Reed-Stenberg", which the
-  validator would flag just the same.
-- **2 snippets quoting a GEO field the fetcher does not cache** — the "overall
-  design" text rather than the summary (`GEO:GSE316127`, `GEO:GSE289185`).
+**Titles — done.** `datasets[].title` sits next to a reference field, so the
+validator compares it with the fetched record. An audit of all 951 `geo:`
+records against the backfilled cache found 30 whose curated title paraphrased or
+replaced GEO's own; all 30 are now GEO's verbatim title and the audit is clean
+(951/951). Keep it that way: **`datasets[].title` is the repository's title,
+copied exactly.** Your own summary of the dataset goes in `description`. The
+title even keeps the repository's typos — `geo:GSE301492` carries GEO's
+misspelled "Reed-Stenberg", for the same reason an evidence snippet never
+"corrects" the source it quotes.
 
-Both classes are worth fixing on their merits, and the title check is the more
-valuable of the two: a paraphrased title is exactly the kind of drift no
-existing check catches. They are a curation pass, so they are tracked separately
-rather than bundled into a storage change.
+**Snippets — 2 outstanding.** Two evidence items citing a `GEO:` record quote
+text that is not in the cached summary (`GEO:GSE316127`, `GEO:GSE289185`). One
+is a reordered paraphrase of a sentence that *is* in the cache; the other quotes
+what looks like GEO's "overall design" field, which the fetcher does not cache.
+Until both are fixed, `geo` stays in `skip_prefixes`.
 
 Other prefixes (EGA, MassIVE, dbGaP, PRIDE, MetaboLights, …) still resolve
 against their repository API on every run and cache nothing. Migrating one means

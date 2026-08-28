@@ -438,12 +438,16 @@ verification cache. `geo:` is migrated; the remaining prefixes follow one at a t
   file is the verification** — the fetcher writes one only after the repository returned a
   record — and it is committed with the `datasets:` block.
 - All 919 `geo:` accessions in `kb/` were backfilled, so the check is offline in CI.
-- **`geo` stays in `skip_prefixes` for now.** Removing it also hands the validator
-  `datasets[].title` (a title slot adjacent to a reference field) and any `GEO:`-cited
-  snippet. Measured against the complete backfilled cache, that would newly fail **32
-  records**: 30 curated titles that paraphrase GEO's own (of 951 checked, 921 match) and
-  2 snippets quoting the GEO "overall design" field the fetcher does not cache. Those are
-  curation fixes, deliberately not bundled with a storage change.
+- **`geo` stays in `skip_prefixes` until two evidence snippets are fixed.** Removing it
+  also hands the validator `datasets[].title` (a title slot adjacent to a reference field)
+  and any `GEO:`-cited snippet. Against the complete backfilled cache that would have
+  failed 32 records. The 30 title failures are fixed: an audit of all 951 `geo:` records
+  found 30 whose curated title paraphrased or replaced GEO's own, and each is now the
+  verbatim repository title (951/951 match). **`datasets[].title` is the repository's
+  title, copied exactly** — the curator's own summary belongs in `description`, and the
+  title keeps the repository's typos, for the same reason a snippet never corrects its
+  source. Two snippet failures remain (`GEO:GSE316127`, `GEO:GSE289185`), one a reordered
+  paraphrase of a cached sentence and one quoting GEO's uncached "overall design" field.
 - **`cache/dataset_accessions.json` is frozen.** No script, module, test, workflow, or
   recipe reads or writes it, enforced by
   `test_no_automation_touches_the_frozen_dataset_cache`. It remains in git only until the
@@ -478,9 +482,8 @@ cached there now is, so a dataset record *may* carry evidence quoting it and cit
 `GEO:<ID>` (worked example: `Acne_Vulgaris`). This does not license bulk evidence
 generation; the §6 exact-quote rule is unchanged.
 
-**Follow-ups.** (1) Fix the paraphrased dataset titles and out-of-cache snippets, then
-remove `geo`/`GEO` from `skip_prefixes` so GEO records are validated like every other
-reference. (2) Give the remaining prefixes a fetcher, highest-volume first (`ega` 382,
+**Follow-ups.** (1) Fix the two remaining dataset evidence snippets, then remove
+`geo`/`GEO` from `skip_prefixes` so GEO records are validated like every other reference. (2) Give the remaining prefixes a fetcher, highest-volume first (`ega` 382,
 `massive` 120, `metabolomics_workbench` 81, `dbgap` 71), adding each to
 `REFERENCE_CACHED_PREFIXES`; lrv ships a `BIOPROJECT` source already, and its generic
 `json_api` source may cover others without new code. (3) Delete the frozen blob once open
