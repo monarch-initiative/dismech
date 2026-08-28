@@ -6,7 +6,7 @@ hash-anchor grammar the schema documents on ``Discussion.attaches_to``::
     [<file>:]<kind>#<name>
 
     pathophysiology#Amyloid Plaque Formation
-    phenotype#Memory Loss
+    phenotypes#Memory Loss
     Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
 
 The same grammar is reused by ``Experiment.would_support`` /
@@ -22,14 +22,38 @@ which occur in committed content:
 
 * ``disease#`` is not a section at all — it is a virtual anchor for the whole
   entry, matched against the top-level ``name``.
-* ``mechanistic_hypothesis#`` resolves against ``hypothesis_group_id``, not
+* ``mechanistic_hypotheses#`` resolves against ``hypothesis_group_id``, not
   ``name`` (``MechanisticHypothesis`` has no ``name`` slot).
 * ``prevalence#`` resolves against ``population``, likewise.
 
-Curated content also drifts between singular and plural prefixes
-(``treatment#`` 53 vs ``treatments#`` 122; ``phenotype#`` 79 vs
-``phenotypes#`` 82). Both forms are accepted; content is not churned to
-normalise them.
+``<kind>`` is the schema slot name of the section referred to. Curated content
+used to drift between singular and plural spellings of the same section; it was
+normalised to the slot-name form in issue #9394, so that a reference's prefix is
+derivable from the schema rather than from this map, and so that grepping for
+``phenotypes#`` finds every phenotype reference. The singular aliases are kept
+here and still resolve — an entry written before the normalisation, or by hand
+today, is not a defect.
+
+A reference may also name a **whole section** by leaving the anchor empty::
+
+    clinical_burden#          # the ClinicalBurden object, not a node within it
+
+This exists because not every referenceable thing has a name to anchor to.
+``clinical_burden`` is a singleton inlined object with no ``name`` slot, so
+there is nothing to put on the right of the ``#`` — and writing the bare word
+``clinical_burden`` instead would be indistinguishable from a node that happens
+to be called that. The empty anchor keeps every reference matching
+``<kind>#<name>``, which is what lets the grammar be checked at all.
+
+**A whole-section reference resolves on the section name, not its contents.**
+``treatments#`` is satisfied by ``treatments`` being a real section, even in an
+entry that curates none — because the case that motivates it is a
+``KNOWLEDGE_GAP`` attached to a section precisely *because* it is empty
+(``Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`` records that no
+disease-specific management is established, and has no ``treatments:`` block at
+all). Requiring content would make the gap impossible to attach exactly when it
+matters most. The check that remains is still worth having: it catches a
+misspelled or invented section name.
 
 An unknown prefix, or a cross-file reference, yields ``None`` — "no opinion" —
 rather than a failure, so a gap in :data:`SECTION_KEYS` can never be mistaken
@@ -43,15 +67,35 @@ from typing import Any, NamedTuple
 
 __all__ = [
     "DISEASE_KIND",
+    "KNOWN_KIND_SLOTS",
+    "REFERENCE_ONLY_SLOTS",
     "REF_SLOTS",
     "SECTION_KEYS",
+    "SINGLETON_SECTIONS",
     "EntityRef",
+    "EntityRefSite",
+    "canonical_kind",
+    "entity_ref_errors",
     "entity_ref_index",
     "iter_entity_refs",
     "parse_entity_ref",
     "resolve_entity_ref",
     "section_items",
 ]
+
+
+class EntityRefSite(NamedTuple):
+    """Where a reference was found: its dotted ``path``, the ``slot`` holding
+    it, and the raw ``ref`` value.
+
+    ``slot`` is carried explicitly so callers can key on it without parsing it
+    back out of ``path`` — a gate that recovers the slot by string surgery
+    stops firing silently the day the path format changes.
+    """
+
+    path: str
+    slot: str
+    ref: str
 
 
 class EntityRef(NamedTuple):
@@ -69,6 +113,11 @@ class EntityRef(NamedTuple):
 
 #: Virtual ``kind`` naming the entry itself rather than one of its sections.
 DISEASE_KIND = "disease"
+
+#: Slots that are a single inlined object rather than a list, so a reference to
+#: one can only ever be the whole-section form ``<slot>#``. They carry no
+#: ``name``, which is why the empty anchor exists.
+SINGLETON_SECTIONS: frozenset[str] = frozenset({"clinical_burden"})
 
 #: Reference prefix -> (top-level slot, key slots to match ``name`` against).
 #:
@@ -146,6 +195,51 @@ REF_SLOTS: frozenset[str] = frozenset(
     {"attaches_to", "would_support", "would_refute", "target"}
 )
 
+#: Ref-bearing slot -> the slot a prose *outcome* belongs in instead (#9224).
+#:
+#: ``Experiment.would_support`` / ``would_refute`` name *what a result bears
+#: on*; ``supporting_outcome`` / ``refuting_outcome`` state *what would be
+#: observed*. Both pairs are multivalued strings, so nothing in the schema
+#: stops a sentence being written into the reference slot, and ~51 were before
+#: the two prose slots existed. The distinction is not stylistic: an anchor
+#: names a referent and resolves to a card on the page, while a sentence like
+#: "No enrichment of these lesions in tissue would indicate that ..." is a
+#: conditional inference with no referent to resolve, and rendered as a
+#: reference chip it becomes a monospace block.
+#:
+#: ``attaches_to`` is absent because it has no prose sibling -- a bare name
+#: there is a mis-written reference, not a misfiled outcome.
+REFERENCE_ONLY_SLOTS: dict[str, str] = {
+    "would_support": "supporting_outcome",
+    "would_refute": "refuting_outcome",
+}
+
+#: Slots where an unrecognised ``<kind>`` is an error rather than a gap in
+#: `SECTION_KEYS`. The resolver skips an unmapped prefix by design -- right for
+#: a section this repo genuinely has not mapped, but it also let a typo like
+#: `pathophys#Node A` through every check. `target` stays out: it carries plain
+#: node names in `ModelMechanismLink` and `target_mechanisms`, and its 8
+#: unknown-kind values in `kb/` (`gene#`, `biological_process#`) look like real
+#: missing `SECTION_KEYS` entries rather than typos.
+KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to"}
+
+
+def canonical_kind(kind: str) -> str:
+    """The schema-slot spelling of ``kind``, or ``kind`` unchanged.
+
+    ``SECTION_KEYS`` accepts a singular alias beside most section slots
+    (``phenotype#`` beside ``phenotypes#``), because curated content grew both.
+    The canonical spelling is the schema slot itself: it makes a reference's
+    prefix derivable from the schema rather than from this map, and it makes
+    ``phenotypes#`` a grep that actually finds every phenotype reference. The KB
+    was normalised to it in issue #9394; the aliases still resolve.
+
+    ``disease#`` is a virtual anchor for the whole entry rather than a section,
+    and an unmapped prefix is not ours to rename, so both are returned as-is.
+    """
+    slot = SECTION_KEYS.get(kind, (kind,))[0]
+    return slot if slot in SECTION_KEYS else kind
+
 
 def parse_entity_ref(ref: Any) -> EntityRef | None:
     """Parse ``[<file>:]<kind>#<name>``; return ``None`` if it is not one.
@@ -206,11 +300,21 @@ def resolve_entity_ref(data: dict, ref: Any) -> bool | None:
     if parsed is None or parsed.file is not None:
         return None
     if parsed.kind == DISEASE_KIND:
-        return parsed.name == data.get("name")
+        # `disease#` with an empty anchor means the entry as a whole, same as
+        # naming it; `disease#<name>` must match that name.
+        return not parsed.name or parsed.name == data.get("name")
+    if parsed.kind in SINGLETON_SECTIONS:
+        # No name to anchor to, so only the whole-section form is meaningful.
+        return not parsed.name
     mapping = SECTION_KEYS.get(parsed.kind)
     if mapping is None:
         return None
     slot, key_slots = mapping
+    if not parsed.name:
+        # Whole-section reference: resolves on the section *name*. See the
+        # module docstring -- an empty section is the motivating case, so
+        # requiring content here would defeat the purpose.
+        return True
     return any(
         parsed.name in set(_key_values(item, key_slots))
         for item in section_items(data, slot)
@@ -236,26 +340,27 @@ def entity_ref_index(data: dict) -> dict[str, list[Any]]:
     return index
 
 
-def iter_entity_refs(node: Any, path: str = "") -> Iterator[tuple[str, str]]:
-    """Walk a loaded entry, yielding ``(path, ref)`` for every reference slot.
+def iter_entity_refs(node: Any, path: str = "") -> Iterator[EntityRefSite]:
+    """Walk a loaded entry, yielding an :class:`EntityRefSite` per reference slot.
 
     ``path`` is a dotted/indexed location such as
     ``discussions[2].attaches_to[0]``, for error messages that point straight
-    at the offending line's neighbourhood.
+    at the offending line's neighbourhood; ``slot`` is the ref-bearing slot
+    name, carried separately so callers never have to parse it back out.
     """
     if isinstance(node, dict):
         for key, value in node.items():
             child = f"{path}.{key}" if path else str(key)
             if key in REF_SLOTS:
                 if isinstance(value, str):
-                    yield child, value
+                    yield EntityRefSite(child, key, value)
                     continue
                 if isinstance(value, list):
                     # Yield the strings *and* walk anything else, in one pass:
                     # a mixed list must not lose either half.
                     for i, item in enumerate(value):
                         if isinstance(item, str):
-                            yield f"{child}[{i}]", item
+                            yield EntityRefSite(f"{child}[{i}]", key, item)
                         else:
                             yield from iter_entity_refs(item, f"{child}[{i}]")
                     continue
@@ -268,3 +373,79 @@ def iter_entity_refs(node: Any, path: str = "") -> Iterator[tuple[str, str]]:
     elif isinstance(node, list):
         for i, item in enumerate(node):
             yield from iter_entity_refs(item, f"{path}[{i}]")
+
+
+def _abbrev(value: str, limit: int = 60) -> str:
+    """Shorten a value for an error message, so a 40-word sentence stays one line."""
+    text = " ".join(str(value).split())
+    return text if len(text) <= limit else text[: limit - 1] + "\u2026"
+
+
+def _is_known_kind(kind: str) -> bool:
+    """Whether `<kind>` names something this repo can resolve a reference against.
+
+    `SECTION_KEYS` holds the singular aliases as keys in their own right, so
+    there is nothing to normalise here -- `canonical_kind` is what
+    `test_entity_ref_prefixes_are_schema_slot_names` uses to insist on the
+    canonical *spelling*, which is a different question from whether the
+    section is one we know at all.
+    """
+    return kind == DISEASE_KIND or kind in SECTION_KEYS or kind in SINGLETON_SECTIONS
+
+
+def entity_ref_errors(data: dict) -> list[str]:
+    """Every entity-reference problem in one loaded entry.
+
+    The single implementation of the rules, so the pytest sweep
+    (``test_entity_ref_foreign_keys``) and the ungated CI check
+    (``scripts/check_entity_refs.py``) cannot drift apart -- two copies of a
+    rule eventually disagree, which is the argument this module was created
+    on (#9193).
+
+    Messages name the dotted path within the document rather than a file, so a
+    caller can prefix whatever locator it has. Returns an empty list for an
+    entry with no problems; a non-dict is not an entry and yields nothing.
+    """
+    if not isinstance(data, dict):
+        return []
+    errors: list[str] = []
+    item_names = {ref.split("#", 1)[1] for ref in entity_ref_index(data)}
+    for site in iter_entity_refs(data):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None:
+            if site.slot not in KNOWN_KIND_SLOTS:
+                # `target` carries plain node names in its other homes, so a
+                # value without a `#` there is simply not a reference.
+                continue
+            if site.slot == "attaches_to" or site.ref in item_names:
+                # A value naming a real item is a reference missing its
+                # prefix, not a misfiled outcome -- telling a curator to move
+                # it into the prose slot would undo a working pointer.
+                errors.append(
+                    f"{site.path}={_abbrev(site.ref)!r} is a bare name, not a "
+                    f"<kind>#<name> entity reference"
+                )
+            else:
+                errors.append(
+                    f"{site.path}={_abbrev(site.ref)!r} is prose, not a "
+                    f"<kind>#<name> entity reference; a statement of what "
+                    f"would be observed belongs in "
+                    f"`{REFERENCE_ONLY_SLOTS[site.slot]}`"
+                )
+            continue
+        if site.slot in KNOWN_KIND_SLOTS and not _is_known_kind(parsed.kind):
+            fix = (
+                f", or put a prose outcome in `{REFERENCE_ONLY_SLOTS[site.slot]}`"
+                if site.slot in REFERENCE_ONLY_SLOTS
+                else ""
+            )
+            errors.append(
+                f"{site.path}={_abbrev(site.ref)!r} uses the unknown section "
+                f"{parsed.kind + '#'!r}; use a section in `SECTION_KEYS`{fix}"
+            )
+            continue
+        if resolve_entity_ref(data, site.ref) is False:
+            errors.append(
+                f"{site.path}={site.ref!r} does not resolve to a {parsed.kind}"
+            )
+    return errors

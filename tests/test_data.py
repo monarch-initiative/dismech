@@ -16,9 +16,10 @@ from linkml.validator import Validator
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from dismech.entity_refs import (
+    canonical_kind,
+    entity_ref_errors,
     iter_entity_refs,
     parse_entity_ref,
-    resolve_entity_ref,
 )
 from dismech.yaml_io import safe_load
 
@@ -837,20 +838,86 @@ def test_entity_ref_foreign_keys(filepath):
     Resolution lives in ``dismech.entity_refs`` so the renderer and any exporter
     follow a reference the same way. A cross-file reference, or a prefix absent
     from ``SECTION_KEYS``, is skipped rather than failed: an unmapped prefix is
-    a gap in that map, not a defect in the content.
+    a gap in that map, not a defect in the content -- outside the gated slots
+    (``_KNOWN_KIND_SLOTS``, which is ``attaches_to`` as well as the
+    reference-only pair), where an unmapped prefix is how a typo would escape
+    every check.
+
+    ``attaches_to`` additionally has to *use* the grammar: a bare name there is
+    not a reference, so it silently resolved to nothing before (#9394). In the
+    gated slots (``_KNOWN_KIND_SLOTS``, so not ``target``), a value naming a
+    real item in the entry is reported as a bare name rather than as prose: it
+    is a reference missing its prefix, and calling it prose would send a
+    curator to move a working pointer into a prose slot.
+
+    So do ``would_support`` / ``would_refute``, which hold references only --
+    a prose statement of the outcome belongs in ``supporting_outcome`` /
+    ``refuting_outcome`` (``REFERENCE_ONLY_SLOTS``, #9224). That was not gated
+    while the KB still held ~51 prose values; the migration that added the two
+    prose slots drove the backlog to zero, so this is a hard gate with no
+    baseline and a finding here is always something the current branch
+    introduced. Their ``<kind>``, and ``attaches_to``'s, must also be one this
+    repo knows (``_KNOWN_KIND_SLOTS``), because an unmapped prefix is skipped
+    by the resolver and so would otherwise let a typo -- or a sentence that
+    happens to contain a ``#`` -- through both checks. The fix for a genuinely
+    new section is to add it to ``SECTION_KEYS``, not to work around it.
+
+    ``target`` is exempt because it carries plain node names in its other homes
+    (``ModelMechanismLink``, ``target_mechanisms``, ``downstream``).
     """
     with open(filepath) as f:
         data = safe_load(f)
     if not isinstance(data, dict):
         return
 
-    errors = []
-    for path, ref in iter_entity_refs(data):
-        if resolve_entity_ref(data, ref) is False:
-            parsed = parse_entity_ref(ref)
-            errors.append(f"{path}={ref!r} does not resolve to a {parsed.kind}")
-
+    errors = entity_ref_errors(data)
     assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
+def test_entity_ref_prefixes_are_schema_slot_names(filepath):
+    """An entity reference's `<kind>` is the schema slot name (#9394).
+
+    `SECTION_KEYS` accepts a singular alias beside most section slots, so
+    `phenotype#Memory Loss` and `phenotypes#Memory Loss` both resolve and the
+    foreign-key test above is indifferent between them. That indifference is
+    what let content drift: before the normalisation, 90 of 172 phenotype
+    references were written singular, so grepping `phenotypes#` found barely
+    half of them, and no prefix could be derived from the schema without
+    consulting the alias map.
+
+    The aliases stay resolvable on purpose — an entry written before the
+    normalisation is not a defect, and nothing outside `kb/` is bound by this.
+    This gate only keeps the curated corpus in one spelling. The backlog was
+    driven to zero in the same change, so there is no baseline: a finding here
+    is always something this branch introduced.
+
+    Cross-file references are skipped deliberately, mirroring
+    `test_entity_ref_foreign_keys`: this file is not the other entry's schema,
+    and a prefix naming a section of a different file is not ours to rewrite.
+    All 14 cross-file refs in `kb/` are `:pathophysiology#` and already
+    canonical, so the skip closes no live hole.
+    """
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        return
+
+    errors = []
+    for site in iter_entity_refs(data):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None or parsed.file:
+            continue
+        canonical = canonical_kind(parsed.kind)
+        if canonical != parsed.kind:
+            errors.append(
+                f"{site.path}={site.ref!r} uses the alias {parsed.kind + '#'!r}; "
+                f"write {canonical + '#'!r} (the schema slot name)"
+            )
+
+    assert not errors, (
+        f"Non-canonical entity-ref prefixes in {Path(filepath).name}: {errors}"
+    )
 
 
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
@@ -1006,13 +1073,29 @@ def test_computational_model_mechanism_targets(filepath):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
 def test_animal_model_mechanism_targets(filepath):
-    """Animal model links should reference declared pathophysiology nodes."""
+    """Animal model links should reference a declared node in the same entry.
+
+    Pathophysiology is the preferred target, but a phenotype target is valid —
+    the same rule `test_environmental_mechanism_targets` already applies, and
+    the one CLAUDE.md documents for `influences_mechanisms`. Restricting this
+    test to `pathophysiology` was an inconsistency, and it made a legitimate
+    negative result unrepresentable: a `FAILS_TO_RECAPITULATE` link says the
+    model does not reproduce something, and what a model most often fails to
+    reproduce is a *phenotype* (dismech#9201 curated exactly that — a mouse
+    that does not reproduce the congenital deafness defining human DDOD).
+
+    Rerouting such a link to a pathophysiology node is not a workaround: in
+    the DDOD case the only hearing-related node is one the same model is
+    already declared to PARTIALLY_RECAPITULATE, so the entry would assert both
+    that the model reproduces that node and that it fails to.
+    """
     with open(filepath) as f:
         data = safe_load(f)
 
     valid_targets = {
         item["name"]
-        for item in data.get("pathophysiology", [])
+        for section in ("pathophysiology", "phenotypes")
+        for item in data.get(section, []) or []
         if isinstance(item, dict) and item.get("name")
     }
     if not valid_targets:

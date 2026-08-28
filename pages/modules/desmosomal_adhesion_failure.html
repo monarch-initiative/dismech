@@ -1,0 +1,2962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desmosomal Adhesion Failure Module - dismech</title>
+    <link rel="canonical" href="https://dismech.monarchinitiative.org/pages/modules/desmosomal_adhesion_failure.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: #fff;
+            color: var(--gray-800);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--primary-dark);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Sticky nav */
+        nav.site-nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+        .nav-links a { color: var(--gray-600); text-decoration: none; }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+        }
+
+        .breadcrumb span {
+            color: var(--text-muted);
+        }
+
+        .page-header {
+            background: var(--teal-50);
+            border: 1px solid var(--gray-200);
+            padding: 2.5rem 2rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+
+        .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .header-description {
+            margin-top: 16px;
+            max-width: 860px;
+            color: var(--gray-700);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-category {
+            background: rgba(0, 131, 143, 0.12);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+        }
+
+        .badge-module {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .badge-count {
+            background: var(--teal-50);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+        }
+
+        .badge-pathograph {
+            background: var(--teal-50);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: var(--teal-light);
+            color: var(--teal);
+            text-decoration: underline;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .card-count {
+            margin-left: auto;
+            background: var(--bg);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
+        .tag-cell {
+            background: #fce7f3;
+            color: #9d174d;
+        }
+
+        .tag-bio {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .tag-component {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .tag-role {
+            background: #e0e7ff;
+            color: #3730a3;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .tag-modifier {
+            background: #fee2e2;
+            color: #991b1b;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .curie-chip,
+        .linkout {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 6px;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
+            text-decoration: none;
+            white-space: nowrap;
+            vertical-align: 0.08em;
+        }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+
+        .item-box {
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            background: #ffffff;
+            border: 1px solid #dbece8;
+        }
+
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .item-desc {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .item-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
+        /* Mechanistic hypotheses */
+        .hypothesis-box {
+            background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
+            border: 1px solid #dbece8;
+            border-left: 4px solid #059669;
+        }
+        .hypothesis-box .item-name { color: #065f46; }
+        /* Keep curator-written paragraph breaks in hypothesis descriptions. */
+        .hypothesis-box .item-desc { white-space: pre-line; }
+
+        /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
+        .hypothesis-box.hypothesis-deprecated {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-left-color: #9ca3af;
+            opacity: 0.9;
+        }
+        .hypothesis-box.hypothesis-deprecated .item-name {
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .hypothesis-box.hypothesis-deprecated .item-desc { color: #6b7280; }
+
+        /* Status-specific hypothesis pills */
+        .tag-hypothesis-CANONICAL { background: #d1fae5; color: #065f46; }
+        .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
+        .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
+        .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .evidence-support {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .support-SUPPORT { background: #d1fae5; color: #065f46; }
+        .support-PARTIAL { background: #fef3c7; color: #92400e; }
+        .support-REFUTE { background: #fee2e2; color: #991b1b; }
+        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
+        .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
+        .hypothesis-notes {
+            margin-top: 8px;
+            font-size: 0.82rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
+        }
+
+        .empty-state {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .flow-list {
+            list-style: none;
+            display: grid;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .flow-target {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .page-footer {
+            text-align: center;
+            padding: 32px 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .page-footer a {
+            color: var(--primary);
+        }
+
+        .pathograph-container {
+            margin: 20px 0;
+            padding: 0;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
+        }
+
+        .graph-warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            color: #92400e;
+        }
+
+        .graph-warning strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .graph-warning ul {
+            margin: 8px 0 0 20px;
+            padding: 0;
+        }
+
+        .graph-warning li {
+            margin: 4px 0;
+        }
+
+        @media (max-width: 720px) {
+            .container {
+                padding: 16px;
+            }
+
+            .page-header {
+                padding: 32px 24px;
+            }
+
+            .page-header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+    <script src="https://d3js.org/d3.v7.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js" integrity="sha384-2IH3T69EIKYC4c+RXZifZRvaH5SRUdacJW7j6HtE5rQbvLhKKdawxq6vpIzJ7j9M" crossorigin="anonymous"></script>
+    <script>
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        experimental_model: "roundrect",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetics / Variants",
+        treatment: "Medical Actions",
+        biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
+        orphan: "Uncategorized"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
+        orphan: "#dc2626"
+    };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function humanizeEnum(value) {
+        return String(value || "").replace(/_/g, " ").toLowerCase().replace(/\b\w/g, function(c) {
+            return c.toUpperCase();
+        });
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!container || !svgEl || !tooltipEl || !legendEl) return;
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
+        });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            var edgePath = edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", edgeStroke(e))
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
+        });
+
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            var nodeIcon = NODE_TYPE_ICONS[n.node_type] || "";
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                pinnedNodeId = n.id;
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        function showTooltip(event, n) {
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
+            var html = [];
+            var nodeIcon = NODE_TYPE_ICONS[n.node_type] || "";
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.16);">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#c7d2fe; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#e0e7ff;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#c7d2fe; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#fde68a; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#d1d5db;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#c7d2fe; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#d1d5db;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#d1d5db; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
+            }
+
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
+            tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
+
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) {
+            typesInGraph[n.node_type] = n.color;
+        });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("label");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
+            item.appendChild(label);
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
+    </script>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
+
+    
+
+    
+
+    
+    
+    <nav class="site-nav">
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="index.html" class="active">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a>
+            <span> / </span>
+            <a href="index.html">Modules</a>
+            <span> / </span>
+            <span>Desmosomal Adhesion Failure Module</span>
+        </div>
+
+        <header class="page-header">
+            <h1>Desmosomal Adhesion Failure Module</h1>
+            <div class="header-meta">
+                <span class="badge badge-category">Module</span>
+                <span class="badge badge-module">desmosomal_adhesion_failure</span>
+                <span class="badge badge-count">9 disorders</span>
+                
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                
+            </div>
+            
+            <div class="header-description">A conserved cell-adhesion module for the desmosomal diseases. Desmosomes are the high-tensile intercellular junctions of tissues that bear mechanical stress, and they work by coupling desmosomal cadherins across the intercellular space to the intermediate filament cytoskeleton of both partner cells through an armadillo-and-plakin plaque. Three mechanistically distinct routes converge on the loss of that coupling: germline loss of a desmosomal structural component, autoantibody blockade of a desmosomal cadherin ectodomain, and loss of the keratinocyte calcium compartmentalization that desmosome assembly requires. Adhesion loss then manifests in whichever desmosome-dependent tissue is affected - acantholysis in epidermis, a fragile beaded or woolly hair shaft, and myocyte detachment with fibrofatty replacement in myocardium. This cross-organ reach is why a single desmosomal gene can produce a cardiocutaneous syndrome. Disorder entries reference these nodes via conforms_to and substitute their own route into the trigger.</div>
+            
+        </header>
+
+        <div class="section-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
+                    <h2 class="card-title">Pathophysiology Nodes</h2>
+                    <span class="card-count">5</span>
+                </div>
+                <div class="empty-state">
+                    5 shared nodes are defined in this module.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #fce7f3; color: #be185d;">◉</div>
+                    <h2 class="card-title">Cell Types</h2>
+                    <span class="card-count">3</span>
+                </div>
+                
+                <div class="tag-list">
+                    
+                    
+                    
+                    <span class="tag tag-cell">
+                        keratinocyte
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-cell">
+                        cardiac muscle cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000746</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-cell">
+                        hair follicle cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0002559" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002559</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves hair follicle cell (CL:0002559). CL:0002559 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #fef3c7; color: #d97706;">⇄</div>
+                    <h2 class="card-title">Biological Processes</h2>
+                    <span class="card-count">4</span>
+                </div>
+                
+                <div class="tag-list">
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        intracellular calcium ion homeostasis
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006874</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal intracellular calcium ion homeostasis (GO:0006874). GO:0006874 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">ABNORMAL</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        desmosome organization
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002934" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002934</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal desmosome organization (GO:0002934). GO:0002934 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">ABNORMAL</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        intermediate filament organization
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045109" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045109</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal intermediate filament organization (GO:0045109). GO:0045109 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">ABNORMAL</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        cell-cell adhesion
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0098609</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves decreased cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">DECREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+            </div>
+        </div>
+
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
+                <h2 class="card-title">Notes</h2>
+            </div>
+            <div class="item-desc">This is a shared mechanism module, not a disease.
+Three substitutable routes into the trigger node, which are NOT interchangeable and should be curated as the specific route the disorder takes:
+1. Structural gene loss - DSP (Carvajal syndrome, striate palmoplantar
+   keratoderma, arrhythmogenic cardiomyopathy), JUP/plakoglobin (Naxos
+   disease), DSG1 (striate palmoplantar keratoderma type 1, SAM syndrome),
+   PKP1 (ectodermal dysplasia-skin fragility syndrome), PKP2 and DSC2 and
+   DSG2 (arrhythmogenic right ventricular cardiomyopathy).
+2. Autoantibody blockade - IgG against the DSG3 and/or DSG1 ectodomain in
+   pemphigus vulgaris and pemphigus foliaceus. The target protein is the same
+   as in route 1; only the mechanism of its removal differs, which is why an
+   acquired disease conforms to a module otherwise populated by Mendelian
+   entries.
+3. Calcium-handling failure - ATP2A2/SERCA2 (Darier disease) and
+   ATP2C1/SPCA1 (Hailey-Hailey disease). These are not desmosomal proteins;
+   they are the ER and Golgi calcium pumps whose activity the post-translational
+   processing and assembly of desmosomal proteins depends on, so the desmosomal
+   defect here is secondary. Curate the calcium lesion as the trigger and the
+   desmosomal consequence downstream of it - do not assert a primary
+   desmosomal protein defect in Darier or Hailey-Hailey disease.
+
+Dose-sensitivity is a real and curatable feature of route 1: DSP haploinsufficiency alone is sufficient for striate palmoplantar keratoderma, whereas the cardiocutaneous syndromes generally require a more severe or recessive allele. A conforming entry should preserve that distinction rather than describing every desmosomal lesion as equivalent.
+Scope boundary with `keratin_intermediate_filament_fragility`. Both modules end in a mechanically fragile keratinocyte, but the failing element differs: there the filament network itself collapses, here the network is intact and its anchorage to the junction is lost. A DSP entry belongs here; a KRT5 entry does not.
+Scope boundary with `cardiomyopathy_maladaptive_remodeling`. The cardiocutaneous entries reach ventricular remodeling and should keep conforming to that module for the heart-failure arm; this module supplies the upstream adhesion lesion that module takes as given.
+Not an Xogenesis module: acantholysis is the dissolution of intercellular adhesion, not the formation of a pathological anatomical entity.
+Conformance requires evidence of lost desmosomal adhesion - acantholysis, reduced or malformed desmosomes, or intermediate filament retraction from the plaque. Expression of a desmosomal gene in the affected tissue is not sufficient.</div>
+        </div>
+        
+
+        
+
+        
+
+        
+
+        
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
+                <h2 class="card-title">Used By Disorder Entries</h2>
+                <span class="card-count">9</span>
+            </div>
+            
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Carvajal_Syndrome.html">Carvajal Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Biallelic DSP Deficiency — Desmosome-IF Uncoupling → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Keratinocyte Adhesion Failure → Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Desmosomal Uncoupling → Loss of Desmosomal Intercellular Adhesion
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Darier_Disease.html">Darier Disease</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ATP2A2 Haploinsufficiency and Loss of SERCA2 Pump Activity → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Disturbed Endoplasmic Reticulum Calcium Signalling in Keratinocytes → Failure of Desmosome Assembly and Intermediate Filament Anchorage
+                        
+                        
+                        , 
+                        
+                        Suprabasal Acantholysis → Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hailey-Hailey_Disease.html">Hailey-Hailey Disease</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ATP2C1 Haploinsufficiency and Loss of Golgi SPCA1 Pump Activity → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Disturbed Keratinocyte Calcium Handling and the Epidermal Calcium Gradient → Failure of Desmosome Assembly and Intermediate Filament Anchorage
+                        
+                        
+                        , 
+                        
+                        Suprabasal Acantholysis Sparing the Adnexal Epithelia → Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Naxos_disease.html">Naxos disease</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Plakoglobin loss-of-function → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Intercalated-disc desmosome failure → Loss of Desmosomal Intercellular Adhesion
+                        
+                        
+                        , 
+                        
+                        Cutaneous and hair-follicle desmosome failure → Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Paraneoplastic_Pemphigus.html">Paraneoplastic Pemphigus</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Autoantibody Binding to Desmosomal Plakins and Desmogleins → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Desmosome Disruption and Keratinocyte Acantholysis → Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Pemphigus_Erythematosus.html">Pemphigus Erythematosus</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Desmosomal Autoantibody-Mediated Acantholysis → Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Pemphigus_Vulgaris.html">Pemphigus Vulgaris</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Anti-Desmoglein Autoantibodies → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Acantholysis and Blister Formation → Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Skin_Fragility-Woolly_Hair_Syndrome.html">Skin Fragility-Woolly Hair Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        DSP Compound Heterozygous Loss-of-Function → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Desmosome-Keratin Detachment → Failure of Desmosome Assembly and Intermediate Filament Anchorage
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Striate_Palmoplantar_Keratoderma_Type_2.html">Striate Palmoplantar Keratoderma Type 2</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        DSP Premature Termination Codons Triggering Nonsense-Mediated Decay → Desmosomal Component Loss or Blockade
+                        
+                        
+                        , 
+                        
+                        Defective Desmosomal Plaque Assembly → Failure of Desmosome Assembly and Intermediate Filament Anchorage
+                        
+                        
+                        , 
+                        
+                        Keratin Intermediate Filament Network Disruption → Failure of Desmosome Assembly and Intermediate Filament Anchorage
+                        
+                        
+                        , 
+                        
+                        Suprabasal Keratinocyte Adhesion Failure in Mechanical Stress Sites → Loss of Desmosomal Intercellular Adhesion
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+            </div>
+            
+        </div>
+
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence-backed metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Desmosomal Adhesion Failure Module</title>
+                    <desc>Interactive directed graph showing how this shared module's pathophysiology nodes connect.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells detach from one another in whichever desmosome-dependent tissue is affected. In epidermis this is acantholysis - suprabasal separation producing blisters, erosions, or the acantholytic dyskeratosis of Darier disease - and the palmoplantar epidermis, which bears the greatest shear, responds with keratoderma. In the hair shaft it yields a structurally abnormal woolly or fragile hair. In myocardium, myocyte detachment at the intercalated disc permits cell death and fibrofatty replacement, the substrate for arrhythmogenic cardiomyopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\", \"cardiac muscle cell\", \"hair follicle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"role\": \"effector\", \"locations\": [\"skin\", \"heart\"]}}, {\"id\": \"Cutaneous, Appendageal and Cardiac Manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organ-level endpoint. Cutaneously this ranges from focal or striate palmoplantar keratoderma through generalized acantholytic blistering; the hair may be woolly or fragile; and where the affected component is also expressed in myocardium the syndrome includes cardiomyopathy with ventricular arrhythmia and a risk of sudden death that can substantially precede any cardiac symptom. The cardiac arm is the reason a dermatological diagnosis in this group carries a cardiological obligation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell-cell adhesion\"], \"role\": \"consequence\", \"locations\": [\"skin\", \"hair follicle\"]}}, {\"id\": \"Desmosomal Component Loss or Blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A structural component of the desmosome becomes unavailable to the junction. It may be absent because the gene encoding it carries a loss-of-function variant, functionally blocked because autoantibody has bound its adhesive ectodomain, or unable to be assembled because the calcium compartmentalization required for its processing has failed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"intracellular calcium ion homeostasis\"], \"role\": \"trigger\"}}, {\"id\": \"Failure of Desmosome Assembly and Intermediate Filament Anchorage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desmosomes are assembled in reduced numbers, are structurally abnormal, or lose their cytoskeletal connection. The plakin-family plaque proteins, desmoplakin foremost among them, are what link the intermediate filament network to the junctional membrane, so their loss uncouples the cytoskeleton from the adhesive surface even when cadherins are present. The junction is then no longer a load-bearing element of the tissue.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"desmosome organization\", \"intermediate filament organization\"], \"role\": \"amplifier\"}}, {\"id\": \"Loss of Desmosomal Intercellular Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adjacent cells lose the high-tensile adhesion desmosomes provide. This is the rate-limiting, disorder-agnostic node of the module: the structural, autoimmune, and calcium-handling routes all converge here, and conformance should be declared against it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-cell adhesion\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Desmosomal Component Loss or Blockade\", \"target\": \"Failure of Desmosome Assembly and Intermediate Filament Anchorage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without an available component, desmosomes are reduced in number or size and the intermediate filament network is no longer tethered to the plaque.\"}, {\"source\": \"Failure of Desmosome Assembly and Intermediate Filament Anchorage\", \"target\": \"Loss of Desmosomal Intercellular Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Junctions that are absent, malformed, or uncoupled from the cytoskeleton cannot hold adjacent cells together under load.\"}, {\"source\": \"Loss of Desmosomal Intercellular Adhesion\", \"target\": \"Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells separate from their neighbours under the mechanical load their tissue normally carries.\"}, {\"source\": \"Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues\", \"target\": \"Cutaneous, Appendageal and Cardiac Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue-level adhesion failure produces the organ-level syndrome, whose composition depends on where the affected component is expressed.\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
+
+        
+        <div class="card" id="pathophysiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
+                <h2 class="card-title">Pathophysiology</h2>
+                <span class="card-count">5</span>
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-desmosomal-component-loss-or-blockade" data-dismech-node="Desmosomal Component Loss or Blockade" data-dismech-type="pathophysiology">
+                <div class="item-name">Desmosomal Component Loss or Blockade</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">trigger</span>
+                    
+                </div>
+                
+                <div class="item-desc">A structural component of the desmosome becomes unavailable to the junction. It may be absent because the gene encoding it carries a loss-of-function variant, functionally blocked because autoantibody has bound its adhesive ectodomain, or unable to be assembled because the calcium compartmentalization required for its processing has failed.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        keratinocyte
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000312</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        intracellular calcium ion homeostasis
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006874</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intracellular calcium ion homeostasis (GO:0006874). GO:0006874 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">ABNORMAL</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-component">
+                        desmosome
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030057</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a cellular component from the Gene Ontology.</span>
+                    </span>
+                    
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Carvajal_Syndrome.html">Carvajal Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Biallelic DSP Deficiency — Desmosome-IF Uncoupling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Darier_Disease.html">Darier Disease</a>
+                            
+                            <span class="crosslink-desc">as ATP2A2 Haploinsufficiency and Loss of SERCA2 Pump Activity</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hailey-Hailey_Disease.html">Hailey-Hailey Disease</a>
+                            
+                            <span class="crosslink-desc">as ATP2C1 Haploinsufficiency and Loss of Golgi SPCA1 Pump Activity</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Naxos_disease.html">Naxos disease</a>
+                            
+                            <span class="crosslink-desc">as Plakoglobin loss-of-function</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Paraneoplastic_Pemphigus.html">Paraneoplastic Pemphigus</a>
+                            
+                            <span class="crosslink-desc">as Autoantibody Binding to Desmosomal Plakins and Desmogleins</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Pemphigus_Vulgaris.html">Pemphigus Vulgaris</a>
+                            
+                            <span class="crosslink-desc">as Anti-Desmoglein Autoantibodies</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Skin_Fragility-Woolly_Hair_Syndrome.html">Skin Fragility-Woolly Hair Syndrome</a>
+                            
+                            <span class="crosslink-desc">as DSP Compound Heterozygous Loss-of-Function</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Striate_Palmoplantar_Keratoderma_Type_2.html">Striate Palmoplantar Keratoderma Type 2</a>
+                            
+                            <span class="crosslink-desc">as DSP Premature Termination Codons Triggering Nonsense-Mediated Decay</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Failure of Desmosome Assembly and Intermediate Filament Anchorage</span>
+                            
+                            <span class="crosslink-desc">Without an available component, desmosomes are reduced in number or size and the intermediate filament network is no longer tethered to the plaque.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-failure-of-desmosome-assembly-and-intermediate-filament-anchorage" data-dismech-node="Failure of Desmosome Assembly and Intermediate Filament Anchorage" data-dismech-type="pathophysiology">
+                <div class="item-name">Failure of Desmosome Assembly and Intermediate Filament Anchorage</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">amplifier</span>
+                    
+                </div>
+                
+                <div class="item-desc">Desmosomes are assembled in reduced numbers, are structurally abnormal, or lose their cytoskeletal connection. The plakin-family plaque proteins, desmoplakin foremost among them, are what link the intermediate filament network to the junctional membrane, so their loss uncouples the cytoskeleton from the adhesive surface even when cadherins are present. The junction is then no longer a load-bearing element of the tissue.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        keratinocyte
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000312</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        desmosome organization
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002934" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0002934</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal desmosome organization (GO:0002934). GO:0002934 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">ABNORMAL</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        intermediate filament organization
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0045109" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0045109</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intermediate filament organization (GO:0045109). GO:0045109 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">ABNORMAL</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-component">
+                        desmosome
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030057</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a cellular component from the Gene Ontology.</span>
+                    </span>
+                    
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Darier_Disease.html">Darier Disease</a>
+                            
+                            <span class="crosslink-desc">as Disturbed Endoplasmic Reticulum Calcium Signalling in Keratinocytes</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hailey-Hailey_Disease.html">Hailey-Hailey Disease</a>
+                            
+                            <span class="crosslink-desc">as Disturbed Keratinocyte Calcium Handling and the Epidermal Calcium Gradient</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Skin_Fragility-Woolly_Hair_Syndrome.html">Skin Fragility-Woolly Hair Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Desmosome-Keratin Detachment</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Striate_Palmoplantar_Keratoderma_Type_2.html">Striate Palmoplantar Keratoderma Type 2</a>
+                            
+                            <span class="crosslink-desc">as Defective Desmosomal Plaque Assembly</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Striate_Palmoplantar_Keratoderma_Type_2.html">Striate Palmoplantar Keratoderma Type 2</a>
+                            
+                            <span class="crosslink-desc">as Keratin Intermediate Filament Network Disruption</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Loss of Desmosomal Intercellular Adhesion</span>
+                            
+                            <span class="crosslink-desc">Junctions that are absent, malformed, or uncoupled from the cytoskeleton cannot hold adjacent cells together under load.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-loss-of-desmosomal-intercellular-adhesion" data-dismech-node="Loss of Desmosomal Intercellular Adhesion" data-dismech-type="pathophysiology">
+                <div class="item-name">Loss of Desmosomal Intercellular Adhesion</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">central effector</span>
+                    
+                </div>
+                
+                <div class="item-desc">Adjacent cells lose the high-tensile adhesion desmosomes provide. This is the rate-limiting, disorder-agnostic node of the module: the structural, autoimmune, and calcium-handling routes all converge here, and conformance should be declared against it.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        keratinocyte
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000312</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        cell-cell adhesion
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0098609</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">DECREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Carvajal_Syndrome.html">Carvajal Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Desmosomal Uncoupling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Naxos_disease.html">Naxos disease</a>
+                            
+                            <span class="crosslink-desc">as Intercalated-disc desmosome failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Striate_Palmoplantar_Keratoderma_Type_2.html">Striate Palmoplantar Keratoderma Type 2</a>
+                            
+                            <span class="crosslink-desc">as Suprabasal Keratinocyte Adhesion Failure in Mechanical Stress Sites</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues</span>
+                            
+                            <span class="crosslink-desc">Cells separate from their neighbours under the mechanical load their tissue normally carries.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-acantholysis-and-mechanical-failure-of-desmosome-dependent-tissues" data-dismech-node="Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues" data-dismech-type="pathophysiology">
+                <div class="item-name">Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">effector</span>
+                    
+                </div>
+                
+                <div class="item-desc">Cells detach from one another in whichever desmosome-dependent tissue is affected. In epidermis this is acantholysis - suprabasal separation producing blisters, erosions, or the acantholytic dyskeratosis of Darier disease - and the palmoplantar epidermis, which bears the greatest shear, responds with keratoderma. In the hair shaft it yields a structurally abnormal woolly or fragile hair. In myocardium, myocyte detachment at the intercalated disc permits cell death and fibrofatty replacement, the substrate for arrhythmogenic cardiomyopathy.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        keratinocyte
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000312</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        cardiac muscle cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000746</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        hair follicle cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0002559" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002559</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hair follicle cell (CL:0002559). CL:0002559 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        cell-cell adhesion
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0098609</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">DECREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Carvajal_Syndrome.html">Carvajal Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Keratinocyte Adhesion Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Darier_Disease.html">Darier Disease</a>
+                            
+                            <span class="crosslink-desc">as Suprabasal Acantholysis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hailey-Hailey_Disease.html">Hailey-Hailey Disease</a>
+                            
+                            <span class="crosslink-desc">as Suprabasal Acantholysis Sparing the Adnexal Epithelia</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Naxos_disease.html">Naxos disease</a>
+                            
+                            <span class="crosslink-desc">as Cutaneous and hair-follicle desmosome failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Paraneoplastic_Pemphigus.html">Paraneoplastic Pemphigus</a>
+                            
+                            <span class="crosslink-desc">as Desmosome Disruption and Keratinocyte Acantholysis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Pemphigus_Erythematosus.html">Pemphigus Erythematosus</a>
+                            
+                            <span class="crosslink-desc">as Desmosomal Autoantibody-Mediated Acantholysis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Pemphigus_Vulgaris.html">Pemphigus Vulgaris</a>
+                            
+                            <span class="crosslink-desc">as Acantholysis and Blister Formation</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Cutaneous, Appendageal and Cardiac Manifestations</span>
+                            
+                            <span class="crosslink-desc">Tissue-level adhesion failure produces the organ-level syndrome, whose composition depends on where the affected component is expressed.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-cutaneous-appendageal-and-cardiac-manifestations" data-dismech-node="Cutaneous, Appendageal and Cardiac Manifestations" data-dismech-type="pathophysiology">
+                <div class="item-name">Cutaneous, Appendageal and Cardiac Manifestations</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">consequence</span>
+                    
+                </div>
+                
+                <div class="item-desc">The organ-level endpoint. Cutaneously this ranges from focal or striate palmoplantar keratoderma through generalized acantholytic blistering; the hair may be woolly or fragile; and where the affected component is also expressed in myocardium the syndrome includes cardiomyopathy with ventricular arrhythmia and a risk of sudden death that can substantially precede any cardiac symptom. The cardiac arm is the reason a dermatological diagnosis in this group carries a cardiological obligation.</div>
+                
+
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        cell-cell adhesion
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0098609</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">DECREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+
+                
+            </div>
+            
+        </div>
+        
+
+        <footer class="page-footer">
+            <p>
+                Generated from <a href="https://github.com/monarch-initiative/dismech" target="_blank">dismech</a>
+                shared mechanism modules
+            </p>
+            <p style="margin-top: 8px;">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/modules/desmosomal_adhesion_failure.yaml" target="_blank">View source on GitHub</a>
+            </p>
+            
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
+        </footer>
+    </div>
+    <!-- hypothes.is curator feedback — group ID can be changed to a private group once created at hypothes.is/groups -->
+    <script type="application/json" class="js-hypothesis-config">
+    {
+      "openSidebar": false,
+      "showHighlights": "always",
+      "services": [
+        {
+          "apiUrl": "https://hypothes.is/api/",
+          "authority": "hypothes.is",
+          "groups": ["__world__"]
+        }
+      ]
+    }
+    </script>
+    <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
+</body>
+</html>

@@ -1366,6 +1366,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -2718,6 +2733,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {{ entity_ref_kind_aliases | tojson }};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2726,7 +2755,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3791,6 +3820,25 @@
     {% endif %}
     {% endmacro %}
 
+    {# Orphanet prevalence bands read wrong when title-cased: BAND_1_5_PER_10000
+       renders as "Band 1 5 Per 10000" but *means* 1-9 per 10,000 (the schema
+       merges Orphanet's 1-5 and 6-9 classes into it), so the mechanical form
+       understates the range. Unmapped values fall back to it rather than
+       vanishing, so a new enum member still shows. #}
+    {% set PREVALENCE_CLASS_LABELS = {
+        "ABOVE_1_IN_1000": ">1 in 1,000",
+        "BAND_1_5_PER_10000": "1–9 per 10,000",
+        "BAND_1_9_PER_100000": "1–9 per 100,000",
+        "BAND_1_9_PER_1000000": "1–9 per 1,000,000",
+        "BELOW_1_IN_1000000": "<1 in 1,000,000",
+        "NOT_YET_DOCUMENTED": "Not yet documented",
+    } %}
+    {% macro render_prevalence_class(value) %}
+    {%- if value -%}
+    <span class="tag">{{ PREVALENCE_CLASS_LABELS.get(value) or (value | replace('_', ' ') | title) }}</span>
+    {%- endif -%}
+    {% endmacro %}
+
     {% macro render_entity_refs(title, refs) %}
     {% if refs %}
     <div class="experiment-section">
@@ -3800,6 +3848,19 @@
             {{ render_entity_ref(ref) }}
             {% endfor %}
         </div>
+    </div>
+    {% endif %}
+    {% endmacro %}
+
+    {% macro render_outcome_list(title, outcomes) %}
+    {% if outcomes %}
+    <div class="experiment-section">
+        <div class="experiment-section-title">{{ title }}</div>
+        <ul class="experiment-outcome-list">
+            {% for outcome in outcomes %}
+            <li>{{ outcome }}</li>
+            {% endfor %}
+        </ul>
     </div>
     {% endif %}
     {% endmacro %}
@@ -4033,6 +4094,8 @@
         {% endif %}
         {{ render_entity_refs("Would support", experiment.would_support) }}
         {{ render_entity_refs("Would refute", experiment.would_refute) }}
+        {{ render_outcome_list("Supporting outcome", experiment.supporting_outcome) }}
+        {{ render_outcome_list("Refuting outcome", experiment.refuting_outcome) }}
         {% if experiment.protocol_reference %}
         <div class="mapping-notes">Protocol: {{ experiment.protocol_reference }}</div>
         {% endif %}
@@ -6314,6 +6377,360 @@
                 {{ render_evidence(bio.evidence) }}
             </div>
             {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Diagnosis -->
+        {% if disorder.diagnosis %}
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">{{ disorder.diagnosis | length }}</span>
+            </div>
+            {% for dx in disorder.diagnosis %}
+            <div class="item-box anchor-target"{% if dx._anchor_id %} id="{{ dx._anchor_id }}"{% endif %}>
+                <div class="item-name">
+                    {{ dx.name }}
+                    {% if dx.presence %}
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">({{ dx.presence }})</span>
+                    {% endif %}
+                </div>
+                {% if dx.description %}
+                <div class="item-desc">{{ dx.description }}</div>
+                {% endif %}
+                {{ render_descriptor_tag(dx.diagnosis_term, "tag-treatment") }}
+                {# `markers` is `range: string` and not multivalued -- passing it to
+                   render_descriptor_tags iterates it per character and renders
+                   nothing. Text, like the sibling `results` slot. #}
+                {% if dx.markers %}
+                <div class="item-desc"><strong>Markers:</strong> {{ dx.markers }}</div>
+                {% endif %}
+                {% if dx.results %}
+                <div class="item-desc"><strong>Results:</strong> {{ dx.results }}</div>
+                {% endif %}
+                {% if dx.notes %}
+                <div class="item-notes">{{ dx.notes }}</div>
+                {% endif %}
+                {{ render_evidence(dx.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Imaging Findings -->
+        {% if disorder.imaging_findings %}
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">{{ disorder.imaging_findings | length }}</span>
+            </div>
+            {% for finding in disorder.imaging_findings %}
+            <div class="item-box anchor-target"{% if finding._anchor_id %} id="{{ finding._anchor_id }}"{% endif %}>
+                <div class="item-name">
+                    {{ finding.name }}
+                    {% if finding.frequency %}
+                    <span class="histopathology-freq">{{ finding.frequency }}</span>
+                    {% endif %}
+                </div>
+                {% if finding.description %}
+                <div class="item-desc">{{ finding.description }}</div>
+                {% endif %}
+                <div class="item-meta">
+                    {% if finding.modality %}
+                    <span class="tag tag-classification">{{ finding.modality | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if finding.diagnostic %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+                    {% endif %}
+                    {% if finding.laterality %}
+                    <span class="tag">{{ finding.laterality | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if finding.spatial_extent %}
+                    <span class="tag">{{ finding.spatial_extent | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if finding.subtype %}
+                    <span class="tag tag-subtype">{{ finding.subtype }}</span>
+                    {% endif %}
+                    {% if finding.context %}
+                    <span class="tag">{{ finding.context }}</span>
+                    {% endif %}
+                </div>
+                {{ render_descriptor_tag(finding.imaging_finding_term, "tag-bio") }}
+                {{ render_descriptor_tag(finding.located_in, "tag-anatomy") }}
+                {{ render_descriptor_tag(finding.phenotype_term, "tag-phenotype") }}
+                {% if finding.notes %}
+                <div class="item-notes">{{ finding.notes }}</div>
+                {% endif %}
+                {{ render_evidence(finding.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Progression -->
+        {% if disorder.progression %}
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">{{ disorder.progression | length }}</span>
+            </div>
+            {% for phase in disorder.progression %}
+            <div class="item-box anchor-target"{% if phase._anchor_id %} id="{{ phase._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ phase.phase }}</div>
+                <div class="item-meta">
+                    {% if phase.subtype %}
+                    <span class="tag tag-subtype">{{ phase.subtype }}</span>
+                    {% endif %}
+                    {% if phase.age_range %}
+                    <span class="tag">Age: {{ phase.age_range }}</span>
+                    {% endif %}
+                    {% if phase.duration %}
+                    <span class="tag">Duration: {{ phase.duration }}</span>
+                    {% elif phase.duration_days %}
+                    <span class="tag">Duration: {{ phase.duration_days }} days</span>
+                    {% endif %}
+                    {% if phase.incubation_days %}
+                    <span class="tag">Incubation: {{ phase.incubation_days }} days</span>
+                    {% elif phase.incubation_years %}
+                    <span class="tag">Incubation: {{ phase.incubation_years }} years</span>
+                    {% endif %}
+                </div>
+                {% if phase.notes %}
+                <div class="item-notes">{{ phase.notes }}</div>
+                {% endif %}
+                {{ render_evidence(phase.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Stages -->
+        {% if disorder.stages %}
+        <div class="card" id="stages">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">🪜</div>
+                <h2 class="card-title">Stages</h2>
+                <span class="card-count">{{ disorder.stages | length }}</span>
+            </div>
+            {% for stage in disorder.stages %}
+            <div class="item-box anchor-target"{% if stage._anchor_id %} id="{{ stage._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ stage.name }}</div>
+                {% if stage.description %}
+                <div class="item-desc">{{ stage.description }}</div>
+                {% endif %}
+                {% if stage.role %}
+                <div class="item-meta"><span class="tag tag-classification">{{ stage.role }}</span></div>
+                {% endif %}
+                {% if stage.substages %}
+                <div class="item-meta">
+                    {% for substage in stage.substages %}
+                    {# Guarded rather than `substage.name or substage`, which prints
+                       a raw dict for a nameless entry -- the shape of the
+                       food_source bug found in review of this PR. #}
+                    {% if substage is string %}
+                    <span class="tag">{{ substage }}</span>
+                    {% elif substage.name %}
+                    <span class="tag">{{ substage.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if stage.pathophysiology %}
+                <div class="item-meta">
+                    {% for node in stage.pathophysiology %}
+                    {% if node.name %}
+                    <span class="tag tag-bio">{{ node.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if stage.notes %}
+                <div class="item-notes">{{ stage.notes }}</div>
+                {% endif %}
+                {{ render_evidence(stage.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Prevalence -->
+        {% if disorder.prevalence %}
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">{{ disorder.prevalence | length }}</span>
+            </div>
+            {% for rec in disorder.prevalence %}
+            <div class="item-box anchor-target"{% if rec._anchor_id %} id="{{ rec._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ rec.population or 'Unspecified population' }}</div>
+                <div class="item-meta">
+                    {% if rec.measure_type %}
+                    <span class="tag tag-classification">{{ rec.measure_type | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {# `.get()` rather than `rec.rate_per_100000 is not none`: a
+                       missing key is Jinja's Undefined, which *passes* an
+                       `is not none` test and renders an empty number while
+                       suppressing the percentage fallback below. #}
+                    {% if rec.get('rate_per_100000') is not none %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        {{ rec.rate_per_100000 }} per 100,000
+                        {%- if rec.get('rate_low') is not none and rec.get('rate_high') is not none %}
+                        ({{ rec.rate_low }}&ndash;{{ rec.rate_high }})
+                        {%- elif rec.get('rate_high') is not none %}
+                        (up to {{ rec.rate_high }})
+                        {%- elif rec.get('rate_low') is not none %}
+                        (from {{ rec.rate_low }})
+                        {%- endif %}
+                    </span>
+                    {# 273 records carry a range and no point rate, so this has to
+                       be a sibling branch rather than nested in the one above. #}
+                    {% elif rec.get('rate_low') is not none or rec.get('rate_high') is not none %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        {%- if rec.get('rate_low') is not none and rec.get('rate_high') is not none -%}
+                        {{ rec.rate_low }}&ndash;{{ rec.rate_high }}
+                        {%- elif rec.get('rate_low') is not none -%}
+                        &ge;{{ rec.rate_low }}
+                        {%- else -%}
+                        &le;{{ rec.rate_high }}
+                        {%- endif %} per 100,000
+                    </span>
+                    {% elif rec.percentage %}
+                    <span class="tag">{{ rec.percentage }}</span>
+                    {% endif %}
+                    {{ render_prevalence_class(rec.prevalence_class) }}
+                    {% if rec.subtype %}
+                    <span class="tag tag-subtype">{{ rec.subtype }}</span>
+                    {% endif %}
+                </div>
+                {% if rec.notes %}
+                <div class="item-notes">{{ rec.notes }}</div>
+                {% endif %}
+                {{ render_evidence(rec.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Epidemiology -->
+        {% if disorder.epidemiology %}
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">{{ disorder.epidemiology | length }}</span>
+            </div>
+            {% for epi in disorder.epidemiology %}
+            <div class="item-box anchor-target"{% if epi._anchor_id %} id="{{ epi._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ epi.name }}</div>
+                {% if epi.description %}
+                <div class="item-desc">{{ epi.description }}</div>
+                {% endif %}
+                <div class="item-meta">
+                    {% if epi.mean_range %}
+                    <span class="tag">{{ epi.mean_range }}{% if epi.unit %} {{ epi.unit }}{% endif %}</span>
+                    {% elif epi.get('minimum_value') is not none or epi.get('maximum_value') is not none %}
+                    <span class="tag">
+                        {{ epi.minimum_value if epi.get('minimum_value') is not none else '?' }}&ndash;{{ epi.maximum_value if epi.get('maximum_value') is not none else '?' }}
+                        {%- if epi.unit %} {{ epi.unit }}{% endif %}
+                    </span>
+                    {% endif %}
+                    {% for factor in epi.factors or [] %}
+                    <span class="tag">{{ factor }}</span>
+                    {% endfor %}
+                </div>
+                {% if epi.notes %}
+                <div class="item-notes">{{ epi.notes }}</div>
+                {% endif %}
+                {{ render_evidence(epi.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Infectious Agent -->
+        {% if disorder.infectious_agent %}
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">{{ disorder.infectious_agent | length }}</span>
+            </div>
+            {% for agent in disorder.infectious_agent %}
+            <div class="item-box anchor-target"{% if agent._anchor_id %} id="{{ agent._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ agent.name }}</div>
+                {% if agent.description %}
+                <div class="item-desc">{{ agent.description }}</div>
+                {% endif %}
+                {{ render_descriptor_tag(agent.infectious_agent_term, "tag-bio") }}
+                {% if agent.has_subtypes %}
+                <div class="item-meta">
+                    {% for sub in agent.has_subtypes %}
+                    {% if sub is string %}
+                    <span class="tag tag-subtype">{{ sub }}</span>
+                    {% elif sub.name %}
+                    <span class="tag tag-subtype">{{ sub.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if agent.food_source %}
+                <div class="item-desc"><strong>Food source:</strong> {{ render_descriptor_tag(agent.food_source, "tag-bio") }}</div>
+                {% endif %}
+                {{ render_evidence(agent.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Transmission -->
+        {% if disorder.transmission %}
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">{{ disorder.transmission | length }}</span>
+            </div>
+            {% for route in disorder.transmission %}
+            <div class="item-box anchor-target"{% if route._anchor_id %} id="{{ route._anchor_id }}"{% endif %}>
+                <div class="item-name">{{ route.name }}</div>
+                {% if route.description %}
+                <div class="item-desc">{{ route.description }}</div>
+                {% endif %}
+                {% if route.effect %}
+                <div class="item-meta"><span class="tag">{{ route.effect }}</span></div>
+                {% endif %}
+                {% if route.notes %}
+                <div class="item-notes">{{ route.notes }}</div>
+                {% endif %}
+                {{ render_evidence(route.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Clinical Burden -->
+        {% if disorder.clinical_burden %}
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+                {% if disorder.clinical_burden.burden_level %}
+                <div class="item-name">{{ disorder.clinical_burden.burden_level | replace('_', ' ') | title }}</div>
+                {% endif %}
+                {% if disorder.clinical_burden.rationale %}
+                <div class="item-desc">{{ disorder.clinical_burden.rationale }}</div>
+                {% endif %}
+                {% if disorder.clinical_burden.notes %}
+                <div class="item-notes">{{ disorder.clinical_burden.notes }}</div>
+                {% endif %}
+                {{ render_evidence(disorder.clinical_burden.evidence) }}
+            </div>
         </div>
         {% endif %}
 
