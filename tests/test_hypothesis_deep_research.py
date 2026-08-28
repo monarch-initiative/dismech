@@ -226,13 +226,13 @@ def _run_with(monkeypatch, tmp_path: Path, returncode: int):
         timeout_seconds=10,
         dry_run=False,
         overwrite=True,
-    ), output_root
+    )
 
 
 def test_a_fallback_report_is_renamed_on_a_successful_run(
     monkeypatch, tmp_path: Path
 ) -> None:
-    result, output_root = _run_with(monkeypatch, tmp_path, 0)
+    result = _run_with(monkeypatch, tmp_path, 0)
 
     assert result.status == "OK"
     assert result.provider == "claude_code"
@@ -249,7 +249,7 @@ def test_a_fallback_report_is_renamed_when_validation_failed(
     that could not run, and `existing_outputs` reads the provider straight out
     of the filename.
     """
-    result, output_root = _run_with(monkeypatch, tmp_path, 3)
+    result = _run_with(monkeypatch, tmp_path, 3)
 
     assert result.status == "ERROR_3", "the validation failure must still be reported"
     assert result.provider == "claude_code"
