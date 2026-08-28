@@ -53,6 +53,13 @@ jobs:
       contents: write
       pull-requests: write
 
+    env:
+      # The derived artifacts this workflow owns. Change-detection and `git add`
+      # must agree on this list: a path missing from the first makes the run
+      # skip its PR, and one missing from the second silently never updates.
+      BUILT_PATHS: >-
+        pages/ app/data.js app/models/data.js pathographs/ dashboard/ elements/
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -292,6 +299,19 @@ jobs:
       - name: Verify browser data links resolve to rendered pages
         run: just check-browser-links
 
+      # The models index is rebuilt from the same KB and committed alongside
+      # app/data.js. It belongs to this run for the same reason app/data.js
+      # does: it is derived from the whole KB, so a curation PR that
+      # regenerates it collides with every sibling PR that also did
+      # (issue #9804).
+      - name: Generate models browser data
+        run: just gen-models-data
+
+      - name: Verify models browser data links resolve to rendered pages
+        run: |
+          uv run python scripts/check_browser_data_links.py \
+            --data app/models/data.js
+
       - name: Generate pathograph artifact
         run: just gen-pathographs
 
@@ -311,12 +331,12 @@ jobs:
           # only reports unstaged changes, so it would see nothing and skip the PR.
           # Against HEAD (= current origin/main after the re-anchor) this is
           # exactly the regeneration delta.
-          if git diff --quiet HEAD -- pages/ app/data.js pathographs/ dashboard/ elements/; then
+          if git diff --quiet HEAD -- $BUILT_PATHS; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "Changed files:"
-            git diff --stat HEAD -- pages/ app/data.js pathographs/ dashboard/ elements/
+            git diff --stat HEAD -- $BUILT_PATHS
           fi
 
       - name: Create or update Pull Request
@@ -343,7 +363,7 @@ jobs:
             exit 1
           fi
 
-          git add pages/ app/data.js pathographs/ dashboard/ elements/
+          git add $BUILT_PATHS
 
           PAGE_COUNT=$(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ')
           COMORB_PAGE_COUNT=$(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ')
