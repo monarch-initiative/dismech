@@ -96,7 +96,7 @@ def node_anatomy(graph: dict) -> None:
     for label, key in (("scale", "scale"), ("system", "system")):
         print(f"  {label} distribution:")
         for name, count in collections.Counter(n.get(key) for n in nodes).most_common():
-            print(f"     {str(name):28} {count:5}")
+            print(f"     {name!s:28} {count:5}")
     print("  entity ontology prefix:")
     prefixes = collections.Counter(
         (n.get("entity_iri") or "NONE").split(":")[0] for n in nodes
@@ -107,7 +107,7 @@ def node_anatomy(graph: dict) -> None:
     for name, count in collections.Counter(
         n.get("quality_iri") for n in nodes
     ).most_common(5):
-        print(f"     {str(name):18} {count:5}")
+        print(f"     {name!s:18} {count:5}")
 
 
 def edge_signs_and_provenance(graph: dict) -> None:
