@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 
-from dismech.render import render_disorder
+from dismech.render import render_disorder, render_module
 
 
 def _strip_yaml_preview(html: str) -> str:
@@ -148,3 +148,127 @@ def test_treatment_without_platform_data_renders_no_platform_row(tmp_path: Path)
     assert "RNA target:" not in html
     assert "Dosing:" not in html
     assert "Orthotopic liver transplantation" in html
+
+
+def _render_module(tmp_path: Path, treatments: list[dict]) -> str:
+    """Render a module page, which until recently showed no treatments at all."""
+    module_path = tmp_path / "example_module.yaml"
+    module_path.write_text(
+        yaml.safe_dump(
+            {
+                "name": "Example Module",
+                "category": "Module",
+                "description": "A module.",
+                "pathophysiology": [{"name": "Target Node", "role": "effector"}],
+                "treatments": treatments,
+            },
+            sort_keys=False,
+        )
+    )
+    disorders_dir = tmp_path / "kb" / "disorders"
+    disorders_dir.mkdir(parents=True)
+    output_path = tmp_path / "pages" / "modules" / "example_module.html"
+    render_module(module_path, output_path=output_path, disorders_dir=disorders_dir)
+    return _strip_yaml_preview(output_path.read_text())
+
+
+def test_module_page_renders_its_treatments(tmp_path: Path) -> None:
+    html = _render_module(
+        tmp_path,
+        [
+            {
+                "name": "Vutrisiran",
+                "therapeutic_modality": "SIRNA",
+                "oligonucleotide_details": {
+                    "oligonucleotide_mechanism": "RNAI_KNOCKDOWN",
+                    "target_gene": {
+                        "preferred_term": "TTR",
+                        "term": {"id": "hgnc:12405", "label": "TTR"},
+                    },
+                    "conjugation": "GALNAC",
+                    "delivery_platform": "CONJUGATE",
+                },
+                "dosing_interval": "once every 3 months",
+                "dosing_interval_days": 90,
+                "target_mechanisms": [
+                    {"target": "Target Node", "treatment_effect": "ACTIVATES"}
+                ],
+            }
+        ],
+    )
+
+    assert 'id="treatments"' in html
+    assert "Vutrisiran" in html
+    assert "Conjugate: GalNAc" in html
+    assert "Delivery: Ligand conjugate" in html
+    assert "hgnc:12405" in html
+    assert "once every 3 months" in html
+
+
+def test_module_treatment_links_to_its_target_node(tmp_path: Path) -> None:
+    """The mechanism target should reach the node's card, not sit as dead text."""
+    html = _render_module(
+        tmp_path,
+        [
+            {
+                "name": "Some Drug",
+                "target_mechanisms": [
+                    {"target": "Target Node", "treatment_effect": "INHIBITS"}
+                ],
+            }
+        ],
+    )
+
+    anchor = re.search(r'id="([^"]+)"[^>]*data-dismech-type="pathophysiology"', html)
+    assert anchor, "pathophysiology node should carry an anchor id"
+    assert f'href="#{anchor.group(1)}"' in html
+
+
+def test_module_treatment_without_platform_data_renders_no_platform_row(
+    tmp_path: Path,
+) -> None:
+    html = _render_module(tmp_path, [{"name": "Supportive care", "description": "X."}])
+
+    assert 'id="treatments"' in html
+    assert "Platform:" not in html
+    assert "RNA target:" not in html
+    assert "Dosing:" not in html
+
+
+def test_every_platform_enum_value_has_a_curated_label() -> None:
+    """A new enum member should get a real label, not the generic fallback.
+
+    The fallback in `treatment_platform_label` exists so an unlabeled value still
+    shows on the page rather than vanishing. It is a safety net, not the intended
+    outcome: it would render TWO_PRIME_FLUORO as "Two prime fluoro". This test is
+    what tells whoever adds an enum member to write the label.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    from dismech.treatment_platform import TREATMENT_PLATFORM_LABELS
+
+    view = SchemaView("src/dismech/schema/dismech.yaml")
+    enums = [
+        "TherapeuticModalityEnum",
+        "OligonucleotideMechanismEnum",
+        "OligonucleotideChemistryEnum",
+        "OligonucleotideConjugationEnum",
+        "OligonucleotideDeliveryPlatformEnum",
+    ]
+
+    missing = {
+        f"{enum}.{value}"
+        for enum in enums
+        for value in view.get_enum(enum).permissible_values
+        if value not in TREATMENT_PLATFORM_LABELS
+    }
+    assert not missing, f"add display labels for: {sorted(missing)}"
+
+
+def test_platform_label_falls_back_rather_than_vanishing() -> None:
+    from dismech.treatment_platform import treatment_platform_label
+
+    assert treatment_platform_label("SIRNA") == "siRNA"
+    assert treatment_platform_label("A_BRAND_NEW_VALUE") == "A brand new value"
+    assert treatment_platform_label(None) == ""
+    assert treatment_platform_label("") == ""
