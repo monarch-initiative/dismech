@@ -10,14 +10,22 @@ report, so a recipe added later does not silently skip the check.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
 
-import hypothesis_deep_research  # noqa: E402
+# Loaded the way tests/test_hypothesis_deep_research.py loads it: the script is
+# run directly rather than installed, so it is imported from its path rather
+# than through sys.path, which keeps every import at the top of this file.
+SCRIPT_PATH = ROOT / "scripts" / "hypothesis_deep_research.py"
+SPEC = importlib.util.spec_from_file_location("hypothesis_deep_research", SCRIPT_PATH)
+assert SPEC and SPEC.loader
+hypothesis_deep_research = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = hypothesis_deep_research
+SPEC.loader.exec_module(hypothesis_deep_research)
 
 JUSTFILE = (ROOT / "project.justfile").read_text()
 
