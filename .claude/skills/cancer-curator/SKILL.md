@@ -35,11 +35,37 @@ knowledgebase, all PRs, and all issues by MONDO ID, preferred label, and major
 synonyms. Do not create a separate cancer entry if an existing KB file, PR, or
 issue already covers the same disease concept.
 
+## Granularity: which level gets its own entry?
+
+Follow the **cancer granularity ladder** in design decisions §3a
+(`docs/explanation/design-decisions.md`) — it is the ratified policy and
+supersedes the older "molecular subtypes as discrete entities" framing in
+`projects/CANCER.md`:
+
+1. **Default entry level = histologic entity** (WHO blue-book / ICD-O level:
+   PDAC, SCLC, DLBCL) or **WHO/ICC molecularly defined entity** (IDH-wildtype
+   GBM, APL with PML::RARA, NPM1-mutant AML).
+2. **Biomarker/therapy strata** (EGFR-mutant NSCLC, MSI-H CRC, TNBC): default
+   `has_subtypes`; a separate entry requires ≥2 stratum-specific
+   pathophysiology nodes AND a distinct first-line therapy/diagnostic pathway.
+   When promoted: `skos:narrowMatch` mondo_mapping if no exact MONDO term
+   exists (file an NTR), record overlap with non-disjoint sibling strata, add
+   the entry to a covering grouping, and leave a pointer subtype in the parent.
+3. **Variant tiers** stay `has_subtypes` inside the stratum entry unless
+   therapy is variant-specific (KRAS G12C).
+4. **Stage/metastasis is never an entry** — use `stages:` +
+   `conforms_to: "invasion_and_metastasis#..."`. Do not create `Metastatic_X`
+   files.
+5. **Pathways/hallmarks are never entries** — modules + groupings.
+6. **Germline predisposition syndromes** follow the Mendelian rules and stay
+   separate from the somatic cancers they predispose to.
+
 ## Cancer-Specific Schema Features
 
 ### Disease Stages (not Subtypes)
 
-For cancers with disease phases (chronic → accelerated → blast crisis), use `stages` not `has_subtypes`:
+For cancers with disease phases (chronic → accelerated → blast crisis) — and
+for localized vs. metastatic disease — use `stages` not `has_subtypes`:
 
 ```yaml
 stages:
