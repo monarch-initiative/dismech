@@ -1740,8 +1740,33 @@ paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, and prose claims about defective sources that the cache
-contradicts. The first five use baselines; do not update a baseline to admit a
-defect introduced by the current change.
+contradicts. The first four use baselines; do not update a baseline to admit a
+defect introduced by the current change. `check-environmental-evidence` had one
+too, until the #8296 backlog reached zero and it became a hard gate -- an
+exposure that genuinely cannot be cited now carries a `review_notes:` waiver
+instead of a baseline row (see below).
+
+**When an exposure genuinely cannot be cited, say so in `review_notes:`.**
+`check-environmental-evidence` treats an `environmental[]` entry whose
+`review_notes` *begins* with the sentence
+
+```
+Left deliberately uncited.
+```
+
+as dispositioned rather than uncited, and reports it under `just
+list-environmental-evidence-waivers` instead of as an outstanding gap. Say
+which searches you ran and why they failed, as the `Gout` → Dehydration and
+`Myasthenia_Gravis` → Stress entries do — **the sentence alone does not
+waive**. At least 20 words of recorded search must follow it, and that floor
+is enforced by `check-environmental-evidence` itself, which is ungated, rather
+than only by a test that a `kb/`-only PR would skip. The
+sentinel is matched on `review_notes` only, and only as a prefix: `notes:` is
+disease content and cannot waive, and prose that merely mentions the phrase
+does not trigger it. An entry carrying both a waiver and real evidence is not
+reported as waived — the evidence supersedes it. This exists so that "searched,
+found nothing quotable" is a recordable answer rather than a permanent backlog
+item; it is not a way to skip the search (#8296).
 
 `check-snippet-grading` (#8184) is the one to know about when copying an
 evidence item into a second block: `evidence_source` classifies the cited
