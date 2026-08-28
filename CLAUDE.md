@@ -939,6 +939,13 @@ ontology bindings. Keep these session-wide invariants in mind:
   ontology term's canonical label.
 - HGNC gene CURIEs use lowercase `hgnc:` in this repository (for example,
   `hgnc:746`, not `HGNC:746`).
+- A CURIE suggested by a deep-research report is a lead. Read the report's
+  `## Term Validation` section first (`just validate-research-terms <report>`
+  adds one to a report generated before this existed), and never bind a term
+  listed there as unresolved. That section says a CURIE exists and is named
+  consistently; it does not say the term is right for your claim, and it does
+  not check dynamic-enum membership. See
+  [`docs/deep-research-term-validation.md`](docs/deep-research-term-validation.md).
 
 ```yaml
 cell_types:

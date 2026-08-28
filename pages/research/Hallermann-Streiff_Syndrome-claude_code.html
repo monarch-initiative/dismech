@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hallermann-Streiff Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Hallermann-Streiff Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Hallermann-Streiff Syndrome</h1>
+                
+                <p class="report-subtitle">Hallermann-Streiff Syndrome: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009318" target="_blank" rel="noopener noreferrer">MONDO:0009318</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">23 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Hallermann-Streiff Syndrome: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Hallermann-Streiff syndrome (HSS; also called Hallermann-Streiff-François syndrome, oculomandibulodyscephaly with hypotrichosis, or François dyscephalic syndrome) is an ultra-rare congenital dyscephalic syndrome first described by Aubry in 1893 and later characterized by Hallermann (1948) and Streiff (1950). It is defined by a recognizable constellation of craniofacial, ocular, dermatologic, dental, and growth abnormalities. A 2026 systematic review frames it as having <strong>seven cardinal findings</strong>: congenital cataracts, microphthalmia, recognizable "bird-like" facies, sparse hair (hypotrichosis), skin atrophy, dental anomalies, and proportionate short stature (Orphanet J Rare Dis, 2026, DOI 10.1186/s13023-026-04277-7).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> 234100 (<a href="https://omim.org/entry/234100">omim.org/entry/234100</a>)
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:2108" target="_blank" rel="noopener noreferrer">ORPHA:2108</a>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0009318" target="_blank" rel="noopener noreferrer">MONDO:0009318</a>
+- <strong>MedGen:</strong> UID 5414 / Concept ID C0018522
+- <strong>SNOMED CT:</strong> 7903009
+- <strong>Synonyms:</strong> François dyscephalic syndrome, Hallermann's syndrome, HSS, oculomandibulodyscephaly with hypotrichosis syndrome, Hallermann-Streiff-François syndrome</p>
+<p><strong>Data provenance.</strong> Because HSS has fewer than 200-250 reported cases worldwide, essentially all available data derive from <strong>aggregated case-report literature and systematic/scoping reviews</strong> (e.g., Cohen's 1991 review of 150 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/1776643/" target="_blank" rel="noopener noreferrer">PMID 1776643</a>; a 1999 experience-with-15-patients review, <a href="https://pubmed.ncbi.nlm.nih.gov/10388418/" target="_blank" rel="noopener noreferrer">PMID 10388418</a>; and the 2026 Orphanet Journal of Rare Diseases review), not from large EHR cohorts or population registries — there is no disease-specific patient registry or biobank.</p>
+<p>Sources: <a href="https://omim.org/entry/234100">OMIM 234100</a>, <a href="https://rarediseases.org/rare-diseases/hallermann-streiff-syndrome/">NORD</a>, <a href="https://www.ncbi.nlm.nih.gov/medgen/5414">MedGen</a>, <a href="https://link.springer.com/article/10.1186/s13023-026-04277-7">Orphanet J Rare Dis 2026 review</a></p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factors.</strong> The molecular etiology of HSS is <strong>unresolved for the large majority of cases</strong>. Almost all reported cases are <strong>sporadic</strong>, and no recurrent causal gene has been established.</p>
+<ul>
+<li><strong>GJA1 (connexin 43, <a href="https://bioregistry.io/HGNC:4274" target="_blank" rel="noopener noreferrer">HGNC:4274</a>):</strong> A homozygous missense variant (c.227G&gt;A, p.R76H) was identified in a patient with an overlapping HSS/oculodentodigital dysplasia (ODDD) phenotype, with unaffected heterozygous-carrier parents (Pizzuti et al., <em>Human Mutation</em> 2004, "A homozygous GJA1 gene mutation causes a Hallermann-Streiff/ODDD spectrum phenotype," PMID reported as a companion to Paznekas et al. 2003, <a href="https://pubmed.ncbi.nlm.nih.gov/12457340/" target="_blank" rel="noopener noreferrer">PMID 12457340</a> for the broader GJA1/ODDD mutation spectrum). ODDD itself is a <strong>dominant</strong> GJA1 (connexin 43 gap-junction) disorder; the HSS-overlap cases suggest recessive, hypomorphic GJA1 alleles can produce an HSS-like phenotype, but this remains atypical and not representative of most HSS cases.</li>
+<li><strong>CHD6 (chromodomain helicase DNA-binding protein 6):</strong> A <em>de novo</em> missense variant was identified in one patient with a clinical HSS diagnosis. Functional work in isogenic iPSC models (Klasic et al., <em>Nature Communications</em> 2021, DOI 10.1038/s41467-021-23327-1, PMC8140133) showed the mutation destabilizes CHD6 protein folding and impairs its ability to recruit chromatin co-remodelers upon DNA damage or autophagy stimulation, producing accumulated DNA damage and a senescence-like cellular phenotype — "a molecular mechanism explaining HSS onset via chromatin control of autophagic flux and genotoxic stress surveillance." This is a single-patient finding, not yet replicated as a recurrent HSS cause.</li>
+<li><strong>ZMPSTE24:</strong> Noted as a non-recurrent candidate variant in at least one patient, but a dedicated sequencing study of <em>LMNA</em>, <em>ZMPSTE24</em>, and <em>ICMT</em> in 8 HSS patients found <strong>no evidence that HSS is a laminopathy</strong> (Roos et al., <em>Molecular Syndromology</em> 2011, "Hallermann-Streiff Syndrome: No Evidence for a Link to Laminopathies" — explicitly ruling out mechanistic overlap with mandibuloacral dysplasia/progeroid laminopathies despite phenotypic resemblance).</li>
+<li>Older hypotheses propose a defect in <strong>elastin metabolism or anomalous glycoprotein metabolism</strong> producing a developmental malformation in the <strong>5th–6th week of gestation</strong>, but this is not molecularly confirmed.</li>
+</ul>
+<p><strong>Risk factors.</strong> No established genetic susceptibility loci, GWAS signals, or population risk-modifying variants exist for HSS given its extreme rarity and sporadic nature. <strong>Advanced parental age</strong> has been anecdotally proposed (consistent with a new-dominant-mutation model) but is not statistically established. No environmental, occupational, or infectious risk factor has been confirmed in humans.</p>
+<p><strong>Protective factors.</strong> None identified in the literature — not applicable to a presumed sporadic congenital malformation syndrome.</p>
+<p><strong>Gene-environment interactions.</strong> None documented for human disease. Notably, one search result flagged that the pesticide-related compounds retene and benzo[a]pyrene can induce an "HSS-like" craniofacial phenotype during <strong>zebrafish embryonic development</strong> — this is a teratogenic/toxicological phenocopy model, not evidence of a human gene-environment interaction, and should be treated cautiously as it does not establish causal human etiology.</p>
+<p><strong>Inheritance pattern debate.</strong> Orphanet and OMIM classify inheritance as "<strong>unknown</strong>" / "not generally inherited," and most cases are simplex/sporadic. However, a small number of multiplex/familial reports complicate this:
+- A three-generation family study (father → daughter → granddaughter, with skip in generation 4) documented apparent vertical transmission with <strong>variable expressivity</strong>, and the authors could not distinguish between autosomal dominant with variable expressivity, autosomal recessive, or recurrent new mutation (PMC5476608, <a href="https://pubmed.ncbi.nlm.nih.gov/28652825/" target="_blank" rel="noopener noreferrer">PMID 28652825</a>; citing foundational reviews <a href="https://pubmed.ncbi.nlm.nih.gov/1776643/" target="_blank" rel="noopener noreferrer">PMID 1776643</a> [Cohen 1991] and <a href="https://pubmed.ncbi.nlm.nih.gov/15440024/" target="_blank" rel="noopener noreferrer">PMID 15440024</a> [Streiff's original description]).
+- The GJA1-associated cases suggest an <strong>autosomal recessive</strong> mode is possible for at least a molecular subset.
+- Overall, most authorities describe HSS as <strong>sporadic/heterogeneous</strong> with an "ill-defined" inheritance pattern, and germline mosaicism/founder-effect data are not established.</p>
+<p>Sources: <a href="https://www.frontiersin.org/journals/dental-medicine/articles/10.3389/fdmed.2021.675130/full">Frontiers — Novel GJA1 variant</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/14974090/">PubMed — GJA1/ODDD spectrum, PMID 14974090</a>, <a href="https://www.nature.com/articles/s41467-021-23327-1">Nature Communications — CHD6</a>, <a href="https://www.karger.com/Article/FullText/334317">Karger — No Evidence for Laminopathies</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5476608/">PMC5476608 — familial study</a>, <a href="https://rarediseases.info.nih.gov/diseases/288/hallermann-streiff-syndrome">GARD</a></p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The 2026 systematic review anchors diagnosis around <strong>seven cardinal findings</strong> plus a broader set of associated features. Frequencies below are drawn from aggregated case-series literature (primarily Cohen 1991, n=150, and subsequent reviews); most are qualitative/approximate given the small aggregate cohort.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency (approx.)</th>
+<th>HPO term (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bilateral congenital cataract</td>
+<td>&gt;80% (near-universal)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" rel="noopener noreferrer">HP:0000519</a> (Congenital cataract)</td>
+</tr>
+<tr>
+<td>Microphthalmia</td>
+<td>&gt;80%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a> (Microphthalmia)</td>
+</tr>
+<tr>
+<td>Microcornea</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" rel="noopener noreferrer">HP:0000482</a> (Microcornea)</td>
+</tr>
+<tr>
+<td>Brachycephaly with frontal/parietal bossing</td>
+<td>Very common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" rel="noopener noreferrer">HP:0000248</a> (Brachycephaly); <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" rel="noopener noreferrer">HP:0011220</a> (Frontal bossing)</td>
+</tr>
+<tr>
+<td>"Bird-like" facies / beaked, thin, pinched nose</td>
+<td>Characteristic, near-universal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" rel="noopener noreferrer">HP:0000414</a> (Bulbous nose) / <a href="http://purl.obolibrary.org/obo/HP_0012810" target="_blank" rel="noopener noreferrer">HP:0012810</a> (Thin nasal ala) — nearest available terms</td>
+</tr>
+<tr>
+<td>Micrognathia / mandibular hypoplasia</td>
+<td>Very common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a> (Micrognathia)</td>
+</tr>
+<tr>
+<td>Hypotrichosis (sparse scalp hair, may be patchy/localized)</td>
+<td>Very common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" rel="noopener noreferrer">HP:0000966</a> (Hypotrichosis)</td>
+</tr>
+<tr>
+<td>Skin atrophy (esp. scalp and nose, taut/thin skin, telangiectasia)</td>
+<td>Very common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007756" target="_blank" rel="noopener noreferrer">HP:0007756</a> (Atrophic skin patches) / <a href="http://purl.obolibrary.org/obo/HP_0100585" target="_blank" rel="noopener noreferrer">HP:0100585</a> (Telangiectasia)</td>
+</tr>
+<tr>
+<td>Dental anomalies (natal/neonatal teeth, hypodontia/oligodontia, supernumerary teeth, enamel hypoplasia, malformed roots)</td>
+<td>50–80%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000705" target="_blank" rel="noopener noreferrer">HP:0000705</a> (Natal tooth); <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" rel="noopener noreferrer">HP:0000668</a> (Hypodontia); <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" rel="noopener noreferrer">HP:0006297</a> (Enamel hypoplasia)</td>
+</tr>
+<tr>
+<td>Proportionate short stature</td>
+<td>~50% (average adult height ~152 cm females, ~155 cm males)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003508" target="_blank" rel="noopener noreferrer">HP:0003508</a> (Proportionate short stature)</td>
+</tr>
+<tr>
+<td>Nystagmus / strabismus</td>
+<td>10–30%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus); <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a> (Strabismus)</td>
+</tr>
+<tr>
+<td>Blue sclerae</td>
+<td>10–30%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" rel="noopener noreferrer">HP:0000592</a> (Blue sclerae)</td>
+</tr>
+<tr>
+<td>Glaucoma</td>
+<td>Uncommon (isolated reports)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" rel="noopener noreferrer">HP:0000501</a> (Glaucoma)</td>
+</tr>
+<tr>
+<td>Upper airway obstruction / OSA / tracheomalacia</td>
+<td>Over half of reported cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea) / <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" rel="noopener noreferrer">HP:0002870</a> (Obstructive sleep apnea)</td>
+</tr>
+<tr>
+<td>Intellectual disability / developmental delay</td>
+<td>15–30% (minority; most have normal intelligence)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> (Intellectual disability)</td>
+</tr>
+<tr>
+<td>Thin ribs/calvarium, scoliosis, joint hypermobility</td>
+<td>Reported, variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" rel="noopener noreferrer">HP:0000926</a> (Scoliosis); <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a> (Joint hypermobility)</td>
+</tr>
+<tr>
+<td>Corneal perforation / exudative retinal detachment</td>
+<td>Rare but reported (incl. monozygotic twins)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Lymphedema</td>
+<td>Rare (case report)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" rel="noopener noreferrer">HP:0001004</a> (Lymphedema)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset/severity/progression:</strong> All cardinal features are <strong>congenital</strong> — HSS is not described as a progressive degenerative disorder in the classic sense, though airway compromise and dental/ocular complications can worsen through infancy without intervention (e.g., escalating obstructive apnea-hypopnea index documented in a longitudinal NIV case, PMC9669373). Severity is highly variable even within families (a granddaughter met only 4/7 diagnostic criteria versus 6/7 in her father and mother, PMC5476608).</p>
+<p><strong>Quality of life impact:</strong> Chronic airway obstruction, poor sleep, and feeding difficulty in infancy drive the most severe QoL burden; visual impairment from cataracts/microphthalmia and social/psychological impact of dysmorphic facies are also documented (a specific psychological-findings-in-children study exists, <a href="https://pubmed.ncbi.nlm.nih.gov/1663704/" target="_blank" rel="noopener noreferrer">PMID 1663704</a>).</p>
+<p>Sources: <a href="https://link.springer.com/article/10.1186/s13023-026-04277-7">Orphanet J Rare Dis 2026 review</a>, <a href="https://www.sciencedirect.com/science/article/pii/S2212426826000977">ScienceDirect systematic review 2026</a>, <a href="https://rarediseases.org/rare-diseases/hallermann-streiff-syndrome/">NORD</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9669373/">PMC9669373 — NIV/respiratory morbidity</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10247501/">PMC10247501 — twins, corneal perforation</a></p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<ul>
+<li><strong>Causal genes:</strong> No single confirmed causal gene for the syndrome as classically defined. Candidate/non-recurrent genes reported in individual patients: <strong>GJA1</strong> (<a href="https://bioregistry.io/HGNC:4274" target="_blank" rel="noopener noreferrer">HGNC:4274</a>, connexin 43), <strong>CHD6</strong>, <strong>ZMPSTE24</strong> (ruled out as a class — see laminopathy study above).</li>
+<li><strong>Variant classification/type:</strong> GJA1 case — homozygous missense p.R76H (c.227G&gt;A) at a conserved residue, classified in the HSS/ODDD overlap spectrum; heterozygous parents were clinically unaffected, consistent with a recessive, hypomorphic effect at this residue (contrasting with the typical <strong>dominant</strong> ODDD-causing GJA1 missense mutations, e.g., L113P). CHD6 case — <em>de novo</em> missense variant, functionally shown to destabilize protein folding.</li>
+<li><strong>Functional consequences:</strong> </li>
+<li>GJA1/connexin 43 — connexin 43 forms hexameric hemichannels assembling into gap junctions; the R76H hypomorphic allele is proposed to partially impair (rather than abolish) gap-junction function, distinguishing the recessive HSS/ODDD-overlap phenotype from dominant-negative ODDD alleles.</li>
+<li>CHD6 — loss of proper chromatin-remodeler recruitment upon DNA-damage/autophagy signaling → <strong>accumulated DNA damage burden and cellular senescence</strong>, modeled in isogenic iPSC lines (Klasic et al. 2021).</li>
+<li><strong>Allele frequency/population data:</strong> Not applicable/not reported — these are private, non-recurrent variants found in single patients, not established in gnomAD/ExAC as recurrent pathogenic alleles for HSS.</li>
+<li><strong>Somatic vs. germline:</strong> All reported variants are germline (constitutional).</li>
+<li><strong>Modifier genes:</strong> None established.</li>
+<li><strong>Epigenetics:</strong> No DNA methylation/histone modification studies specific to HSS have been reported (distinct from the CHD6 mechanistic work, which concerns chromatin-remodeling protein function rather than an epigenetic mark per se).</li>
+<li><strong>Chromosomal abnormalities:</strong> No recurrent cytogenetic/CNV etiology has been established; HSS is not classically a microdeletion/microduplication syndrome.</li>
+</ul>
+<p>Sources: <a href="https://www.frontiersin.org/journals/dental-medicine/articles/10.3389/fdmed.2021.675130/full">Frontiers — GJA1 case report</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/14974090/">PubMed 14974090</a>, <a href="https://www.nature.com/articles/s41467-021-23327-1">Nature Communications — CHD6</a>, <a href="https://www.karger.com/Article/FullText/334317">Karger — laminopathy exclusion</a></p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No confirmed environmental, lifestyle, or infectious causal factors are established in humans. The single environmental-adjacent finding in the literature is a <strong>zebrafish teratogenicity study</strong> in which retene and benzo[a]pyrene exposure produced craniofacial phenocopies resembling HSS during embryonic development — this demonstrates a possible developmental-toxicology mechanism for HSS-like craniofacial dysmorphology in a model organism, but has <strong>not</strong> been linked to human HSS causation and should not be over-interpreted as an established human risk factor.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>Mechanistic understanding of HSS is fragmentary, reflecting its largely unresolved genetic basis. Two partially distinct, non-mutually-validated mechanistic threads exist in the literature:</p>
+<ol>
+<li>
+<p><strong>Developmental malformation hypothesis (classical):</strong> HSS is proposed to result from a defect in <strong>elastin metabolism or anomalous glycoprotein metabolism</strong> causing a developmental malformation during the <strong>5th–6th week of gestation</strong>, affecting first- and second-branchial-arch-derived craniofacial structures (mandible, midface), the lens/anterior eye segment, and dermal/follicular structures (skin atrophy, hypotrichosis). This is a descriptive hypothesis from older literature without confirmed molecular support.</p>
+</li>
+<li>
+<p><strong>CHD6-chromatin/senescence hypothesis (molecular, single-patient-derived):</strong> In the one CHD6-variant patient studied mechanistically, isogenic iPSC modeling showed that the mutant CHD6 protein has impaired folding and fails to properly recruit chromatin co-remodeling machinery in response to <strong>DNA damage</strong> and <strong>autophagy stimulation</strong>. The downstream consequence is <strong>accumulation of DNA damage burden</strong> and a <strong>senescence-like cellular phenotype</strong> across differentiated cell types. The authors propose this represents "chromatin control of autophagic flux and genotoxic stress surveillance" as a candidate mechanism for at least a molecular subtype of HSS — potentially explaining the syndrome's progeroid-like features (skin atrophy, sparse hair) via a senescence-driven process, analogous to but molecularly distinct from classical laminopathies (which have been explicitly excluded, see above).</p>
+</li>
+</ol>
+<p><strong>Causal chain (proposed, composite):</strong> Genetic/developmental insult (5th-6th week gestation) → disrupted craniofacial (branchial arch) and ocular (lens/globe) morphogenesis + connective tissue/dermal maldevelopment → <strong>structural phenotype at birth</strong>: micrognathia + midface hypoplasia + brachycephaly (craniofacial), congenital cataract + microphthalmia (ocular), skin atrophy + hypotrichosis (dermal), dental anomalies (odontogenic). Downstream/secondary consequences: micrognathia + glossoptosis + narrow nares + tracheomalacia → <strong>upper airway obstruction</strong> → obstructive sleep apnea → (if untreated) hypoxemia/hypercarbia → cor pulmonale and failure to thrive.</p>
+<p><strong>Suggested GO/CL/UBERON terms for pathophysiology modeling:</strong>
+- <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" rel="noopener noreferrer">GO:0006281</a> (DNA repair) / <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> (autophagy) / <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" rel="noopener noreferrer">GO:0090398</a> (cellular senescence) — for the CHD6 mechanistic thread
+- <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" rel="noopener noreferrer">GO:0007507</a> (heart development)/branchial arch morphogenesis terms, <a href="http://purl.obolibrary.org/obo/GO_0043010" target="_blank" rel="noopener noreferrer">GO:0043010</a> (camera-type eye development), <a href="http://purl.obolibrary.org/obo/GO_0043588" target="_blank" rel="noopener noreferrer">GO:0043588</a> (skin development)
+- <a href="http://purl.obolibrary.org/obo/CL_0000362" target="_blank" rel="noopener noreferrer">CL:0000362</a> (keratinocyte), <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" rel="noopener noreferrer">CL:0000148</a> (lens fiber cell), <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" rel="noopener noreferrer">CL:0000064</a> (ciliated columnar cell of tracheobronchial tree — relevant to airway)
+- <a href="http://purl.obolibrary.org/obo/UBERON_0001676" target="_blank" rel="noopener noreferrer">UBERON:0001676</a> (mandible), <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> (eye), <a href="http://purl.obolibrary.org/obo/UBERON_0002073" target="_blank" rel="noopener noreferrer">UBERON:0002073</a> (skin of scalp)</p>
+<p><strong>Immune system, metabolic, single-cell/spatial omics:</strong> No specific data identified in the literature for HSS.</p>
+<p>Sources: <a href="https://www.nature.com/articles/s41467-021-23327-1">Nature Communications — CHD6 mechanism</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8140133/">PMC8140133</a>, <a href="https://www.karger.com/Article/FullText/334317">Karger — laminopathy exclusion</a></p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ/system level:</strong> Craniofacial skeleton (skull, mandible, nose), eyes (globe, lens, cornea, sclera), integument (skin, hair follicles), dentition, skeletal system (ribs, calvarium, spine, joints), respiratory system (upper airway — secondary structural consequence), cardiovascular system (cor pulmonale secondary to chronic hypoxia), lymphatic system (rare lower-limb lymphedema case reported).</li>
+<li><strong>Tissue/cell level:</strong> Dermal/epidermal atrophy (thin, taut skin over scalp/nose with visible telangiectasia); hair follicle hypoplasia (hypotrichosis); lens epithelium (congenital cataract); corneal/scleral tissue (microcornea, blue sclerae); enamel/dentin-forming odontogenic tissue (enamel hypoplasia, malformed roots, natal teeth); cranial suture/membranous bone (brachycephaly, frontal bossing).</li>
+<li><strong>Subcellular level (from CHD6 mechanistic work):</strong> Nuclear chromatin-remodeling machinery, DNA damage response foci, autophagosome formation machinery.</li>
+<li><strong>Localization:</strong> Craniofacial anomalies are typically midline/bilateral (brachycephaly, bilateral cataracts, bilateral microphthalmia); skin atrophy is characteristically localized to the <strong>scalp and nose</strong>.</li>
+</ul>
+<p>Suggested UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0001676" target="_blank" rel="noopener noreferrer">UBERON:0001676</a> (mandible), <a href="http://purl.obolibrary.org/obo/UBERON_0000033" target="_blank" rel="noopener noreferrer">UBERON:0000033</a> (head), <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> (eye), <a href="http://purl.obolibrary.org/obo/UBERON_0000151" target="_blank" rel="noopener noreferrer">UBERON:0000151</a> (nose), <a href="http://purl.obolibrary.org/obo/UBERON_0002073" target="_blank" rel="noopener noreferrer">UBERON:0002073</a> (skin of scalp), <a href="http://purl.obolibrary.org/obo/UBERON_0003128" target="_blank" rel="noopener noreferrer">UBERON:0003128</a> (tooth).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital — all cardinal features are present at birth (some, like natal teeth, are literally present at delivery).</li>
+<li><strong>Onset pattern:</strong> Not applicable in the acute/insidious sense used for acquired disease; this is a structural congenital malformation syndrome.</li>
+<li><strong>Progression:</strong> Not a classically progressive/degenerative disease, but airway and ocular complications can <strong>worsen over infancy</strong> without intervention — documented longitudinally as escalating obstructive apnea-hypopnea index in one infant (from normal screening to OAHI of 140/h after adenoidectomy, later controlled to 7.6/h with BPAP; PMC9669373). Skin atrophy and craniofacial proportions are generally considered stable/non-worsening features once established, though this is not rigorously studied longitudinally.</li>
+<li><strong>Critical periods:</strong> Neonatal period and infancy represent the critical window for <strong>airway-related mortality risk</strong>; early childhood is critical for cataract surgery (to prevent amblyopia) and for management of erupted natal/deciduous teeth.</li>
+<li><strong>Disease course:</strong> Chronic, lifelong for surviving individuals; no remission pattern applicable (structural, not relapsing-remitting).</li>
+</ul>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9669373/">PMC9669373</a>, <a href="https://www.sciencedirect.com/science/article/pii/S2212426826000977">ScienceDirect systematic review 2026</a></p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> Fewer than ~200-250 cases reported worldwide in the literature to date. One Japanese publication estimated prevalence at <strong>~1 per 10 million</strong>. No formal incidence/prevalence registry data exist; this is a literature-count-derived estimate, not a population-based epidemiological study.</li>
+<li><strong>Inheritance pattern:</strong> Predominantly <strong>sporadic</strong>, with inheritance classified by Orphanet/OMIM/GARD as <strong>"unknown"/ill-defined</strong>. A minority of familial reports (three-generation transmission) raise the possibility of autosomal dominant inheritance with variable expressivity in some families, while the GJA1-associated overlap cases suggest a recessive mechanism is possible for a molecular subset. No consensus mode of inheritance exists across the syndrome as a whole.</li>
+<li><strong>Penetrance/expressivity:</strong> Marked <strong>variable expressivity</strong> documented even within a single family (grandfather and daughter met 6/7 diagnostic criteria; granddaughter met only 4/7).</li>
+<li><strong>Genetic anticipation, germline mosaicism, founder effects, consanguinity, carrier frequency:</strong> None specifically established or reported in the literature reviewed; a consanguinity-associated recessive pattern has been hypothesized in some case reports but not statistically confirmed across the aggregate case series.</li>
+<li><strong>Population demographics:</strong> No ethnic/geographic predilection has been established; <strong>males and females are equally affected</strong>. Age distribution of affected individuals spans neonatal presentation through at least the seventh decade of life (a case diagnosed in the 7th decade has been reported), reflecting variable severity and diagnostic delay in milder cases.</li>
+</ul>
+<p>Sources: <a href="https://rarediseases.info.nih.gov/diseases/288/hallermann-streiff-syndrome">GARD</a>, <a href="https://rarediseases.org/rare-diseases/hallermann-streiff-syndrome/">NORD</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5476608/">PMC5476608</a>, <a href="https://www.sciencedirect.com/science/article/pii/S2451993622003413">ScienceDirect — 7th decade diagnosis</a></p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical diagnostic criteria:</strong> Diagnosis is clinical, based on meeting a majority of the <strong>seven cardinal findings</strong> (congenital cataract, microphthalmia, characteristic facies, hypotrichosis, skin atrophy, dental anomalies, proportionate short stature); some literature uses this as an explicit scoring framework (e.g., "6 of 7 criteria met").</p>
+<ul>
+<li><strong>Laboratory tests/biomarkers:</strong> No disease-specific biochemical or serum biomarker exists.</li>
+<li><strong>Imaging:</strong> Skull radiography/CT classically shows <strong>brachycephaly, frontal/parietal bossing, hypoplastic mandible, thin calvarial bones</strong>; a reported case documented <strong>mid-diaphyseal endosteal thickening with medullary narrowing</strong> on long-bone imaging (PMC3279479). Prenatal ultrasound can detect <strong>micrognathia</strong> (e.g., via Inferior Facial Angle measurement, threshold ~50°) as an early red flag prompting further genetic workup, though this is nonspecific to HSS and shared with Pierre Robin sequence and other micrognathia-associated conditions.</li>
+<li><strong>Ophthalmic exam:</strong> Slit-lamp and B-scan ultrasound/OCT for cataract, microphthalmia, microcornea, retinal detachment risk assessment; ultrasound biomicroscopy has been used in atypical ocular presentations (PMC6919421).</li>
+<li><strong>Genetic testing:</strong> No validated targeted gene panel exists given the lack of a confirmed recurrent causal gene. Given case reports implicating <strong>GJA1</strong> and <strong>CHD6</strong>, and exclusion of <strong>LMNA/ZMPSTE24/ICMT</strong> (laminopathy genes), a reasonable diagnostic approach is exome/genome sequencing (given genetic heterogeneity and mostly private variants) rather than a fixed panel; single-gene GJA1 testing may be considered when ODDD-overlap features (syndactyly, cleft palate) are present.</li>
+<li><strong>Electrophysiology:</strong> Polysomnography is important for airway/OSA assessment and monitoring (as in the BPAP case, PMC9669373).</li>
+<li><strong>Differential diagnosis:</strong> Key conditions to distinguish:</li>
+<li><strong>Oculodentodigital dysplasia (ODDD)</strong> — GJA1-related, dominant; overlapping ocular/dental features, distinguished by syndactyly/digital anomalies.</li>
+<li><strong>Mandibuloacral dysplasia</strong> (LMNA/ZMPSTE24-related laminopathy) — explicitly excluded as a mechanistic link for HSS despite phenotypic resemblance (progeroid facies, mandibular hypoplasia).</li>
+<li><strong>Progeria (Hutchinson-Gilford syndrome)</strong> — distinguished by early atherosclerosis, nail dystrophy, acromicria, chronic arthritis, and <strong>normal eyes</strong> (vs. HSS's defining ocular pathology).</li>
+<li><strong>Mandibulofacial dysostosis (Treacher Collins/Franceschetti syndrome)</strong>, <strong>cleidocranial dysostosis</strong>, and other progeroid syndromes.</li>
+<li><strong>Cockayne syndrome</strong> — not specifically addressed in retrieved sources but commonly considered in progeroid-craniofacial differentials generally.</li>
+<li><strong>Screening:</strong> No population or newborn screening program exists; diagnosis is via clinical recognition, often prompted by prenatal micrognathia on ultrasound or postnatal recognition of the characteristic facies/cataracts.</li>
+</ul>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3279479/">PMC3279479 — skeletal imaging</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6919421/">PMC6919421 — ocular UBM/OCT</a>, <a href="https://www.sciencedirect.com/science/article/pii/S1930043325001359">ScienceDirect — differential diagnosis</a></p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> No formal survival statistics exist due to rarity. <strong>Respiratory compromise is the principal cause of early mortality</strong>, particularly in the <strong>neonatal period and infancy</strong>, related to upper airway obstruction (small nares, glossoptosis from micrognathia, tracheomalacia) potentially progressing to <strong>cor pulmonale</strong>. One case-level observation cited an expected lifespan of ~47 years, but this is not a validated population statistic.</li>
+<li><strong>Morbidity:</strong> Chief morbidity drivers are obstructive sleep apnea (ranging mild to life-threatening), feeding difficulty/failure to thrive in infancy (secondary to airway obstruction and micrognathia), visual impairment from cataracts/microphthalmia if untreated, and dental complications (severe caries risk from enamel hypoplasia).</li>
+<li><strong>Complications:</strong> Cor pulmonale, iridocyclitis/glaucoma from retained cataractous lens material, corneal perforation (reported in a monozygotic twin case requiring keratoplasty), exudative retinal detachment, lymphedema (rare).</li>
+<li><strong>Recovery/functional outcome:</strong> With modern multidisciplinary airway management (including non-invasive ventilation and, when needed, mandibular distraction/tracheostomy) and early cataract surgery, many individuals survive into adulthood with normal or near-normal intelligence in the majority (70-85%) of cases.</li>
+<li><strong>Prognostic factors:</strong> Severity of airway/respiratory involvement is the single most important prognostic determinant; presence and degree of intellectual disability (minority of cases) also affects long-term functional outcome.</li>
+</ul>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9669373/">PMC9669373</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/1776647/">PubMed 1776647 — cor pulmonale</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10247501/">PMC10247501 — twins with corneal perforation</a></p>
+<hr />
+<h2>12. Treatment</h2>
+<p>Management is <strong>multidisciplinary and supportive/symptomatic</strong>, since no disease-modifying or gene-targeted therapy exists.</p>
+<ul>
+<li><strong>Airway management (highest-priority in infancy):</strong></li>
+<li>Positioning, prone positioning, and monitoring for mild cases.</li>
+<li><strong>Non-invasive ventilation (BPAP)</strong> — a documented successful long-term approach for severe OSA (EPAP +5/IPAP +9 cmH2O improved obstructive AHI from 140/h to 7.6/h; PMC9669373). NCIT suggestion: NCIT:C15747 (Supportive Care) or a device-based intervention.</li>
+<li><strong>Mandibular distraction osteogenesis</strong> — used analogously to Pierre Robin sequence management to advance the mandible and relieve glossoptosis-related obstruction (NCIT:C15329, Surgical Procedure).</li>
+<li><strong>Tracheostomy</strong> for severe/refractory obstruction.</li>
+<li>Anesthesia consultation strongly recommended before any elective procedure, given difficult intubation risk from micrognathia, microstomia, small nares, deviated septum, anterior larynx, and fragile natal teeth (avulsion risk during laryngoscopy).</li>
+<li><strong>Ophthalmologic:</strong></li>
+<li><strong>Early cataract extraction</strong> recommended (despite reports of spontaneous cataract resorption in some cases) to prevent amblyopia and to reduce risk of iridocyclitis/glaucoma from a retained inflammatory lenticular/capsular nidus. Patients are often left <strong>aphakic</strong> due to severe microcornea/microphthalmia limiting IOL placement. NCIT:C15329 (Surgical Procedure)/relevant ophthalmic surgery term.</li>
+<li>Monitoring for glaucoma, strabismus/nystagmus management, and retinal detachment surveillance.</li>
+<li><strong>Dental:</strong></li>
+<li>Preservation of prematurely erupted (natal/neonatal) deciduous teeth where feasible to support nutrition, pending confirmation of successional permanent teeth.</li>
+<li>Comprehensive multidisciplinary dental management: preventive care (fluoride varnish, oral hygiene, dietary counseling), restorative care, oral-maxillofacial surgery, orthodontics, and prosthodontic reconstruction (including implants in select cases) — NCIT:C15302 (Physical Therapy)/NCIT dental-procedure equivalents are not precisely coded; general NCIT:C49236 (Therapeutic Procedure) applies.</li>
+<li>Custom mouthguards for trauma protection given brittle/malformed dentition.</li>
+<li><strong>Craniofacial/orthopedic surgery:</strong> Reconstructive surgery of mandibular/nasal regions at appropriate developmental age; early genioplasty has been used to improve facial growth and provide orthodontic anchorage. NCIT:C16186 (Orthopedic Surgical Procedure).</li>
+<li><strong>Supportive/nutritional:</strong> Feeding support and monitoring for failure to thrive, particularly in infants with airway obstruction. NCIT:C15447 (Dietary Intervention).</li>
+<li><strong>Genetic counseling:</strong> Recommended given the debated inheritance pattern, particularly when familial recurrence or GJA1-overlap features (syndactyly) are present. NCIT:C15240 (Genetic Counseling).</li>
+<li><strong>Experimental/targeted therapy:</strong> None in clinical trials; no NCT-registered interventional trials specific to HSS were identified. The CHD6-senescence mechanistic finding is basic-science (iPSC modeling) and not yet translated to any therapeutic candidate.</li>
+<li><strong>Treatment outcomes:</strong> No systematic response-rate data exist; outcomes are reported at the individual case-series level (e.g., successful BPAP titration, successful multidisciplinary 20-year follow-up management reported in <a href="https://pubmed.ncbi.nlm.nih.gov/29578805/" target="_blank" rel="noopener noreferrer">PMID 29578805</a>).</li>
+</ul>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9669373/">PMC9669373</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25966733/">PubMed 25966733 — dental management</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29578805/">PubMed 29578805 — 20-year multidisciplinary follow-up</a>, <a href="https://www.frontiersin.org/journals/dental-medicine/articles/10.3389/fdmed.2022.965560/full">Frontiers — pulp calcifications case</a></p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable — HSS arises as a sporadic congenital malformation with no established modifiable environmental cause; no vaccination or risk-factor-modification strategy exists.</li>
+<li><strong>Secondary prevention (early detection):</strong> Prenatal ultrasound detection of micrognathia can prompt further genetic evaluation and delivery planning at a center equipped for high-risk neonatal airway management; early postnatal recognition of the cardinal facial/ocular gestalt enables prompt ophthalmologic and airway intervention.</li>
+<li><strong>Genetic counseling/screening:</strong> Recommended for families with a diagnosed case, particularly given the debated inheritance pattern and rare documented familial recurrence; no established carrier-screening or preimplantation genetic testing protocol exists given the lack of a confirmed recurrent causal gene for most cases.</li>
+<li><strong>Tertiary prevention:</strong> Proactive airway monitoring (polysomnography) and early cataract surgery function as tertiary prevention against downstream complications (cor pulmonale, amblyopia, glaucoma).</li>
+<li><strong>Public health:</strong> Not applicable given extreme rarity and non-infectious, non-environmentally-driven etiology.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring veterinary/companion-animal HSS analog was identified in the literature searched (no OMIA entry located). No confirmed orthologous animal disease exists.</p>
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>No validated genetic (knockout/knock-in/transgenic) animal model of HSS exists.</strong></li>
+<li>The closest available model-organism data are: (1) <strong>isogenic iPSC lines</strong> carrying the patient-derived CHD6 variant, used to study DNA-damage/autophagy/senescence phenotypes in vitro across differentiated cell types (Klasic et al. 2021, <em>Nature Communications</em>) — this is a cellular/genetic model, not a whole-organism model; (2) a <strong>zebrafish developmental-toxicology study</strong> in which retene/benzo[a]pyrene exposure produced craniofacial phenocopies resembling HSS — this is an <strong>induced/teratogenic phenocopy model</strong>, not a genetic model of the human disease, and its relevance to actual human HSS pathogenesis is unconfirmed.</li>
+<li><strong>Model limitations:</strong> No model recapitulates the full multi-system HSS phenotype (craniofacial + ocular + dermal + dental + growth); the iPSC model captures only cellular-level DNA-damage/senescence phenotypes relevant to a single-patient CHD6 variant, and the zebrafish toxicology model captures craniofacial dysmorphology via an environmental rather than genetic route.</li>
+</ul>
+<p>Sources: <a href="https://www.nature.com/articles/s41467-021-23327-1">Nature Communications — CHD6 iPSC model</a></p>
+<hr />
+<h2>Summary of Key Evidence Gaps</h2>
+<ol>
+<li><strong>No confirmed recurrent causal gene</strong> — GJA1 and CHD6 are each supported by single/few-patient evidence only; most cases remain genetically unsolved.</li>
+<li><strong>Inheritance pattern remains unresolved</strong> — sporadic in the majority, but familial and GJA1-recessive evidence complicate a simple "not inherited" classification.</li>
+<li><strong>No whole-organism genetic animal model</strong> exists to validate proposed mechanisms (elastin/glycoprotein defect hypothesis vs. CHD6-senescence hypothesis) in vivo.</li>
+<li><strong>No population-based epidemiological data</strong> — prevalence estimates rest on literature case counts, not registry data.</li>
+<li><strong>No disease-modifying therapy</strong> — management is entirely supportive/surgical/symptomatic.</li>
+</ol>
+<p><strong>Sources (consolidated):</strong>
+- <a href="https://omim.org/entry/234100">OMIM 234100</a>
+- <a href="https://link.springer.com/article/10.1186/s13023-026-04277-7">Orphanet J Rare Dis 2026 review</a>
+- <a href="https://www.sciencedirect.com/science/article/pii/S2212426826000977">ScienceDirect systematic review 2026</a>
+- <a href="https://rarediseases.org/rare-diseases/hallermann-streiff-syndrome/">NORD</a>
+- <a href="https://rarediseases.info.nih.gov/diseases/288/hallermann-streiff-syndrome">GARD/NIH</a>
+- <a href="https://www.ncbi.nlm.nih.gov/medgen/5414">MedGen</a>
+- <a href="https://www.frontiersin.org/journals/dental-medicine/articles/10.3389/fdmed.2021.675130/full">Frontiers — GJA1 case report</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/14974090/">PubMed 14974090 — GJA1/HSS-ODDD</a>
+- <a href="https://www.nature.com/articles/s41467-021-23327-1">Nature Communications — CHD6 mechanism</a>
+- <a href="https://www.karger.com/Article/FullText/334317">Karger — laminopathy exclusion</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5476608/">PMC5476608 — three-generation familial study</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9669373/">PMC9669373 — respiratory morbidity/NIV case</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3279479/">PMC3279479 — skeletal imaging findings</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6919421/">PMC6919421 — ocular UBM/OCT case</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10247501/">PMC10247501 — monozygotic twins, corneal perforation</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/25966733/">PubMed 25966733 — dental management</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29578805/">PubMed 29578805 — 20-year multidisciplinary follow-up</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/1776647/">PubMed 1776647 — respiratory obstruction/cor pulmonale</a>
+- <a href="https://eyewiki.org/Hallermann-Streiff_Syndrome">EyeWiki</a></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>20</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Hajdu-Cheney_Syndrome-falcon.html">← Hajdu-Cheney Syndrome (Falcon)</a>
+                
+                
+                <a href="Hand_Foot_and_Mouth_Disease-falcon.html">Hand Foot and Mouth Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Hallermann-Streiff_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Hallermann-Streiff_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
