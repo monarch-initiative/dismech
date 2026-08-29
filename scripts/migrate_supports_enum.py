@@ -51,6 +51,24 @@ evidence item shares one object across several claims, so it cannot carry a
 different ``directness`` for each. Assessing one of those items may mean
 un-aliasing it first.
 
+Scope: what is migrated and what is deliberately not
+----------------------------------------------------
+This script scans ``kb/``. Two other trees hold the retired values and are
+handled differently, on purpose:
+
+* ``tests/data/valid/`` — schema-conformance fixtures, asserted to validate.
+  These **were** migrated (via :func:`rewrite`), because the narrowed enum makes
+  them invalid otherwise. They are not added to the worklist: they are fixtures,
+  not curation.
+* ``experiments/interannotator/`` — snapshots of what two curators independently
+  wrote during an inter-annotator agreement study. **Do not migrate these.** They
+  are evidence *about* curation, and rewriting them would silently change the
+  measurement. CLAUDE.md keeps ``experiments/`` outside every validator for this
+  reason, so the retired value there breaks nothing.
+* ``history/`` — 67 records mention PARTIAL in ``details`` prose, never as an
+  enum value. History is append-only and each record accurately describes the
+  session as it ran, so the prose stays.
+
 Prose is left alone
 -------------------
 About 4,130 lines of curator ``explanation`` text name PARTIAL directly ("Marked
