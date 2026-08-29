@@ -263,7 +263,7 @@ nothing reads.
 
 | Entry / phenotype | Choice | Why |
 |---|---|---|
-| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`, ORPHA row cited `REFUTE` against that band with the conflict stated. |
+| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`. The ORPHA row is cited **twice**: `SUPPORT` quoting `HP:0002108 \| Spontaneous pneumothorax` for the association and the phenotype term, and `REFUTE` quoting `Spontaneous pneumothorax \| Very frequent (99-80%)` against the band. This is the worked example of the split — each item quotes the part of the row that carries its own claim. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Cutaneous Squamous Cell Carcinoma` | 1 — scope it | `VERY_FREQUENT` comes from National EB Registry cumulative risk in severe generalized RDEB (90.1% by 55), not DEB as a whole, so the record carries `subtype: RDEB-sev gen`. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Osteoporosis` | 3 — drop it | The only source is a GeneReviews management sentence that states no rate. Band omitted; `notes:` records the reason. |
 | `Osteogenesis_Imperfecta_Type_I` → `Hyperhidrosis` | 3 — drop it | `ORPHA:666`'s "Frequent (79-30%)" row is cited for the association only; the evidence `explanation` states that no type-I band is asserted because the band reflects the whole OI spectrum. |
