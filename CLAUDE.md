@@ -1195,7 +1195,10 @@ pumps, stents, and shunts all have NCIT device terms that cannot sit in that slo
 binding the action alone throws the device concept away. Attach it as a `qualifiers`
 predicate-value pair instead — `NCIT:C16830` (Medical Device) as the predicate,
 the device term as the value — which validates today and leaves `NCIT:C157820`
-searchable:
+searchable. `qualifiers` is deprecated for the common clinical qualifiers that have
+dedicated slots (see [Descriptor Qualifier Slots](#descriptor-qualifier-slots)), but a
+device attached to an action is exactly the predicate-value pattern that section
+reserves it for, so this use is the carve-out and not a regression:
 
 ```yaml
   treatment_term:
