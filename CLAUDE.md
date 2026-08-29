@@ -421,22 +421,64 @@ schema shape, the trigger→consequence node chain, the treatment
 + MPATH entity + UBERON site; SNOMED as guide-only). See also the primer
 `docs/primers/modules-and-conformance.md`.
 
-**Discovering modules:**
-
-`kb/modules/` is the source of truth; do not maintain a static module catalog here.
-Probe the directory directly for the current set and inspect likely matches before
-creating a new module:
+**Discovering modules:** the set of modules changes constantly, so this file
+deliberately does **not** carry a hand-maintained list — it drifted behind
+`kb/modules/` and is not scalable. List the directory, or use the recipe that
+prints each module's description plus its node chain (the `module#Node Name`
+strings you need for `conforms_to`):
 
 ```bash
-rg --files kb/modules -g "*.yaml" | sort
-rg -il "<mechanism term>" kb/modules
-rg -n "^(name|description|category):" kb/modules/*.yaml
-sed -n "1,40p" kb/modules/fibrotic_response.yaml
+just list-modules            # all modules, clipped, with conformance targets
+just list-modules inflamm    # filter: prints description AND notes in full
+ls kb/modules/               # bare names only
+
+# Probing module contents directly (complements the recipe above)
+rg -il "<mechanism term>" kb/modules          # which module already covers this?
 rg -n "conforms_to:.*fibrotic_response#" kb/disorders kb/comorbidities kb/modules
 ```
 
-The `fibrotic_response` header is a compact example of module metadata; inspect
-its full YAML or another relevant peer for the actual node and edge pattern.
+Inspect likely matches before creating a new module — a mechanism is often
+already covered by a module under a name you did not guess.
+
+A module's own `description` is the authoritative statement of its scope,
+complementarity with sibling modules, worked conformers, and key conformance
+target. Read it before conforming to it, and keep it current when you change the
+module — that description is now the *only* place that information lives.
+
+Thematic families to be aware of when picking a conformance target (find their
+members with `just list-modules`, do not assume this list is exhaustive):
+
+- **Hallmarks of cancer** (Hanahan & Weinberg, PMID:21376230) — a coherent set
+  covering the hallmark capabilities and enabling characteristics. A neoplastic
+  entry may declare `conforms_to` against several in parallel, one per capability
+  it manifests, substituting tumor-type-specific drivers. Flagship multi-hallmark
+  conformers: Hepatocellular_Carcinoma, Non-Small_Cell_Lung_Cancer,
+  Glioblastoma_IDH_Wildtype, Pancreatic_Ductal_Adenocarcinoma.
+- **Hallmarks of aging** (Lopez-Otin et al.) — the senescence, telomere,
+  proteostasis, autophagy, nutrient-sensing, epigenetic, mitochondrial,
+  stem-cell, dysbiosis, and inflammaging modules.
+- **Treatment toxicity / "side effect as mechanism"** — adverse-drug-reaction
+  pathophysiology recurring across culprit drugs, so a drug-toxicity entry can
+  conform rather than re-derive the chain. Note that several general mechanism
+  modules already double as toxicity targets without a separate "side effect"
+  class (`peripheral_axonal_degeneration` for chemotherapy-induced peripheral
+  neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline
+  cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT).
+- **Antimicrobial drug mechanisms** — antibacterial target modules (cell wall,
+  ribosome, topoisomerase, RNA polymerase, folate), antifungal and antiviral
+  counterparts, plus pharmacokinetic *gating* modules such as
+  `intracellular_pathogen_persistence`. A disease usually conforms to a gating
+  module **and** a target module. See `projects/ANTIMICROBIAL.md`.
+- **"Disease-like phenotypes"** — final-common-pathway modules for phenotypes
+  that are themselves diseases, carrying both an HP and a MONDO identifier
+  (osteoporosis, glaucoma, cataract, epilepsy, nephrotic syndrome, …). Each is a
+  recurrent downstream convergence point across many disorders.
+- **Serial homology** — bundled multi-element malformations from one lesion in a
+  serially reused developmental program (limb/digit, pharyngeal arch, axial
+  segmentation).
+- **Xogenesis** — pathological-structure formation (granuloma, thrombus,
+  atheroma, amyloid deposit), using the OGMS + MPATH + UBERON anchor convention
+  described in the `create-module` skill.
 
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
