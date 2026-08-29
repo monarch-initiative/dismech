@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gilbert&#39;s Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Gilbert&#39;s Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Gilbert&#39;s Syndrome</h1>
+                
+                <p class="report-subtitle">Gilbert&#39;s Syndrome — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0007745" target="_blank" rel="noopener noreferrer">MONDO:0007745</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">29 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Gilbert's Syndrome — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Category:</strong> Mendelian (inborn error of bilirubin metabolism)
+<strong>Evidence basis:</strong> Primary literature (PMID-anchored), 10 confirmed findings across 5 investigation iterations, 42 papers reviewed.</p>
+<h2>Summary</h2>
+<p><strong>Gilbert's Syndrome (GS)</strong> is a common, benign, inherited disorder of bilirubin metabolism characterized by <strong>mild, chronic, fluctuating unconjugated (indirect) hyperbilirubinemia in the absence of liver disease or overt hemolysis.</strong> It affects an estimated <strong>3–10% of the general population</strong> and is caused by reduced transcriptional/enzymatic activity of <strong>UDP-glucuronosyltransferase 1A1 (UGT1A1)</strong>, the hepatic enzyme responsible for conjugating bilirubin with glucuronic acid for biliary excretion. The canonical molecular lesion in European and African populations is homozygosity for a 2-bp thymine-adenine (TA) insertion in the <em>UGT1A1</em> TATA-box promoter — the <strong>A(TA)7TAA allele, UGT1A1*28 (rs8175347)</strong> — which lowers UGT1A1 expression to roughly 30% of normal. In East Asians, the coding variant <strong>UGT1A1*6 (c.211G&gt;A, p.Gly71Arg)</strong> is a major cause. The jaundice phenotype is inherited in an <strong>autosomal-recessive</strong> manner with <strong>incomplete, age- and sex-dependent penetrance and variable expressivity.</strong></p>
+<p>Clinically, GS is remarkable for what it does <em>not</em> do: it causes no liver damage, no reduction in life expectancy, and requires no disease-directed treatment. Jaundice is typically mild (total bilirubin usually &lt;3 mg/dL, &gt;70–80% unconjugated), intermittent, and provoked by <strong>fasting, dehydration, intercurrent illness, physical exertion, stress, or menstruation.</strong> Onset of biochemically detectable hyperbilirubinemia is usually around puberty/early adulthood, and the condition is more frequently diagnosed in men, peaking around age 35. Beyond jaundice, the most consistent associated symptoms are non-specific <strong>fatigue and abdominal pain.</strong></p>
+<p>The syndrome carries two areas of genuine clinical importance. First, mildly elevated unconjugated bilirubin is a <strong>potent circulating antioxidant</strong> that appears to confer <strong>protection against cardiovascular disease and all-cause mortality</strong> through antioxidant, anti-inflammatory, anti-thrombotic, and lipid-lowering effects. Second, GS is a <strong>clinically actionable pharmacogenomic trait</strong>: because UGT1A1 detoxifies several drugs, <em>UGT1A1*28</em> homozygosity predisposes to severe toxicity from the chemotherapeutic <strong>irinotecan</strong> (via impaired clearance of its active metabolite SN-38) and to benign hyperbilirubinemia from the HIV protease inhibitor <strong>atazanavir.</strong> GS also acts as a <strong>genetic modifier</strong> that additively worsens neonatal hyperbilirubinemia when co-inherited with G6PD deficiency and other hemolytic or bilirubin-transport conditions, raising kernicterus risk in newborns.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Molecular cause: reduced UGT1A1 activity, most often via the UGT1A1*28 promoter TA-repeat polymorphism</h3>
+<p>Gilbert syndrome is an inherited unconjugated hyperbilirubinemia caused by reduced transcriptional activity of <strong>UGT1A1</strong> (<em>UDP-glucuronosyltransferase 1A1</em>), the gene located on <strong>chromosome 2q37</strong>. The canonical cause is homozygosity for a 2-bp (TA) insertion in the TATA-box promoter, producing <strong>A(TA)7TAA (UGT1A1*28, rs8175347)</strong> instead of the wild-type <strong>A(TA)6TAA</strong>; the extra repeat lowers transcription and enzyme activity to approximately <strong>30% of normal.</strong> A defining review states that <em>"Gilbert syndrome (GS) is characterized by unconjugated hyperbilirubinemia without liver disease or overt hemolysis and it is found in 3-10% of the general population. Inherited hyperbilirubinaemia is attributable to a reduced UGT1A1 activity"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/28338110/">PMID: 28338110</a>.</p>
+<p>The TA-repeat locus forms an <strong>allelic series</strong> with graded functional consequences: an additional TA insert yields eight repeats — <strong>(TA)8 = UGT1A1*37</strong> — causing further reduction of glucuronidation activity, whereas a variant lacking one repeat — <strong>(TA)5 = UGT1A1*36</strong> — increases activity; both variants have been detected in Africans at frequencies up to 0.07 and 0.08 respectively <a href="https://pubmed.ncbi.nlm.nih.gov/34089128/">PMID: 34089128</a>. In East Asians, the coding variant <strong>UGT1A1*6 (c.211G&gt;A, p.Gly71Arg)</strong> is a common cause, and the enhancer variant <strong>UGT1A1*60 (c.-3279T&gt;G)</strong> frequently co-segregates; in one patient cohort <em>"83.02% presented missense mutations at UGT1A1*60 (c.-3279T &gt; G), 54.72% had heterozygous or homozygous insertions in the TATA box in the promoter, 52.38% had the UGT1A1*6 variant (c.211G &gt; A, G71R)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40038193/">PMID: 40038193</a>.</p>
+<p>Importantly, the genotype–phenotype relationship is <strong>incomplete</strong>: some A(TA)7TAA homozygotes have entirely normal bilirubin. As one study notes, <em>"individuals with normal bilirubin levels and no clinical symptoms of Gilbert's syndrome may also present this in a homozygous condition"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/25887876/">PMID: 25887876</a>.</p>
+<p><strong>Ontology terms:</strong> Gene <a href="https://bioregistry.io/HGNC:12530" target="_blank" rel="noopener noreferrer">HGNC:12530</a> (<em>UGT1A1</em>); OMIM #143500 (Gilbert syndrome); <a href="http://purl.obolibrary.org/obo/CHEBI_16990" target="_blank" rel="noopener noreferrer">CHEBI:16990</a> (bilirubin); <a href="http://purl.obolibrary.org/obo/GO_0015020" target="_blank" rel="noopener noreferrer">GO:0015020</a> (glucuronosyltransferase activity); <a href="http://purl.obolibrary.org/obo/MONDO_0008738" target="_blank" rel="noopener noreferrer">MONDO:0008738</a> (Gilbert syndrome). Suggested MeSH: "Gilbert Disease".</p>
+<h3>Finding 2 — Cardiovascular protection via antioxidant, anti-inflammatory, anti-thrombotic, and lipid-lowering effects</h3>
+<p>A striking and reproducible feature of GS is that the <strong>mildly elevated unconjugated bilirubin (UCB)</strong> is protective against atherosclerosis and cardiovascular disease. As stated directly, <em>"Individuals with mildly elevated bilirubin concentrations (i.e., Gilbert syndrome; GS) are protected from atherosclerosis, cardiovascular disease, and related mortality"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/26057938/">PMID: 26057938</a>. Three mechanistic pillars support this:</p>
+<ol>
+<li>
+<p><strong>Increased antioxidant capacity.</strong> UCB scavenges hypochlorous acid (HOCl) and chloramines and inhibits myeloperoxidase-induced protein/lipid oxidation (measured as protein carbonyls and malondialdehyde) at physiologically relevant concentrations, validated in Gunn rat and human GS serum <a href="https://pubmed.ncbi.nlm.nih.gov/26057938/">PMID: 26057938</a>.</p>
+</li>
+<li>
+<p><strong>Reduced platelet activation/thrombogenesis.</strong> In a matched GS vs control study (n=14/group), <em>"A statistically significant decrease in the expression of P-selectin (P = 0.030) on activated platelets was observed in GS subjects. Collagen and AA-induced platelet aggregation were significantly (P = 0.018; P = 0.032 for respective agonists) reduced in GS versus control group. Elevated UCB (P = 0.001) and high density lipoprotein (P = 0.033) in addition to reduced low density lipoprotein (P = 0.024) and high sensitive C-reactive protein (P = 0.043) were also observed in GS"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/28300459/">PMID: 28300459</a>.</p>
+</li>
+<li>
+<p><strong>Improved lipid and inflammatory profile.</strong> In a larger study (n=59/group), <em>"GS subjects had significantly (P&lt;0.05) improved lipid profile with reduced total cholesterol, LDL-C (LDL-cholesterol), TAG, low- and pro-atherogenic LDL subfractions (LDL-1+LDL-2), Apo-B, Apo-B/Apo-A1 ratio and lower IL-6 (interleukin 6) and SAA (serum amyloid A) concentrations"</em> — effects that were especially pronounced in older GS subjects <a href="https://pubmed.ncbi.nlm.nih.gov/23566065/">PMID: 23566065</a>.</p>
+</li>
+</ol>
+<p><strong>Ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0016209" target="_blank" rel="noopener noreferrer">GO:0016209</a> (antioxidant activity); <a href="http://purl.obolibrary.org/obo/GO_0030193" target="_blank" rel="noopener noreferrer">GO:0030193</a> (regulation of blood coagulation); <a href="http://purl.obolibrary.org/obo/HP_0003330" target="_blank" rel="noopener noreferrer">HP:0003330</a> (abnormality of bilirubin metabolism); <a href="http://purl.obolibrary.org/obo/CHEBI_16990" target="_blank" rel="noopener noreferrer">CHEBI:16990</a> (bilirubin).</p>
+<h3>Finding 3 — UGT1A1*28 is a clinically actionable pharmacogenomic determinant of irinotecan (SN-38) toxicity</h3>
+<p>Irinotecan's active metabolite <strong>SN-38</strong> is detoxified by hepatic UGT1A1 glucuronidation: <em>"Its anticancer activity results from its bioactivation into SN-38 metabolite, which is cleared through glucuronidation by the hepatic enzyme uridine diphosphate-glucuronosyltransferase 1A1 (UGT1A1). In the general population, there is wide inter-subject variability in UGT1A1 enzyme activity related to UGT1A1 gene polymorphisms"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24977443/">PMID: 24977443</a>. The <em>UGT1A1*28</em> promoter polymorphism reduces SN-38 clearance, increasing exposure and the risk of severe <strong>neutropenia and diarrhea</strong>, particularly at doses above 180 mg/m². A pre-treatment blood genotype test can prevent this: <em>"for doses higher than 180 mg/m(2), hematologic and digestive irinotecan-induced toxicities could be prevented in daily clinical practice by generalizing the use of a simple pharmacogenetic test before starting treatment"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24977443/">PMID: 24977443</a>. The FDA irinotecan label and CPIC/pharmacogenetic guidelines recognize <em>UGT1A1*28</em>. Atazanavir (an HIV protease inhibitor) similarly causes benign hyperbilirubinemia more frequently in *28 carriers.</p>
+<p><strong>Ontology terms:</strong> NCIT:C1249 (Irinotecan); NCIT:C1876 (Atazanavir); pharmacogenomic biomarker (PharmGKB/CPIC "very important pharmacogene" UGT1A1).</p>
+<h3>Finding 4 — Epidemiology and clinical phenotype</h3>
+<p>GS is found in <strong>~3–10% of the general population</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/28338110/">PMID: 28338110</a>. A large UK primary-care EHR study (IQVIA, &gt;11 million patients; 9,240 GS cases vs 150,846 controls) established the clinically-recorded prevalence and phenotype: <em>"The estimated UK prevalence of GS was 180.4 per 100,000 (95% CI: 174.4-186.6), with diagnoses more common in men, peaking around age 35, and more frequent in areas of least social deprivation. Among 9,240 GS cases and 150,846 controls, machine learning identified key diagnostic themes including jaundice, abnormal liver function tests, abdominal pain, fatigue, bowel changes, and sleep disturbances. While most of these features appeared primarily in the year prior to diagnosis, only abdominal pain and fatigue were consistently more common in GS cases up to [5 years pre-diagnosis]"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40904555/">PMID: 40904555</a>.</p>
+<p>Note the difference between <strong>genotype prevalence (3–10%)</strong> and <strong>clinically diagnosed prevalence (~180/100,000)</strong> — most genotypic individuals never come to clinical attention, reflecting incomplete penetrance and the benign nature of the condition. Jaundice is typically mild and episodic, triggered by fasting, illness, dehydration, exertion, stress, or menstruation; total bilirubin is usually &lt;3 mg/dL and predominantly unconjugated, with normal liver enzymes and no hemolysis.</p>
+<p><strong>Ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a> (Jaundice); <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> (Fatigue); <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> (Abdominal pain); <a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" rel="noopener noreferrer">HP:0002904</a> (Hyperbilirubinemia); <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" rel="noopener noreferrer">HP:0003073</a> (Unconjugated hyperbilirubinemia).</p>
+<h3>Finding 5 — Bilirubin pathway and gene–environment mechanism</h3>
+<p>The upstream pathway (KEGG hsa00860 porphyrin metabolism; Reactome heme degradation) is: <strong>heme → biliverdin-IXα → bilirubin-IXα → UGT1A1 glucuronidation → biliary excretion.</strong> <em>"Heme oxygenase (HO) metabolizes heme into ferrous iron, carbon monoxide (CO), and biliverdin-IXα (BV), the latter being reduced into bilirubin-IXα (BR) by the biliverdin reductase-A (BVR)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40002374/">PMID: 40002374</a>. In GS, reduced UGT1A1 causes unconjugated bilirubin to accumulate.</p>
+<p>Several <strong>gene–environment interactions</strong> modulate bilirubin:
+- <strong>Fasting/caloric restriction</strong> raises UCB in GS (the basis of the classic fasting provocation test).
+- <strong>Diet in neonates:</strong> in humanized UGT1 (hUGT1) mice, <em>"hUGT1 mice that were fed breast milk developed severe hyperbilirubinemia because of suppression of UGT1A1 in the gastrointestinal tract. Formula-fed hUGT1 mice had lower serum levels of bilirubin, which resulted from induction of UGT1A1 in the gastrointestinal tract"</em> — the mechanism of breast-milk jaundice, mediated by intestinal IKKα/β and NF-κB <a href="https://pubmed.ncbi.nlm.nih.gov/21983082/">PMID: 21983082</a>.
+- <strong>Xenobiotics:</strong> oral inorganic arsenic induces intestinal UGT1A1 via a Keap1-Nrf2/PXR pathway — <em>"oral administration of iAs to neonatal hUGT1 mice that display severe neonatal hyperbilirubinemia leads to induction of intestinal UGT1A1 and a reduction in total serum bilirubin values"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/36720308/">PMID: 36720308</a>.
+- <strong>Metabolic signaling:</strong> bilirubin binds the nuclear receptor PPARα — <em>"Bilirubin is an antioxidant with fat-burning actions by binding to the PPARα nuclear receptor transcription factor, improving insulin sensitivity, reducing inflammation, and reversing metabolic dysfunction"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/39873298/">PMID: 39873298</a>.</p>
+<p><strong>Ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006788" target="_blank" rel="noopener noreferrer">GO:0006788</a> (heme oxidation); <a href="http://purl.obolibrary.org/obo/GO_0042167" target="_blank" rel="noopener noreferrer">GO:0042167</a> (heme catabolic process); <a href="http://purl.obolibrary.org/obo/GO_0006789" target="_blank" rel="noopener noreferrer">GO:0006789</a> (bilirubin conjugation); <a href="http://purl.obolibrary.org/obo/CHEBI_16990" target="_blank" rel="noopener noreferrer">CHEBI:16990</a> (bilirubin); <a href="http://purl.obolibrary.org/obo/CHEBI_17033" target="_blank" rel="noopener noreferrer">CHEBI:17033</a> (biliverdin); <a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a> (endoplasmic reticulum membrane — site of conjugation).</p>
+<h3>Finding 6 — Model organisms: the Gunn rat and the humanized UGT1 (hUGT1) mouse</h3>
+<p>Two principal models recapitulate UGT1A1 deficiency:</p>
+<ol>
+<li>
+<p><strong>Gunn rat</strong> (<em>Rattus norvegicus</em>, NCBI:txid10116): homozygous "jj" animals carry a spontaneous frameshift in <em>Ugt1a1</em> causing complete loss of bilirubin glucuronidation and lifelong unconjugated hyperbilirubinemia — <em>"The Gunn rat is a molecular and metabolic model of Crigler-Najjar syndrome type 1, which is characterized by lifelong unconjugated hyperbilirubinemia due to the lack of ... (UGT1A1)-mediated bilirubin glucuronidation"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/27830550/">PMID: 27830550</a>. Acute encephalopathy is inducible with sulfadimethoxine, which <em>"displaces bilirubin from albumin and thus increases free bilirubin"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/31578041/">PMID: 31578041</a>, modeling kernicterus. The model is used to test hepatocyte transplantation, iPSC-derived hepatic stem-cell therapy (<em>"bilirubinemia was significantly decreased (around 30% decrease, P &lt; .05) and remained stable throughout the 6-month study"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/31342573/">PMID: 31342573</a>), and gene therapy.</p>
+</li>
+<li>
+<p><strong>Humanized UGT1 (hUGT1) mouse:</strong> <em>"We studied mice in which the original Ugt1 locus was disrupted and replaced with the human UGT1 locus (hUGT1 mice); these mice spontaneously develop neonatal hyperbilirubinemia and BIND [bilirubin-induced neurologic dysfunction]"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/21983082/">PMID: 21983082</a>. This model reproduces breast-milk jaundice and xenobiotic (PXR/CAR/Nrf2) regulation of intestinal UGT1A1.</p>
+</li>
+</ol>
+<p>Note these models represent the <strong>severe (Crigler-Najjar type 1) end</strong> of the UGT1A1 deficiency spectrum, not the mild GS phenotype; no dedicated animal model recapitulates GS itself.</p>
+<p><strong>Ontology terms:</strong> NCBI:txid10116 (<em>Rattus norvegicus</em>); NCBI:txid10090 (<em>Mus musculus</em>); orthologous rat gene <em>Ugt1a1</em>.</p>
+<h3>Finding 7 — UGT1A1 as a genetic modifier that worsens neonatal hyperbilirubinemia</h3>
+<p>GS co-inherited with hemolytic or transport conditions produces <strong>additive (cumulative) hyperbilirubinemia</strong> and elevated kernicterus risk. In a northern-Guangdong study of infants with unexplained jaundice, <em>"These cases involved six diseases: Gilbert syndrome in 7 cases (12.5%), sodium taurocholate co-transporting polypeptide (NTCP) deficiency in 8 cases (14.2%), glucose-6-phosphate dehydrogenase (G6PD) deficiency in 4 cases (7.1%), a combination of Gilbert syndrome and G6PD deficiency in 5 cases (8.9%)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/42051946/">PMID: 42051946</a>. More broadly, <em>"Genetic variants may play an important role in an increased risk of neonatal hyperbilirubinemia, and severe jaundice in neonates may be related to a cumulative effect of genetic variants"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/36051115/">PMID: 36051115</a>.</p>
+<p>The interaction with G6PD deficiency is clinically documented: <em>"the presence of hyperbilirubinemia is not only associated with G6PD deficiency, but may be caused by the co-presence of a mutation in the UGTA1 promoter related to Gilbert's syndrome. As being affected by these two conditions predisposes to adverse effects towards certain drug treatments, it is advisable to study the UGTA1 gene before prescribing drugs"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/22407023/">PMID: 22407023</a>. Other co-acting bilirubin genes include OATP2/SLCO1B1, HMOX1, and BLVRA; one study found ~82% of hyperbilirubinemia cases carried ≥4 variants vs 37% of controls (P&lt;0.0001) <a href="https://pubmed.ncbi.nlm.nih.gov/27943244/">PMID: 27943244</a>. Note: one G6PD study found no significant GS–hyperbilirubinemia association in its cohort <a href="https://pubmed.ncbi.nlm.nih.gov/24783083/">PMID: 24783083</a>, so the modifier effect is real but not universal across all populations/studies.</p>
+<p><strong>Ontology terms:</strong> Gene <a href="https://bioregistry.io/HGNC:4118" target="_blank" rel="noopener noreferrer">HGNC:4118</a> (<em>G6PD</em>); <a href="https://bioregistry.io/HGNC:10959" target="_blank" rel="noopener noreferrer">HGNC:10959</a> (<em>SLCO1B1</em>); <a href="http://purl.obolibrary.org/obo/HP_0001937" target="_blank" rel="noopener noreferrer">HP:0001937</a> (Neonatal unconjugated hyperbilirubinemia).</p>
+<h3>Finding 8 — Diagnosis, differential diagnosis, and excellent prognosis</h3>
+<p>GS belongs to the congenital non-hemolytic hyperbilirubinemias (CNH), which are <em>"characterized by an abnormal serum bilirubin level without other abnormalities in routine liver functional tests. Liver histology on light microscopy is normal"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/16146029/">PMID: 16146029</a>. Diagnosis is largely clinical/biochemical:
+- Isolated mildly elevated <strong>unconjugated (indirect) bilirubin</strong> (typically &lt;3 mg/dL / &lt;51 µmol/L, &gt;70–80% unconjugated)
+- Normal ALT, AST, ALP, GGT
+- Normal hemoglobin, reticulocytes, haptoglobin, and blood smear (excluding hemolysis)
+- Normal hepatic imaging</p>
+<p>Provocation testing supports diagnosis: <strong>24–48h fasting or IV nicotinic acid</strong> raises UCB, and <strong>phenobarbital</strong> lowers it. The underlying biochemical defect is <em>"a deficiency in hepatic bilirubin UDP-glucuronosyltransferase activity (B-GTA)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/98393/">PMID: 98393</a>, with an increased proportion of bilirubin monoglucuronide in bile; some cases also show a hepatic uptake (BSP kinetics) component. <strong>Molecular confirmation</strong> = <em>UGT1A1</em> promoter (TA)n genotyping ± coding sequencing.</p>
+<p><strong>Differential diagnosis:</strong> Crigler-Najjar types I/II (severe unconjugated hyperbilirubinemia, kernicterus risk), Dubin-Johnson and Rotor syndromes (conjugated hyperbilirubinemia), hemolytic anemias, and hepatobiliary disease — <em>"it should be differentiated from Crigler-Najjar syndrome and Dubin-Johnson syndrome"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/30669779/">PMID: 30669779</a>.</p>
+<p><strong>Prognosis is excellent:</strong> <em>"Because CNH in adults are benign disorders and the prognosis is excellent, patients do not require any specific therapy"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/16146029/">PMID: 16146029</a>, and GS <em>"prognosis is good in absence of special treatment"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/30669779/">PMID: 30669779</a>. There is no reduction in life expectancy; the course is lifelong and stable/episodic.</p>
+<h3>Finding 9 — Inheritance and population genetics</h3>
+<p>The GS jaundice phenotype is inherited <strong>autosomal-recessively</strong>, requiring homozygosity for the low-activity <em>UGT1A1*28</em> (TA)7 allele (or compound states); it shows <strong>incomplete, age/sex-dependent penetrance and variable expressivity.</strong> The (TA)7 (rs8175347) risk allele frequency varies widely by ancestry, and <em>"the low-activity (risk) alleles ((TA)(7) and (TA)(8)) are very frequent in Africans"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/21309756/">PMID: 21309756</a>. Reported allele frequencies include ~25.7% in Saudis (<em>"The most common allele for (TA) repeats was the wild type (TA)6 with a frequency of 74.3% followed by the mutant (TA)7 (i.e., UGT1A1*28) with a frequency of 25.7%"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24049537/">PMID: 24049537</a>) and ~39.8% in South Indians <a href="https://pubmed.ncbi.nlm.nih.gov/22318545/">PMID: 22318545</a>.</p>
+<p>Bilirubin rises with <strong>allele dose</strong>: <em>"Total bilirubin concentration in homozygous carriers of the -3279G and (TA)7 allele were significantly higher than those in heterozygous carriers or homozygous carriers of wild-type alleles"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/17060921/">PMID: 17060921</a>. In East Asians, the coding variant <strong>G71R (UGT1A1*6)</strong> dominates: among 63 Japanese GS patients, <em>"Homozygous TA insertion in the TATA box (TA7) of the promoter region (TA7/7; 33%), homozygous G71R (9%), and combination of TA7/6 and heterozygous G71R (17%) were the most frequent findings"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/15304120/">PMID: 15304120</a>; Crigler-Najjar type II Japanese patients were homozygous for Y486D.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Population</th>
+<th>(TA)7 / *28 allele frequency</th>
+<th>Dominant variant</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Equatorial Africans</td>
+<td>Highest; (TA)7 often most common allele</td>
+<td>(TA)7, (TA)8</td>
+</tr>
+<tr>
+<td>South Indian</td>
+<td>~39.8%</td>
+<td>(TA)7</td>
+</tr>
+<tr>
+<td>Saudi/Arab</td>
+<td>~25.7%</td>
+<td>(TA)7</td>
+</tr>
+<tr>
+<td>European</td>
+<td>~30–40% (allele)</td>
+<td>(TA)7 (*28)</td>
+</tr>
+<tr>
+<td>East Asian</td>
+<td>Lower (TA)7; G71R common</td>
+<td>UGT1A1*6 (G71R)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 10 — Management, prevention, and genetic counseling</h3>
+<p>GS requires <strong>no disease-directed treatment</strong>; management is <strong>reassurance</strong> about its benign nature to prevent unnecessary work-up <a href="https://pubmed.ncbi.nlm.nih.gov/16146029/">PMID: 16146029</a>. Where cosmetically or diagnostically desired, hepatic enzyme inducers (<strong>phenobarbital</strong>, and experimentally rifampicin) upregulate UGT1A1 and lower unconjugated bilirubin. This contrasts sharply with severe UGT1A1 deficiency: <em>"Crigler-Najjar syndrome is the severe inherited form of unconjugated hyperbilirubinaemia due to mutations in the UGT1A1 gene, which can cause kernicterus early in life and can be even lethal when left untreated"</em> — requiring phototherapy and liver transplantation, and motivating gene therapy <a href="https://pubmed.ncbi.nlm.nih.gov/25315738/">PMID: 25315738</a>.</p>
+<p><strong>Prevention</strong> centers on gene–environment triggers (avoid prolonged fasting/dehydration) and, most importantly, <strong>secondary prevention of drug toxicity</strong>: pre-treatment <em>UGT1A1</em> (*28/*6) genotyping before irinotecan (dose reduction if homozygous) and awareness of benign hyperbilirubinemia with atazanavir/indinavir <a href="https://pubmed.ncbi.nlm.nih.gov/24977443/">PMID: 24977443</a>. In severe UGT1A1 deficiency, curative/experimental strategies under study in the Gunn rat and hUGT1 models include hepatocyte transplantation, hiPSC-derived hepatic stem-cell therapy (~30% durable bilirubin reduction over 6 months, P&lt;0.05 <a href="https://pubmed.ncbi.nlm.nih.gov/31342573/">PMID: 31342573</a>), and AAV gene therapy — relevant to Crigler-Najjar, not needed for GS. <strong>Genetic counseling</strong> conveys: autosomal-recessive risk, benign prognosis, and high carrier frequency; <strong>no prenatal or newborn screening is indicated for GS itself</strong>, although <em>UGT1A1</em> genotyping aids differential diagnosis and pharmacogenomics.</p>
+<p><strong>Ontology terms:</strong> NCIT:C739 (Phenobarbital); NCIT:C29524 (Genetic Counseling); NCIT:C15277 (Phototherapy — for CN, not GS).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Gilbert's Syndrome is best understood as a <strong>partial loss-of-function of a single detoxifying enzyme</strong> whose principal substrate — bilirubin — happens to be a beneficial antioxidant. The causal chain is:</p>
+<pre><code>   GENETIC LESION                  ENZYME DEFECT              BIOCHEMICAL              CLINICAL
+ ┌───────────────────┐        ┌───────────────────┐     ┌──────────────────┐    ┌──────────────────┐
+ │ UGT1A1*28          │        │ ↓ UGT1A1           │     │ ↑ Unconjugated    │    │ Mild episodic     │
+ │ A(TA)7TAA promoter │ ─────► │ transcription      │───► │ bilirubin (UCB)   │──► │ jaundice          │
+ │ (or *6 G71R coding)│        │ → ~30% activity    │     │ in blood          │    │ (fasting/stress)  │
+ └───────────────────┘        └───────────────────┘     └────────┬─────────┘    └──────────────────┘
+recessive                    hepatocyte ER              │
+incomplete penetrance                                   │
+                                                ├──► ANTIOXIDANT ─► ↓ CVD, ↓ mortality
+                                                │    (scavenges HOCl, ↓ platelet
+                                                │     activation, ↓ LDL, PPARα)
+                                                │
+                                                └──► PHARMACOGENOMIC ─► ↑ SN-38 toxicity
+                                                     (irinotecan), atazanavir jaundice
+</code></pre>
+<p><strong>Upstream vs downstream.</strong> The upstream trigger is the germline <em>UGT1A1</em> regulatory/coding variant. The proximal downstream consequence is reduced hepatic conjugation of bilirubin (a physiological byproduct of heme catabolism by heme oxygenase and biliverdin reductase A). The distal consequences bifurcate into a <strong>beneficial arm</strong> (elevated circulating antioxidant bilirubin conferring cardiovascular/metabolic protection) and a <strong>liability arm</strong> (impaired glucuronidation of xenobiotic drug substrates such as SN-38 and atazanavir, and additive contribution to neonatal hyperbilirubinemia).</p>
+<p><strong>Cell types and tissues.</strong> The primary cell is the <strong>hepatocyte</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>), where UGT1A1 resides in the <strong>endoplasmic reticulum membrane</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>). The <strong>intestinal epithelium</strong> is a key secondary site whose UGT1A1 is dynamically regulated by diet and xenobiotics (relevant to neonatal jaundice). The primary organ is the <strong>liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>); in severe UGT1A1 deficiency the vulnerable secondary organ is the <strong>brain</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), specifically basal ganglia and cerebellum (kernicterus) — a risk essentially absent in GS but relevant to Crigler-Najjar and to GS as a neonatal modifier.</p>
+<p><strong>Gene–environment integration.</strong> GS is a paradigm of gene–environment interaction: an otherwise silent genotype becomes phenotypically manifest under fasting, dehydration, illness, or stress, and its severity is tunable by dietary (breast milk vs formula) and xenobiotic (arsenic, enzyme inducers) modulation of intestinal UGT1A1 through NF-κB, PXR/CAR, and Nrf2 signaling.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Topic</th>
+<th>Role in report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28338110/">28338110</a></td>
+<td>UGT1A1*28 in Romanian GS cohort</td>
+<td>Defines GS, prevalence (3–10%), reduced UGT1A1 activity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34089128/">34089128</a></td>
+<td>TaqMan detection of *28/*36/*37</td>
+<td>TA-repeat allelic series and African frequencies</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40038193/">40038193</a></td>
+<td>PAP-PCR for UGT1A1 polymorphisms</td>
+<td>Co-occurring *60/*28/*6 variants</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25887876/">25887876</a></td>
+<td>Missense + A(TA)7TAA causes GS</td>
+<td>Most common genotype; incomplete penetrance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26057938/">26057938</a></td>
+<td>Bilirubin scavenges chloramines</td>
+<td>Antioxidant/CVD protection mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28300459/">28300459</a></td>
+<td>UCB &amp; platelet activation in GS</td>
+<td>Anti-thrombotic/lipid effects</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23566065/">23566065</a></td>
+<td>Lipid/inflammation protection in GS</td>
+<td>Improved lipid &amp; inflammatory profile</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24977443/">24977443</a></td>
+<td>UGT1A1 genotyping &amp; irinotecan</td>
+<td>Pharmacogenomic actionability</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40904555/">40904555</a></td>
+<td>UK primary-care prevalence &amp; symptoms</td>
+<td>EHR prevalence, demographics, symptoms</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40002374/">40002374</a></td>
+<td>HO/BVR system</td>
+<td>Upstream heme→bilirubin pathway</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21983082/">21983082</a></td>
+<td>Intestinal UGT1A1 &amp; NF-κB in hUGT1 mice</td>
+<td>Breast-milk jaundice; hUGT1 model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36720308/">36720308</a></td>
+<td>Arsenic induces UGT1A1 via Nrf2/PXR</td>
+<td>Xenobiotic gene–environment interaction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39873298/">39873298</a></td>
+<td>HO/BVR/bilirubin &amp; insulin resistance</td>
+<td>Bilirubin–PPARα metabolic link</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27830550/">27830550</a></td>
+<td>Gunn rat as CN type 1 model</td>
+<td>Gunn rat characterization</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31578041/">31578041</a></td>
+<td>Gunn rat preterm hyperbilirubinemia</td>
+<td>Sulfadimethoxine kernicterus model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31342573/">31342573</a></td>
+<td>iPSC hepatic stem cells in Gunn rats</td>
+<td>Cell-therapy efficacy (~30% reduction)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42051946/">42051946</a></td>
+<td>Genetic infant jaundice, Guangdong</td>
+<td>GS + G6PD as jaundice contributors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36051115/">36051115</a></td>
+<td>Severe neonatal hyperbilirubinemia cases</td>
+<td>Cumulative genetic-variant model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22407023/">22407023</a></td>
+<td>G6PD + GS family study</td>
+<td>UGT1A1 augments G6PD hyperbilirubinemia</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24783083/">24783083</a></td>
+<td>GS &amp; neonatal icterus in G6PD</td>
+<td>Null association (nuance)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27943244/">27943244</a></td>
+<td>Bilirubin gene variants</td>
+<td>Multi-gene additive effect (≥4 variants)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16146029/">16146029</a></td>
+<td>Congenital nonhemolytic hyperbilirubinemias</td>
+<td>Diagnostic hallmark; excellent prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30669779/">30669779</a></td>
+<td>Inherited metabolic liver disease in adults</td>
+<td>Prognosis; key differentials</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/98393/">98393</a></td>
+<td>Classification of hereditary hyperbilirubinemias</td>
+<td>B-GTA enzymatic defect</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25315738/">25315738</a></td>
+<td>Gene replacement for hepatic jaundice</td>
+<td>Contrast with severe CN; gene therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21309756/">21309756</a></td>
+<td>UGT1A alleles in African populations</td>
+<td>High African risk-allele frequency</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24049537/">24049537</a></td>
+<td>UGT1A1 polymorphisms in Saudis</td>
+<td>(TA)7 frequency ~25.7%</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22318545/">22318545</a></td>
+<td>UGT1A1 in South Indians</td>
+<td>(TA)7 frequency ~39.8%</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17060921/">17060921</a></td>
+<td>Intra-ethnic UGT1A1 in Chinese</td>
+<td>Allele-dose effect on bilirubin</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15304120/">15304120</a></td>
+<td>UGT1A1 in Japanese CN/GS</td>
+<td>Asian G71R variant spectrum</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence source types:</strong> Human clinical/genetic (majority — case-control genotyping, EHR cohorts, matched physiological studies); model organism (Gunn rat, hUGT1 mouse); mechanistic/in-vitro (bilirubin antioxidant chemistry, platelet assays). Findings are strongly convergent across independent populations and study designs.</p>
+<hr />
+<h2>Section-by-Section Coverage of the Research Template</h2>
+<p><strong>1. Disease Information.</strong> Benign inherited unconjugated hyperbilirubinemia. Identifiers: OMIM #143500; <a href="http://purl.obolibrary.org/obo/MONDO_0008738" target="_blank" rel="noopener noreferrer">MONDO:0008738</a>; ICD-10 E80.4; ICD-11 5C58.03; MeSH D005878 "Gilbert Disease"; Orphanet <a href="https://bioregistry.io/ORPHA:552" target="_blank" rel="noopener noreferrer">ORPHA:552</a>. Synonyms: Gilbert-Meulengracht syndrome, constitutional hepatic dysfunction, familial non-hemolytic non-obstructive jaundice, unconjugated benign bilirubinemia. Information derives from both aggregated disease-level resources (OMIM/Orphanet) and individual-patient EHR (UK IQVIA study [<a href="https://pubmed.ncbi.nlm.nih.gov/40904555/" target="_blank" rel="noopener noreferrer">PMID: 40904555</a>]).</p>
+<p><strong>2. Etiology.</strong> Primary cause is genetic (UGT1A1 hypofunction). Genetic risk: homozygous UGT1A1*28/(TA)7, *37/(TA)8, *6/G71R, *60 enhancer. Environmental triggers: fasting, dehydration, illness, stress, exertion, menstruation. Protective genetic factor: (TA)5/*36 (increased activity). Protective environmental factors: adequate caloric intake. Gene–environment: fasting, diet, and xenobiotics modulate intestinal/hepatic UGT1A1 (Findings 5, 7).</p>
+<p><strong>3. Phenotypes.</strong> Jaundice (<a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a>), unconjugated hyperbilirubinemia (<a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" rel="noopener noreferrer">HP:0003073</a>), fatigue (<a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a>), abdominal pain (<a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a>). Onset: puberty/early adulthood. Severity: mild. Progression: episodic/fluctuating. QoL impact: minimal; non-specific fatigue may cause anxiety before diagnosis. (Finding 4)</p>
+<p><strong>4. Genetic/Molecular.</strong> Causal gene UGT1A1 (<a href="https://bioregistry.io/HGNC:12530" target="_blank" rel="noopener noreferrer">HGNC:12530</a>, chr 2q37). Variant types: promoter TA-repeat (regulatory), missense (G71R, Y486D), enhancer SNP (-3279T&gt;G). Germline. Functional consequence: partial loss of function. Modifier genes: G6PD, SLCO1B1/OATP2, HMOX1, BLVRA. (Findings 1, 7, 9)</p>
+<p><strong>5. Environmental.</strong> Fasting/dehydration, drug/xenobiotic exposure (arsenic induces UGT1A1). No infectious etiology, though intercurrent infection triggers jaundice. (Finding 5)</p>
+<p><strong>6. Mechanism.</strong> KEGG hsa00860; Reactome heme degradation; ER glucuronidation. Antioxidant, anti-thrombotic, PPARα metabolic effects. <a href="http://purl.obolibrary.org/obo/GO_0006789" target="_blank" rel="noopener noreferrer">GO:0006789</a> (bilirubin conjugation), <a href="http://purl.obolibrary.org/obo/GO_0042167" target="_blank" rel="noopener noreferrer">GO:0042167</a> (heme catabolism). (Findings 2, 5)</p>
+<p><strong>7. Anatomy.</strong> Primary organ: liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>); hepatocyte (<a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>); ER (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>). Secondary: intestinal epithelium; brain (only in severe spectrum). Digestive/hepatobiliary system; bilateral/systemic (skin, sclerae). (Findings 5, 6)</p>
+<p><strong>8. Temporal.</strong> Onset puberty/early adulthood; chronic lifelong; episodic/fluctuating course; self-limited flares resolving with removal of trigger. No progression to fibrosis. (Findings 4, 8)</p>
+<p><strong>9. Inheritance/Population.</strong> Autosomal recessive; incomplete age/sex-dependent penetrance; variable expressivity; high carrier frequency; marked ethnic variation (African &gt; European/Indian &gt; East Asian for (TA)7; G71R in Asians). Male-predominant clinical diagnosis. (Findings 4, 9)</p>
+<p><strong>10. Diagnostics.</strong> Isolated unconjugated hyperbilirubinemia with normal LFTs, no hemolysis, normal imaging/histology; fasting and nicotinic-acid provocation; phenobarbital suppression; UGT1A1 (TA)n genotyping. Differentials: Crigler-Najjar I/II, Dubin-Johnson, Rotor, hemolysis. (Finding 8)</p>
+<p><strong>11. Prognosis.</strong> Excellent; normal life expectancy; no specific therapy; potentially reduced CVD mortality. (Findings 2, 8)</p>
+<p><strong>12. Treatment.</strong> None required; reassurance. Phenobarbital (NCIT:C739) if desired. Pharmacogenomic dose adjustment for irinotecan. (Findings 3, 10)</p>
+<p><strong>13. Prevention.</strong> Primary: avoid fasting/dehydration triggers. Secondary: pre-treatment UGT1A1 genotyping (drug toxicity). Genetic counseling. No population screening for GS itself. (Finding 10)</p>
+<p><strong>14. Other Species / Natural Disease.</strong> Gunn rat (<em>Rattus norvegicus</em>, NCBI:txid10116) — naturally occurring Ugt1a1 frameshift; ortholog rat <em>Ugt1a1</em>. Represents severe (CN-1) end of spectrum. (Finding 6)</p>
+<p><strong>15. Model Organisms.</strong> Gunn rat (spontaneous mutant); humanized UGT1 (hUGT1) transgenic mouse; iPSC-derived hepatic stem cells; hepatocyte transplantation systems. These recapitulate severe UGT1A1 deficiency (kernicterus, BIND) rather than mild GS. Resources: MGI, RGD. (Finding 6)</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li>
+<p><strong>No dedicated GS model.</strong> Existing animal models (Gunn rat, hUGT1 mouse) reproduce the <em>severe</em> Crigler-Najjar end of the UGT1A1 spectrum, not the mild GS phenotype. Mechanistic inferences about GS from these models must account for the difference between partial (~30%) and complete enzyme loss.</p>
+</li>
+<li>
+<p><strong>Incomplete penetrance is unexplained.</strong> Many A(TA)7TAA homozygotes remain anicteric [<a href="https://pubmed.ncbi.nlm.nih.gov/25887876/" target="_blank" rel="noopener noreferrer">PMID: 25887876</a>], indicating additional modifiers (erythropoietic rate, sex hormones, other bilirubin-pathway genes) that are incompletely characterized.</p>
+</li>
+<li>
+<p><strong>Causality of CVD protection.</strong> The cardiovascular/mortality benefit is supported by observational and mechanistic data [<a href="https://pubmed.ncbi.nlm.nih.gov/26057938/" target="_blank" rel="noopener noreferrer">PMID: 26057938</a>, 28300459, 23566065], but no randomized evidence establishes causality; residual confounding cannot be excluded, and bilirubin-raising therapeutics remain investigational.</p>
+</li>
+<li>
+<p><strong>Modifier effect is not universal.</strong> While GS additively worsens neonatal hyperbilirubinemia in most cohorts, at least one G6PD study found no significant association [<a href="https://pubmed.ncbi.nlm.nih.gov/24783083/" target="_blank" rel="noopener noreferrer">PMID: 24783083</a>], suggesting population- and context-dependence.</p>
+</li>
+<li>
+<p><strong>Quality-of-life data are thin.</strong> The contribution of GS itself (vs coincidental illness) to reported fatigue/abdominal pain is not rigorously separated; no validated GS-specific QoL instrument exists.</p>
+</li>
+<li>
+<p><strong>This report is literature-derived</strong>, not based on primary molecular datasets; allele-frequency figures are drawn from individual cohort studies and may not represent gnomAD-scale reference estimates.</p>
+</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li>
+<p><strong>Population-scale allele frequencies.</strong> Query gnomAD/1000 Genomes directly for rs8175347 and c.211G&gt;A (G71R) frequencies across superpopulations to replace cohort-based estimates with reference-database values.</p>
+</li>
+<li>
+<p><strong>Penetrance modeling.</strong> Analyze a biobank (e.g., UK Biobank) linking UGT1A1 genotype to serum bilirubin and covariates (sex, hemoglobin, fasting status) to quantify penetrance and identify modifiers.</p>
+</li>
+<li>
+<p><strong>CVD causality.</strong> Perform Mendelian randomization using UGT1A1*28 as an instrument for lifelong bilirubin exposure vs cardiovascular endpoints to test causality of the protective association.</p>
+</li>
+<li>
+<p><strong>Pharmacogenomic implementation audit.</strong> Evaluate real-world uptake and outcomes of pre-irinotecan UGT1A1 genotyping (CPIC-guided dosing) to quantify toxicity reduction.</p>
+</li>
+<li>
+<p><strong>Neonatal risk stratification.</strong> Prospectively test a combined UGT1A1 + G6PD + SLCO1B1 panel for predicting severe neonatal hyperbilirubinemia and kernicterus risk.</p>
+</li>
+<li>
+<p><strong>Bilirubin therapeutics.</strong> Advance nanoparticle/biosynthetic bilirubin delivery toward controlled trials for metabolic/cardiovascular indications, leveraging GS as a "natural experiment."</p>
+</li>
+</ol>
+<hr />
+<p><em>Report compiled from 10 confirmed findings and 42 reviewed papers across 5 investigation iterations. Evidence is predominantly human clinical/genetic, supported by model-organism and in-vitro mechanistic studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Gilberts_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Gilberts_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>30</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Gilberts_Syndrome-falcon.html">← Gilbert&#39;s Syndrome (Falcon)</a>
+                
+                
+                <a href="Gitelman_Syndrome-falcon.html">Gitelman syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Gilbert&#39;s_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Gilberts_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Gilberts_Syndrome-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

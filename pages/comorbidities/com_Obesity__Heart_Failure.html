@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obesity ↔ Heart Failure - dismech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: #fff;
+            color: var(--gray-800);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--primary-dark);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .internal-link {
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-thickness: 1px;
+        }
+
+        .internal-link:hover {
+            text-decoration-thickness: 2px;
+        }
+
+        .dismech-inline-link {
+            margin-left: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #0369a1;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-thickness: 1px;
+            white-space: nowrap;
+        }
+
+        .dismech-inline-link:hover {
+            text-decoration-thickness: 2px;
+        }
+
+        .curation-gap-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+            vertical-align: middle;
+        }
+
+        .missing-ontology-link {
+            color: #b91c1c !important;
+            text-decoration: underline dotted;
+            text-underline-offset: 2px;
+        }
+
+        /* Sticky nav */
+        nav.site-nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: var(--gray-600);
+            text-decoration: none;
+        }
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--teal);
+        }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header */
+        .page-header {
+            background: var(--teal-50);
+            border: 1px solid var(--gray-200);
+            padding: 2.5rem 2rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+
+        .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .header-subtitle {
+            margin-top: 12px;
+            color: var(--gray-700);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-category {
+            background: rgba(0, 131, 143, 0.12);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+        }
+
+        .badge-mondo {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        /* Navigation */
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumb span {
+            color: var(--text-muted);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        /* Tags */
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .go-terms li {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible,
+        .go-terms li:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .go-terms li:has(> .pill-tip) {
+            cursor: help;
+        }
+
+        .tag-parent {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .tag-classification {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .tag-mechanistic {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag-accent {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .mapping-section {
+            margin-bottom: 16px;
+        }
+
+        .mapping-item {
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .mapping-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .mapping-notes {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .field {
+            margin-top: 6px;
+        }
+
+        .field-label {
+            font-weight: 600;
+            margin-right: 6px;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .metric {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+        }
+
+        .evidence {
+            margin-top: 8px;
+        }
+
+        .evidence-item {
+            border-left: 3px solid #94a3b8;
+            padding-left: 10px;
+            margin: 8px 0;
+            color: var(--text-muted);
+        }
+
+        .evidence-item strong {
+            color: var(--text);
+        }
+
+        .go-terms {
+            margin: 8px 0 0;
+            padding-left: 18px;
+        }
+
+        details {
+            margin-top: 12px;
+        }
+
+        pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        /* Mermaid graph */
+        .mermaid-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        @media (max-width: 720px) {
+            .page-header {
+                padding: 28px 20px;
+            }
+
+            .page-header h1 {
+                font-size: 1.7rem;
+            }
+
+            .section-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav class="site-nav">
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/comorbidities/" class="active">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+
+    
+
+    <div class="container">
+        <nav class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a>
+            <span> / </span>
+            <span>Comorbidity</span>
+        </nav>
+
+        <header class="page-header">
+            <h1>Obesity <-> Heart Failure</h1>
+            <div class="header-meta">
+                <span class="badge badge-category">Comorbidity</span>
+                
+                <span class="badge badge-mondo">A_BEFORE_B</span>
+                
+                
+                <span class="badge badge-category">CANDIDATE</span>
+                
+            </div>
+            
+            <div class="header-subtitle">Split out of `kb/disorders/Heart_Failure.yaml`&#39;s `environmental:` block (dismech#8296, dismech#8551). That entry listed `Obesity` as an exposure with the note &#34;Risk factor for HFpEF&#34;, but obesity is a first-class `Disease` entry in its own right (`kb/disorders/Obesity.yaml`) rather than something external to the organism acting on it, and ECTO has no term that would bind it as an exposure. Modeling it here as a disease-disease comorbidity makes the relationship queryable and avoids an exposure edge that could never be grounded.
+The original note pointed specifically at heart failure with preserved ejection fraction. HFpEF is a `has_subtypes` entry on `Heart_Failure` rather than a separate disorder file, so `disease_b` is `Heart_Failure` and the subtype specificity is recorded here instead of being asserted by a term this KB does not carry. The evidence supports both readings: the Framingham cohort measured incident heart failure without ejection-fraction stratification, while the HFpEF-specific statement comes from a trial population selected for it.
+Directionality is A_BEFORE_B: obesity is the antecedent risk state. The reverse arm is real but different in kind -- heart failure causes cachexia rather than obesity -- and is not modeled here.</div>
+            
+        </header>
+
+        <div class="section-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">A</div>
+                    <h2 class="card-title">Disease A</h2>
+                </div>
+                <div class="mapping-title">
+                    
+                    
+                    <a class="internal-link" href="../disorders/Obesity.html">Obesity</a>
+                    
+                </div>
+                
+                <div class="field"><span class="field-label">Slug:</span>Obesity</div>
+                
+                
+                
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">B</div>
+                    <h2 class="card-title">Disease B</h2>
+                </div>
+                <div class="mapping-title">
+                    
+                    
+                    <a class="internal-link" href="../disorders/Heart_Failure.html">Heart Failure</a>
+                    
+                </div>
+                
+                <div class="field"><span class="field-label">Slug:</span>Heart_Failure</div>
+                
+                
+                
+            </div>
+        </div>
+
+        
+        <div class="card" id="causal-graphs">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">G</div>
+                <h2 class="card-title">Causal Mechanism Graphs</h2>
+            </div>
+            
+            
+            <h3>Heart Failure</h3>
+            <div class="mermaid-container">
+                <pre class="mermaid">graph LR
+    Ventricular_Remodeling[&#34;Ventricular Remodeling&#34;]
+    Mineralocorticoid_Receptor_Antagonists[&#34;Mineralocorticoid Receptor Antagonists&#34;]
+    Tissue_Glucocorticoid_Amplification_by_11beta_HSD1[&#34;Tissue Glucocorticoid Amplification by 11beta-HSD1&#34;]
+    Loss_of_Myocardial_Oestrogen_Receptor_Signalling[&#34;Loss of Myocardial Oestrogen Receptor Signalling&#34;]
+    Endocrine_Convergence_on_Shared_Profibrotic_Effectors[&#34;Endocrine Convergence on Shared Profibrotic Effectors&#34;]
+    Postmenopausal_Oestrogen_Withdrawal[&#34;Postmenopausal Oestrogen Withdrawal&#34;]
+    Neurohormonal_Activation[&#34;Neurohormonal Activation&#34;]
+
+    Neurohormonal_Activation --&gt; Endocrine_Convergence_on_Shared_Profibrotic_Effectors
+    Endocrine_Convergence_on_Shared_Profibrotic_Effectors --&gt; Ventricular_Remodeling
+    Tissue_Glucocorticoid_Amplification_by_11beta_HSD1 --&gt; Endocrine_Convergence_on_Shared_Profibrotic_Effectors
+    Postmenopausal_Oestrogen_Withdrawal --&gt; Loss_of_Myocardial_Oestrogen_Receptor_Signalling
+    Postmenopausal_Oestrogen_Withdrawal --&gt; Endocrine_Convergence_on_Shared_Profibrotic_Effectors
+    Loss_of_Myocardial_Oestrogen_Receptor_Signalling --&gt; Endocrine_Convergence_on_Shared_Profibrotic_Effectors
+    Mineralocorticoid_Receptor_Antagonists --&gt; Endocrine_Convergence_on_Shared_Profibrotic_Effectors
+
+    style Ventricular_Remodeling fill:#dbeafe
+    style Mineralocorticoid_Receptor_Antagonists fill:#fce7f3
+    style Tissue_Glucocorticoid_Amplification_by_11beta_HSD1 fill:#dbeafe
+    style Loss_of_Myocardial_Oestrogen_Receptor_Signalling fill:#dbeafe
+    style Endocrine_Convergence_on_Shared_Profibrotic_Effectors fill:#dbeafe
+    style Postmenopausal_Oestrogen_Withdrawal fill:#dbeafe
+    style Neurohormonal_Activation fill:#dbeafe</pre>
+            </div>
+            
+        </div>
+        
+
+        
+        <div class="card" id="signals">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">S</div>
+                <h2 class="card-title">Association Signals</h2>
+            </div>
+            <div class="mapping-section">
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">Signal 1</div>
+                    <div class="tag-list" style="margin-bottom: 8px;">
+                        <span class="tag tag-parent">LITERATURE</span>
+                        <span class="tag tag-classification">LITERATURE_ASSOCIATION</span>
+                        <span class="tag tag-mechanistic">A_BEFORE_B</span>
+                    </div>
+                    <div class="field"><span class="field-label">Population:</span>Framingham Heart Study community cohort, 5881 participants of mean age 55 years, 54 percent women, followed a mean of 14 years, with heart failure incidence modeled against body-mass index by Cox proportional hazards and adjusted for established risk factors.</div>
+                    
+                    
+                    
+                    
+                    <div class="field"><span class="field-label">Temporal:</span>
+                        A before B: 
+                        , B before A: 
+                        , Same time: 
+                    </div>
+                    
+
+                    
+                    
+                    <div class="metrics">
+                        
+                        <div class="metric">
+                            <div><strong>HR</strong>: 2.12</div>
+                            
+                            <div>CI:  - </div>
+                            
+                            <div>p: </div>
+                            <div>FDR: </div>
+                            <div>Adjusted hazard ratio for incident heart failure in obese versus normal-body-mass-index women; 1.90 in men. A graded increase was seen across body-mass-index categories rather than only at the obese threshold, which is why the entry does not restrict the claim to extreme obesity.</div>
+                        </div>
+                        
+                    </div>
+                    
+
+                    
+                    
+    
+    <div class="evidence">
+        
+        <div class="evidence-item">
+            <div>
+                
+                <strong><a href="http://www.ncbi.nlm.nih.gov/pubmed/12151467" target="_blank">PMID:12151467</a></strong>
+                
+                 (SUPPORT)
+            </div>
+            
+            <div>Source: HUMAN_CLINICAL</div>
+            
+            
+            <div>"For women, the hazard ratio was 2.12 (95 percent confidence interval, 1.51 to 2.97); for men, the hazard ratio was 1.90 (95 percent confidence interval, 1.30 to 2.79)."</div>
+            
+            
+            <div>Gives the adjusted hazard ratios behind this signal, measured prospectively in a community cohort followed forward from body-mass index to incident heart failure, which is what a directed A_BEFORE_B risk signal requires.</div>
+            
+        </div>
+        
+        <div class="evidence-item">
+            <div>
+                
+                <strong><a href="http://www.ncbi.nlm.nih.gov/pubmed/12151467" target="_blank">PMID:12151467</a></strong>
+                
+                 (SUPPORT)
+            </div>
+            
+            <div>Source: HUMAN_CLINICAL</div>
+            
+            
+            <div>"As compared with subjects with a normal body-mass index, obese subjects had a doubling of the risk of heart failure."</div>
+            
+            
+            <div>The study&#39;s own summary of the effect size, stated without the sex-stratified detail.</div>
+            
+        </div>
+        
+    </div>
+    
+    
+                    
+                    
+
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+
+        
+        <div class="card" id="hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dbeafe; color: #1e40af;">H</div>
+                <h2 class="card-title">Hypotheses</h2>
+            </div>
+            
+            <div class="mapping-item">
+                <div class="field">Obesity raises heart failure risk through a combination of haemodynamic loading, adipose-driven inflammation and the metabolic comorbidities that accompany it, and does so across the body-mass index range rather than only at its extreme. The association is strongest for the preserved ejection-fraction phenotype.</div>
+                
+    
+    <div class="evidence">
+        
+        <div class="evidence-item">
+            <div>
+                
+                <strong><a href="http://www.ncbi.nlm.nih.gov/pubmed/39555826" target="_blank">PMID:39555826</a></strong>
+                
+                 (SUPPORT)
+            </div>
+            
+            <div>Source: HUMAN_CLINICAL</div>
+            
+            
+            <div>"Obesity increases the risk of heart failure with preserved ejection fraction."</div>
+            
+            
+            <div>States the subtype-specific relationship the original environmental entry asserted. This is the trial&#39;s framing of established risk rather than its own result -- SUMMIT measured tirzepatide, not whether obesity causes HFpEF -- so it is cited for the direction of the association only; the measured magnitude is carried by the Framingham signal below.</div>
+            
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
+
+        
+
+        
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e2e8f0; color: #334155;">Y</div>
+                <h2 class="card-title">Raw YAML</h2>
+            </div>
+            <details>
+                <summary>Show YAML</summary>
+                <pre>name: com_Obesity__Heart_Failure
+creation_date: &#34;2026-08-27T00:00:00Z&#34;
+curation_status: CANDIDATE
+notes: &gt;-
+  Split out of `kb/disorders/Heart_Failure.yaml`&#39;s `environmental:` block
+  (dismech#8296, dismech#8551). That entry listed `Obesity` as an exposure with
+  the note &#34;Risk factor for HFpEF&#34;, but obesity is a first-class `Disease` entry
+  in its own right (`kb/disorders/Obesity.yaml`) rather than something external
+  to the organism acting on it, and ECTO has no term that would bind it as an
+  exposure. Modeling it here as a disease-disease comorbidity makes the
+  relationship queryable and avoids an exposure edge that could never be
+  grounded.
+
+  The original note pointed specifically at heart failure with preserved
+  ejection fraction. HFpEF is a `has_subtypes` entry on `Heart_Failure` rather
+  than a separate disorder file, so `disease_b` is `Heart_Failure` and the
+  subtype specificity is recorded here instead of being asserted by a term this
+  KB does not carry. The evidence supports both readings: the Framingham cohort
+  measured incident heart failure without ejection-fraction stratification,
+  while the HFpEF-specific statement comes from a trial population selected for
+  it.
+
+  Directionality is A_BEFORE_B: obesity is the antecedent risk state. The
+  reverse arm is real but different in kind -- heart failure causes cachexia
+  rather than obesity -- and is not modeled here.
+
+disease_a:
+  slug: Obesity
+  preferred_term: obesity disorder
+  term:
+    id: MONDO:0011122
+    label: obesity disorder
+
+disease_b:
+  slug: Heart_Failure
+  preferred_term: heart failure
+  term:
+    id: MONDO:0005252
+    label: heart failure
+
+directionality: A_BEFORE_B
+effect_direction: RISK
+
+hypotheses:
+- description: &gt;-
+    Obesity raises heart failure risk through a combination of haemodynamic
+    loading, adipose-driven inflammation and the metabolic comorbidities that
+    accompany it, and does so across the body-mass index range rather than only
+    at its extreme. The association is strongest for the preserved
+    ejection-fraction phenotype.
+  evidence:
+  - reference: PMID:39555826
+    reference_title: Tirzepatide for Heart Failure with Preserved Ejection Fraction and Obesity.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Obesity increases the risk of heart failure with preserved ejection fraction.&#34;
+    explanation: &gt;-
+      States the subtype-specific relationship the original environmental entry
+      asserted. This is the trial&#39;s framing of established risk rather than its
+      own result -- SUMMIT measured tirzepatide, not whether obesity causes
+      HFpEF -- so it is cited for the direction of the association only; the
+      measured magnitude is carried by the Framingham signal below.
+
+association_signals:
+- source: LITERATURE
+  method: LITERATURE_ASSOCIATION
+  population: &gt;-
+    Framingham Heart Study community cohort, 5881 participants of mean age 55
+    years, 54 percent women, followed a mean of 14 years, with heart failure
+    incidence modeled against body-mass index by Cox proportional hazards and
+    adjusted for established risk factors.
+  directionality: A_BEFORE_B
+  effect_direction: RISK
+  statistics:
+    metrics:
+    - metric_type: HR
+      metric_value: 2.12
+      notes: &gt;-
+        Adjusted hazard ratio for incident heart failure in obese versus
+        normal-body-mass-index women; 1.90 in men. A graded increase was seen
+        across body-mass-index categories rather than only at the obese
+        threshold, which is why the entry does not restrict the claim to extreme
+        obesity.
+    evidence:
+    - reference: PMID:12151467
+      reference_title: Obesity and the risk of heart failure.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;For women, the hazard ratio was 2.12 (95 percent confidence interval, 1.51 to 2.97); for men, the hazard ratio was 1.90 (95 percent confidence interval, 1.30 to 2.79).&#34;
+      explanation: &gt;-
+        Gives the adjusted hazard ratios behind this signal, measured
+        prospectively in a community cohort followed forward from body-mass
+        index to incident heart failure, which is what a directed A_BEFORE_B
+        risk signal requires.
+    - reference: PMID:12151467
+      reference_title: Obesity and the risk of heart failure.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;As compared with subjects with a normal body-mass index, obese subjects had a doubling of the risk of heart failure.&#34;
+      explanation: &gt;-
+        The study&#39;s own summary of the effect size, stated without the
+        sex-stratified detail.
+</pre>
+            </details>
+            
+            <div class="field"><span class="field-label">Source:</span><a href="https://github.com/monarch-initiative/dismech/blob/main/kb/comorbidities/com_Obesity__Heart_Failure.yaml" target="_blank">GitHub</a></div>
+            
+        </div>
+    </div>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .go-terms li';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
+</body>
+</html>
