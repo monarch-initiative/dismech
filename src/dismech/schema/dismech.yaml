@@ -44,6 +44,11 @@ prefixes:
   XCO: http://purl.obolibrary.org/obo/XCO_
   FOODON: http://purl.obolibrary.org/obo/FOODON_
   skos: http://www.w3.org/2004/02/skos/core#
+  # Draft SEPIO LinkML model (sepio-framework/sepio-linkml). Its own
+  # default_prefix is still the placeholder https://example.org/sepio-model/,
+  # so we bind to the schema id namespace instead. Used only for
+  # exact_mappings; dismech slot identity stays dismech-native.
+  sepio: https://w3id.org/sepio-model/
   xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
   # Dataset repositories - omics
@@ -108,28 +113,73 @@ types:
 
 enums:
   EvidenceItemSupportEnum:
-    description: The level of support for an evidence item
+    description: >-
+      Which way the cited evidence cuts relative to the claim. This is direction
+      only. How *directly* the quote bears on the claim is a separate axis --
+      see DirectnessEnum and the `directness` slot -- and how strong the evidence
+      is has no slot at all (see design decisions section 12).
+    comments:
+      - >-
+        SUPPORT and REFUTE map onto the SEPIO `directionOfEvidenceProvided`
+        values `supports` and `disputes`. NO_EVIDENCE is a dismech extension:
+        SEPIO's third value, `neutral`, means the evidence bears on the claim
+        without favouring either side, whereas NO_EVIDENCE means it does not
+        bear on the claim at all. The exporter must not silently equate them.
+      - >-
+        PARTIAL and WRONG_STATEMENT were removed in the issue #7439 narrowing.
+        PARTIAL conflated four distinct things -- indirect support, an inverted
+        model system, an item that supported one claim while contradicting
+        another, and simple irrelevance -- and became SUPPORT (with `directness`
+        left unset), a split pair of items, or NO_EVIDENCE. WRONG_STATEMENT had
+        a single use recording that an earlier entry text was inaccurate, which
+        is provenance for a history/ record rather than evidence direction.
     permissible_values:
-      WRONG_STATEMENT:
-        title: Wrong statement
-        description: >-
-          The annotated claim contains a demonstrable factual error (e.g., an incorrect
-          statistic or assertion); the cited evidence documents the correct information.
-          Use this when the claim is outright wrong, not merely contested.
-          If the cited reference simply does not mention the claim, use NO_EVIDENCE instead.
-          If the reference contradicts the claim but does not prove it factually wrong, use REFUTE.
       SUPPORT:
         title: Supports
-        description: The cited evidence directly supports the claim
+        description: The cited evidence supports the claim
+        exact_mappings:
+          - sepio:supports
       REFUTE:
         title: Refutes
-        description: The cited evidence directly contradicts the claim
+        description: The cited evidence contradicts the claim
+        exact_mappings:
+          - sepio:disputes
       NO_EVIDENCE:
         title: No evidence
         description: The cited reference does not contain evidence relevant to the claim
-      PARTIAL:
-        title: Partially supports
-        description: The cited evidence partially or indirectly supports the claim
+
+  DirectnessEnum:
+    description: >-
+      How directly the quoted evidence bears on the claim it is attached to.
+      The evidential counterpart of CausalLinkTypeEnum, which records the same
+      notion of directness for a causal edge.
+    comments:
+      - >-
+        This is not a strength or quality grade. An indirect quote may come from
+        a large, well-controlled study, and a direct one from a single case
+        report. Directness is judgeable from the snippet and the claim alone,
+        which is why it is a curated slot where strength is not.
+      - >-
+        Deliberately has no PARTIAL value. "Supports part of the claim and
+        contradicts another part" is not a point on a directness scale -- it is
+        one evidence item making two claims, and the fix is to split it into a
+        SUPPORT item and a REFUTE item, each quoting the sentence that carries
+        it. That is the same remedy CLAUDE.md already prescribes for a paper
+        that mixes evidence_source values.
+    permissible_values:
+      DIRECT:
+        title: Direct
+        description: The quoted text asserts the claim itself
+      INDIRECT:
+        title: Indirect
+        description: >-
+          The quoted text asserts something from which the claim follows by an
+          inference step -- for example a therapeutic response cited as
+          validation of the mechanism it targets, or a result from an inverted
+          or non-human model system.
+      UNKNOWN:
+        title: Unknown
+        description: Directness has not yet been assessed
   EvidenceSourceEnum:
     description: The provenance/source of the evidence item
     permissible_values:
@@ -2611,9 +2661,26 @@ slots:
     implements:
       - linkml:authoritative_reference
   supports:
+    description: >-
+      Which way the cited evidence cuts relative to the claim. Direction only --
+      use `directness` for how directly the quote bears on it.
     examples:
       - value: SUPPORT
     range: EvidenceItemSupportEnum
+    exact_mappings:
+      - sepio:directionOfEvidenceProvided
+    comments:
+      - >-
+        Maps to EvidenceLine.directionOfEvidenceProvided in the draft SEPIO
+        LinkML model. The NO_EVIDENCE value has no SEPIO counterpart; see
+        EvidenceItemSupportEnum.
+  directness:
+    description: >-
+      How directly the quoted text bears on the claim. Optional: absent means no
+      one has assessed it, which is the state of most of the knowledge base.
+    examples:
+      - value: DIRECT
+    range: DirectnessEnum
   evidence_source:
     description: Origin of the evidence item (human clinical, model organism, in vitro, or computational)
     range: EvidenceSourceEnum
@@ -5629,6 +5696,7 @@ classes:
       - reference
       - reference_title
       - supports
+      - directness
       - evidence_source
       - snippet
       - explanation
