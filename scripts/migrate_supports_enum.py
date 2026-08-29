@@ -87,10 +87,19 @@ Without that, a second run -- which only sees the few hundred items that
 arrived since the first -- would silently replace an 11,000-row worklist with a
 few hundred rows.
 
-The merge keeps a row whose ``location`` has since shifted (an index moves when
-a curator inserts an evidence item above it). The worklist is advisory triage
-input, not a foreign key, so a stale index costs a curator one search rather
-than corrupting anything.
+The key is ``(file, location, reference, snippet)`` and not just
+``(file, location)``, because an index is *reused*, not just shifted: when a
+curator inserts a discussion above an existing one, the arriving items take the
+indices the previous run recorded, and a two-part key would let each new row
+silently evict the older row sitting at its position. That cost two rows on the
+first re-run before the key was widened. Including the reference and snippet
+means the two rows differ and both survive, while a genuine re-collection of the
+same item still dedupes.
+
+The merge therefore keeps a row whose ``location`` has since shifted. The
+worklist is advisory triage input, not a foreign key, so a stale index costs a
+curator one search rather than corrupting anything -- which is the trade being
+made deliberately here, in exchange for never dropping an item.
 
 Prose is left alone
 -------------------
@@ -228,12 +237,15 @@ def main() -> int:
         return 0
 
     WORKLIST.parent.mkdir(parents=True, exist_ok=True)
-    merged = {(row["file"], row["location"]): row for row in rows}
+    def key_of(row):
+        return (row["file"], row["location"], row["reference"], row["snippet"])
+
+    merged = {key_of(row): row for row in rows}
     carried = 0
     if WORKLIST.exists():
         with WORKLIST.open(newline="") as handle:
             for row in csv.DictReader(handle, delimiter="\t"):
-                key = (row["file"], row["location"])
+                key = key_of(row)
                 if key not in merged:
                     merged[key] = row
                     carried += 1
