@@ -8,6 +8,7 @@ year: '2018'
 doi: 10.1212/con.0000000000000637
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cranial Neuralgias

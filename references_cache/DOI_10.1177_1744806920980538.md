@@ -9,6 +9,7 @@ year: '2020'
 doi: 10.1177/1744806920980538
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Animal models of trigeminal neuralgia: A commentary
