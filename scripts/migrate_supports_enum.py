@@ -71,12 +71,12 @@ import argparse
 import csv
 import re
 import sys
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 ROOT = Path(__file__).resolve().parent.parent
 KB = ROOT / "kb"
@@ -89,7 +89,7 @@ PARTIAL_LINE = re.compile(r"^(\s*supports:[ \t]*)PARTIAL[ \t]*$")
 PROSE_MENTION = re.compile(r"\bPARTIAL(?:LY)?\b")
 
 WORKLIST = ROOT / "docs" / "reports" / "data" / (
-    f"partial-evidence-directness-worklist-{date.today().isoformat()}.tsv"
+    f"partial-evidence-directness-worklist-{datetime.now(UTC).date().isoformat()}.tsv"
 )
 
 
