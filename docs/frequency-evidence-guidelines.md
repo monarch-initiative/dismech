@@ -240,15 +240,27 @@ record is scoped to), you may not adopt the band unchanged. Choose one of:
    `tests/test_data.py`; a `notes:` string is not. Note `subtype:` is
    single-valued, so a restriction naming several subtypes ("primarily in RDEB",
    covering three of four) cannot be expressed this way — keep it in `notes:`.
-2. **Keep the band, record the disagreement** — when a *narrower*, quantitative
-   source disagrees with the broad band, keep the narrow band and cite the broad
-   row as `supports: REFUTE` against the band, with an `explanation` naming the
-   conflict outright. (This said `supports: PARTIAL` before that value was
-   retired in issue #7439. `REFUTE` is the more honest reading: a row asserting
-   "Very frequent (99-80%)" does not partly support an `OCCASIONAL` band, it
-   contradicts it. Where the same row is also the source for the *association*,
-   that is a second, separate `SUPPORT` item — one evidence item should not make
-   two opposite claims.)
+2. **Keep the band, record the disagreement in prose** — when a *narrower*,
+   quantitative source disagrees with the broad band, keep the narrow band, cite
+   the broad row as `supports: SUPPORT` for the association, and name the
+   conflict outright in that item's `explanation` and in the phenotype's
+   `notes:`.
+
+    !!! warning "Do not reach for `supports: REFUTE` here"
+
+        This is the one place the evidence model cannot say what you mean.
+        `Phenotype` has a single flat `evidence:` list and no frequency-scoped
+        evidence slot, so `supports` is scoped to the **phenotype-disease
+        assertion** — "does this phenotype occur in this disease" — and not to
+        the band. A `REFUTE` therefore reads as "this phenotype is absent", and
+        `hpoa_export.py` maps it straight to an HPOA `NOT` qualifier. Citing a
+        "Very frequent (99-80%)" row as `REFUTE` would export a row asserting
+        the phenotype is *excluded* — from a source saying it is nearly
+        universal.
+
+        This slot said `supports: PARTIAL` until issue #7439 retired that value.
+        `REFUTE` was tried as the replacement and reverted for the reason above;
+        prose is the correct home until a frequency-scoped affordance exists.
 3. **Drop the band** — when the only source for it is the broader entity, omit
    `frequency:` and record the reason where a reader will meet it: the cited
    row's `explanation` (best — it sits next to the band you declined to adopt)
@@ -263,7 +275,7 @@ nothing reads.
 
 | Entry / phenotype | Choice | Why |
 |---|---|---|
-| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`. The ORPHA row is cited **twice**: `SUPPORT` quoting `HP:0002108 \| Spontaneous pneumothorax` for the association and the phenotype term, and `REFUTE` quoting `Spontaneous pneumothorax \| Very frequent (99-80%)` against the band. This is the worked example of the split — each item quotes the part of the row that carries its own claim. |
+| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`. The ORPHA row is cited once as `SUPPORT` for the association, and the band disagreement is stated in that item's `explanation` and in the phenotype's `notes:`. Not `REFUTE` — see the warning under option 2. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Cutaneous Squamous Cell Carcinoma` | 1 — scope it | `VERY_FREQUENT` comes from National EB Registry cumulative risk in severe generalized RDEB (90.1% by 55), not DEB as a whole, so the record carries `subtype: RDEB-sev gen`. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Osteoporosis` | 3 — drop it | The only source is a GeneReviews management sentence that states no rate. Band omitted; `notes:` records the reason. |
 | `Osteogenesis_Imperfecta_Type_I` → `Hyperhidrosis` | 3 — drop it | `ORPHA:666`'s "Frequent (79-30%)" row is cited for the association only; the evidence `explanation` states that no type-I band is asserted because the band reflects the whole OI spectrum. |

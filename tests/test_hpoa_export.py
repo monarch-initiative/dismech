@@ -514,3 +514,69 @@ def test_export_writes_files(tmp_path):
     content = (out / "phenotype.dismech.hpoa").read_text()
     assert content.startswith("#description:")
     assert "MONDO:0000001\ttest\t" in content
+
+
+def test_frequency_disagreement_must_not_be_curated_as_refute(tmp_path):
+    """A band disagreement is not a phenotype exclusion, and `supports` cannot say it.
+
+    `Phenotype` has one flat `evidence:` list and no frequency-scoped evidence
+    slot, so `supports` is scoped to the phenotype-disease assertion -- "does
+    this phenotype occur in this disease" -- and never to the `frequency:` band.
+    `REFUTE` therefore means *absent*, and maps here to the HPOA `NOT` qualifier.
+
+    Curating a source that reports a *higher* frequency as `REFUTE`, to record
+    that its band was not adopted, exports a row asserting the phenotype is
+    excluded -- sourced to a reference saying it is nearly universal, and
+    contradicting the positive row the same reference also produces. That
+    regression was introduced and reverted while migrating Marfan syndrome's
+    ORPHA:558 pneumothorax row (PR #10003); the band disagreement belongs in
+    `explanation` and the phenotype's `notes:` instead.
+
+    See docs/frequency-evidence-guidelines.md, option 2.
+    """
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "phenotypes": [
+                {
+                    "name": "Spontaneous Pneumothorax",
+                    "phenotype_term": {
+                        "term": {"id": "HP:0002108", "label": "Spontaneous pneumothorax"}
+                    },
+                    "frequency": "OCCASIONAL",
+                    "notes": "Orphanet says Very frequent (99-80%); the 5-11% estimate is kept.",
+                    "evidence": [
+                        {
+                            "reference": "PMID:1",
+                            "evidence_source": "HUMAN_CLINICAL",
+                            "supports": "SUPPORT",
+                        },
+                        {
+                            "reference": "ORPHA:558",
+                            "evidence_source": "OTHER",
+                            "supports": "SUPPORT",
+                        },
+                    ],
+                },
+            ],
+        },
+    )
+    rows, _ = hpoa_rows_for_disorder(yaml_path)
+    hp_rows = [r for r in rows if r["hpo_id"] == "HP:0002108"]
+
+    assert hp_rows, "the phenotype should still be exported"
+    assert not [r for r in hp_rows if r["qualifier"] == "NOT"], (
+        "a frequency-band disagreement must not export as an HPOA NOT row"
+    )
+
+    # And the contradiction shape itself: one reference must never yield both a
+    # positive and a NOT row for the same HP term.
+    by_reference = {}
+    for row in hp_rows:
+        by_reference.setdefault(row["reference"], set()).add(row["qualifier"])
+    for reference, qualifiers in by_reference.items():
+        assert qualifiers != {"", "NOT"}, (
+            f"{reference} emits both a positive and a NOT row for HP:0002108"
+        )
