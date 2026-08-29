@@ -112,8 +112,9 @@ PRs: `curation-scanner`, `literature-scan`, `preprint-scan`,
 
 **PR lifecycle** — `claude-code-review` (automated review on every PR),
 `post-review-agent` (acts on editorial review comments), `pr-shepherd` (unsticks
-stalled PRs and merges ready ones), `auto-merge-compliance` (auto-merge for the
-narrowly-scoped weekly compliance PR).
+stalled PRs and deterministically merges ready ones), `auto-merge-compliance`
+(normalizes and classifies the narrowly-scoped weekly compliance PR for that same
+closing controller).
 
 **Interactive agents** — `claude.yml` and `dragon-ai.yml` respond to `@`-mentions
 on issues, PRs, and review comments. `claude-issue-triage` and
@@ -124,7 +125,7 @@ on issues, PRs, and review comments. `claude-issue-triage` and
 publisher PDFs.
 
 **Scheduled housekeeping** — `weekly-compliance` opens a periodic
-compliance-fix PR (the one `auto-merge-compliance` is scoped to);
+compliance-fix PR (the one `auto-merge-compliance` classifies);
 `sync-epic-checkboxes` reconciles a tracking issue against the KB.
 
 **Releases** — `kgx-release`, `mondo-emc-release`, `pypi-publish`, triggered by
@@ -280,10 +281,53 @@ pass.
 
 `pr-shepherd`'s closing sweep merges a PR only when **all** hold:
 
-`reviewDecision == APPROVED` · not draft · **no assignees** ·
+`reviewDecision == APPROVED` · **no assignees** ·
 `mergeable == MERGEABLE` · `mergeStateStatus == CLEAN` · every status check
 passing (stricter than `CLEAN`, which only covers *required* checks) ·
-created more than **3 days** ago · targeting `main`.
+created more than **3 days** ago · targeting `main` · the required `test (3.13)`
+check successful on the exact current `main` SHA from the GitHub Actions App ·
+an exact compare proving that SHA is an ancestor of the PR head (`behind_by ==
+0` and `merge_base_commit.sha == main`) · `main` unchanged after the final
+PR-state read · not in a separately managed `auto/` branch lane. GitHub's
+`baseRefOid` is metadata, not ancestry proof.
+
+Draft state is metadata, not a hold. An otherwise eligible draft is marked
+ready immediately before a complete re-read of the merge guards. If the attempt
+does not merge, its original draft state is restored.
+
+The closing controller runs on a fresh runner, separate from the LLM job, and
+uses a read-only token for discovery plus a dedicated write token only for its
+fixed transitions. The controller runs hourly; under the active `slow` cron
+profile, the costlier agent tending job runs every four hours on a separate
+concurrency lane (hourly in the faster profiles) and receives a ranked shortlist
+capped at three times its action budget. The controller merges at most one PR
+per run. Before that merge it
+checks the required build on current `main`, performs the final PR-state read,
+proves the final head contains current `main`, and confirms `main` still has the
+healthy SHA.
+
+This runner split protects the deterministic job from process-level changes
+made during the LLM run. It is not a complete GitHub capability boundary: the
+agent's own App token needs contents-write access to repair branches, which also
+permits merge operations. Its no-merge rule remains prompt-enforced until a
+separate identity, broker, or repository ruleset can enforce that distinction.
+
+GitHub's merge API can pin the expected PR head but not the expected base SHA.
+Because branch protection currently is not strict, there remains a final narrow
+race between the last base read and the merge call. Strict protection or a merge
+queue is required to make that boundary atomic; the controller's recheck and
+one-merge cap are bounded mitigations, not a substitute for either setting.
+The agent correspondingly updates at most one approved-behind branch per run.
+Batch-updating several would dismiss several approvals and start CI, only for
+the first merge to make every remaining branch stale again. Under the `slow`
+profile this limits automated freshness tending to six runs per day. Increasing
+safe drain rate is a merge-queue project—including `merge_group` CI—not a reason
+to weaken ancestry checks or batch more branch updates.
+
+GitHub auto-merge is a separate server-side path and does not execute these
+controller guards. Ordinary agents and the weekly-compliance classifier must not
+arm it; the separately managed `auto/` workflows own their own merge path. A
+maintainer can still enable it manually as an explicit override.
 
 This applies to **all authors, humans included**.
 
@@ -301,8 +345,8 @@ So "a human is in the loop" here means *a human has a guaranteed opportunity to
 intervene*, not *a human signed off*. Read the 3-day delay as the price paid for
 that opportunity rather than as an arbitrary cooling-off period.
 
-> **To stop a PR being auto-merged, assign it to someone.** Converting to draft
-> or leaving a `CHANGES_REQUESTED` review also blocks it.
+> **To stop a PR being auto-merged, assign it to someone or leave a
+> `CHANGES_REQUESTED` review.** Draft status does not block it.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 

@@ -362,14 +362,14 @@ needs to be made explicit in the schema or guidelines.
 
 A scheduled GitHub Action periodically inspects compliance results,
 identifies low-scoring entries, dispatches an agentic curation job, and
-opens pull requests. Eligible weekly-compliance pull requests can have
-auto-merge enabled, but only under explicit branch, title, author, base,
-and non-draft conditions; other automated and interactive workflows have
-different merge paths. A pull request that passes CI is therefore not
-necessarily merged without human intervention. The production-history
-analysis below will report the proportions merged automatically, merged
-after human edits, closed, or left unresolved, together with the failures
-that caused escalation.
+opens pull requests. A deterministic classifier recognizes the narrow
+weekly-compliance lane by branch, title, author, and base; draft state is
+not treated as a lifecycle hold. Eligible PRs then use the repository-wide
+closing controller rather than an independent auto-merge path. A pull
+request that passes CI is therefore not necessarily merged without human
+intervention. The production-history analysis below will report the
+proportions merged automatically, merged after human edits, closed, or left
+unresolved, together with the failures that caused escalation.
 
 ## Failure-mode analysis
 
@@ -581,9 +581,9 @@ findings are advisory.
 
 **Autonomous curation loop.** A scheduled GitHub Action periodically
 inspects compliance output, selects low-scoring entries, and dispatches
-agentic curation jobs that open pull requests. A separate workflow enables
-auto-merge only for eligible weekly-compliance pull requests after required
-checks; other pull requests follow their configured review and merge path.
+agentic curation jobs that open pull requests. A deterministic workflow
+classifies eligible weekly-compliance pull requests, which then follow the
+same guarded review and merge path as other pull requests.
 
 ## Data and code availability
 

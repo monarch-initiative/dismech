@@ -1,13 +1,13 @@
 ---
-name: Auto Merge Compliance
+name: Classify Weekly Compliance PR
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
+    types: [opened, reopened, synchronize]
   workflow_dispatch:
     inputs:
       pr_number:
-        description: "Existing weekly-compliance PR number to enable auto-merge for"
+        description: "Existing weekly-compliance PR number to classify for the shepherd"
         required: true
         type: string
 
@@ -16,14 +16,27 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 jobs:
-  enable-auto-merge:
+  prepare-pr:
     runs-on: ubuntu-latest
 
     steps:
+      # pull_request_target executes trusted default-branch workflow code. Keep
+      # the checkout pinned there; never execute policy code from the PR head.
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
       - name: Resolve target PR
         id: resolve-pr
         run: |
@@ -36,35 +49,15 @@ jobs:
           PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
         run: |
           set -euo pipefail
-
-          pr_json="$(gh pr view "$PR_NUMBER" \
+          python scripts/pr_shepherd_policy.py compliance \
             --repo "$GITHUB_REPOSITORY" \
-            --json author,baseRefName,headRefName,isDraft,title)"
+            --pr-number "$PR_NUMBER" \
+            --github-output "$GITHUB_OUTPUT"
 
-          base_ref="$(jq -r '.baseRefName' <<<"$pr_json")"
-          head_ref="$(jq -r '.headRefName' <<<"$pr_json")"
-          is_draft="$(jq -r '.isDraft' <<<"$pr_json")"
-          title="$(jq -r '.title' <<<"$pr_json")"
-          author="$(jq -r '.author.login' <<<"$pr_json")"
-
-          if [ "$base_ref" != "main" ] || \
-            [[ "$head_ref" != weekly-compliance-* ]] || \
-            [[ "$title" != "🤖 Weekly Compliance Fixes"* ]] || \
-            [ "$author" != "app/claude" ] || \
-            [ "$is_draft" != "false" ]; then
-            echo "eligible=false" >> "$GITHUB_OUTPUT"
-            echo "PR #$PR_NUMBER is not an eligible weekly-compliance PR; skipping."
-            exit 0
-          fi
-
-          echo "eligible=true" >> "$GITHUB_OUTPUT"
-
-      - name: Enable auto-merge for weekly compliance PRs
+      # Do not mark drafts ready or arm GitHub auto-merge here. Eligible
+      # compliance PRs use the same just-in-time transition and deterministic
+      # closing controller as every other PR.
+      - name: Report shepherd ownership
         if: steps.eligibility.outputs.eligible == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr merge "${{ steps.resolve-pr.outputs.pr_number }}" \
-            --repo "${{ github.repository }}" \
-            --squash \
-            --auto
+          echo "Weekly-compliance PR is eligible; deterministic PR Shepherd owns merging."

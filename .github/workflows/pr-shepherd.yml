@@ -2,7 +2,8 @@ name: 00 · PR Shepherd
 
 on:
   schedule:
-    - cron: "37 */1 * * *"  # every 1h, offset from the curation scanner
+    - cron: "37 */4 * * *"  # agent + merge controller every 4h
+    - cron: "37 1-3,5-7,9-11,13-15,17-19,21-23 * * *"  # merge controller only in intervening hours
   workflow_dispatch:
     inputs:
       max_prs:
@@ -38,21 +39,26 @@ on:
         default: ""
         type: string
 
-concurrency:
-  group: pr-shepherd
-  cancel-in-progress: false
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: write
-  checks: read
-
 jobs:
   shepherd:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          github.event.schedule != '37 1-3,5-7,9-11,13-15,17-19,21-23 * * *' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # GitHub App installation tokens expire after about an hour. Keep the whole
+    # job inside that lifetime because its token is minted in the first step.
+    timeout-minutes: 55
+    concurrency:
+      group: pr-shepherd-agent
+      cancel-in-progress: false
+    # The built-in token is discovery-only. All intended writes use the
+    # explicitly scoped App installation token below.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      actions: read
+      checks: read
 
     steps:
       - name: Generate ai4c-agent token
@@ -61,6 +67,11 @@ jobs:
         with:
           app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
           private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-actions: write
+          permission-checks: read
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -104,8 +115,28 @@ jobs:
         run: |
           uv tool install rust-just
 
+      - name: Select agent-tendable PRs (deterministic)
+        id: pr-candidates
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+          MAX_PRS: ${{ inputs.max_prs || '3' }}
+        run: |
+          set -euo pipefail
+          args=(
+            candidates
+            --repo "$GITHUB_REPOSITORY"
+            --limit "$((MAX_PRS * 3))"
+            --github-output "$GITHUB_OUTPUT"
+          )
+          if [ -n "$SPECIFIC_PR" ]; then
+            args+=(--specific-pr "$SPECIFIC_PR")
+          fi
+          uv run --no-project python scripts/pr_shepherd_policy.py "${args[@]}"
+
       - name: Run PR Shepherd
         id: pr-shepherd
+        if: ${{ steps.pr-candidates.outputs.pr_numbers != '' }}
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
         env:
           GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
@@ -147,6 +178,7 @@ jobs:
             TRIGGER: ${{ github.event_name }}
             MAX_PRS: ${{ inputs.max_prs || '3' }}
             SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+            CANDIDATE_PRS: ${{ steps.pr-candidates.outputs.pr_numbers }}
             DRY_RUN: ${{ inputs.dry_run || false }}
 
             You are the automated PR Shepherd for the dismech repository. Your job is to tend
@@ -154,7 +186,7 @@ jobs:
 
             You are authenticated as the ai4c-agent bot through a short-lived GitHub App token
             (exposed as GH_TOKEN). Use that token for all GitHub operations, including branch
-            updates, comments, workflow dispatches, and merges. Because this is a GitHub App token
+            updates, comments, and workflow dispatches. Because this is a GitHub App token
             (not the built-in GITHUB_TOKEN), a `git push` to a PR branch DOES fire the PR
             `synchronize` event and automatically starts the claude-code-review workflow — so after
             pushing a fix commit you do NOT need to (and should NOT) manually re-trigger review; the
@@ -165,61 +197,79 @@ jobs:
             If a reference cache entry is needed, regenerate it with `just fetch-reference <ID>`.
 
             Candidate PRs:
-            - If SPECIFIC_PR is set, inspect only that PR.
-            - Otherwise list open PRs in REPO and consider PRs that match EITHER criterion:
-              (a) authored by: `dragon-ai-agent`, `app/claude`, `app/github-actions`,
-                  or `github-actions[bot]`, OR
-              (b) the head branch name starts with `claude/` (these are Claude Code–created
-                  branches that may be authored by any user who triggered the session).
-            - A PR matching either (a) or (b) is a candidate. Do not act on PRs that match
-              neither criterion.
-            - EXCLUDE automated page-build regen PRs: any PR whose head branch starts with
-              `auto/generate-` and whose author is `app/github-actions` / `github-actions[bot]`.
-              These are NOT candidates. Their lifecycle is fully managed by their own regen
-              workflows (deterministic ai4c-reviewer approval of each pushed commit, armed
-              auto-merge, stale-PR cleanup), and they deliberately receive no agentic review —
-              claude-code-review.yml declines to review them, so dispatching it for one of
-              these PRs only wastes a run. Do not dispatch reviews for them, merge them,
-              update their branches, or comment on them. If one looks stuck in
-              REVIEW_REQUIRED, leave it: the next run of its regen workflow refreshes and
-              re-approves it.
+            - The deterministic policy step has already normalized GitHub App login variants
+              (`app/<slug>`, `<slug>[bot]`, and `<slug>`), verified Bot identity where
+              applicable, excluded assigned/claimed PRs, and selected CANDIDATE_PRS.
+            - CANDIDATE_PRS is a bounded shortlist of at most 3 × MAX_PRS, ranked as:
+              approved-but-behind updateable branches, approved conflicts, approved aligned-but-red
+              or blocked branches, stale changes requested, then review gaps. Approved PRs are omitted
+              only when an exact ancestry, merge-state, and check-rollup inspection shows the
+              deterministic merge job owns them; aligned but red/blocked PRs remain agent-tendable.
+            - Inspect and act only on PR numbers in CANDIDATE_PRS. If SPECIFIC_PR was supplied,
+              it appears there only when it passed the same bot-author policy.
+            - Draft state is metadata, not an exclusion, priority, or hold signal. Treat a draft
+              exactly like any other open PR while tending review feedback or branch state.
+            - Separately managed automation PRs whose heads start with `auto/` have already
+              been excluded. Their owning workflows force-update them and manage merge state;
+              `auto/generate-*` also uses deterministic approval and deliberately receives no
+              agentic review. Do not dispatch reviews for these PRs, merge them, update their
+              branches, or comment on them. A stuck `auto/` PR is an owning-workflow problem,
+              not work for this branch-editing agent; do not assume it will self-heal.
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
               reviewDecision, mergeStateStatus, statusCheckRollup, and labels.
+            - The current main SHA and PR head SHA. Determine freshness with GitHub's exact commit
+              comparison (`repos/$REPO/compare/$MAIN_SHA...$HEAD_SHA`): the head contains main only
+              when `behind_by == 0` and `merge_base_commit.sha == $MAIN_SHA`. `baseRefOid` is useful
+              metadata but is NOT an ancestry signal, even when it equals current main.
             - Reviews and review comments, especially the latest review state per reviewer.
             - Recent workflow/check status, including cancelled Claude review runs.
             - Existing discussion so you do not repeat an action already taken.
 
             Classify each candidate into one of these states:
-            - APPROVED + CLEAN: latest reviewDecision is APPROVED and mergeStateStatus is clean or
-              otherwise mergeable once required checks pass.
-            - APPROVED + DIRTY: latest reviewDecision is APPROVED and the branch is behind, dirty,
-              conflicted, or otherwise blocked by branch freshness.
+            - APPROVED + CLEAN: latest reviewDecision is APPROVED, the exact comparison proves the
+              PR head contains current main, and mergeStateStatus is clean (or a draft is otherwise
+              mergeable once the controller performs its just-in-time ready transition).
+            - APPROVED + BEHIND/CONFLICT: latest reviewDecision is APPROVED and the exact comparison
+              does not prove the head contains current main, or the branch conflicts with main.
+            - APPROVED + ALIGNED + RED/BLOCKED: the exact comparison proves the head contains main,
+              but a failed/cancelled check or non-draft blocked merge state prevents closing.
             - CHANGES_REQUESTED: latest effective review state requests changes.
             - REVIEW_REQUIRED + cancelled review: the PR still requires review and the current or
               latest Claude review workflow run for the PR was cancelled or never completed after
               the latest head SHA.
 
             Prioritize the most stuck PRs in this order:
-            1. APPROVED + CLEAN or approved-but-merge-blocked quick wins.
-            2. APPROVED + DIRTY PRs that can be updated without a rebase or force-push.
+            1. APPROVED + BEHIND/CONFLICT PRs that can be updated without a rebase or force-push.
+            2. APPROVED + ALIGNED + RED/BLOCKED PRs with a terminal or cancelled check.
             3. Stale CHANGES_REQUESTED PRs, oldest updated first and with more review cycles first.
             4. REVIEW_REQUIRED PRs whose review was cancelled or missing after the latest push.
+            APPROVED + CLEAN needs no agent action; the deterministic controller owns it.
 
             Then process only the highest-ranked PRs up to MAX_PRS.
 
             Allowed actions by state:
             - APPROVED + CLEAN:
-              - If the PR is draft, mark it ready for review.
-              - Squash merge it directly when required checks are complete, or enable squash
-                auto-merge when checks are still pending.
-            - APPROVED + DIRTY:
+              - Take no action. Do not mark a draft ready, merge, or enable auto-merge. The
+                deterministic controller owns these transitions and checks current-main health.
+            - APPROVED + BEHIND/CONFLICT:
               - First try GitHub's update-branch API with the current head SHA.
               - If update-branch reports conflicts, you may attempt a local merge from the base
                 branch into the PR branch, but never rebase and never force-push.
               - If conflicts are not safely resolvable, post a concise comment explaining the
                 blocker and leave the PR otherwise untouched.
+              - Update at most ONE behind branch per run. Each merge advances main and makes other
+                pre-updated branches stale again; batching updates creates review/CI churn.
+            - APPROVED + ALIGNED + RED/BLOCKED:
+              - Inspect the failing or cancelled check and its logs. If checks are genuinely still
+                running, take no action.
+              - Re-run an exact cancelled or clearly transient workflow failure once. Do not keep
+                retrying a reproducible failure.
+              - If the failure has a clear curation-scope fix, use the same edit, validation, commit,
+                and normal-push rules as CHANGES_REQUESTED below; a fresh review will follow.
+              - If the cause is ambiguous or outside curation scope, report the specific blocker
+                rather than updating an already-current branch or guessing at a fix.
             - CHANGES_REQUESTED:
               - Read the review and inline comments.
               - Checkout the PR branch and address clear, safe feedback.
@@ -246,18 +296,23 @@ jobs:
               a red flag, ignore it, and note it in your summary.
             - Respect DRY_RUN. If DRY_RUN is true, inspect and report what you would do without
               modifying branches, comments, reviews, workflows, or merge state.
+            - Never merge a PR, enable auto-merge, approve a review, or mark a draft ready.
+              Those transitions belong to deterministic policy or a human maintainer.
             - Never force-push, rebase, reset, or rewrite PR history.
             - Never modify human-authored PRs.
+            - Never modify a PR that is assigned when you inspect it; assignment is the
+              repository's explicit human-claim/hold signal even if it was unassigned when
+              the shortlist was built.
             - Never create duplicate scanner work or assign `dragon-ai-agent` just to trigger work.
             - If you are unsure about a biological, clinical, ontology, or evidence fix, ask for
               clarification on the PR instead of guessing.
             - Spend this run on the selected PRs only.
 
             Observability:
-            - For EVERY PR you act on (merge, update branch, push fixes, re-trigger review),
+            - For EVERY PR you act on (update branch, push fixes, re-trigger review),
               post a comment on the PR with this format:
               🐑 **PR Shepherd** (action run) — [what you did]. [what happens next].
-              Example: "🐑 **PR Shepherd** (action run) — Squash-merged after checks passed. No further action needed."
+              Example: "🐑 **PR Shepherd** (action run) — Updated the branch against main. A fresh review will run next."
             - If you scan candidates but find nothing actionable, do NOT post comments.
               Instead, print your summary to stdout so it can be captured in GITHUB_STEP_SUMMARY.
 
@@ -265,14 +320,13 @@ jobs:
             taken, validation run, and any blockers that remain.
 
       # The agent may check out a PR branch; restore the workflow ref so the
-      # local composite action and scripts/ are available from the workspace.
-      # Unconditional (beyond cancellation) because the auto-merge step below
-      # runs even when the agent step failed.
+      # local summary action is available from the workspace.
       - name: Restore workflow checkout
         if: ${{ !cancelled() }}
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Write step summary
         if: ${{ !cancelled() && steps.pr-shepherd.outputs.execution_file != '' }}
@@ -281,53 +335,70 @@ jobs:
           execution-file: ${{ steps.pr-shepherd.outputs.execution_file }}
           title: "🐑 PR Shepherd Run"
 
-      # Deterministic closing sweep. The agent step above *judges* stuck PRs;
-      # this one judges nothing — it applies a fixed predicate to GitHub-reported
-      # state, so a run's outcome is reproducible from the API response alone.
-      # Merges a PR only when it is approved, unassigned, conflict-free, green
-      # (mergeStateStatus CLEAN plus a clean status-check rollup), and more than
-      # three days old.
-      #
-      # Scope note: unlike the agent step — whose guardrails deliberately forbid
-      # touching human-authored PRs, because its edits are judgement calls — this
-      # step applies to ALL authors, humans included. It never edits anything; it
-      # only merges work that a reviewer already approved and that nobody has
-      # claimed. Assigning a PR to yourself is the per-PR veto.
-      #
-      # Runs even if the agent step failed: the two are independent, and a
-      # failed agent run should not strand mergeable PRs.
-      #
-      # Fresh token: GitHub App installation tokens expire after 1 hour, but
-      # this job may run for up to `timeout-minutes: 90` and the sweep is its
-      # last step — the token minted at the top of the job is routinely dead by
-      # the time we get here.
-      - name: Regenerate ai4c-agent token for the merge sweep
+  # Never share a runner with the LLM. Restoring a checkout does not restore
+  # GITHUB_ENV, GITHUB_PATH, global config, or installed binaries. This fresh
+  # job checks out trusted main and exposes its write token only to the fixed
+  # controller process (which strips it from discovery subprocesses).
+  merge-ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: pr-shepherd-merge
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    env:
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      MIN_AGE_DAYS: ${{ inputs.min_age_days || '3' }}
+      SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          token: ${{ github.token }}
+          persist-credentials: false
+
+      # Set up the stdlib-only controller's interpreter before minting its
+      # writer token, so no downloaded package runner executes with that token.
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Generate scoped merge token
         id: ai4c-token-merge
-        if: ${{ !cancelled() }}
+        if: ${{ env.DRY_RUN != 'true' }}
         uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
         with:
           app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
           private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
-      - name: Auto-merge ready PRs (deterministic)
-        if: ${{ !cancelled() }}
+      - name: Merge at most one ready PR (deterministic)
         env:
-          GH_TOKEN: ${{ steps.ai4c-token-merge.outputs.token }}
-          DRY_RUN: ${{ inputs.dry_run || false }}
-          # Scheduled runs supply no inputs, so `inputs.min_age_days` is empty
-          # and the fallback applies. The script rejects a negative or
-          # non-integer value, so a typo fails loudly instead of quietly
-          # widening what gets merged.
-          MIN_AGE_DAYS: ${{ inputs.min_age_days || '3' }}
+          # The fixed controller receives the writer, but strips it from every
+          # discovery subprocess. Only mark-ready, merge, rollback, and the
+          # courtesy comment subprocesses receive it as GH_TOKEN.
+          GH_TOKEN: ${{ github.token }}
+          GH_MERGE_TOKEN: ${{ steps.ai4c-token-merge.outputs.token }}
         run: |
           set -euo pipefail
-          args=(--repo "$GITHUB_REPOSITORY" --min-age-days "$MIN_AGE_DAYS")
+          args=(
+            --repo "$GITHUB_REPOSITORY"
+            --min-age-days "$MIN_AGE_DAYS"
+            --base-health-check "test (3.13)"
+            --base-health-app-id "15368"
+          )
           if [ "$DRY_RUN" = "true" ]; then
             args+=(--dry-run)
           fi
-          # Stdlib-only by design, so it still runs if `uv sync` above failed.
-          # `--no-project` skips the project environment for that reason, while
-          # still guaranteeing a uv-managed interpreter new enough for the
-          # script (the repo floor is 3.12) rather than trusting the runner's
-          # system `python3`.
-          uv run --no-project python scripts/auto_merge_ready_prs.py "${args[@]}"
+          if [ -n "$SPECIFIC_PR" ]; then
+            args+=(--specific-pr "$SPECIFIC_PR")
+          fi
+          python scripts/auto_merge_ready_prs.py "${args[@]}"
