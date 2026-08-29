@@ -211,8 +211,13 @@ def test_unbound_upstream_risk_phenotype_emits_no_row(tmp_path):
     assert hpo_ids == {"HP:0000853"}
 
 
-def test_partial_support_kept_as_positive(tmp_path):
-    """PARTIAL support is a positive row with no qualifier (not dropped, not NOT)."""
+def test_indirect_evidence_kept_as_positive(tmp_path):
+    """Directness does not change the row: an indirect association is still one.
+
+    HPOA has no slot for how directly the evidence bears on the claim, and an
+    indirectly-evidenced phenotype association is still an association, so the
+    row is positive with no qualifier.
+    """
     yaml_path = _write(
         tmp_path / "X.yaml",
         {
@@ -223,7 +228,12 @@ def test_partial_support_kept_as_positive(tmp_path):
                     "name": "A",
                     "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
                     "evidence": [
-                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "PARTIAL"},
+                        {
+                            "reference": "PMID:1",
+                            "evidence_source": "HUMAN_CLINICAL",
+                            "supports": "SUPPORT",
+                            "directness": "INDIRECT",
+                        },
                     ],
                 },
             ],
