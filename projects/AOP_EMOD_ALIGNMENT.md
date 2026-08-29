@@ -10,6 +10,16 @@ description: >-
 tags: [FRAMEWORK_ALIGNMENT, EVIDENCE, EXTERNAL_COLLABORATION, ENVIRONMENTAL_EXPOSURE, SCHEMA_EVOLUTION]
 diseases:
   - Lead_Poisoning
+modules:
+  - cardiac_ion_channel_repolarization
+  - cardiomyopathy_maladaptive_remodeling
+  - glutamate_excitotoxicity
+  - synaptic_vesicle_cycle
+  - mitochondrial_dysfunction
+  - excitatory_synapse_scaffold_disruption
+  - drug_induced_liver_injury
+  - drug_induced_nephrotoxicity
+  - diabetic_vascular_complications
 ---
 
 # AOP EMOD Framework Alignment
@@ -363,28 +373,31 @@ candidate modules:
 | 2290 | Inhibition of Funny current (If) *(MIE)* | — | none |
 | 693 | Increased, cyclic adenosine monophosphate | — | none |
 
-**Ten of 21 map cleanly and three partially, and the six that do not fall into three
+**Ten of 21 map cleanly and three partially, and the eight that do not fall into three
 groups that each say something different.**
 
-*All five MIEs are unmatched, and for one reason.* **These two modules start with a genetic
-cause, while an AOP starts with the damage itself — so a chemical that does the same damage
-has nothing to attach to.** `cardiac_ion_channel_repolarization` begins at `Cardiac
-Ion-Channel or Calcium-Handling Variant`, described as "a pathogenic germline variant alters
-a cardiac ion channel"; `cardiomyopathy_maladaptive_remodeling` begins at a sarcomeric
-variant. AOP 552 begins at `Blockade, L-Type Calcium Channels` and stays silent on what did
-the blocking, which is what lets one pathway serve many chemicals. A calcium channel that is
-not working produces the same altered action potential whether a mutation broke it or lead
-is sitting in it, so everything downstream matches — but lead cannot conform to a node that
-asserts the cause was a mutation.
+*All five MIEs are unmatched, and for one reason.* **The electrophysiology module starts
+with a genetic cause, while an AOP starts with the damage itself — so a chemical that does
+the same damage has nothing to attach to.** `cardiac_ion_channel_repolarization` begins at
+`Cardiac Ion-Channel or Calcium-Handling Variant`, described as "a pathogenic germline
+variant alters a cardiac ion channel". AOP 552 begins at `Blockade, L-Type Calcium Channels`
+and stays silent on what did the blocking, which is what lets one pathway serve many
+chemicals. A calcium channel that is not working produces the same altered action potential
+whether a mutation broke it or lead is sitting in it, so everything downstream matches — but
+lead cannot conform to a node that asserts the cause was a mutation. All five unmatched MIEs
+are electrophysiologic, so all five fall in this module's territory.
 
-This is a gap in these two modules, **not** a property of the module layer. Of the 127
-modules in `kb/modules/`, only 38 open on a node naming a genetic cause; 89 do not, and
-several open exactly where an AOP would — `drug_induced_nephrotoxicity` at "Nephrotoxic Drug
-Exposure and Tubular Uptake", `drug_induced_liver_injury` at "Reactive Drug Metabolite
-Formation", `diabetic_vascular_complications` at "Chronic Hyperglycemia". The five
-antibacterial modules begin at a drug target. So dismech can express a chemical entry point;
-the two modules that happen to cover lead's cardiac physiology were written for inherited
-channelopathy and cardiomyopathy and do not.
+The claim is specific to that module, **not** a property of the module layer, and not even
+true of the other cardiac module here. `cardiomyopathy_maladaptive_remodeling` opens at
+`Primary Cardiomyocyte Insult`, which is explicitly etiology-agnostic: a variant "in
+inherited cardiomyopathies", but "in acquired and secondary cardiomyopathies … a hemodynamic
+(pressure or volume overload), metabolic, toxic, or inflammatory stress". A chemical insult
+is named in the node itself. Other modules open exactly where an AOP would —
+`drug_induced_nephrotoxicity` at "Nephrotoxic Drug Exposure and Tubular Uptake",
+`drug_induced_liver_injury` at "Reactive Drug Metabolite Formation",
+`diabetic_vascular_complications` at "Chronic Hyperglycemia". dismech expresses chemical
+entry points routinely; the module covering lead's cardiac electrophysiology was written for
+inherited channelopathy and does not.
 
 *The contractility arm reaches a matching endpoint by a different route.* KE1532 → KE1535
 asserts calcium overload depresses contractility and produces heart failure directly.
@@ -399,7 +412,8 @@ pump failure the module does not model.
 #### The neurodevelopmental side scores worse, and for a different reason
 
 Repeating the exercise on the **14 unique Key Events** in AOPs 12, 499, and 500, against
-`glutamate_excitotoxicity`, `synaptic_vesicle_cycle`, and `mitochondrial_dysfunction`:
+`glutamate_excitotoxicity`, `synaptic_vesicle_cycle`, `mitochondrial_dysfunction`, and
+`excitatory_synapse_scaffold_disruption`:
 
 | KE | Event | Module node | Fit |
 |---|---|---|---|
@@ -424,8 +438,8 @@ well-documented AOPs. Documentation quality and module coverage turn out to be i
 The reason is worth recording, because it is not the entry-point problem again. Three of the
 six misses fail together because **dismech's only glutamate module is the mirror image of
 lead's mechanism**. `glutamate_excitotoxicity` is built end to end on *over*activation —
-"Excessive Glutamatergic Stimulation", "Glutamate Receptor Overactivation and Calcium
-Overload" — while lead's neurodevelopmental MIE is NMDAR *antagonism*, giving decreased
+"Excessive Glutamatergic Stimulation and Impaired Glutamate Clearance", "Glutamate
+Receptor Overactivation and Calcium Overload" — while lead's neurodevelopmental MIE is NMDAR *antagonism*, giving decreased
 calcium influx. The sign is inverted at every node, so KE52 cannot conform to a node whose
 name asserts overload even though `modifier` could carry the direction.
 
