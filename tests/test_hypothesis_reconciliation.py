@@ -6,8 +6,14 @@ from copy import deepcopy
 from pathlib import Path
 
 import yaml
+from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
 from dismech.hypothesis_reconciliation import iter_reconciliation_problems
+
+_SCHEMA = (
+    Path(__file__).parents[1] / "src/dismech/schema/hypothesis_reconciliation.yaml"
+)
 
 
 def _write_yaml(path: Path, data: dict) -> None:
@@ -96,6 +102,43 @@ def _fixture(tmp_path: Path) -> tuple[Path, dict]:
     path = root / "reconciliation.yaml"
     _write_yaml(path, data)
     return path, data
+
+
+def _add_reproducible_analysis(path: Path, provider: str = "alpha") -> None:
+    root = path.parent
+    artifact_root = root / f"{provider}_artifacts"
+    artifact_root.mkdir()
+    for name in ("input.json", "analysis.py", "environment.lock", "result.csv"):
+        (artifact_root / name).write_text(f"{name}\n", encoding="utf-8")
+    assessment_path = root / f"assessments/{provider}-assessment-by-reviewer.yaml"
+    assessment = yaml.safe_load(assessment_path.read_text(encoding="utf-8"))
+    assessment["artifact_root"] = f"../{provider}_artifacts"
+    assessment["data_sources"] = [
+        {
+            "data_source_id": "provider_dataset",
+            "source_type": "PUBLIC_DATASET",
+            "name": "Provider dataset",
+            "identifier": "geo:GSE000000",
+            "retrieved_at": "2026-08-29T00:00:00Z",
+            "access_status": "ACCESSED",
+            "source_artifacts": [f"../{provider}_artifacts/input.json"],
+        }
+    ]
+    assessment["analyses"] = [
+        {
+            "analysis_id": "provider_analysis",
+            "status": "SUCCEEDED",
+            "auditability": "REPRODUCIBLE",
+            "method": "Compute a provider-specific result.",
+            "input_data_source_ids": ["provider_dataset"],
+            "software": [{"software_name": "provider-tool", "software_version": "1.0"}],
+            "code_artifacts": [f"../{provider}_artifacts/analysis.py"],
+            "environment_artifact": f"../{provider}_artifacts/environment.lock",
+            "output_artifacts": [f"../{provider}_artifacts/result.csv"],
+        }
+    ]
+    assessment["claims"][0]["analysis_ids"] = ["provider_analysis"]
+    _write_yaml(assessment_path, assessment)
 
 
 def test_valid_reconciliation_has_no_semantic_problems(tmp_path):
@@ -298,3 +341,84 @@ def test_reconciliation_enforces_repository_and_raw_report_layout(tmp_path):
 
     problems = list(iter_reconciliation_problems(path))
     assert any("raw .md report directly" in problem for problem in problems)
+
+
+def test_provider_analysis_lineage_resolves_through_assessment_claim(tmp_path):
+    path, data = _fixture(tmp_path)
+    _add_reproducible_analysis(path)
+    position = data["reconciled_claims"][0]["provider_support"][0]
+    position["claim_origin"] = "PROVIDER_ANALYSIS"
+    position["analysis_ids"] = ["provider_analysis"]
+    _write_yaml(path, data)
+
+    report = Validator(
+        _SCHEMA,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    ).validate(data, target_class="HypothesisReconciliation")
+    assert [
+        result for result in report.results if result.severity.name == "ERROR"
+    ] == []
+    assert list(iter_reconciliation_problems(path)) == []
+
+
+def test_provider_analysis_lineage_requires_resolving_anchored_analysis(tmp_path):
+    path, data = _fixture(tmp_path)
+    _add_reproducible_analysis(path)
+    position = data["reconciled_claims"][0]["provider_support"][0]
+    position["claim_origin"] = "PROVIDER_ANALYSIS"
+    position["analysis_ids"] = ["missing_analysis"]
+    _write_yaml(path, data)
+
+    problems = list(iter_reconciliation_problems(path))
+
+    assert any("analysis_id='missing_analysis' does not resolve" in p for p in problems)
+    assert any("is not linked from an anchored assessment claim" in p for p in problems)
+
+    position.pop("analysis_ids")
+    _write_yaml(path, data)
+    assert any(
+        "requires analysis_ids when claim_origin is PROVIDER_ANALYSIS" in problem
+        for problem in iter_reconciliation_problems(path)
+    )
+
+
+def test_analysis_ids_require_provider_analysis_origin(tmp_path):
+    path, data = _fixture(tmp_path)
+    _add_reproducible_analysis(path)
+    position = data["reconciled_claims"][0]["provider_support"][0]
+    position["analysis_ids"] = ["provider_analysis"]
+    _write_yaml(path, data)
+
+    assert any(
+        "has analysis_ids but claim_origin is 'PROVIDER_DISCOVERY'" in problem
+        for problem in iter_reconciliation_problems(path)
+    )
+
+
+def test_failed_analysis_cannot_supply_provider_analysis_position(tmp_path):
+    path, data = _fixture(tmp_path)
+    _add_reproducible_analysis(path)
+    assessment_path = path.parent / "assessments/alpha-assessment-by-reviewer.yaml"
+    assessment = yaml.safe_load(assessment_path.read_text(encoding="utf-8"))
+    analysis = assessment["analyses"][0]
+    analysis.update(
+        {
+            "status": "FAILED",
+            "auditability": "UNVERIFIABLE",
+            "status_reason": "The provider tool failed before producing a result.",
+        }
+    )
+    for field in ("code_artifacts", "environment_artifact", "output_artifacts"):
+        analysis.pop(field)
+    assessment["claims"][0]["disposition"] = "NEEDS_VERIFICATION"
+    _write_yaml(assessment_path, assessment)
+    position = data["reconciled_claims"][0]["provider_support"][0]
+    position["claim_origin"] = "PROVIDER_ANALYSIS"
+    position["analysis_ids"] = ["provider_analysis"]
+    _write_yaml(path, data)
+
+    assert any(
+        "cannot derive a position from analysis 'provider_analysis' with status='FAILED'"
+        in problem
+        for problem in iter_reconciliation_problems(path)
+    )

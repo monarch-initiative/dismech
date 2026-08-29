@@ -69,6 +69,35 @@ Lookups are cached into `references_cache/`, the same directory the KB
 validators read. A reference checked at report time does not need re-fetching
 when it is later cited from a `kb/` entry.
 
+### Dataset and computation boundary
+
+Reference validation is intentionally literature-focused. It does not establish
+that a dataset accession exists, that the dataset is about the right disease, or
+that a provider downloaded or analyzed it. Dataset identifiers skipped by the
+reference resolver are not thereby validated.
+
+For a provider report or hypothesis assessment, verify supported accessions
+separately:
+
+```bash
+just verify-datasets --accession geo:GSE197406
+```
+
+Then inspect the repository metadata for disease/entity identity, organism,
+tissue, cohort, assay, and comparison relevance. The resolver answers "does this
+record exist?", not "is it the correct input?" A real gene-only or sibling-
+disease record can pass accession verification and still be unsuitable.
+
+Nor does citation validation prove that a reported computation ran. Preserve an
+input -> method/software/parameters -> code/environment -> output chain in the
+provider artifacts and structured hypothesis assessment. Distinguish a source
+that was cited but not accessed, a scoped search with no result, and data that
+were actually accessed. An accessed source or negative search needs a committed
+query response, input manifest, or search log; prose alone is not an auditable
+access record. Distinguish a successful analysis from a partial, failed,
+skipped, or prose-only reported run. See
+[Hypothesis Report Assessments and Reconciliation](hypothesis-report-assessments.md).
+
 ## Where to read the results
 
 ### In the report's frontmatter
@@ -192,6 +221,11 @@ just research-comorbidity openai com_Foo__Bar
 The report is written to disk **before** validation runs, so a network failure
 during validation costs you the validation section, never the report.
 
+That preservation behavior is not permission for weak fallback. If a provider's
+scientific tools, data lake, or dataset access fail, retain the report but make
+the failure and any literature/model-knowledge fallback explicit. Do not present
+the fallback as a completed computational analysis.
+
 To skip it — quick iteration, or no network:
 
 ```bash
@@ -284,15 +318,22 @@ make survives an existence check untouched. Quote checking catches some of this
 where the report actually quotes its source, but a report that *paraphrases* a
 paper into a claim the paper never made is not detectable here (issue #7791).
 
+**4. Dataset and analysis provenance.** A report can cite a real GEO accession
+without accessing it, or report a numerical result without preserving code or
+outputs. Reference validation does not detect either problem. Verify accessions
+and relevance separately, inventory the provider's data sources and analyses,
+and downgrade any computation that lacks an auditable input-to-output chain.
+
 The one-line version: this closes the "does the citation exist" gap and part of
 the "does the quote appear in it" gap, at report time instead of hours later. It
-does not close "is it about the right disease" or "does it say what the report
-claims".
+does not close "is it about the right disease", "does it say what the report
+claims", or "did the provider actually run the reported analysis".
 
 ## Related
 
 - CLAUDE.md §2a (DR outputs need extra verification) and §2b (Named Entity
   Confusion)
+- [Hypothesis Report Assessments and Reconciliation](hypothesis-report-assessments.md)
 - [Quality Control & Compliance](quality-control.md)
 - Issue #8432 (this integration), #8685 (the 0.2.10 relevance check),
   #4525 (recording hallucinated DR citation IDs), #7791 (misattribution the

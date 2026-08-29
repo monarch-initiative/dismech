@@ -36,6 +36,17 @@ def _claims_by_id(assessment: Mapping) -> dict[str, Mapping]:
     }
 
 
+def _analyses_by_id(assessment: Mapping) -> dict[str, Mapping]:
+    analyses = assessment.get("analyses") or []
+    if not isinstance(analyses, list):
+        return {}
+    return {
+        str(analysis["analysis_id"]): analysis
+        for analysis in analyses
+        if isinstance(analysis, Mapping) and analysis.get("analysis_id")
+    }
+
+
 def _norm(text: str) -> str:
     return _WS.sub(" ", text).strip()
 
@@ -55,7 +66,7 @@ def _assessment_validator() -> Validator:
 
 
 def _resolve_relative_within(base: Path, root: Path, ref: object) -> Path | None:
-    if not ref:
+    if not ref or Path(str(ref)).is_absolute():
         return None
     path = (base / str(ref)).resolve()
     return path if path.is_relative_to(root.resolve()) else None
@@ -277,6 +288,12 @@ def iter_reconciliation_problems(
                 assessment_claim_ids: list = []
             else:
                 assessment_claim_ids = assessment_claim_ids_value
+            analysis_ids_value = position.get("analysis_ids") or []
+            if not isinstance(analysis_ids_value, list):
+                yield f"{label} analysis_ids must be a list"
+                analysis_ids: list = []
+            else:
+                analysis_ids = analysis_ids_value
             report_quote = position.get("report_quote")
             report_quote_norm = (
                 _norm(str(report_quote)) if report_quote is not None else ""
@@ -284,7 +301,7 @@ def iter_reconciliation_problems(
             claim_origin = position.get("claim_origin")
             derived_from = position.get("derived_from_provider")
             if stance == "SILENT":
-                if assessment_claim_ids or report_quote:
+                if assessment_claim_ids or analysis_ids or report_quote:
                     yield f"{label} is SILENT but declares source anchors"
                 if claim_origin or derived_from:
                     yield f"{label} is SILENT but declares claim lineage"
@@ -296,6 +313,13 @@ def iter_reconciliation_problems(
                 yield f"{label} requires report_quote when stance is {stance!r}"
             if not claim_origin:
                 yield f"{label} requires claim_origin when stance is {stance!r}"
+            if claim_origin == "PROVIDER_ANALYSIS" and not analysis_ids:
+                yield (
+                    f"{label} requires analysis_ids when claim_origin is "
+                    "PROVIDER_ANALYSIS"
+                )
+            elif analysis_ids and claim_origin != "PROVIDER_ANALYSIS":
+                yield (f"{label} has analysis_ids but claim_origin is {claim_origin!r}")
             if claim_origin == "PRIOR_PROVIDER_DERIVED":
                 if not derived_from:
                     yield (
@@ -323,7 +347,17 @@ def iter_reconciliation_problems(
                 continue
             assessment_path, assessment, report_path = source
             claims_by_id = _claims_by_id(assessment)
+            analyses_by_id = _analyses_by_id(assessment)
+            anchored_analysis_ids: set[str] = set()
+            seen_assessment_claim_ids: set[str] = set()
             for assessment_claim_id in assessment_claim_ids:
+                assessment_claim_id = str(assessment_claim_id)
+                if assessment_claim_id in seen_assessment_claim_ids:
+                    yield (
+                        f"{label} duplicates assessment_claim_id "
+                        f"{assessment_claim_id!r}"
+                    )
+                seen_assessment_claim_ids.add(assessment_claim_id)
                 source_claim = claims_by_id.get(str(assessment_claim_id))
                 if source_claim is None:
                     yield (
@@ -334,6 +368,33 @@ def iter_reconciliation_problems(
                     yield (
                         f"{label} assessment claim {assessment_claim_id!r} has no "
                         "report_quote anchor"
+                    )
+                else:
+                    source_analysis_ids = source_claim.get("analysis_ids") or []
+                    if isinstance(source_analysis_ids, list):
+                        anchored_analysis_ids.update(map(str, source_analysis_ids))
+            seen_analysis_ids: set[str] = set()
+            for analysis_id in analysis_ids:
+                analysis_id = str(analysis_id)
+                if analysis_id in seen_analysis_ids:
+                    yield f"{label} duplicates analysis_id {analysis_id!r}"
+                seen_analysis_ids.add(analysis_id)
+                analysis = analyses_by_id.get(analysis_id)
+                if analysis is None:
+                    yield (
+                        f"{label} analysis_id={analysis_id!r} does not resolve in "
+                        f"{assessment_path.name!r}"
+                    )
+                elif analysis.get("status") in {"FAILED", "SKIPPED"}:
+                    yield (
+                        f"{label} PROVIDER_ANALYSIS cannot derive a position from "
+                        f"analysis {analysis_id!r} with status="
+                        f"{analysis.get('status')!r}"
+                    )
+                if analysis_id not in anchored_analysis_ids:
+                    yield (
+                        f"{label} analysis_id={analysis_id!r} is not linked from "
+                        "an anchored assessment claim"
                     )
             if report_quote_norm and report_quote_norm not in _normalized_report(
                 str(report_path)
@@ -373,7 +434,9 @@ def iter_reconciliation_problems(
         artifacts = []
     for artifact in artifacts:
         artifact_path = _resolve_within(hypothesis_root, artifact)
-        if artifact_path is None or not artifact_path.is_file():
+        if artifact_path is None:
+            yield f"artifact {artifact!r} escapes the hypothesis directory"
+        elif not artifact_path.is_file():
             yield f"artifact {artifact!r} does not exist"
 
 

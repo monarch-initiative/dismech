@@ -163,6 +163,11 @@ validate-hypothesis-reconciliation-all:
   uv run linkml-validate --schema src/dismech/schema/hypothesis_reconciliation.yaml --target-class HypothesisReconciliation "${files[@]}"
   uv run python -m dismech.hypothesis_reconciliation "${files[@]}"
 
+# Hard-gate a canonical computational hypothesis-analysis run bundle.
+[group('data validation')]
+validate-hypothesis-analysis-run report artifact_dir:
+  uv run python -m dismech.hypothesis_analysis_run "$1" "$2"
+
 # LinkML valid/invalid example round-trip tests.
 [group('model development')]
 test-examples: _test-examples
