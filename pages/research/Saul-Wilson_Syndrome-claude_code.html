@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saul-Wilson Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Saul-Wilson Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Saul-Wilson Syndrome</h1>
+                
+                <p class="report-subtitle">I&#39;ll research Saul-Wilson Syndrome using web search to compile accurate, citable information for this report.</p>
+                
+                
+                <div class="report-date">2026-08-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019407" target="_blank" rel="noopener noreferrer">MONDO:0019407</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">11 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>I'll research Saul-Wilson Syndrome using web search to compile accurate, citable information for this report.</p>
+<p>I have sufficient material now. Let me do a couple final targeted searches on treatment/experimental therapeutics (LGK974/Wnt inhibitor translational angle) and the original 1990 Saul-Wilson description plus ICD-10/Orphanet code, then compile the report.</p>
+<p>I now have comprehensive, well-sourced material. Compiling the full report.</p>
+<h2>Comprehensive Research Report: Saul-Wilson Syndrome</h2>
+<hr />
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Saul-Wilson syndrome (SWS; also historically termed "microcephalic osteodysplastic dysplasia, Saul-Wilson type") is an ultra-rare, sporadic (typically <em>de novo</em>) skeletal dysplasia — a form of <strong>primordial dwarfism</strong> — characterized by profound prenatal-onset short stature, a distinctive progeroid craniofacial appearance, short distal phalanges, frequent clubfoot, and a recognizable ocular/auditory/hematologic complication profile, with <strong>normal cognition</strong> despite early motor and speech delay. It was molecularly solved in 2018 as a Golgi-trafficking disorder caused by a single recurrent gain-of-function missense variant in <em>COG4</em> (Ferreira et al., 2018, PMID: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6174323/">30290151</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> #618150 (SWILS) — <a href="https://omim.org/entry/618150">omim.org/entry/618150</a>
+- <strong>Gene locus (OMIM):</strong> <em>COG4, 606976 (16q22.1)
+- </em><em>Orphanet:</em><em> ORPHA85172 — <a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=85172">Microcephalic osteodysplastic dysplasia, Saul-Wilson type</a>
+- </em><em>MONDO:</em><em> <a href="http://purl.obolibrary.org/obo/MONDO_0019407" target="_blank" rel="noopener noreferrer">MONDO:0019407</a>
+- </em><em>ICD-10-CM:</em><em> Q78.8 (Other specified osteochondrodysplasias)
+- </em><em>MeSH/MedGen:</em><em> Microcephalic osteodysplastic dysplasia, Saul-Wilson type (Concept ID C1300285)
+- </em><em>GeneReviews:</em>* <a href="https://www.ncbi.nlm.nih.gov/books/NBK554080/">NBK554080</a> (Ferreira, Lee, Huang — updated periodically)</p>
+<p><strong>Synonyms:</strong> Saul-Wilson syndrome; SWILS; microcephalic osteodysplastic dysplasia, Saul-Wilson type; MOPD, Saul-Wilson type (not to be confused with unrelated MOPD I/II/III entities).</p>
+<p><strong>Evidence basis.</strong> All current disease-level knowledge derives from <strong>aggregated case-series/cohort resources</strong> (a single worldwide cohort tracked chiefly through the NICHD/Ferreira group and the Undiagnosed Diseases Network), not large EHR populations — reflecting the disorder's extreme rarity (fewer than ~20 molecularly confirmed individuals reported worldwide as of the most recent literature).</p>
+<p><strong>History.</strong> First clinically delineated by Saul &amp; Wilson in two unrelated boys (Am J Med Genet. 1990;35(3):388-393), building on an original 1982 case report. The molecular cause remained unknown for 28 years until whole-exome sequencing across an international cohort identified the causal <em>COG4</em> variant in 2018 (commentary: PMID <a href="https://pubmed.ncbi.nlm.nih.gov/30548960/">30548960</a>, "The Saul-Wilson syndrome from its early days until now").</p>
+<hr />
+<h3>2. Etiology</h3>
+<p><strong>Disease causal factor — purely genetic, monogenic, dominant gain-of-function.</strong> Saul-Wilson syndrome is caused by a single recurrent heterozygous, virtually always <em>de novo</em> missense substitution in <strong><em>COG4</em></strong> (Conserved Oligomeric Golgi complex subunit 4): <strong>c.1546G&gt;A or c.1546G&gt;C</strong>, both producing the identical protein change <strong>p.Gly516Arg (G516R)</strong>. Ferreira et al. (2018) identified this variant in <strong>all 14 unrelated probands</strong> sequenced across seven institutions using varied sequencing platforms and pipelines — an extraordinary degree of recurrence-at-a-single-residue for a Mendelian disorder (<a href="https://pubmed.ncbi.nlm.nih.gov/30290151/" target="_blank" rel="noopener noreferrer">PMID 30290151</a>).</p>
+<blockquote>
+<p>"All affected subjects harbored heterozygous <em>de novo</em> variants in <em>COG4</em>, giving rise to the same recurrent amino acid substitution (p.Gly516Arg)." — Ferreira et al. 2018</p>
+</blockquote>
+<p><strong>Genetic risk factors.</strong> No susceptibility loci or modifier genes have been described; the disorder is fully explained by this single recurrent variant. No second causal gene has been reported to date (as of the literature reviewed, 2018–2026).</p>
+<p><strong>Environmental / lifestyle risk factors.</strong> None identified or plausible — this is a purely genetic, single-gene disorder with no known environmental trigger, infectious agent, or lifestyle contributor.</p>
+<p><strong>Protective factors.</strong> None described in the literature.</p>
+<p><strong>Gene-environment interactions.</strong> Not applicable/not reported; no environmental modifiers of expressivity have been documented.</p>
+<p><strong>Mechanism of recurrence (parental origin).</strong> No affected individual has had an affected parent; all reported cases are simplex with <em>de novo</em> variants confirmed by parental testing. Recurrence risk to siblings of an affected proband is nonetheless slightly elevated above general-population risk due to the possibility of parental <strong>germline mosaicism</strong>, which has been confirmed in at least one family (GeneReviews, NBK554080). Offspring of an affected individual would face a 50% transmission risk (autosomal dominant).</p>
+<hr />
+<h3>3. Phenotypes</h3>
+<p>Phenotype frequencies below are drawn from the two principal cohort papers — Ferreira et al. 2018 (n=14, molecular discovery cohort) and the dedicated phenotyping study <strong>"Defining the clinical phenotype of Saul-Wilson syndrome"</strong> (Genetics in Medicine, 2020; <a href="https://www.nature.com/articles/s41436-019-0737-1">nature.com/articles/s41436-019-0737-1</a>), which performed retrospective chart review and radiograph assessment of all 14–16 known individuals.</p>
+<h4>Growth (prenatal and postnatal — signs)</h4>
+<ul>
+<li><strong>Profound short stature with prenatal onset</strong>, sharply diverging from population norms within the first months of life. <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a> (Intrauterine growth retardation), <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" rel="noopener noreferrer">HP:0008897</a> (Postnatal growth retardation), <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> (Short stature).</li>
+<li>Birth length 44.1 ± 3.6 cm (Z ≈ −2.3); birth weight 2.09 ± 0.2 kg (Z ≈ −2.4); birth OFC 31.7 ± 1.6 cm (Z ≈ −2.0) — despite a mean gestational age of ~37 weeks (PMID <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9016779/">32652690</a>, "Growth in individuals with Saul-Wilson syndrome," Ferreira et al. 2020).</li>
+<li>Final/adult height (3 skeletally mature individuals): mean 107.6 ± 1.9 cm (range 106–109.7 cm), Z-score −4 to −8.5 SD — equivalent to a typical 4–5-year-old's stature.</li>
+<li><strong>Relative macrocephaly</strong>: "Head circumference in all individuals with SWS exceeds the height by more than 2 SD, with consequent relative macrocephaly," despite progressive absolute microcephaly with age (<a href="https://pubmed.ncbi.nlm.nih.gov/32652690/" target="_blank" rel="noopener noreferrer">PMID 32652690</a>).</li>
+<li><strong>Growth hormone treatment does not improve height</strong> (p = 0.052–0.489 across comparisons) — an important negative treatment-response finding.</li>
+</ul>
+<h4>Craniofacial (signs)</h4>
+<ul>
+<li>Prominent/bulging forehead with visible scalp veins; large/delayed-closing anterior fontanel (<a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" rel="noopener noreferrer">HP:0000260</a>); sparse scalp hair and eyebrows; prominent eyes; narrow nasal bridge with convex/beaked nose; broad columella; thin upper lip; mild micrognathia; <strong>progeroid facial appearance in infancy</strong> — a striking, diagnostically useful gestalt.</li>
+</ul>
+<h4>Skeletal (signs)</h4>
+<ul>
+<li>Clubfoot/talipes (10/14, ~71%)</li>
+<li>Short distal phalanges of fingers and toes / brachytelephalangy (12/14, ~86%)</li>
+<li>Coxa valga and long-bone overtubulation</li>
+<li>Pectus deformity (5/14, ~36%)</li>
+<li>Platyspondyly and other spinal abnormalities</li>
+<li><strong>Bone fragility with fractures from minimal trauma</strong> (4/14, ~29%)</li>
+<li><strong>Premature osteoarthritis</strong> in adulthood, in some cases requiring joint replacement surgery in the third decade of life</li>
+<li><strong>Cervical spinal cord compression / cranio-cervical stenosis</strong> (3/7 in the phenotype cohort) — a serious, potentially treatment-refractory complication (see below).</li>
+</ul>
+<h4>Ocular (signs, 10/13 developed findings, ~77%)</h4>
+<ul>
+<li>Lamellar cataracts, typically appearing in early childhood</li>
+<li>Rod-cone retinal dystrophy (5/9, ~56%)</li>
+<li>Cystic macular changes (novel finding reported in the 2020 phenotyping study)</li>
+<li>Blue sclerae in infancy</li>
+</ul>
+<h4>Auditory (signs)</h4>
+<ul>
+<li>Hearing loss of conductive, sensorineural, or mixed type, which may progress over time</li>
+</ul>
+<h4>Developmental / neurological</h4>
+<ul>
+<li>Speech delay (8/11, ~73%); motor delay (12/14, ~86%)</li>
+<li><strong>Cognition is normal</strong> in all reported individuals — a distinguishing feature from many other primordial dwarfism/skeletal dysplasia syndromes.</li>
+</ul>
+<h4>Laboratory abnormalities</h4>
+<ul>
+<li><strong>Intermittent neutropenia</strong> — present in all 12 individuals tested (12/12); occasionally warranting monitoring or G-CSF if recurrent infection occurs.</li>
+<li><strong>Elevated hepatic transaminases</strong> (6–8 individuals) — a novel finding highlighted in the 2020 phenotyping paper.</li>
+</ul>
+<h4>Radiological (novel/imaging)</h4>
+<ul>
+<li>Ventriculomegaly on brain MRI (5/9, ~56%)</li>
+</ul>
+<h4>Quality of life</h4>
+<p>No dedicated EQ-5D/SF-36 disease-specific quality-of-life instrument data have been published; QoL impact is inferred qualitatively from the multidisciplinary management literature (mobility limitation from skeletal fragility/clubfoot, visual impairment from cataracts/retinal dystrophy, hearing impairment, and complications of cervical stenosis).</p>
+<p><strong>Study conclusion:</strong> "Saul-Wilson syndrome presents a remarkably uniform phenotype" across the reported cohort — an unusually tight genotype-phenotype correlation for a monogenic disorder, consistent with the single recurrent causal variant.</p>
+<p>Suggested HPO terms: <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a> (IUGR), <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" rel="noopener noreferrer">HP:0008897</a> (postnatal growth retardation), <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" rel="noopener noreferrer">HP:0003510</a> (short limb), <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> (short stature), <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" rel="noopener noreferrer">HP:0011220</a> (prominent forehead), <a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" rel="noopener noreferrer">HP:0000260</a> (wide anterior fontanel), <a href="http://purl.obolibrary.org/obo/HP_0000527" target="_blank" rel="noopener noreferrer">HP:0000527</a> (sparse eyebrow), <a href="http://purl.obolibrary.org/obo/HP_0000268" target="_blank" rel="noopener noreferrer">HP:0000268</a> (dolichocephaly-type descriptors as applicable), <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a> (strabismus if present), <a href="http://purl.obolibrary.org/obo/HP_0010442" target="_blank" rel="noopener noreferrer">HP:0010442</a> (polydactyly — not typical, omit), <a href="http://purl.obolibrary.org/obo/HP_0001818" target="_blank" rel="noopener noreferrer">HP:0001818</a> (clubfoot/talipes), <a href="http://purl.obolibrary.org/obo/HP_0009843" target="_blank" rel="noopener noreferrer">HP:0009843</a> (brachytelephalangy), <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a> (cataract), <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> (rod-cone dystrophy), <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a> (sensorineural hearing loss), <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" rel="noopener noreferrer">HP:0000405</a> (conductive hearing loss), <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a> (neutropenia), <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a> (elevated hepatic transaminase), <a href="http://purl.obolibrary.org/obo/HP_0002370" target="_blank" rel="noopener noreferrer">HP:0002370</a> (motor delay), <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a> (speech delay), <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a> (scoliosis/spinal deformity as relevant), <a href="http://purl.obolibrary.org/obo/HP_0003042" target="_blank" rel="noopener noreferrer">HP:0003042</a> (elbow dislocation — check applicability), <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a>, <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" rel="noopener noreferrer">HP:0002098</a> (respiratory as relevant), <a href="http://purl.obolibrary.org/obo/HP_0002415" target="_blank" rel="noopener noreferrer">HP:0002415</a> (spinal cord compression).</p>
+<hr />
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal gene:</strong> <strong><em>COG4</em></strong> (Component of Oligomeric Golgi complex 4), OMIM *606976, <a href="https://bioregistry.io/HGNC:23054" target="_blank" rel="noopener noreferrer">HGNC:23054</a>, chromosome 16q22.1.</p>
+<p><strong>Pathogenic variant:</strong> A single recurrent missense substitution, <strong>c.1546G&gt;A or c.1546G&gt;C, p.(Gly516Arg)</strong>, ClinVar-classified pathogenic. No other <em>COG4</em> variant, and no other gene, has been implicated in Saul-Wilson syndrome to date. Because this is a single-position recurrent variant (not a deletion/duplication or LOF spectrum), <strong>gene-targeted deletion/duplication analysis is not useful</strong> for diagnosis — targeted Sanger/NGS confirmation of the specific p.Gly516Arg change, or exome/genome sequencing, is the recommended testing strategy (GeneReviews NBK554080).</p>
+<p><strong>Variant classification/type:</strong> Missense, gain-of-function (not loss-of-function).</p>
+<p><strong>Allele frequency:</strong> Absent from population databases (gnomAD) — consistent with its universally <em>de novo</em> origin and severe phenotype.</p>
+<p><strong>Somatic vs. germline:</strong> Germline (constitutional), heterozygous, <em>de novo</em> in essentially all reported probands; parental germline mosaicism documented in at least one family.</p>
+<p><strong>Functional consequence — gain-of-function, not loss-of-function.</strong> This is a critical, well-established mechanistic distinction from <em>COG4</em>-congenital disorder of glycosylation (COG4-CDG), caused by <strong>biallelic loss-of-function</strong> <em>COG4</em> variants:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Saul-Wilson syndrome</th>
+<th>COG4-CDG</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Variant type</td>
+<td>Heterozygous, recurrent p.G516R</td>
+<td>Biallelic LOF (nonsense/frameshift/splice)</td>
+</tr>
+<tr>
+<td>COG4 protein/mRNA level</td>
+<td>Normal</td>
+<td>Reduced/absent</td>
+</tr>
+<tr>
+<td>Vesicular trafficking</td>
+<td><strong>Accelerated</strong> retrograde Golgi→ER; <strong>delayed</strong> anterograde ER→Golgi</td>
+<td>Generally impaired/reduced trafficking</td>
+</tr>
+<tr>
+<td>N-glycosylation (serum)</td>
+<td>Normal</td>
+<td>Abnormal (hallmark CDG pattern)</td>
+</tr>
+<tr>
+<td>Neurological involvement</td>
+<td>None (normal cognition)</td>
+<td>Seizures, hypotonia, intellectual disability</td>
+</tr>
+<tr>
+<td>Severity</td>
+<td>Severe skeletal dysplasia, non-lethal</td>
+<td>Often lethal in infancy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Mechanistically, in SWS patient fibroblasts, COG4 mRNA and protein levels are <strong>not decreased</strong>, and Golgi volume is markedly reduced (~2.8-fold after normalization to nuclear volume), with only 51–55% of cells showing normal Golgi morphology (vs. 94% in controls) — cis/trans-Golgi stack collapse and abnormal co-localization are seen. Brefeldin A challenge assays show <strong>faster</strong> retrograde and <strong>slower</strong> anterograde Golgi reformation kinetics in patient cells (Ferreira et al. 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30290151/" target="_blank" rel="noopener noreferrer">PMID 30290151</a>):</p>
+<blockquote>
+<p>Affected individuals' fibroblasts... "exhibited delayed anterograde vesicular trafficking from the ER to the Golgi and accelerated retrograde vesicular recycling from the Golgi to the ER. This altered steady-state equilibrium led to a decrease in Golgi volume, as well as morphologic abnormalities with collapse of the Golgi stacks."</p>
+</blockquote>
+<p><strong>Modifier genes:</strong> None identified.</p>
+<p><strong>Epigenetics:</strong> No DNA methylation, histone, or chromatin studies specific to SWS have been published.</p>
+<p><strong>Chromosomal abnormalities:</strong> None — this is a point-mutation disorder, not a copy-number or structural chromosomal condition.</p>
+<p><strong>Comparative/orthology note:</strong> COG4 belongs to the CATCHR (complexes associated with tethering containing helical rods) family and is one of eight subunits of the hetero-octameric COG vesicle-tethering complex governing intra-Golgi and retrograde Golgi-to-ER trafficking.</p>
+<hr />
+<h3>5. Environmental Information</h3>
+<p>No environmental factors, lifestyle exposures, toxins, or infectious agents are implicated in Saul-Wilson syndrome causation — this is a fully penetrant, single-variant Mendelian condition with no reported gene-environment modulation of expressivity or severity in the literature reviewed.</p>
+<hr />
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Causal chain (upstream → downstream):</strong></p>
+<ol>
+<li><strong>Molecular trigger:</strong> <em>COG4</em> c.1546G&gt;C/A → p.Gly516Arg substitution in the COG4 subunit of the octameric COG vesicle-tethering complex (<a href="http://purl.obolibrary.org/obo/GO_0017119" target="_blank" rel="noopener noreferrer">GO:0017119</a> COG complex).</li>
+<li><strong>Cellular/organelle consequence — dysregulated vesicular trafficking:</strong> The mutant subunit remains stably incorporated into the COG complex (unlike COG4-CDG LOF alleles) but shifts the steady-state kinetic balance of Golgi trafficking: <strong>anterograde ER→Golgi transport is delayed</strong> while <strong>retrograde Golgi→ER transport is accelerated</strong> (<a href="http://purl.obolibrary.org/obo/GO_0006890" target="_blank" rel="noopener noreferrer">GO:0006890</a> retrograde vesicle-mediated transport, Golgi to ER; <a href="http://purl.obolibrary.org/obo/GO_0006888" target="_blank" rel="noopener noreferrer">GO:0006888</a> ER to Golgi vesicle-mediated transport). This is interpreted as a <strong>gain-of-function</strong> mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/30290151/" target="_blank" rel="noopener noreferrer">PMID 30290151</a>).</li>
+<li><strong>Golgi structural consequence:</strong> Reduced Golgi volume (~2.8-fold), collapsed cis/trans-Golgi stacks, and abnormal Golgi compartment co-localization in patient fibroblasts.</li>
+<li><strong>Glycoprotein/proteoglycan processing defect:</strong> Altered Golgi-dependent glycosylation of secreted proteoglycans. Decorin (a small leucine-rich proteoglycan) shows aberrant glycosaminoglycan (GAG) chain elongation both intracellularly and extracellularly. Notably, <strong>bulk serum N- and O-linked glycosylation is normal</strong> — the defect is selective, not a global CDG-type glycosylation failure.</li>
+<li><strong>Selective secretome impairment in chondrocyte-like cells:</strong> Mass-spectrometry secretome profiling shows selectively impaired secretion of proteins essential to chondrogenesis/osteogenesis, notably <strong>MMP13</strong> and <strong>IGFBP7</strong> (Xia et al. 2022, PMID <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9649697/">36393834</a>, <em>Front Cell Dev Biol</em>):</li>
+</ol>
+<blockquote>
+<p>"The Saul-Wilson syndrome COG4p.G516R variant selectively affects the secretion of multiple proteins, especially in chondrocyte-like cells which could further cause pleiotropic defects including hampering long bone growth in SWS individuals."</p>
+</blockquote>
+<p>Mutant chondrocyte-like cells show "reduced expression of chondrogenic differentiation markers, MMP13 and COL10A1 and delayed response to BMP2," form smaller spheroids with increased apoptosis in 3D chondrogenesis assays, and this defect is <strong>non-cell-autonomously rescuable</strong>: "Adding WT cells or their conditioned medium reduced cell death and increased spheroid sizes of COG4p.G516R mutant cells" — implicating a deficient secreted paracrine factor rather than a purely intracellular chondrocyte defect.</p>
+<ol>
+<li><strong>Proteoglycan accumulation — glypican/Wnt axis:</strong> SWS patient cells <strong>accumulate glypicans</strong> (a heparan-sulfate proteoglycan family regulating growth-factor signaling, including Wnt). This links the Golgi trafficking defect to a specific downstream signaling pathway.</li>
+<li><strong>Wnt-pathway dysregulation (zebrafish model, PMID <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8476873/">34595172</a>, Ng et al., <em>Dis Model Mech<em> 2021):</em>* Zebrafish expressing COG4^p.G516R^ show selective elevation of </em></strong>wnt4*** transcripts, and overexpression of wnt4 mRNA alone reproduces the developmental phenotype, establishing causality:</li>
+</ol>
+<blockquote>
+<p>"These animals show phenotypes consistent with convergent extension (CE) defects during gastrulation, shortened body length, and malformed jaw cartilage chondrocyte intercalation at larval stages."</p>
+</blockquote>
+<p>Body length reduction reaches ~18% at 3 days post-fertilization and ~10% at 6 dpf. The <strong>Wnt inhibitor LGK974</strong> dose-dependently rescues both the shortened body length and cartilage malformation phenotypes at 0.05–0.1 μM — an important proof-of-concept for pathway-directed therapeutic targeting, though not yet translated to patients.
+8. <strong>Tissue-level consequence:</strong> Defective chondrocyte elongation/intercalation within cartilage (e.g., Meckel's cartilage in zebrafish), producing disorganized chondrocyte stacking — the cellular basis of the profound skeletal growth failure and long-bone/vertebral dysplasia seen clinically.
+9. <strong>Clinical manifestation:</strong> Severe prenatal-onset growth failure, skeletal dysplasia (clubfoot, brachytelephalangy, platyspondyly, coxa valga), and downstream complications (bone fragility, premature osteoarthritis, cervical stenosis).</p>
+<p><strong>Model discrepancy note (important knowledge gap):</strong> A <em>C. elegans</em> model of the orthologous <em>cogc-4(av107)</em> mutation (Kodera et al., PMID <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7933980/">33688625</a>) <strong>failed to reproduce the Golgi phenotype</strong>:</p>
+<blockquote>
+<p>"Our data suggest that this mutation in <em>cogc-4(av107)</em> worms does not lead to a detectable phenotype." ... "Normal ER and Golgi morphology and no evidence of co-localization was observed in our <em>cogc-4(av107)</em> early embryos."</p>
+</blockquote>
+<p>This is best interpreted as a <strong>human/model mismatch</strong> — plausibly reflecting the worm ortholog's low (~29%) amino-acid identity with human COG4 rather than refuting the gain-of-function mechanism established independently in human fibroblasts and zebrafish.</p>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0017119" target="_blank" rel="noopener noreferrer">GO:0017119</a> (COG complex), <a href="http://purl.obolibrary.org/obo/GO_0006888" target="_blank" rel="noopener noreferrer">GO:0006888</a> (ER-to-Golgi vesicle-mediated transport), <a href="http://purl.obolibrary.org/obo/GO_0006890" target="_blank" rel="noopener noreferrer">GO:0006890</a> (retrograde vesicle-mediated transport, Golgi to ER), <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" rel="noopener noreferrer">GO:0016477</a> (cell migration/convergent extension as relevant), <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" rel="noopener noreferrer">GO:0016055</a> (Wnt signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" rel="noopener noreferrer">GO:0007368</a> (determination of left/right symmetry — not core), <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" rel="noopener noreferrer">GO:0002062</a> (chondrocyte differentiation), <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" rel="noopener noreferrer">GO:0030199</a> (collagen fibril organization).
+<strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> (chondrocyte), <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast).
+<strong>Suggested UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" rel="noopener noreferrer">UBERON:0002418</a> (cartilage tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0000982" target="_blank" rel="noopener noreferrer">UBERON:0000982</a> (Meckel's cartilage — zebrafish model), <a href="http://purl.obolibrary.org/obo/UBERON_0004537" target="_blank" rel="noopener noreferrer">UBERON:0004537</a> (long bone).
+<strong>Suggested CHEBI:</strong> the Wnt inhibitor LGK974 (WNT974/CHEBI entry for the small molecule).</p>
+<hr />
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Organ/system level:</strong>
+- <strong>Skeletal system</strong> (primary): long bones, vertebrae (platyspondyly), hips (coxa valga), hands/feet (short distal phalanges, clubfoot), cranium (delayed fontanel closure, microcephaly with relative macrocephaly)
+- <strong>Ocular system:</strong> lens (cataracts), retina (rod-cone dystrophy, cystic macular changes), sclera (blue sclerae in infancy)
+- <strong>Auditory system:</strong> middle/inner ear (conductive, sensorineural, mixed hearing loss)
+- <strong>Hematologic system:</strong> neutrophil lineage (intermittent neutropenia)
+- <strong>Hepatic system:</strong> liver (elevated transaminases)
+- <strong>Nervous system (secondary/mechanical):</strong> cervical spinal cord (compression at the cranio-cervical junction due to skeletal stenosis, not a primary neurodevelopmental defect — cognition itself is spared) (PMID <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9031859/">35455576</a>)
+- <strong>Craniofacial soft tissue:</strong> hair/eyebrow follicles (sparse), facial skeleton (micrognathia, nasal bridge)</p>
+<p><strong>Tissue/cell level:</strong> cartilage/growth plate chondrocytes (defective intercalation and elongation); dermal fibroblasts (the principal patient-derived cell type used in mechanistic studies, showing Golgi collapse); hepatocytes (transaminase elevation implies hepatocellular involvement, mechanism unestablished).</p>
+<p><strong>Subcellular level:</strong> the <strong>Golgi apparatus</strong> (GO Cellular Component: Golgi apparatus, <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a>; Golgi stack, <a href="http://purl.obolibrary.org/obo/GO_0005795" target="_blank" rel="noopener noreferrer">GO:0005795</a>) is the primary organelle affected — reduced volume, stack collapse, altered cis/trans compartmentalization; the endoplasmic reticulum secondarily, via the shifted anterograde/retrograde equilibrium.</p>
+<p><strong>Localization:</strong> Bilateral/symmetric skeletal involvement; cranio-cervical junction stenosis is midline/axial.</p>
+<hr />
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> Prenatal — growth restriction begins in utero and is measurable at birth (birth length/weight/OFC 2–2.4 SD below norms despite near-term delivery). Skeletal, ocular, and hearing findings emerge through infancy and early childhood (cataracts and neutropenia identified early; retinal dystrophy and premature osteoarthritis emerge later).</p>
+<p><strong>Progression:</strong> <strong>Progressive and lifelong</strong>, not self-limited. Height diverges further from population norms over childhood (final Z-scores of −4 to −8.5 SD, far below the birth Z-score of ~−2.3). Absolute head circumference becomes progressively microcephalic with age even as it remains relatively macrocephalic versus height. Hearing loss may progress over time. Premature degenerative joint disease and skeletal fragility emerge in the second-to-third decades. There is no described spontaneous remission of any core feature.</p>
+<p><strong>Disease course pattern:</strong> Chronic, non-relapsing, developmentally static in terms of cognition (normal and stable) but progressive in terms of skeletal/ocular/orthopedic morbidity.</p>
+<p><strong>Critical periods:</strong> The first months of life represent a critical growth-divergence window (sharp decline from population growth curves); early childhood is critical for cataract detection/surgery to prevent amblyopia; adolescence/gymnastics-type activity requires caution pending exclusion of atlantoaxial/cranio-cervical instability.</p>
+<hr />
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology.</strong> No formal prevalence or incidence estimate exists — Saul-Wilson syndrome is among the rarest characterized monogenic disorders, with <strong>~14–16 molecularly confirmed individuals reported worldwide</strong> as of the principal cohort studies, plus scattered subsequent case reports (e.g., a 2026-published case from Saudi Arabia, PMC12883328, the first reported in that population, noting some novel facial features — triangular face, hypertelorism, plagiocephaly — alongside the classic gestalt).</p>
+<p><strong>Inheritance pattern:</strong> Autosomal dominant (<a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a>), essentially always <em>de novo</em>.</p>
+<p><strong>Penetrance:</strong> Appears fully penetrant for the core skeletal/growth phenotype in all reported carriers (consistent with the small but uniform cohort).</p>
+<p><strong>Expressivity:</strong> Described as remarkably <strong>uniform/consistent</strong> across the cohort — an unusually tight phenotype for a dominant disorder, attributable to the single recurrent variant mechanism.</p>
+<p><strong>Genetic anticipation:</strong> Not applicable (not a repeat-expansion disorder).</p>
+<p><strong>Germline mosaicism:</strong> Documented in at least one family, informing empiric sibling recurrence-risk counseling above the general-population baseline despite the <em>de novo</em> origin in the proband.</p>
+<p><strong>Founder effects / consanguinity:</strong> Not relevant — dominant, recurrent <em>de novo</em> mechanism, not associated with consanguinity.</p>
+<p><strong>Carrier frequency:</strong> Not applicable (not a recessive carrier-screening condition).</p>
+<p><strong>Population demographics:</strong> Cases reported across multiple ancestries/geographies (US, Europe, and — most recently — Saudi Arabia), with no described ethnic or geographic clustering; sex ratio appears roughly even across reported cases (no strong male/female skew described in the literature reviewed).</p>
+<hr />
+<h3>10. Diagnostics</h3>
+<p><strong>Clinical diagnosis</strong> is suggested by the combination of profound prenatal-onset short stature, the characteristic progeroid craniofacial gestalt, brachytelephalangy, and clubfoot, supported by skeletal radiographs (platyspondyly, long-bone overtubulation, coxa valga) — but is <strong>confirmed molecularly</strong>.</p>
+<p><strong>Molecular/genetic testing:</strong>
+- <strong>Targeted single-variant/single-gene testing</strong> for the recurrent <em>COG4</em> c.1546G&gt;A/C (p.Gly516Arg) change is the most efficient confirmatory test once SWS is clinically suspected, and detected 14/14 probands in the founding cohort.
+- <strong>Exome or genome sequencing</strong> is appropriate for undiagnosed/unrecognized presentations (this is in fact how the causal gene was originally identified, via the NIH Undiagnosed Diseases Network, ClinicalTrials.gov NCT02450851).
+- <strong>Chromosomal microarray/karyotype/FISH:</strong> not informative — SWS is not a copy-number or structural chromosomal disorder.
+- <strong>Gene-targeted deletion/duplication analysis:</strong> not expected to be useful, since the mechanism is a specific gain-of-function missense change, not haploinsufficiency.</p>
+<p><strong>Laboratory tests supporting diagnosis/monitoring:</strong>
+- CBC with differential (intermittent neutropenia — essentially universal finding, present in 12/12 tested)
+- Liver function tests (elevated transaminases in 6–8 of the cohort)
+- Serum N-/O-glycosylation studies are <strong>normal</strong> in SWS — useful specifically to <strong>distinguish SWS from classic COG4-CDG</strong> (whose hallmark is abnormal serum transferrin glycosylation), since the two conditions share the same gene but opposite functional mechanisms.</p>
+<p><strong>Imaging:</strong> Skeletal survey (platyspondyly, overtubulated long bones, coxa valga, brachytelephalangy); brain MRI (ventriculomegaly in ~56%); cranio-cervical spine MRI where clinically indicated (stenosis/myelopathy).</p>
+<p><strong>Ophthalmologic evaluation:</strong> Slit-lamp exam for lamellar cataracts; retinal exam/ERG for rod-cone dystrophy; OCT for cystic macular changes.</p>
+<p><strong>Audiologic evaluation:</strong> Baseline and serial audiometry given the mixed conductive/sensorineural/combined hearing-loss risk.</p>
+<p><strong>Differential diagnosis</strong> (from GeneReviews, NBK554080):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Disorder</th>
+<th>Distinguishing features from SWS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Silver-Russell syndrome</td>
+<td>Limb-length asymmetry, café-au-lait spots; lacks the skeletal dysplasia, ocular, and hearing findings of SWS</td>
+</tr>
+<tr>
+<td>Osteogenesis imperfecta</td>
+<td>Dentinogenesis imperfecta typical; lacks SWS's distinctive dysplasia, cataracts, retinal degeneration</td>
+</tr>
+<tr>
+<td>Microcephalic osteodysplastic primordial dwarfism type II (MOPD II)</td>
+<td>Vascular anomalies (e.g., cerebral aneurysms); no distal phalangeal shortening pattern of SWS</td>
+</tr>
+<tr>
+<td>Wiedemann-Rautenstrauch syndrome</td>
+<td>Intellectual disability present (contrasts with SWS's normal cognition); lacks phalangeal shortening</td>
+</tr>
+<tr>
+<td>Hallermann-Streiff syndrome</td>
+<td>More pronounced/distinct nasal and mandibular features</td>
+</tr>
+<tr>
+<td>Floating-Harbor syndrome</td>
+<td>Distinctively different prominent-nose facial gestalt</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Clinical diagnostic criteria:</strong> No formal consensus scoring system/society guideline exists (too rare); diagnosis rests on the gestalt + confirmatory molecular testing described above.</p>
+<p><strong>Screening:</strong> No population or newborn screening applicable given the <em>de novo</em>, non-carrier-based inheritance; once a familial variant is identified, prenatal testing and preimplantation genetic testing become available for future pregnancies in that family, with genetic counseling regarding residual sibling recurrence risk from possible germline mosaicism.</p>
+<hr />
+<h3>11. Outcome/Prognosis</h3>
+<p><strong>Survival:</strong> No mortality data suggesting reduced lifespan have been reported; SWS is <strong>not</strong> typically fatal (unlike biallelic COG4-CDG, which is often lethal in infancy). Adults into their 20s–30s have been documented.</p>
+<p><strong>Growth outcome:</strong> Final adult height around 107–110 cm (roughly the stature of a typical 4–5-year-old), Z-scores of −4 to −8.5 SD — among the most severe short-stature phenotypes of any described skeletal dysplasia, unresponsive to growth hormone therapy.</p>
+<p><strong>Morbidity/complications:</strong>
+- Progressive hearing loss
+- Cataracts requiring surgery; risk of amblyopia if untreated; progressive rod-cone retinal dystrophy affecting night vision, sometimes to functional visual impairment
+- <strong>Premature/early-onset osteoarthritis</strong>, in documented adult cases requiring <strong>joint replacement surgery in the third decade of life</strong>
+- <strong>Bone fragility</strong> with fracture risk from minimal trauma
+- <strong>Cranio-cervical/atlantoaxial stenosis with myelopathy</strong> — a serious complication; a 2022 case report (<a href="https://pubmed.ncbi.nlm.nih.gov/35455576/" target="_blank" rel="noopener noreferrer">PMID 35455576</a>) documented decompressive surgery for critical cranio-cervical junction stenosis with cord compression, but found only limited radiological widening and <strong>no clinical or radiological improvement of the myelopathy postoperatively</strong>, "underscoring the surgical limitations imposed by the patient's severe skeletal dysplasia and soft bone characteristics" — an important prognostic caveat that surgical decompression may have limited efficacy in this population.
+- Persistent intermittent neutropenia into adulthood</p>
+<p><strong>Cognitive/functional outcome:</strong> Cognition remains <strong>normal</strong> throughout life — a favorable and distinguishing prognostic feature relative to many other severe skeletal dysplasias/primordial dwarfisms.</p>
+<p><strong>Prognostic factors:</strong> No validated prognostic biomarkers or scoring systems exist given the extremely small reported cohort; disease course appears remarkably uniform across patients given the single causal variant, so severity does not appear to vary meaningfully by genotype (all patients share the identical p.Gly516Arg change).</p>
+<hr />
+<h3>12. Treatment</h3>
+<p>There is <strong>no disease-modifying or curative therapy</strong>; management is multidisciplinary and supportive/symptomatic (GeneReviews NBK554080):</p>
+<p><strong>Pharmacotherapy:</strong>
+- <strong>Growth hormone:</strong> trialed in the cohort but <strong>statistically shown not to improve height</strong> (p = 0.052–0.489) — an important negative-evidence finding for clinical decision-making (NCIT:C15986 Pharmacotherapy; explicitly documented as ineffective).
+- <strong>G-CSF (granulocyte colony-stimulating factor):</strong> considered on a case-by-case basis if neutropenia is associated with frequent/severe infections (NCIT:C15986 Pharmacotherapy; therapeutic_agent candidate: filgrastim-class G-CSF).</p>
+<p><strong>Surgical/interventional:</strong>
+- <strong>Orthopedic surgery</strong> for clubfoot correction (NCIT:C16186 Orthopedic Surgical Procedure)
+- <strong>Cervical spine decompression surgery</strong> for cranio-cervical stenosis/myelopathy when present — though outcomes may be limited, as documented above (NCIT:C15329 Surgical Procedure)
+- <strong>Cataract surgery</strong> when lens opacity is visually significant, to prevent amblyopia (NCIT ophthalmologic surgical term)
+- <strong>Joint replacement surgery</strong> for premature osteoarthritis in adulthood (NCIT:C15329 / arthroplasty-specific term)
+- <strong>Myringotomy tube placement</strong> for conductive hearing loss</p>
+<p><strong>Supportive/rehabilitative:</strong>
+- Physical therapy / physiatry for mobility (NCIT:C15302 Physical Therapy)
+- Early intervention programs (ages 0–3) and developmental preschool (ages 3–5); speech and motor therapy (NCIT:C159273 Speech Therapy)
+- Individualized Education Program (IEP) services incorporating vision and hearing accommodations
+- Hearing aids as needed for hearing loss not addressed surgically
+- Night-vision aids and low-vision services for rod-cone dystrophy
+- Pain management for osteoarthritis (NCIT:C15747 Supportive Care)</p>
+<p><strong>Experimental/investigational — pathway-directed, preclinical only:</strong> The zebrafish model finding that the <strong>Wnt inhibitor LGK974</strong> dose-dependently rescues both body-length and cartilage-malformation phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/34595172/" target="_blank" rel="noopener noreferrer">PMID 34595172</a>) is a proof-of-concept for a targeted molecular therapy but <strong>has not been tested in SWS patients</strong> — no registered clinical trial for LGK974 or any other targeted SWS therapy was identified in this search. This represents the most promising translational lead in the current literature and a clear direction for future therapeutic development.</p>
+<p><strong>Genetic counseling</strong> (NCIT:C15240): recommended for families, addressing the near-universally <em>de novo</em> origin, the small but real germline-mosaicism-based sibling recurrence risk, and 50% transmission risk from an affected individual to offspring; prenatal and preimplantation genetic testing are available once the familial variant is confirmed.</p>
+<p><strong>Surveillance schedule (per GeneReviews):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Recommended frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Growth/development</td>
+<td>Every visit</td>
+</tr>
+<tr>
+<td>Musculoskeletal</td>
+<td>Annually; imaging per treating orthopedist</td>
+</tr>
+<tr>
+<td>Eyes</td>
+<td>Annually</td>
+</tr>
+<tr>
+<td>Hearing</td>
+<td>Annually</td>
+</tr>
+<tr>
+<td>Cervical spine</td>
+<td>Per orthopedist/as clinically indicated</td>
+</tr>
+<tr>
+<td>CBC/neutrophil count</td>
+<td>Annually</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Precaution:</strong> Avoid gymnastics and trampoline use until atlantoaxial/cranio-cervical instability has been excluded, given the documented stenosis risk.</p>
+<hr />
+<h3>13. Prevention</h3>
+<p>Because Saul-Wilson syndrome arises from an essentially always <em>de novo</em> dominant variant with no known environmental trigger, there is <strong>no primary prevention</strong> strategy at the population level. The only actionable prevention lever is at the <strong>reproductive/family level</strong>: once a family's causal <em>COG4</em> variant is molecularly confirmed (typically in an affected proband), <strong>prenatal diagnosis and preimplantation genetic testing (PGT)</strong> become available for subsequent pregnancies, informed by genetic counseling that accounts for the small residual recurrence risk from possible parental germline mosaicism. Secondary/tertiary prevention is essentially the surveillance and early-intervention program outlined in Section 12 (early cataract surgery to prevent amblyopia, cervical-spine monitoring to catch stenosis before myelopathy develops, hearing surveillance, neutropenia monitoring).</p>
+<p>No vaccination, screening program, behavioral intervention, or public-health measure is applicable to this monogenic disorder.</p>
+<hr />
+<h3>14. Other Species / Natural Disease</h3>
+<p>No naturally occurring veterinary or wildlife cases of an orthologous <em>COG4</em>-gain-of-function disease have been reported. COG4 is broadly conserved (present with 29% amino-acid identity even in the distant <em>C. elegans</em> ortholog), but there is no OMIA entry or veterinary literature describing spontaneous Saul-Wilson-like disease in companion animals or livestock identified in this search. All animal data derive from <strong>engineered/induced</strong> models (zebrafish transgenic/knock-in of the human variant; <em>C. elegans</em> CRISPR-engineered orthologous mutation) rather than natural disease — see Section 15.</p>
+<hr />
+<h3>15. Model Organisms</h3>
+<p><strong>Zebrafish (<em>Danio rerio</em>) — the primary and most informative in vivo model:</strong>
+- Model: transgenic/mosaic expression of human COG4^p.G516R^ (Ng et al., <em>Dis Model Mech</em> 2021, PMID <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8476873/">34595172</a>, "A Dominant Heterozygous Mutation in COG4 Causes Saul-Wilson Syndrome, a Primordial Dwarfism, and Disrupts Zebrafish Development via Wnt Signaling")
+- <strong>Phenotype recapitulation — good:</strong> convergent-extension defects during gastrulation, shortened body length (~18% reduction at 3 dpf, ~10% at 6 dpf), malformed jaw (Meckel's) cartilage with abnormal chondrocyte intercalation/stacking, and glypican accumulation — closely mirroring the human skeletal dysplasia and the glypican-accumulation biochemistry seen in patient fibroblasts.
+- <strong>Mechanistic utility:</strong> enabled discovery of the causal role of elevated <em>wnt4</em> transcripts (overexpression alone phenocopies the defect) and served as an in vivo pharmacologic rescue platform — the Wnt inhibitor LGK974 rescued both body-length and cartilage phenotypes in a dose-dependent manner (0.05–0.1 μM).
+- <strong>A related COG4-CDG zebrafish model</strong> has also been reported, with both COG4-CDG and COG4-SWS zebrafish models displaying small body length, abnormal pectoral fins, and abnormal chondrocyte stacking — useful for comparative gain- vs loss-of-function studies.</p>
+<p><strong>Human patient-derived fibroblasts (primary cell model):</strong> the principal cellular system used across multiple studies (Ferreira et al. 2018; Xia et al. 2022) to establish the Golgi-collapse, trafficking-kinetics, and proteoglycan-glycosylation phenotypes; considered high-fidelity since it is the actual patient genotype in the actual patient cell type, though fibroblasts are not the primary disease-relevant tissue (cartilage/bone).</p>
+<p><strong>Chondrocyte-like cell models (in vitro, induced):</strong> COG4^p.G516R^ knock-in chondrocyte-like cell lines used for 3D spheroid chondrogenesis assays (Xia et al. 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/36393834/" target="_blank" rel="noopener noreferrer">PMID 36393834</a>) — recapitulate impaired chondrogenic differentiation (reduced MMP13/COL10A1, blunted BMP2 response, smaller spheroids, increased apoptosis) and demonstrated <strong>non-cell-autonomous rescue</strong> by wild-type conditioned medium, directly implicating a missing secreted paracrine factor as pathogenic — a mechanistically important and translationally relevant model limitation/insight (i.e., the defect may be extrinsically rescuable).</p>
+<p><strong>C. elegans model — a documented human/model mismatch:</strong>
+- Model: CRISPR-engineered <em>cogc-4(av107)</em> orthologous mutation (Kodera et al. 2021, PMID <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7933980/">33688625</a>, "Saul-Wilson Syndrome Missense Allele Does Not Show Obvious Golgi Defects in a C. elegans Model")
+- <strong>Fails to recapitulate:</strong> normal ER/Golgi morphology, no detectable phenotype in early embryos — in contrast to the clear Golgi collapse seen in human fibroblasts and the developmental phenotype in zebrafish.
+- <strong>Interpretation:</strong> likely reflects the <em>C. elegans</em> ortholog's limited (~29%) sequence conservation with human COG4 rather than refuting the human gain-of-function mechanism; a clear candidate for a <code>HUMAN_MODEL_MISMATCH</code>-type knowledge-gap annotation, since evidence exists in this model system but its translational validity to human/vertebrate biology is explicitly limited by low ortholog conservation.</p>
+<p><strong>Applications:</strong> the zebrafish LGK974-rescue result is the field's clearest current lead for translational/therapeutic research; fibroblast and chondrocyte models remain the standard platforms for mechanistic dissection of the trafficking and secretome defects.</p>
+<hr />
+<h3>Summary of Key Citations</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID/ID</th>
+<th>Citation</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6174323/">30290151</a></td>
+<td>Ferreira CR et al., <em>Am J Hum Genet</em> 2018;103(4):553-567</td>
+<td>Molecular discovery: recurrent COG4 p.G516R, gain-of-function trafficking/Golgi mechanism</td>
+</tr>
+<tr>
+<td>(GIM 2020)</td>
+<td>Ferreira CR et al., <em>Genet Med</em> 2020;22(5):857-866, "Defining the clinical phenotype of Saul-Wilson syndrome"</td>
+<td>Comprehensive clinical phenotyping, n=14–16 cohort</td>
+</tr>
+<tr>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9016779/">32652690</a></td>
+<td>Ferreira CR et al., <em>Am J Med Genet A</em> 2020, "Growth in individuals with Saul-Wilson syndrome"</td>
+<td>Detailed growth curves, GH non-response, relative macrocephaly</td>
+</tr>
+<tr>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8476873/">34595172</a></td>
+<td>Ng BG et al., <em>Dis Model Mech</em> 2021, zebrafish Wnt signaling paper</td>
+<td>Zebrafish model, wnt4/glypican mechanism, LGK974 rescue</td>
+</tr>
+<tr>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9649697/">36393834</a></td>
+<td>Xia ZJ et al., <em>Front Cell Dev Biol</em> 2022;10:979096</td>
+<td>Chondrocyte secretome, MMP13/IGFBP7, non-cell-autonomous rescue</td>
+</tr>
+<tr>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7933980/">33688625</a></td>
+<td>Kodera et al., 2021</td>
+<td>C. elegans model — negative/mismatch result</td>
+</tr>
+<tr>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9031859/">35455576</a></td>
+<td>Case report, <em>Childs Nerv Syst</em> 2022</td>
+<td>Cranio-cervical stenosis complication and limited surgical outcome</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30548960/">30548960</a></td>
+<td>Commentary, 2018</td>
+<td>Historical framing, "early days until now"</td>
+</tr>
+<tr>
+<td>GeneReviews <a href="https://www.ncbi.nlm.nih.gov/books/NBK554080/">NBK554080</a></td>
+<td>Ferreira, Lee, Huang</td>
+<td>Comprehensive management/surveillance/differential-diagnosis reference</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Note on evidence gaps:</strong> No dedicated GWAS, population prevalence study, disease registry, dedicated QoL instrument study, or registered clinical trial for a targeted therapy was located. The Wnt-inhibitor rescue in zebrafish (LGK974) is the field's clearest translational lead but remains preclinical.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Satoyoshi_Syndrome-falcon.html">← Satoyoshi Syndrome (Falcon)</a>
+                
+                
+                <a href="Say-Barber-Biesecker-Young-Simpson_Syndrome-falcon.html">Say-Barber-Biesecker-Young-Simpson Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Saul-Wilson_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Saul-Wilson_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

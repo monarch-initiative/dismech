@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1054,25 +1054,29 @@ list-short-snippets:
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
 
-# Guard against NEW evidence-free `environmental:` exposures in kb/ --
+# Guard against evidence-free `environmental:` exposures in kb/ --
 # an entry with no `evidence:` block is an uncited causation claim that
 # `just validate`/`validate-terms`/`count-verified-snippets` cannot see, since
-# `evidence` is optional on the class (#8296). The pre-existing backlog is
-# grandfathered against origin/main (like CI), so this fails only on new ones.
+# `evidence` is optional on the class (#8296).
+# The #8296 backlog was worked to zero, so this is a hard gate rather than a
+# ratchet: an exposure that genuinely cannot be cited carries a `review_notes:`
+# waiver instead (see `just list-environmental-evidence-waivers`).
 [group('QC')]
 check-environmental-evidence:
-    uv run python scripts/check_environmental_evidence.py --against-ref origin/main
+    uv run python scripts/check_environmental_evidence.py
 
-# List every evidence-free `environmental:` exposure, baselined or not (triage view).
+# List every evidence-free `environmental:` exposure (triage view). Waived
+# entries are excluded; see `list-environmental-evidence-waivers`.
 [group('QC')]
 list-environmental-evidence-gaps:
     uv run python scripts/check_environmental_evidence.py --all
 
-# Regenerate the environmental-evidence baseline after intentionally changing
-# the backlog (e.g. citing exposures in a curation tranche). Review the diff.
+# List exposures dispositioned by a `review_notes:` waiver -- a recorded failed
+# search rather than an unexamined gap. These are excluded from the gap list
+# above, so this is how they stay visible (#8296).
 [group('QC')]
-update-environmental-evidence-baseline:
-    uv run python scripts/check_environmental_evidence.py --update-baseline
+list-environmental-evidence-waivers:
+    uv run python scripts/check_environmental_evidence.py --waivers
 
 # Guard against evidence snippets that merely quote the cited paper's title,
 # which records that a question was examined rather than what was found (#8374).
@@ -1114,6 +1118,26 @@ list-snippet-grading *args="":
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
 
+# Guard against reference titles that name a paper other than the one cited --
+# a correct PMID with a verified snippet and an invented `reference_title`,
+# which every other gate is structurally blind to because each checks a
+# different field (#9138). Compared against the `title:` already in that
+# reference's cache frontmatter, so it is offline and needs no network.
+# Grandfathered against origin/main the same way the snippet ratchets are.
+[group('QC')]
+check-reference-titles:
+    uv run python scripts/check_reference_titles.py --against-ref origin/main
+
+# List every mismatching reference title, baselined or not (triage view).
+[group('QC')]
+list-reference-title-mismatches:
+    uv run python scripts/check_reference_titles.py --all
+
+# Regenerate the reference-title baseline after intentionally changing the set
+# (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-reference-title-baseline:
+    uv run python scripts/check_reference_titles.py --update-baseline
 # Guard against evidence items with an empty/whitespace-only `snippet`, which
 # pass `linkml-reference-validator`/`count-verified-snippets` vacuously
 # (#8550). `supports: NO_EVIDENCE` items are exempt (checked, not relevant --
@@ -1244,6 +1268,13 @@ gen-browser-data:
 [group('Browser')]
 check-browser-links:
     uv run python scripts/check_browser_data_links.py
+
+# Same gate for the computational-models index, which generate-pages builds and
+# commits alongside app/data.js. Kept as a recipe so a curator can reproduce the
+# CI failure with the command CI ran.
+[group('Browser')]
+check-models-links:
+    uv run python scripts/check_browser_data_links.py --data app/models/data.js
 
 # Generate discussions browser data.js from disorder + module discussions
 [group('Browser')]
@@ -1574,6 +1605,87 @@ templates_dir := "templates"
 #   just dr_validation='' research-disorder falcon Marfan_Syndrome
 dr_validation := "--validate-references --validation-cache-dir references_cache"
 
+# Ontology term validation applied to a deep-research report as it is generated
+# (needs deep-research-client >= 0.2.11 and its `terms` extra, which pulls in
+# linkml-term-validator -- the same library `just validate-terms` runs on `kb/`).
+#
+# Reports suggest ontology terms because the templates ask them to ("Suggest HPO
+# terms for each phenotype", "suggest NCIT clinical-intervention terms"). Nothing
+# checked those until now, and citation validation does not reach them: the CMTX
+# report in issue #9729 validated 26/26 citations and still offered
+# MONDO:0010674 -- Hunter syndrome -- as the term for Charcot-Marie-Tooth
+# X-linked. Every CURIE is resolved, and the name the report wrote beside it is
+# compared with the term's own label, which is what catches that class of error.
+#
+# Results are written into the report itself: a `## Term Validation` section at
+# the end of the body, and a `term_validation:` summary in the YAML frontmatter.
+#
+# Two choices worth knowing about, both settled by testing rather than taste:
+#
+#   * NO `--term-oak-config conf/oak_config.yaml`. Our config routes the prefixes
+#     reports actually cite (MONDO, HP, GO, CL, UBERON, CHEBI, NCIT) to OLS, which
+#     is what the upstream default `ols:` adapter does anyway -- but it also maps
+#     HGNC/GENO/ECTO/XCO to `sqlite:obo:`, and passing it made a research run
+#     download a 380 MB hgnc.db mid-validation. Pass it yourself for a run where
+#     ECTO or GENO terms matter and you will take the local builds.
+#   * `--term-skip-prefix HGNC`, because gene CURIEs cannot be checked reliably
+#     either way. `sqlite:obo:hgnc` holds them under the lowercase `hgnc:` this
+#     repo uses, so the uppercase `HGNC:4283` a report writes resolves to nothing
+#     and is reported as invented; through `ols:` the same CURIE comes back as
+#     "mitochondrial chromosome". Both are false alarms on a real gene (GJB1).
+#     Skipping reports the prefix as unverifiable instead. Matching is
+#     case-insensitive, so this covers `hgnc:` too.
+#
+# Like reference validation, this runs AFTER the report is written to disk, and
+# is deliberately not gated: a bad CURIE in a provider artifact is information,
+# not a reason to discard a 20-minute run. Recover a lost section with
+#   just validate-research-terms <the report that was written>
+#
+# To skip it (quick iteration, or no network):
+#   just dr_term_validation='' research-disorder falcon Marfan_Syndrome
+dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip-prefix HGNC"
+
+# Provider fallback (`--fallback`, new in deep-research-client 0.2.11): let
+# another provider take the job when the one you asked for has no credentials or
+# no credit, rather than losing the run. This is the recurring annoyance it
+# fixes -- a brief asks for falcon, no EDISON_API_KEY is set, and the curator
+# substitutes claude_code by hand and writes a paragraph about it into the
+# history record.
+#
+# OFF by default, and that is a judgement rather than caution. `just
+# research-missing-provider falcon` skips a disorder only when the *falcon*
+# report exists, so with fallback always on, a run over 50 disorders with no
+# EDISON key would produce 50 claude_code reports and the next run would produce
+# 50 more: falcon never becomes present, so nothing is ever skipped. Ask for a
+# fallback when you want one:
+#
+#   just dr_fallback='--fallback' research-disorder falcon Marfan_Syndrome
+#   just dr_fallback='--fallback-provider openai --fallback-provider perplexity' \
+#       research-disorder falcon Marfan_Syndrome
+#
+# What makes it safe is the alignment step every recipe runs afterwards. The
+# filename encodes the provider (`<Disorder>-deep-research-<provider>.md`) and
+# `scripts/deep_research_coverage.py` reads it back out of there, so a report
+# that fell back is renamed to the provider named in its own frontmatter, taking
+# its citations sidecar and artifacts directory with it and rewriting the
+# artifact links. `just research-status` therefore keeps telling the truth, and
+# the provider that ran is recorded in the report rather than in hand-written
+# history prose.
+#
+# The alignment step runs whether or not you asked for a fallback -- it is a
+# no-op on a report that did not fall back, since it keys on the `fell_back`
+# frontmatter flag rather than on the filename disagreeing with the provider.
+# It runs on any run that left a report behind, not only a successful one,
+# because the client writes the report before validating it and exits 3 when
+# validation fails. If the client fails AND alignment then refuses, the recipe
+# exits on the alignment error rather than the client's status; both are printed,
+# but the exit code is the second one.
+# Those disagree routinely and innocently: `research-disorder edison Foo` writes
+# `-edison.md` for a report whose provider is `falcon`, and the cyberian-codex
+# recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
+dr_fallback := ""
+dr_align := "uv run python scripts/align_research_provider.py"
+
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
 # The report is a source of *candidate* accessions only: every accession it
 # returns must be resolved against the repository API with
@@ -1597,6 +1709,7 @@ research-datasets provider disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
+    requested_provider="{{provider}}"
     echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
@@ -1608,7 +1721,13 @@ research-datasets provider disorder *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
-        {{args}}
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # Verify that datasets[].accession values resolve to real repository records.
 # Nothing else in the validation stack checks dataset accessions, so run this
@@ -1685,6 +1804,7 @@ research-disorder provider disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -1697,7 +1817,13 @@ research-disorder provider disorder *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
-        {{args}}
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # Deep research on a shared mechanism module using specified provider
 # Examples:
@@ -1753,6 +1879,7 @@ research-module provider module *args="":
     PY
     )
     output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -1767,7 +1894,13 @@ research-module provider module *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
-        {{args}}
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # Deep research on a comorbidity using specified provider
 # Examples:
@@ -1821,6 +1954,7 @@ research-comorbidity provider comorbidity *args="":
 	IFS=$'\\t' read -r disease_a_label disease_b_label disease_a_slug disease_b_slug disease_b_components disease_b_composition < "$tmpfile"
 	rm -f "$tmpfile"
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -1835,7 +1969,13 @@ research-comorbidity provider comorbidity *args="":
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
 	    {{dr_validation}} \
-	    {{args}}
+	    {{dr_term_validation}} \
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$output_file" ]; then
+	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	fi
+	exit ${dr_status:-0}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
 # Asks the deep-research provider for trial-level R^2, PTE, STE, joint-model,
@@ -1859,6 +1999,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	# Filename-safe slug from the surrogate label
 	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
+	requested_provider="{{provider}}"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -1870,7 +2011,13 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
 	    {{dr_validation}} \
-	    {{args}}
+	    {{dr_term_validation}} \
+	    {{dr_fallback}} \
+	    {{args}} || dr_status=$?
+	if [ -f "$output_file" ]; then
+	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	fi
+	exit ${dr_status:-0}
 
 # Deep research on a disorder using cyberian with codex agent
 [group('Research')]
@@ -1887,6 +2034,7 @@ research-disorder-cyberian-codex disorder *args="":
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
+    requested_provider="cyberian-codex"
     echo "Researching: $disease_name (cyberian-codex) -> $output_file"
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
@@ -1898,7 +2046,13 @@ research-disorder-cyberian-codex disorder *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{dr_validation}} \
-        {{args}}
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$output_file" ]; then
+        {{dr_align}} "$output_file" --requested "$requested_provider"
+    fi
+    exit ${dr_status:-0}
 
 # List available research providers
 [group('Research')]
@@ -1936,6 +2090,40 @@ research-providers:
 validate-research-reference +args:
     {{dr_client}} validate-references \
         --cache-dir references_cache \
+        --in-place \
+        {{args}}
+
+# Term-check a deep-research report that already exists on disk -- the retro-fit
+# counterpart of the `dr_term_validation` flags baked into the research recipes,
+# for every report generated before deep-research-client 0.2.11.
+#
+# Rewrites each report in place, replacing any previous `## Term Validation`
+# section, so it is safe to re-run. Resolved labels are cached in `terms_cache/`
+# (gitignored), so a second run over the same report is offline and instant.
+#
+# NOTE the same asymmetry `validate-research-reference` has: on a report that
+# predates term validation this adds the markdown section but NOT a
+# `term_validation:` frontmatter block. Upstream only *refreshes* a frontmatter
+# summary that is already there, so that a tool asked to check terms never
+# reformats a file's frontmatter. On a retro-fitted report, read the section at
+# the bottom.
+#
+# Examples:
+#   just validate-research-terms research/Marfan_Syndrome-deep-research-falcon.md
+#   # non-destructive preview to stdout, or JSON for tooling:
+#   scripts/run_deep_research_client.sh validate-terms research/Foo.md
+#   scripts/run_deep_research_client.sh validate-terms research/Foo.md --json out.json
+#   # re-read an already-checked report without touching the network:
+#   just validate-research-terms research/Foo.md --offline
+#
+# Accepts a glob, but prefer one report at a time, as you come to curate it.
+#
+# Term-check a deep-research report that already exists on disk.
+[group('Research')]
+validate-research-terms +args:
+    {{dr_client}} validate-terms \
+        --cache-dir terms_cache \
+        --skip-prefix HGNC \
         --in-place \
         {{args}}
 
