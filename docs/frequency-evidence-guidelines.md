@@ -267,9 +267,16 @@ record is scoped to), you may not adopt the band unchanged. Choose one of:
    or the phenotype's `notes:`. This is the default; per Pattern D, a missing
    frequency is honest.
 
-Do **not** keep the band and merely note the mismatch in prose. That leaves a
-machine-readable quantitative claim the KB cannot defend, annotated by a string
-nothing reads.
+Do **not** keep a band whose *only* source is the broader entity and merely note
+the mismatch in prose. That leaves a machine-readable quantitative claim the KB
+cannot defend, annotated by a string nothing reads.
+
+This is the line between options 2 and 3, and it is about what the band rests
+on, not about where the mismatch is written down. Option 2 keeps a band that has
+its **own narrower quantitative source** and records the broad source's
+disagreement in prose, because the band is defensible without it. Option 3
+applies when no such source exists: there the band would rest entirely on the
+broad row, and prose cannot rescue it.
 
 **Worked precedents already in the KB:**
 

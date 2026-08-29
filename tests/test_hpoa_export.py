@@ -1,6 +1,7 @@
 """Tests for HPOA-extended exporter."""
 from pathlib import Path
 
+import pytest
 import yaml
 
 from dismech.export.hpoa_export import (
@@ -580,3 +581,34 @@ def test_frequency_disagreement_must_not_be_curated_as_refute(tmp_path):
         assert qualifiers != {"", "NOT"}, (
             f"{reference} emits both a positive and a NOT row for HP:0002108"
         )
+
+
+def test_marfan_pneumothorax_exports_no_exclusion():
+    """The real entry, not a fixture, must not export a NOT row for HP:0002108.
+
+    The synthetic test above pins that the *correct* shape exports cleanly, but
+    it builds both evidence items as SUPPORT, so it cannot fail if a REFUTE is
+    re-added to the real file. This one reads
+    ``kb/disorders/Marfan_Syndrome.yaml`` directly, so re-introducing the
+    regression fixed in PR #10003 fails here.
+
+    Scoped to the one entry deliberately. The invariant "one reference must not
+    yield both a positive and a NOT row for the same HP term" cannot yet be a
+    whole-KB gate: 11 (reference, HP term) pairs already violate it across
+    kb/disorders/, all pre-existing. Promoting it needs a baseline in the style
+    of check-snippet-grading, which is its own piece of work.
+    """
+    path = Path(__file__).resolve().parent.parent / "kb" / "disorders" / "Marfan_Syndrome.yaml"
+    if not path.exists():  # entry renamed or removed; nothing to assert
+        pytest.skip(f"{path.name} is not present")
+
+    rows, _ = hpoa_rows_for_disorder(path)
+    hp_rows = [r for r in rows if r["hpo_id"] == "HP:0002108"]
+
+    assert hp_rows, "spontaneous pneumothorax should still be exported for Marfan syndrome"
+    excluded = [r for r in hp_rows if r["qualifier"] == "NOT"]
+    assert not excluded, (
+        "Marfan syndrome must not export spontaneous pneumothorax as excluded; "
+        f"got NOT row(s) from {[r['reference'] for r in excluded]}. A frequency-band "
+        "disagreement is not an absence claim -- see docs/frequency-evidence-guidelines.md."
+    )
