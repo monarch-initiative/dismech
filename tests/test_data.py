@@ -1714,28 +1714,46 @@ def test_grouping_member_foreign_keys(filepath):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_module_references(filepath):
-    """Every `module` reference in a grouping must resolve to a module file."""
+    """Every `module` reference in a grouping must resolve to a module file.
+
+    The optional ``#Node Name`` anchor is checked too, matching what
+    `test_conforms_to_module_node_references` already does for the entry side.
+    Until dismech#9403 the two sides were asymmetric: an entry's `conforms_to`
+    anchor was node-checked but a criterion's was not, so a criterion naming a
+    renamed or mistyped node passed CI silently — precisely because the
+    evaluator drops the anchor as well. That silence is what makes the
+    stem-matching advisory in `dismech.groupings` safe to read.
+    """
     with open(filepath) as f:
         data = safe_load(f)
 
-    module_stems = _module_stems()
+    module_nodes = _module_node_names()
     errors = []
+
+    def check(ref, where):
+        stem, _, node = ref.partition("#")
+        stem, node = stem.strip(), node.strip()
+        if stem not in module_nodes:
+            errors.append(f"{where}={ref!r}: no kb/modules/{stem}.yaml")
+        elif node and node not in module_nodes[stem]:
+            errors.append(
+                f"{where}={ref!r}: module {stem!r} has no pathophysiology node "
+                f"named {node!r}"
+            )
 
     # Module refs inside the structured membership criteria expressions.
     for c, criteria in enumerate(data.get("membership_criteria", []) or []):
         for node in _iter_logic_nodes(criteria.get("logic")):
             ref = node.get("module")
-            if ref and _module_stem(ref) not in module_stems:
-                errors.append(f"membership_criteria[{c}].logic module={ref!r}")
+            if ref:
+                check(ref, f"membership_criteria[{c}].logic module")
 
     # Module refs inside per-member differentiating mechanisms.
     for i, member in enumerate(data.get("members", [])):
         for j, mech in enumerate(member.get("differentiating_mechanisms", []) or []):
             ref = mech.get("module")
-            if ref and _module_stem(ref) not in module_stems:
-                errors.append(
-                    f"members[{i}].differentiating_mechanisms[{j}].module={ref!r}"
-                )
+            if ref:
+                check(ref, f"members[{i}].differentiating_mechanisms[{j}].module")
 
     assert not errors, (
         f"Grouping module reference mismatches in {Path(filepath).name}. "

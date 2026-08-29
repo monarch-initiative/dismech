@@ -32,6 +32,14 @@ This module provides two tiers of tooling:
    resolving it may mean annotating the entry, loosening the criteria, or
    dropping the member. The tooling surfaces it; the curator decides which.
 
+   ``CONFORMS_TO_MODULE`` is deliberately matched on the module **stem** only,
+   even though most criteria name a ``#Node`` anchor. Honouring the anchor as a
+   verdict would flip live results, and some of those flips are criteria bugs
+   rather than curation gaps, so the anchor is reported as an **advisory**
+   instead: :attr:`MemberEvaluation.anchor_misses` lists the criteria whose
+   member conforms to the named module but not at the named node. Advisories
+   never change ``result`` and never gate. See issue #9403.
+
 3. **Overlap reporting** (:func:`compute_grouping_overlaps`) — all-vs-all
    comparison of grouping disease-member sets, expanding nested ``GROUPING``
    members to concrete disease entries.
@@ -361,6 +369,11 @@ class DiseaseFacts:
     gene_ids: set[str] = field(default_factory=set)
     go_ids: set[str] = field(default_factory=set)
     module_stems: set[str] = field(default_factory=set)
+    # Whole `conforms_to` strings, anchor included, normalized by
+    # _normalize_module_ref(). `module_stems` drives the CONFORMS_TO_MODULE
+    # verdict; this set only powers the anchor advisory, so the two must not be
+    # collapsed into one.
+    module_refs: set[str] = field(default_factory=set)
     # HP mode-of-inheritance ids from curated `inheritance_term` blocks. Kept
     # separate from `phenotype_freq` because an inheritance term is a statement
     # about the entry's genetic architecture, not a phenotype it manifests.
@@ -388,6 +401,21 @@ def _walk(obj: Any) -> Iterable[Any]:
 def _norm_tag(value: str) -> str:
     """Normalize a classification tag for comparison (case/whitespace-insensitive)."""
     return " ".join(value.lower().split())
+
+
+def _normalize_module_ref(ref: str) -> str:
+    """Normalize a ``module_stem#Node Name`` reference for comparison.
+
+    Whitespace around the stem and the anchor is stripped; an empty anchor
+    collapses to the bare stem, so ``"fibrotic_response#"`` and
+    ``"fibrotic_response"`` compare equal. Case is preserved — module stems and
+    node names are both case-sensitive elsewhere (``conforms_to`` foreign keys
+    are checked verbatim by ``test_conforms_to_module_node_references``), and
+    folding here would let the advisory disagree with the FK check.
+    """
+    stem, _, node = ref.partition("#")
+    stem, node = stem.strip(), node.strip()
+    return f"{stem}#{node}" if node else stem
 
 
 def _classification_tags(data: dict) -> set[str]:
@@ -447,6 +475,7 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
         conforms = node.get("conforms_to")
         if isinstance(conforms, str) and conforms:
             facts.module_stems.add(conforms.split("#", 1)[0].strip())
+            facts.module_refs.add(_normalize_module_ref(conforms))
 
         # Any term with an id contributes to the appropriate id set.
         term = node.get("term")
@@ -512,7 +541,16 @@ def load_disease_index(
 # --------------------------------------------------------------------------- #
 
 
-def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
+def _eval_leaf(
+    node: dict, facts: DiseaseFacts, *, anchor_exact: bool = False
+) -> Satisfaction:
+    """Evaluate one leaf.
+
+    ``anchor_exact`` switches ``CONFORMS_TO_MODULE`` from stem matching to
+    matching the whole ``module#Node`` reference. It exists to answer "what
+    would the verdict be if the anchor were honoured?" for the advisory and the
+    audit script; it is **not** the live semantics and defaults off.
+    """
     predicate = node.get("criterion_predicate")
     result = Satisfaction.UNKNOWN
 
@@ -538,12 +576,16 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
     elif predicate == "CONFORMS_TO_MODULE":
         ref = node.get("module")
         if ref:
-            stem = ref.split("#", 1)[0].strip()
-            result = (
-                Satisfaction.SATISFIED
-                if stem in facts.module_stems
-                else Satisfaction.NOT_SATISFIED
-            )
+            # Stem-only on purpose; the `#Node` anchor is reported by
+            # leaf_anchor_miss() rather than enforced here. See module docstring.
+            normalized = _normalize_module_ref(ref)
+            if anchor_exact and "#" in normalized:
+                # An anchor-free criterion keeps stem semantics even here:
+                # there is no node named, so there is nothing to tighten.
+                matched = normalized in facts.module_refs
+            else:
+                matched = normalized.split("#", 1)[0] in facts.module_stems
+            result = Satisfaction.SATISFIED if matched else Satisfaction.NOT_SATISFIED
     elif predicate == "HAS_INHERITANCE":
         # Optional payload: only a leaf that names a term can be checked.
         hp = _term_id(node.get("inheritance_term"))
@@ -599,15 +641,20 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
     return result
 
 
-def _eval_node(node: dict, facts: DiseaseFacts) -> Satisfaction:
+def _eval_node(
+    node: dict, facts: DiseaseFacts, *, anchor_exact: bool = False
+) -> Satisfaction:
     kind = classify_node(node)
     if kind is NodeKind.LEAF:
-        return _eval_leaf(node, facts)
+        return _eval_leaf(node, facts, anchor_exact=anchor_exact)
     if kind is NodeKind.INVALID:
         return Satisfaction.UNKNOWN
 
     operator = node["operator"]
-    child_results = [_eval_node(c, facts) for c in node.get("operands", []) or []]
+    child_results = [
+        _eval_node(c, facts, anchor_exact=anchor_exact)
+        for c in node.get("operands", []) or []
+    ]
 
     if operator == "NOT":
         # NOT over the conjunction of its operands.
@@ -657,6 +704,43 @@ def _term_ids(descriptors: Any) -> set[str]:
     return ids
 
 
+def leaf_anchor_miss(node: dict, facts: DiseaseFacts) -> str | None:
+    """Return the criterion's module ref when it is satisfied only on the stem.
+
+    A ``CONFORMS_TO_MODULE`` leaf that names ``module#Node`` is satisfied today
+    by any ``conforms_to`` on that module, at any node. When the member has no
+    ``conforms_to`` at the *named* node, this returns the criterion's ref so
+    callers can report it; otherwise ``None``.
+
+    This is strictly advisory. In particular a miss under an ``OR`` usually just
+    says which arm of a disjunction the member is on, which is the disjunction
+    working as designed — not a pending contradiction. Callers must keep it
+    visually distinct from ``NOT_SATISFIED``.
+
+    Negated leaves are skipped: under ``negated: true`` a stem match already
+    produces NOT_SATISFIED, so "satisfied, but not at the named node" is not a
+    coherent thing to say about them.
+    """
+    if node.get("criterion_predicate") != "CONFORMS_TO_MODULE":
+        return None
+    if node.get("negated"):
+        return None
+    ref = node.get("module")
+    if not isinstance(ref, str):
+        return None
+    normalized = _normalize_module_ref(ref)
+    if "#" not in normalized:
+        # No anchor named (including the empty `"module#"` form), so there is
+        # nothing the criterion could be missing.
+        return None
+    stem = normalized.split("#", 1)[0]
+    if stem not in facts.module_stems:
+        return None  # already NOT_SATISFIED on the stem; nothing to advise
+    if normalized in facts.module_refs:
+        return None
+    return normalized
+
+
 @dataclass
 class MemberEvaluation:
     member: str
@@ -665,6 +749,14 @@ class MemberEvaluation:
     semantics: str | None
     result: Satisfaction
     leaves: list[tuple[str, Satisfaction]]  # (leaf description, result)
+    # Criteria refs this member satisfies on the module stem but not at the
+    # `#Node` the criterion names. Advisory: never folded into `result`.
+    anchor_misses: list[str] = field(default_factory=list)
+    # The verdict this block would get if every `#Node` anchor were honoured,
+    # set only when it differs from `result`. This is the actionable subset of
+    # `anchor_misses`: a miss on one arm of an OR whose sibling is satisfied
+    # leaves the block verdict alone and is not a pending contradiction.
+    anchor_exact_result: Satisfaction | None = None
 
 
 def evaluate_grouping(
@@ -690,22 +782,39 @@ def evaluate_grouping(
             if mtype not in ("DISEASE", "SUBTYPE") or ref not in index:
                 continue
             facts = index[ref]
+            leaf_nodes = [
+                leaf
+                for leaf in iter_nodes(logic)
+                if classify_node(leaf) is NodeKind.LEAF
+            ]
             leaves = [
                 (
                     leaf.get("description") or leaf.get("criterion_predicate", "?"),
                     _eval_leaf(leaf, facts),
                 )
-                for leaf in iter_nodes(logic)
-                if classify_node(leaf) is NodeKind.LEAF
+                for leaf in leaf_nodes
             ]
+            anchor_misses = [
+                miss
+                for leaf in leaf_nodes
+                if (miss := leaf_anchor_miss(leaf, facts)) is not None
+            ]
+            result = _eval_node(logic, facts)
+            anchor_exact_result: Satisfaction | None = None
+            if anchor_misses:
+                strict = _eval_node(logic, facts, anchor_exact=True)
+                if strict is not result:
+                    anchor_exact_result = strict
             evaluations.append(
                 MemberEvaluation(
                     member=ref,
                     member_type=mtype,
                     criteria_index=ci,
                     semantics=semantics,
-                    result=_eval_node(logic, facts),
+                    result=result,
                     leaves=leaves,
+                    anchor_misses=anchor_misses,
+                    anchor_exact_result=anchor_exact_result,
                 )
             )
     return evaluations
@@ -979,6 +1088,16 @@ def _report(paths: list[str], strict: bool) -> int:
             for desc, res in ev.leaves:
                 if res is not Satisfaction.SATISFIED:
                     print(f"      - {res.value}: {desc}")
+            for miss in ev.anchor_misses:
+                # Never gating, including under --strict: an OR-sibling miss is
+                # the disjunction working as designed, not a contradiction.
+                print(f"      ~ SATISFIED_ELSEWHERE_IN_MODULE: {miss}")
+            if ev.anchor_exact_result is not None:
+                print(
+                    f"      ~ block verdict would be "
+                    f"{ev.anchor_exact_result.value} if the #Node anchors were "
+                    f"honoured (see #9403)"
+                )
             if strict and ev.result is Satisfaction.NOT_SATISFIED:
                 exit_code = 1
 

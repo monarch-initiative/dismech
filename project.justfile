@@ -561,6 +561,14 @@ validate-groupings:
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
 
+# Measure the CONFORMS_TO_MODULE `#Node` anchor gap (dismech#9403): how many
+# (member, criterion) pairs are satisfied on the module stem but not at the
+# node the criterion names, and how many of those would change a block verdict.
+# Report-only; `--format tsv` for machine-readable output.
+[group('QC')]
+grouping-anchor-audit *args="":
+    uv run python scripts/grouping_module_anchor_audit.py {{args}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:

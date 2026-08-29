@@ -497,6 +497,20 @@ Use this when there is no individual item to name, including a knowledge gap
 attached to an intentionally empty section. A bare section name such as
 `clinical_burden` is not valid entity-reference syntax.
 
+**There are two independent `#`-anchor resolvers, and they are not equally
+strict.** `entity_refs.py` resolves intra-entry `<kind>#<name>` refs and is
+enforced as a hard foreign key. `groupings.py` resolves the cross-entry
+`module_stem#Node Name` refs used by `conforms_to` and by grouping
+`CONFORMS_TO_MODULE` criteria — and there the anchor is **checked as a foreign
+key but not used as a membership verdict**: a criterion naming
+`ciliopathy_dysfunction#Motile Cilia Beat Dysfunction` is satisfied by a member
+that conforms to `ciliopathy_dysfunction` at *any* node. The mismatch is
+reported rather than enforced (`just grouping-anchor-audit`; a "not at named
+node" badge on the grouping page) because some of the live mismatches are
+criteria that are too narrow rather than entries that are under-annotated.
+Do not assume `entity_refs.py`'s guarantees extend to a module anchor. See
+issue #9403.
+
 ### Cancer Entry Granularity
 
 Somatic cancer entries follow the **granularity ladder** ratified in design
