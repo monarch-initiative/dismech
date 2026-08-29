@@ -68,6 +68,29 @@ handled differently, on purpose:
 * ``history/`` — 67 records mention PARTIAL in ``details`` prose, never as an
   enum value. History is append-only and each record accurately describes the
   session as it ran, so the prose stays.
+* ``kb/hypotheses/**/*.md`` — deep-research provider reports and their citation
+  sidecars, which quote evidence blocks verbatim. The ``*.yaml`` glob below
+  never reaches them, which is the right outcome: they are provider output
+  consumed as a curation *input*, like ``research/``, and rewriting a report to
+  match a schema it was never validated against would misrepresent what the
+  provider returned. The 76 assessment ``*.yaml`` files in the same tree are in
+  scope and carry no retired value.
+
+Re-running it: the migration races ongoing curation
+---------------------------------------------------
+While this change is in review, curation PRs keep merging to ``main`` carrying
+``supports: PARTIAL``, so a branch that was clean when it was pushed goes red
+the moment it is refreshed. Re-running ``--apply`` after a refresh is the
+intended fix, so the run is **additive**: the worklist is merged with whatever
+is already on disk, keyed on ``(file, location)``, rather than overwritten.
+Without that, a second run -- which only sees the few hundred items that
+arrived since the first -- would silently replace an 11,000-row worklist with a
+few hundred rows.
+
+The merge keeps a row whose ``location`` has since shifted (an index moves when
+a curator inserts an evidence item above it). The worklist is advisory triage
+input, not a foreign key, so a stale index costs a curator one search rather
+than corrupting anything.
 
 Prose is left alone
 -------------------
@@ -205,6 +228,18 @@ def main() -> int:
         return 0
 
     WORKLIST.parent.mkdir(parents=True, exist_ok=True)
+    merged = {(row["file"], row["location"]): row for row in rows}
+    carried = 0
+    if WORKLIST.exists():
+        with WORKLIST.open(newline="") as handle:
+            for row in csv.DictReader(handle, delimiter="\t"):
+                key = (row["file"], row["location"])
+                if key not in merged:
+                    merged[key] = row
+                    carried += 1
+        print(f"carried {carried} row(s) forward from the existing worklist")
+    rows = list(merged.values())
+
     with WORKLIST.open("w", newline="") as handle:
         writer = csv.DictWriter(
             handle,
