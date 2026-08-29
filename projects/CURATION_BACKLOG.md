@@ -55,62 +55,100 @@ Four workstreams, ordered by yield per unit of effort rather than by size. The
 first three are **triage** work — the candidates already exist and need judgement,
 not fresh literature search. The fourth is genuine curation volume.
 
-Snapshot: **2026-08-27**, against 1,937 disorder entries. Supporting data lives in
+Supporting data lives in
 [`projects/CURATION_BACKLOG/`](https://github.com/monarch-initiative/dismech/tree/main/projects/CURATION_BACKLOG);
 regenerate it from the dashboards rather than hand-editing.
 
+> ### ⚠️ Mixed provenance — read before using the numbers
+>
+> This file was first assembled from a working tree that turned out to be
+> **9,389 commits behind `main`** (tree of 2026-08-13; the KB had grown from
+> 1,937 to 2,462 disorder entries in the interval). The dashboards were
+> regenerated at the time and came back byte-identical, which was mistaken for
+> confirmation that the figures were current — in fact both the committed and
+> the regenerated dashboards were derived from that same stale tree, so the
+> check only established self-consistency.
+>
+> **Workstream 1 has since been re-derived against `main` @ `9cb071deca`
+> (2026-08-29) and is current.** Workstreams 2, 3 and 4 have **not** been, and
+> their counts should be treated as lower bounds pending a rebuild. The lesson
+> generalizes: regenerating a derived artifact from a stale input proves
+> nothing about currency. Check `git log -1 origin/main` first.
+
 ## Where the KB stands
+
+Verified against `main` @ `9cb071deca` (2026-08-29):
 
 | Measure | Value |
 |---|---|
-| Disorder entries | 1,937 |
-| MONDO human-disease terms with an exact dismech page | 1,869 of 23,213 (8.1%) |
-| …covered exactly **or** by a parent page | 45.1% |
-| MONDO terms with no page relation at all | 11,279 |
-| Average weighted compliance | 89.5% (597 violations) |
-| Entries declaring any module conformance | 605 (31.2%) |
-| Comorbidity entries | 20 |
+| Disorder entries | 2,462 |
+| Distinct curated MONDO IDs (primary, subtype, exact/narrow mapping) | 2,503 |
+| Comorbidity entries | 25 |
+| Mechanism modules | 164 |
+| Groupings | 98 |
 
-Phenotypes (99.9%) and pathophysiology (99.7%) are effectively complete. The gaps
-are everywhere else.
+The following are from the **stale** 2026-08-13 tree and are not yet re-derived —
+directionally useful, numerically wrong: MONDO exact-page coverage 8.1% (45.1%
+including parent-page coverage); average weighted compliance 89.5% with 597
+violations; 31.2% of entries declaring module conformance.
+
+Phenotypes and pathophysiology were effectively complete (99.9% / 99.7%) at the
+stale snapshot and are unlikely to have regressed. The gaps are everywhere else.
 
 ---
 
 ## Workstream 1 — MONDO terms already linked from existing pages
 
-**552 candidates.** Data: `linked-but-uncurated.tsv`.
+**458 candidates** (was 552 at the stale snapshot; **94 have been curated since**).
+Data: `linked-but-uncurated.tsv`. ✅ **Current as of `main` @ `9cb071deca`.**
 
 These diseases are already referenced *by* curated entries — as differentials,
 comorbidities, or related conditions — but have no entry of their own. Demand is
 therefore already demonstrated, which makes this the cheapest breadth work in the
 repo: no need to argue the disease is worth curating, only to curate it.
 
+That 94 closed in ~two weeks is itself the argument for re-deriving this list
+before picking from it: myocarditis, the former top of this queue at 4 inbound
+links, was curated in [#9954](https://github.com/monarch-initiative/dismech/pull/9954)
+and is gone from the list. Several more resolved not as new entries but as
+*existing* ones the lexical check had missed — `velocardiofacial syndrome` →
+`22q11.2_Deletion_Syndrome`, `proximal spinal muscular atrophy` →
+`Spinal_Muscular_Atrophy`, `RASopathy` → `RASopathies`.
+
 Ranked by inbound links from existing pages. Top of the queue:
 
-| Links | MONDO | Disease |
-|---:|---|---|
-| 4 | MONDO:0004496 | myocarditis |
-| 3 | MONDO:0044970 | mitochondrial disease |
-| 3 | MONDO:0006373 | pituitary gland adenoma |
-| 2 | MONDO:0000914 | CADASIL |
-| 2 | MONDO:0008021 | Cowden syndrome |
-| 2 | MONDO:0011484 | catecholaminergic polymorphic ventricular tachycardia 1 |
-| 2 | MONDO:0024557 | ataxia-telangiectasia-like disorder 1 |
-| 2 | MONDO:0011786 | allergic rhinitis |
+| Links | MONDO | Disease | Status |
+|---:|---|---|---|
+| 3 | MONDO:0044970 | mitochondrial disease | scope decision needed |
+| 3 | MONDO:0006373 | pituitary gland adenoma | **claimed — [#10069](https://github.com/monarch-initiative/dismech/issues/10069)** |
+| 2 | MONDO:0018564 | 3p25.3 microdeletion syndrome | |
+| 2 | MONDO:0003709 | agoraphobia | |
+| 2 | MONDO:0011786 | allergic rhinitis | |
+| 2 | MONDO:0001164 | antisocial personality disorder | |
+| 2 | MONDO:0024557 | ataxia-telangiectasia-like disorder 1 | |
+| 2 | MONDO:0005230 | cellulitis | |
+| 2 | MONDO:0017843 | congenital pulmonary sequestration | |
+| 2 | MONDO:0008021 | Cowden syndrome | NEC risk: eponym + numbered series |
+| 2 | MONDO:0015474 | cryptosporidiosis | |
+| 2 | MONDO:0015612 | Dent disease | |
 
-- [ ] Curate myocarditis (MONDO:0004496) — 4 inbound links
-- [ ] Curate pituitary gland adenoma (MONDO:0006373)
-- [ ] Curate CADASIL (MONDO:0000914)
-- [ ] Curate catecholaminergic polymorphic ventricular tachycardia 1 (MONDO:0011484)
-- [ ] Curate Cowden syndrome (MONDO:0008021)
+- [x] Curate myocarditis (MONDO:0004496) — done in #9954
+- [ ] Curate pituitary gland adenoma (MONDO:0006373) — claimed, #10069
 - [ ] Decide scope for mitochondrial disease (MONDO:0044970) — likely a Grouping, not a Disease
+- [ ] Curate agoraphobia (MONDO:0003709) and allergic rhinitis (MONDO:0011786) — both `CURATE_ROOT`, no NEC risk
+- [ ] Curate Cowden syndrome (MONDO:0008021) — **run `just preflight-dr` first**: NEC flags for numbered series (`type 1`), eponym collision (`Cowden`) and synonym aliasing (`Duclos`, `Lhermitte`)
 - [ ] Work down the remainder of `linked-but-uncurated.tsv` by inbound-link count
 
-Regenerate with `just gen-dashboard` (writes `dashboard/not_yet_curated.json`).
+**Before claiming from this list, re-derive it.** Regenerate the underlying data
+with `just gen-dashboard` (writes `dashboard/not_yet_curated.json`), then drop
+rows whose MONDO ID is curated on current `main`. Do not claim off a stale copy —
+that is how the myocarditis miss happened.
 
 ---
 
 ## Workstream 2 — Module-conformance suggestions awaiting triage
+
+> ⚠️ **Stale — derived from the 2026-08-13 tree, not re-derived against current `main`.** Counts are lower bounds; entries named here may already be curated.
 
 **66 suggestions at cosine ≥ 0.90; 58 of them actionable.** Data:
 `conformance-suggestions.tsv` (full set of 1,128 lives in
@@ -146,6 +184,8 @@ node name.
 ---
 
 ## Workstream 3 — Lowest-compliance existing entries
+
+> ⚠️ **Stale — derived from the 2026-08-13 tree, not re-derived against current `main`.** Counts are lower bounds; entries named here may already be curated.
 
 **Two coherent clusters in the bottom 30.** Data: `low-compliance-entries.tsv`
 (bottom 60, with the exact missing sections per file).
@@ -198,6 +238,8 @@ cluster; it needs its own pass.
 
 ## Workstream 4 — Outstanding entries from the original disease list
 
+> ⚠️ **Stale — derived from the 2026-08-13 tree, not re-derived against current `main`.** Counts are lower bounds; entries named here may already be curated.
+
 **177 rows still outstanding** of the 431 on `initial-diseases.tsv`
 (207 were flagged as candidates; 30 have been curated since that file was
 written). Data: `outstanding-initial-diseases.tsv`.
@@ -230,7 +272,7 @@ Split by whether a related entry already exists:
 
 These are real backlogs but have their own homes:
 
-- **Comorbidities** — 20 entries against 1,937 disorders, proportionally the
+- **Comorbidities** — 25 entries against 2,462 disorders, proportionally the
   largest structural hole. Tracked in
   [`projects/COMORBIDITIES.md`](https://github.com/monarch-initiative/dismech/blob/main/projects/COMORBIDITIES.md).
 - **Evidence-quality debt** — 8,114 evidence items with `UNSPECIFIED`
