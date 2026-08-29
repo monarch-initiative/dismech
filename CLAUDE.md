@@ -857,11 +857,49 @@ All evidence must have PMID references and support classification:
 ```yaml
 evidence:
   - reference: PMID:12345678
-    supports: SUPPORT  # or REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT
+    supports: SUPPORT  # or REFUTE, NO_EVIDENCE
+    directness: DIRECT  # optional: or INDIRECT, UNKNOWN
     evidence_source: HUMAN_CLINICAL  # or MODEL_ORGANISM, IN_VITRO, COMPUTATIONAL
     snippet: "Quoted text from the paper"
     explanation: "Why this evidence supports/refutes the claim"
 ```
+
+#### `supports` is direction; `directness` is a separate axis
+
+`supports` records **which way** the cited evidence cuts, and nothing else:
+
+- `SUPPORT` — the evidence supports the claim
+- `REFUTE` — the evidence contradicts the claim
+- `NO_EVIDENCE` — the cited reference does not bear on the claim at all
+
+`directness` (optional) records **how directly** the quoted text bears on the
+claim. It is *not* a strength or quality grade — an `INDIRECT` quote may come
+from a large controlled trial, and a `DIRECT` one from a single case report:
+
+- `DIRECT` — the quoted text asserts the claim itself
+- `INDIRECT` — the quote asserts something from which the claim follows by an
+  inference step: a therapeutic response cited as validation of the mechanism it
+  targets, or a result from an inverted or non-human model system
+- `UNKNOWN` — not yet assessed
+
+**Leave `directness` off unless you have actually assessed it.** Absent means
+nobody has judged it, which is the honest state of most of the KB. Do not fill
+it in to look complete.
+
+**`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
+tempted to reach for the old `PARTIAL`, one of these is what you mean:
+
+| You want to say | Use |
+|---|---|
+| supports the claim, but through an inference step | `SUPPORT` + `directness: INDIRECT` |
+| right mechanism, inverted or non-human model system | `SUPPORT` + `directness: INDIRECT` |
+| supports one part of the claim, contradicts another | **two items** — a `SUPPORT` and a `REFUTE`, each quoting the sentence that carries it |
+| true and worth citing, but not about this claim | `NO_EVIDENCE` |
+| an earlier version of this entry's text was wrong | fix the text; record the correction in a `history/` record |
+
+The third row is the one to watch. A single evidence item making two opposite
+claims is the same defect as one item mixing two `evidence_source` values, and
+has the same remedy: split it.
 
 **IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
 
@@ -1810,8 +1848,12 @@ quote is the defect. Note it is keyed on the **quoted sentence**, not the PMID �
 one paper legitimately carries several values across different sentences, which
 is what "If a paper mixes sources, split evidence items" above already asks for.
 `supports` is deliberately *not* gated: it is claim-relative, so the same
-sentence correctly reads `SUPPORT` for one claim and `PARTIAL` for another
-(`just list-snippet-grading --fields all` shows those as a triage view).
+sentence correctly reads `SUPPORT` for one claim and `REFUTE` for another
+(`just list-snippet-grading --fields all` shows those as a triage view). Note
+this is now a much weaker effect than it used to be — retiring `PARTIAL` cut
+`supports` divergences from 8,285 to 353, against 715 for `evidence_source`, so
+most of that signal was the value's ambiguity rather than claim-relativity.
+Gating `supports` is worth revisiting.
 
 **Why the entity-ref check is a CI step and not just a test.** The same rules
 run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
