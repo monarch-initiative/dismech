@@ -1,0 +1,218 @@
+id: https://w3id.org/monarch-initiative/dismech/hypothesis_reconciliation
+name: dismech_hypothesis_reconciliation
+title: Disorder Mechanisms Hypothesis Report Reconciliation Schema
+description: >-
+  A structured reconciliation of two or more separately assessed provider
+  reports for one mechanistic hypothesis. One authoritative
+  `kb/hypotheses/<Disease>/<hypothesis_id>/reconciliation.yaml` compares
+  provider-by-assessor sidecars without replacing those source assessments or
+  promoting report claims into the disorder YAML.
+license: BSD-3-Clause
+
+imports:
+  - linkml:types
+  - hypothesis_assessment
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  dismech: https://w3id.org/monarch-initiative/dismech/
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: dismech
+default_range: string
+
+enums:
+  ReconciliationClaimKindEnum:
+    description: Kind of comparison represented by a reconciled claim.
+    permissible_values:
+      SCIENTIFIC_CLAIM:
+        description: A mechanistic or evidential claim about the hypothesis.
+      EVIDENCE_QUALITY:
+        description: A comparison of source quality, directness, or reliability.
+      COVERAGE:
+        description: A comparison of literature or subject-matter coverage.
+      RESEARCH_PRIORITY:
+        description: A reconciled experiment, dataset, or follow-up priority.
+
+  ReconciliationStanceEnum:
+    description: How one provider report stands relative to a reconciled claim.
+    permissible_values:
+      CONCORDANT:
+        description: The raw provider report asserts the claim in compatible scope.
+      PARTIAL:
+        description: The raw provider report asserts only part or a weaker form of the claim.
+      CONTRADICTORY:
+        description: The raw provider report asserts a position that conflicts with the claim.
+      SILENT:
+        description: The raw provider report does not address the claim.
+
+  ReconciliationClaimOriginEnum:
+    description: >-
+      Where a provider position came from. Lineage prevents a downstream report
+      from being counted as independent convergence when its seed already
+      contained an earlier provider's finding.
+    permissible_values:
+      PROVIDER_DISCOVERY:
+        description: The provider surfaced the claim from sources not present in its seed.
+      PROVIDER_EXTRACTION:
+        description: >-
+          The provider extracted a new claim or detail from a source that was
+          already cited in its seed, but the claim itself was not in the seed.
+      PROVIDER_INFERENCE:
+        description: The provider inferred the claim beyond what its seed stated.
+      SEED_DERIVED:
+        description: The claim was already present in this provider's supplied seed.
+      PRIOR_PROVIDER_DERIVED:
+        description: The seed or prompt explicitly carried the claim from another provider.
+      UNKNOWN:
+        description: Available provenance cannot distinguish discovery from seed reuse.
+
+slots:
+  reconciled_at:
+    description: When this reconciliation was completed (ISO 8601 / RFC 3339).
+    range: datetime
+  providers:
+    description: Provider-by-assessor sidecars compared in this reconciliation.
+    range: ReconciliationProvider
+    multivalued: true
+    inlined_as_list: true
+    minimum_cardinality: 2
+    required: true
+  source_assessment:
+    description: Path to a provider assessment YAML, relative to this reconciliation.
+    required: true
+  source_report:
+    description: Path to the assessed provider report, relative to this reconciliation.
+    required: true
+  contribution_summary:
+    description: Distinctive contribution of this assessed report to the reconciliation.
+  limitations:
+    description: Material limitations of this assessed report for the comparison.
+  reconciled_claims:
+    description: Provider-neutral claims reconciled across all declared assessments.
+    range: ReconciledClaim
+    multivalued: true
+    inlined_as_list: true
+    minimum_cardinality: 1
+    required: true
+  claim_kind:
+    description: Whether the claim concerns science, evidence, coverage, or research priority.
+    range: ReconciliationClaimKindEnum
+    required: true
+  provider_support:
+    description: Position of every declared raw provider report on this claim.
+    range: ReconciliationProviderSupport
+    multivalued: true
+    inlined_as_list: true
+    minimum_cardinality: 2
+    required: true
+  stance:
+    description: How this provider report stands relative to the reconciled claim.
+    range: ReconciliationStanceEnum
+    required: true
+  assessment_claim_ids:
+    description: >-
+      claim_id values in the provider assessment that anchor this position.
+      They connect the report stance to its independent appraisal but do not
+      determine the stance. Required for non-SILENT positions and absent for
+      SILENT positions.
+    multivalued: true
+  report_quote:
+    description: >-
+      Verbatim excerpt from the provider report that anchors this position.
+      Required for non-SILENT positions and absent for SILENT positions.
+  artifacts:
+    description: >-
+      Optional human-readable reconciliation artifacts, relative to the
+      reconciliation YAML.
+    multivalued: true
+  claim_origin:
+    description: Provenance of this provider position relative to its seed and prior reports.
+    range: ReconciliationClaimOriginEnum
+  derived_from_provider:
+    description: >-
+      Earlier provider whose result supplied this position when claim_origin is
+      PRIOR_PROVIDER_DERIVED.
+  notes:
+    description: Free-text reconciliation notes or follow-up context.
+
+classes:
+  HypothesisReconciliation:
+    description: One curator's cross-provider reconciliation for one hypothesis.
+    tree_root: true
+    slots:
+      - schema_version
+      - assessor
+      - hypothesis_id
+      - reconciled_at
+      - providers
+      - overall_verdict
+      - summary
+      - reconciled_claims
+      - artifacts
+      - notes
+    slot_usage:
+      schema_version:
+        required: true
+      assessor:
+        required: true
+      hypothesis_id:
+        required: true
+      overall_verdict:
+        required: true
+        description: Overall reconciled verdict across the selected provider inputs.
+      reconciled_at:
+        required: true
+      summary:
+        required: true
+        description: Concise explanation of the overall reconciled verdict.
+
+  ReconciliationProvider:
+    description: One separately assessed provider report used as an input.
+    slots:
+      - provider
+      - source_assessment
+      - source_report
+      - contribution_summary
+      - limitations
+
+  ReconciledClaim:
+    description: A provider-neutral claim and its reconciled disposition.
+    slots:
+      - claim_id
+      - claim_kind
+      - statement
+      - disposition
+      - rationale
+      - provider_support
+      - citations
+      - notes
+    slot_usage:
+      claim_id:
+        required: true
+        description: Stable local identifier for one reconciled claim.
+      statement:
+        required: true
+        description: Provider-neutral statement being reconciled.
+      rationale:
+        required: true
+        description: Why the provider-neutral claim received this disposition.
+      disposition:
+        description: The reconciler's treatment of this provider-neutral claim.
+
+  ReconciliationProviderSupport:
+    description: >-
+      How one raw provider report stands relative to a reconciled claim, linked
+      to the separate assessment that appraises that report.
+    slots:
+      - provider
+      - stance
+      - assessment_claim_ids
+      - report_quote
+      - claim_origin
+      - derived_from_provider
+      - rationale
+    slot_usage:
+      rationale:
+        required: true
+        description: Why the raw report received this stance and lineage label.

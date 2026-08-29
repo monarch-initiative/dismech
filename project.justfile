@@ -649,7 +649,7 @@ fetch-ontology-dbs *names="":
 # have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
 # curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
 
-# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# Gates only on a malformed file: unparsable YAML, a bad MONDO ID, a duplicate,
 # a bad enum value. Staleness (the disease got curated elsewhere, the term was
 # retired) is an advisory and never gates — stubs are informative, not curated
 # content, and an unrelated curation PR must not turn stub PRs red.
@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
