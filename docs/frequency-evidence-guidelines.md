@@ -240,10 +240,15 @@ record is scoped to), you may not adopt the band unchanged. Choose one of:
    `tests/test_data.py`; a `notes:` string is not. Note `subtype:` is
    single-valued, so a restriction naming several subtypes ("primarily in RDEB",
    covering three of four) cannot be expressed this way — keep it in `notes:`.
-2. **Keep the band, demote the evidence** — when a *narrower*, quantitative
+2. **Keep the band, record the disagreement** — when a *narrower*, quantitative
    source disagrees with the broad band, keep the narrow band and cite the broad
-   row as `supports: PARTIAL` with an `explanation` naming the conflict
-   outright.
+   row as `supports: REFUTE` against the band, with an `explanation` naming the
+   conflict outright. (This said `supports: PARTIAL` before that value was
+   retired in issue #7439. `REFUTE` is the more honest reading: a row asserting
+   "Very frequent (99-80%)" does not partly support an `OCCASIONAL` band, it
+   contradicts it. Where the same row is also the source for the *association*,
+   that is a second, separate `SUPPORT` item — one evidence item should not make
+   two opposite claims.)
 3. **Drop the band** — when the only source for it is the broader entity, omit
    `frequency:` and record the reason where a reader will meet it: the cited
    row's `explanation` (best — it sits next to the band you declined to adopt)
@@ -258,7 +263,7 @@ nothing reads.
 
 | Entry / phenotype | Choice | Why |
 |---|---|---|
-| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`, ORPHA row cited `PARTIAL` with the conflict stated. |
+| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`, ORPHA row cited `REFUTE` against that band with the conflict stated. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Cutaneous Squamous Cell Carcinoma` | 1 — scope it | `VERY_FREQUENT` comes from National EB Registry cumulative risk in severe generalized RDEB (90.1% by 55), not DEB as a whole, so the record carries `subtype: RDEB-sev gen`. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Osteoporosis` | 3 — drop it | The only source is a GeneReviews management sentence that states no rate. Band omitted; `notes:` records the reason. |
 | `Osteogenesis_Imperfecta_Type_I` → `Hyperhidrosis` | 3 — drop it | `ORPHA:666`'s "Frequent (79-30%)" row is cited for the association only; the evidence `explanation` states that no type-I band is asserted because the band reflects the whole OI spectrum. |
