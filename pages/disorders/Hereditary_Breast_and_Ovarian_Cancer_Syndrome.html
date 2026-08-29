@@ -844,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2892,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2900,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3726,6 +3752,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4175,6 +4205,40 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29625052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29625052" target="_blank">PMID:29625052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 659 predisposition variants and 18 additional large deletions in tumor suppressors, including ATM, BRCA1, and NF1, showed low gene expression and frequent (43%) loss of heterozygosity or biallelic two-hit events."</div>
+
+
+                <div class="evidence-explanation">Pan-cancer germline-plus-tumor evidence, naming BRCA1 explicitly, that carriers reach a biallelic state in their tumors with measurable loss of expression. This node previously carried no evidence at all while asserting the two-hit mechanism in its description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -4260,14 +4324,15 @@ This pathophysiological event involves decreased homologous recombination (GO:00
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22193408" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22193408" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22193408" target="_blank">PMID:22193408</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4446,6 +4511,7 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4491,7 +4557,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRCA1/2 Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous BRCA1 or BRCA2 mutations result in one functional allele. Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates BRCA function, initiating tumorigenesis. This follows Knudson\u0027s two-hit hypothesis for tumor suppressor gene inactivation.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HR-mediated repair leads to accumulation of chromosomal aberrations, large-scale genomic rearrangements, and copy number alterations. This pattern of genomic instability, termed \u0027BRCAness\u0027 or homologous recombination deficiency (HRD), is characteristic of BRCA-deficient tumors and creates therapeutic vulnerability to PARP inhibitors.\", \"meta\": {\"biological_processes\": [\"regulation of DNA damage checkpoint\"]}}, {\"id\": \"Homologous Recombination Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRCA1 and BRCA2 are essential components of the homologous recombination (HR) pathway for error-free repair of DNA double-strand breaks. Loss of BRCA function forces cells to rely on error-prone repair pathways such as non-homologous end joining, leading to genomic instability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Tumor Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of genomic alterations in BRCA-deficient cells leads to transformation and tumor development. The tissue specificity (breast, ovary) may relate to estrogen exposure and proliferative demands on these tissues, though the precise mechanisms remain incompletely understood. Emerging evidence identifies serous tubal intraepithelial carcinoma (STIC) in the fallopian tube as a precursor for BRCA-associated high-grade serous ovarian cancer.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"BRCA1/2 Tumor Suppressor Loss\", \"target\": \"Homologous Recombination Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRCA loss impairs error-free DNA double-strand break repair\"}, {\"source\": \"Homologous Recombination Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Error-prone repair mechanisms cause chromosomal rearrangements\"}, {\"source\": \"Genomic Instability\", \"target\": \"Tumor Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic aberrations drive malignant transformation\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRCA1/2 Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous BRCA1 or BRCA2 mutations result in one functional allele. Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates BRCA function, initiating tumorigenesis. This follows Knudson\u0027s two-hit hypothesis for tumor suppressor gene inactivation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HR-mediated repair leads to accumulation of chromosomal aberrations, large-scale genomic rearrangements, and copy number alterations. This pattern of genomic instability, termed \u0027BRCAness\u0027 or homologous recombination deficiency (HRD), is characteristic of BRCA-deficient tumors and creates therapeutic vulnerability to PARP inhibitors.\", \"meta\": {\"biological_processes\": [\"regulation of DNA damage checkpoint\"]}}, {\"id\": \"Homologous Recombination Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRCA1 and BRCA2 are essential components of the homologous recombination (HR) pathway for error-free repair of DNA double-strand breaks. Loss of BRCA function forces cells to rely on error-prone repair pathways such as non-homologous end joining, leading to genomic instability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"homologous recombination\"]}}, {\"id\": \"Tumor Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive accumulation of genomic alterations in BRCA-deficient cells leads to transformation and tumor development. The tissue specificity (breast, ovary) may relate to estrogen exposure and proliferative demands on these tissues, though the precise mechanisms remain incompletely understood. Emerging evidence identifies serous tubal intraepithelial carcinoma (STIC) in the fallopian tube as a precursor for BRCA-associated high-grade serous ovarian cancer.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"BRCA1/2 Tumor Suppressor Loss\", \"target\": \"Homologous Recombination Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRCA loss impairs error-free DNA double-strand break repair\"}, {\"source\": \"Homologous Recombination Deficiency\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Error-prone repair mechanisms cause chromosomal rearrangements\"}, {\"source\": \"Genomic Instability\", \"target\": \"Tumor Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic aberrations drive malignant transformation\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4575,6 +4641,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4690,6 +4757,7 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4768,6 +4836,7 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4850,6 +4919,7 @@ This clinical feature is Ovarian carcinoma (HP:0025318). HP:0025318 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4917,6 +4987,7 @@ This clinical feature is Prostate cancer (HP:0012125). HP:0012125 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4995,6 +5066,7 @@ This clinical feature is triple-negative breast carcinoma (MONDO:0005494). MONDO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5060,6 +5132,7 @@ This clinical feature is Fallopian tube carcinoma (HP:0030394). HP:0030394 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5129,6 +5202,7 @@ This clinical feature is Primary peritoneal carcinoma (HP:0030406). HP:0030406 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5196,6 +5270,7 @@ This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5315,6 +5390,7 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"the proteins work in concert to protect the genome from double-strand DNA
@@ -5403,6 +5479,7 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5507,6 +5584,7 @@ This treatment is Prophylactic Mastectomy (NCIT:C94445). NCIT:C94445 is a clinic
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5589,6 +5667,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5697,6 +5776,7 @@ This treatment uses olaparib (CHEBI:83766). CHEBI:83766 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"olaparib after completion of local treatment and neoadjuvant or adjuvant
@@ -5720,6 +5800,7 @@ or distant disease than was placebo."</div>
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5741,6 +5822,7 @@ or distant disease than was placebo."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5908,6 +5990,33 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5967,6 +6076,7 @@ has_subtypes:
     cancer risk.
 pathophysiology:
 - name: BRCA1/2 Tumor Suppressor Loss
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Biallelic Tumor Suppressor Inactivation in a Susceptible Cell&#34;
   description: &gt;-
     Germline heterozygous BRCA1 or BRCA2 mutations result in one functional allele.
     Somatic loss or mutation of the remaining wild-type allele (second hit) eliminates
@@ -5978,10 +6088,25 @@ pathophysiology:
     term:
       id: GO:0006281
       label: DNA repair
+  evidence:
+  - reference: PMID:29625052
+    reference_title: &#34;Pathogenic Germline Variants in 10,389 Adult Cancers.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The 659 predisposition variants and 18 additional large deletions in tumor
+      suppressors, including ATM, BRCA1, and NF1, showed low gene expression and
+      frequent (43%) loss of heterozygosity or biallelic two-hit events.
+    explanation: &gt;-
+      Pan-cancer germline-plus-tumor evidence, naming BRCA1 explicitly, that
+      carriers reach a biallelic state in their tumors with measurable loss of
+      expression. This node previously carried no evidence at all while
+      asserting the two-hit mechanism in its description.
   downstream:
   - target: Homologous Recombination Deficiency
     description: BRCA loss impairs error-free DNA double-strand break repair
 - name: Homologous Recombination Deficiency
+  conforms_to: &#34;dna_repair_synthetic_lethality#HRR or FA/BRCA Repair Deficiency&#34;
   description: &gt;-
     BRCA1 and BRCA2 are essential components of the homologous recombination (HR)
     pathway for error-free repair of DNA double-strand breaks. Loss of BRCA function
@@ -5999,12 +6124,13 @@ pathophysiology:
   evidence:
   - reference: PMID:22193408
     reference_title: &#34;BRCA1 and BRCA2: different roles in a common pathway of genome protection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;BRCA1 is a pleiotropic DDR protein that functions in both checkpoint \nactivation and DNA repair, whereas BRCA2 is a mediator of the core mechanism of \nhomologous recombination.&#34;
     explanation: &gt;-
       Review distinguishes BRCA1 and BRCA2 roles in DNA damage response and homologous
       recombination repair.
 - name: Genomic Instability
+  conforms_to: &#34;genome_instability_mutation#Mutator Phenotype and Chromosomal Instability&#34;
   description: &gt;-
     Loss of HR-mediated repair leads to accumulation of chromosomal aberrations,
     large-scale genomic rearrangements, and copy number alterations. This pattern
@@ -6021,6 +6147,7 @@ pathophysiology:
   - target: Tumor Development
     description: Accumulated genomic aberrations drive malignant transformation
 - name: Tumor Development
+  conforms_to: &#34;germline_two_hit_tumor_predisposition#Clonal Expansion and Tumor Initiation&#34;
   description: &gt;-
     Progressive accumulation of genomic alterations in BRCA-deficient cells leads
     to transformation and tumor development. The tissue specificity (breast, ovary)
@@ -6918,6 +7045,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6986,6 +7114,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7093,6 +7222,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7276,6 +7406,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7344,6 +7475,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7416,6 +7548,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7484,6 +7617,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7556,6 +7690,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7624,6 +7759,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7696,6 +7832,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7764,6 +7901,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7836,6 +7974,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7904,6 +8043,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7976,6 +8116,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8044,6 +8185,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8190,6 +8332,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8258,6 +8401,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8330,6 +8474,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8398,6 +8543,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8470,6 +8616,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8538,6 +8685,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8610,6 +8758,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8678,6 +8827,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8750,6 +8900,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8820,6 +8971,7 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8888,6 +9040,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9385,7 +9538,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Breast and Ovarian Cancer Syndrome", "mondoId": "MONDO:0011450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Breast_and_Ovarian_Cancer_Syndrome", "yamlRevision": "bb525c65c6eb"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Breast and Ovarian Cancer Syndrome", "mondoId": "MONDO:0011450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Breast_and_Ovarian_Cancer_Syndrome", "yamlRevision": "0a2e5f9228a0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

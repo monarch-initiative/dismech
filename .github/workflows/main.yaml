@@ -73,6 +73,13 @@ jobs:
             schema:
               - 'src/dismech/schema/**'
               - 'src/dismech/groupings.py'
+              # SECTION_KEYS is the vocabulary every entity reference in kb/ is
+              # resolved against, so removing an alias from it can invalidate KB
+              # files exactly as a schema edit can (#9473). It matches `src/**`
+              # and so already fires the `python` filter today -- listing it here
+              # keeps the whole-KB sweep running if the entity-ref tests are ever
+              # moved under the `kb_data` marker.
+              - 'src/dismech/entity_refs.py'
               - 'tests/test_data.py'
             schema_generation:
               - 'src/dismech/schema/**'
@@ -277,15 +284,23 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: uv run python scripts/check_title_snippets.py --against-ref "origin/$BASE_REF"
 
-      # Ungated for the same reason as the two ratchets above: an evidence-free
-      # `environmental:` exposure is added by curation PRs touching only kb/,
-      # which no src/tests path filter would catch. Same live grandfathering
-      # against the base branch, so the pre-existing backlog is not inherited
-      # and only exposures this PR adds can fail (issue #8296).
-      - name: Check for new evidence-free environmental exposures
+      # Ungated for the same reason as the ratchets above, and for a sharper one:
+      # a fabricated `reference_title` is written by exactly the curation PR that
+      # verified the snippet beside it, so it arrives in a kb/-only PR no
+      # src/tests path filter would catch. Offline -- the correct title is
+      # already in the reference's cache frontmatter (issue #9138).
+      - name: Check for new mismatched reference titles
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-        run: uv run python scripts/check_environmental_evidence.py --against-ref "origin/$BASE_REF"
+        run: uv run python scripts/check_reference_titles.py --against-ref "origin/$BASE_REF"
+
+      # Ungated for the same reason as the two ratchets above: an evidence-free
+      # `environmental:` exposure is added by curation PRs touching only kb/,
+      # which no src/tests path filter would catch. Unlike those two this is a
+      # hard gate, not a ratchet -- the #8296 backlog reached zero, so there is
+      # nothing to grandfather and no base-branch ref to derive it from.
+      - name: Check for evidence-free environmental exposures
+        run: uv run python scripts/check_environmental_evidence.py
 
       # Also ungated: there is no `cache/**` path filter, so a curation PR that
       # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
@@ -325,6 +340,22 @@ jobs:
       # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
       - name: Check for duplicate YAML keys
         run: uv run python scripts/check_duplicate_yaml_keys.py
+
+      # Ungated and whole-KB on purpose, and for a sharper reason than the
+      # checks around it: the entity-ref rules ARE covered by pytest
+      # (`test_entity_ref_foreign_keys`), but that test is selected by the
+      # `python`/`schema` path filters and so never runs on a curation PR --
+      # which touches only `kb/`, and is the only kind of PR that can break a
+      # reference. Two entries reached `main` that way (#9473), and the
+      # reference-only gate added in #9224 would have been unenforceable on
+      # exactly the PRs it was written for.
+      #
+      # Whole-KB rather than changed-files because a PR that renames or deletes
+      # a node need not touch the file holding the reference to it. ~13s over
+      # 2,532 files, offline. The pytest sweep stays as-is; this is a second
+      # lane, not a replacement.
+      - name: Check entity references resolve
+        run: uv run python scripts/check_entity_refs.py
 
       # Ungated and whole-KB on purpose, and REPORT-ONLY: every other gate here
       # checks a snippet against the cache, so a false claim in *prose* that a
@@ -396,10 +427,16 @@ jobs:
           # live content, not the committed baseline snapshot (see the fetch
           # step above).
           SNIPPET_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
-          # Same live grandfathering for the environmental-evidence ratchet, so
-          # tests/environmental_evidence_baseline.txt stays a local fallback
-          # rather than something parallel curation PRs race to update (#8296).
-          ENVIRONMENTAL_EVIDENCE_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
+          # The environmental-evidence check no longer needs a var here: its
+          # backlog reached zero and the ratchet was retired, so it is a hard
+          # gate with no baseline to grandfather against (#8296).
+          # Live grandfathering for the snippet-grading gate (#8184), which
+          # went unwired here longer than its siblings. Without it
+          # resolve_baseline() silently takes the committed-snapshot fallback
+          # its own docstring calls the fallback, so every divergence merged
+          # since that snapshot reads as newly introduced and the gate is red
+          # for every PR.
+          SNIPPET_GRADING_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
         run: just test-python-code
 
       - name: Run LinkML example tests

@@ -17,9 +17,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from dismech.entity_refs import (
     canonical_kind,
+    entity_ref_errors,
     iter_entity_refs,
     parse_entity_ref,
-    resolve_entity_ref,
 )
 from dismech.yaml_io import safe_load
 
@@ -838,14 +838,30 @@ def test_entity_ref_foreign_keys(filepath):
     Resolution lives in ``dismech.entity_refs`` so the renderer and any exporter
     follow a reference the same way. A cross-file reference, or a prefix absent
     from ``SECTION_KEYS``, is skipped rather than failed: an unmapped prefix is
-    a gap in that map, not a defect in the content.
+    a gap in that map, not a defect in the content -- outside the gated slots
+    (``_KNOWN_KIND_SLOTS``, which is ``attaches_to`` as well as the
+    reference-only pair), where an unmapped prefix is how a typo would escape
+    every check.
 
     ``attaches_to`` additionally has to *use* the grammar: a bare name there is
-    not a reference, so it silently resolved to nothing before (#9394). The
-    other two ref-bearing slots are exempt -- ``would_support`` /
-    ``would_refute`` deliberately hold references only, with prose outcomes
-    living in ``supporting_outcome`` / ``refuting_outcome``, but a stray prose
-    value there should be moved rather than failed, so it is not gated here.
+    not a reference, so it silently resolved to nothing before (#9394). In the
+    gated slots (``_KNOWN_KIND_SLOTS``, so not ``target``), a value naming a
+    real item in the entry is reported as a bare name rather than as prose: it
+    is a reference missing its prefix, and calling it prose would send a
+    curator to move a working pointer into a prose slot.
+
+    So do ``would_support`` / ``would_refute``, which hold references only --
+    a prose statement of the outcome belongs in ``supporting_outcome`` /
+    ``refuting_outcome`` (``REFERENCE_ONLY_SLOTS``, #9224). That was not gated
+    while the KB still held ~51 prose values; the migration that added the two
+    prose slots drove the backlog to zero, so this is a hard gate with no
+    baseline and a finding here is always something the current branch
+    introduced. Their ``<kind>``, and ``attaches_to``'s, must also be one this
+    repo knows (``_KNOWN_KIND_SLOTS``), because an unmapped prefix is skipped
+    by the resolver and so would otherwise let a typo -- or a sentence that
+    happens to contain a ``#`` -- through both checks. The fix for a genuinely
+    new section is to add it to ``SECTION_KEYS``, not to work around it.
+
     ``target`` is exempt because it carries plain node names in its other homes
     (``ModelMechanismLink``, ``target_mechanisms``, ``downstream``).
     """
@@ -854,21 +870,7 @@ def test_entity_ref_foreign_keys(filepath):
     if not isinstance(data, dict):
         return
 
-    errors = []
-    for site in iter_entity_refs(data):
-        parsed = parse_entity_ref(site.ref)
-        if parsed is None:
-            if site.slot == "attaches_to":
-                errors.append(
-                    f"{site.path}={site.ref!r} is a bare name, not a "
-                    f"<kind>#<name> entity reference"
-                )
-            continue
-        if resolve_entity_ref(data, site.ref) is False:
-            errors.append(
-                f"{site.path}={site.ref!r} does not resolve to a {parsed.kind}"
-            )
-
+    errors = entity_ref_errors(data)
     assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"
 
 

@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uveitis · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Uveitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Uveitis</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-08-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0020283" target="_blank" rel="noopener noreferrer">MONDO:0020283</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">46 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Uveitis</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Complex</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Uveitis</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Uveitis: comprehensive disease-characteristics report</h1>
+<h2>Executive summary</h2>
+<p>Uveitis is not one molecular disease but a heterogeneous group of more than 25 intraocular inflammatory disorders. It is classified anatomically as anterior, intermediate, posterior, or panuveitis and etiologically as infectious, noninfectious immune-mediated, idiopathic, drug/trauma/surgery-associated, or masquerade disease. The umbrella concept is therefore <strong>complex and usually multifactorial</strong>, not a single-gene Mendelian condition. Uveitis disproportionately affects working-age people, can recur for decades, and causes vision loss through both direct inflammatory injury and complications such as macular edema, cataract, glaucoma, retinal ischemia, and retinal detachment. Reported prevalence is approximately 36.2–730 per 100,000 and incidence 17–52.4 per 100,000 person-years, with large geographic and methodological variation. (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</p>
+<p>The most important 2023–2024 advances are: evidence connecting HLA-B27 uveitis to enteric antigen exposure and mucosally differentiated CD8 T cells; single-cell resolution of Th17/Treg and PIM1–CXCR4 biology; aqueous and tear proteomic biomarker discovery; highly accurate deep-learning detection of acute retinal necrosis; quantification of immune-checkpoint-inhibitor-associated risk; and late-stage trials of oral pathway-directed therapy and optimized local corticosteroid delivery. These findings remain heterogeneous in readiness: imaging AI has human external validation, proteomic panels require larger validation, and TIGIT, dimethyl fumarate, progesterone, and CD28/ICOS blockade remain preclinical for uveitis. (<a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-peters2024tigitstimulationsuppresses-pages-1-2">peters2024tigitstimulationsuppresses pages 1-2</a>, <a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>, NCT06431373 chunk 1, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>)</p>
+<p>The following table provides a compact ontology-ready representation; the narrative below adds qualification and evidence interpretation.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Core finding</th>
+<th>Suggested ontology terms/identifiers</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Definition / disease entity</td>
+<td>Uveitis is intraocular inflammation affecting the uveal tract and adjacent ocular structures; major anatomic classes are anterior, intermediate, posterior, and panuveitis (<a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-10-14">rosenbaum2018theeyeshave pages 10-14</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0020283" target="_blank" rel="noopener noreferrer">MONDO:0020283</a> uveitis; label-only: anterior uveitis, intermediate uveitis, posterior uveitis, panuveitis; MeSH/ICD/SUN classification labels</td>
+<td>Human review + multicenter clinical cohort</td>
+</tr>
+<tr>
+<td>Classification / disease-level resource</td>
+<td>SUN criteria are used for uveitis definition and anterior chamber grading; National Eye Institute system used for vitreous haze grading (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>)</td>
+<td>label-only: SUN Working Group criteria; NEI vitreous haze scale</td>
+<td>Human clinical standards</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Reported prevalence ranges about 36.2–730 per 100,000 and incidence 17–52.4 per 100,000; uveitis causes substantial visual impairment and often affects working-age adults (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>)</td>
+<td>label-only: epidemiologic measure, visual impairment</td>
+<td>Human epidemiology / reviews</td>
+</tr>
+<tr>
+<td>Demographics / regional pattern</td>
+<td>In a Colombian multicenter cohort of 3,404 patients, mean age at diagnosis was 41.1 years, 54.2% were female, 66.7% unilateral, 48.3% acute, and 83% non-granulomatous (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</td>
+<td>label-only: unilateral disease, acute onset, non-granulomatous inflammation</td>
+<td>Human multicenter cohort</td>
+</tr>
+<tr>
+<td>Major phenotype / ocular symptoms-signs</td>
+<td>Common phenotype spectrum includes anterior chamber cells/flare, vitreous haze, retinal vasculitis, chorioretinal inflammation, optic disc edema, and reduced visual acuity; anatomy-specific manifestations differ by subtype (<a href="#ref-rosenbaum2018theeyeshave-pages-10-14">rosenbaum2018theeyeshave pages 10-14</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</td>
+<td>HPO label-only: decreased visual acuity, photophobia, ocular pain, eye redness, floaters, vitreous haze, retinal vasculitis, macular edema</td>
+<td>Human clinical + imaging</td>
+</tr>
+<tr>
+<td>Major phenotype / pediatric disease</td>
+<td>Pediatric uveitis can be asymptomatic, especially JIA-associated chronic anterior uveitis; childhood incidence ~4.3/100,000 and prevalence ~27.9/100,000 (<a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</td>
+<td>HPO label-only: asymptomatic anterior uveitis, cataract, glaucoma</td>
+<td>Human pediatric review</td>
+</tr>
+<tr>
+<td>Quality-of-life / functional burden</td>
+<td>Uveitis is sight-threatening and associated with physical, economic, and visual-function burden; VFQ-25 is used as an outcome in current trials (<a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, NCT06310837 chunk 1)</td>
+<td>label-only: NEI VFQ-25; visual function impairment</td>
+<td>Human review + interventional trial design</td>
+</tr>
+<tr>
+<td>Anatomy affected / organ level</td>
+<td>Primary structures include iris, ciliary body, choroid, retina, vitreous, anterior chamber, and posterior segment (<a href="#ref-rosenbaum2018theeyeshave-pages-10-14">rosenbaum2018theeyeshave pages 10-14</a>, <a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>)</td>
+<td>UBERON label-only: iris, ciliary body, choroid, retina, vitreous humor, anterior chamber of eyeball, posterior segment of eyeball</td>
+<td>Human review + proteomics</td>
+</tr>
+<tr>
+<td>Cell types involved</td>
+<td>Pathogenic and regulatory immune cells implicated include Th17 cells, Th1 cells, Treg cells, CD8+ T cells, dendritic cells, granulocytes/neutrophils, plasma cells/B cells, NK cells, and retinal/endothelial cells (<a href="#ref-peters2024tigitstimulationsuppresses-pages-1-2">peters2024tigitstimulationsuppresses pages 1-2</a>, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, <a href="#ref-hoffmann2022preactivatedgranulocytesfrom-pages-1-3">hoffmann2022preactivatedgranulocytesfrom pages 1-3</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</td>
+<td>CL label-only: T helper 17 cell, T-helper 1 cell, regulatory T cell, CD8-positive alpha-beta T cell, dendritic cell, neutrophil, plasma cell, natural killer cell, endothelial cell</td>
+<td>Human + animal + in vitro</td>
+</tr>
+<tr>
+<td>Molecular pathways</td>
+<td>Recurrently implicated pathways include cytokine-cytokine receptor interaction, JAK-STAT signaling, IL-23/Th17/GM-CSF signaling, PIM1-AKT-FOXO1, CXCR4-mediated trafficking, complement activation, ROS/TXNIP/HIF-1α, NF-κB, and STAT3 (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-hoffmann2022preactivatedgranulocytesfrom-pages-1-3">hoffmann2022preactivatedgranulocytesfrom pages 1-3</a>)</td>
+<td>GO/Reactome label-only: inflammatory response, T cell activation, leukocyte migration, cytokine-mediated signaling pathway, complement activation, oxidative stress response</td>
+<td>Human omics + animal mechanistic + in vitro</td>
+</tr>
+<tr>
+<td>Etiology / broad categories</td>
+<td>Uveitis can be infectious, noninfectious immune-mediated, drug-induced, traumatic, post-surgical, idiopathic, or masquerade syndrome (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>, <a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0020283" target="_blank" rel="noopener noreferrer">MONDO:0020283</a>; label-only: infectious uveitis, noninfectious uveitis, drug-induced uveitis, masquerade syndrome</td>
+<td>Human cohort + reviews</td>
+</tr>
+<tr>
+<td>Etiology / infectious</td>
+<td>Infectious uveitis is caused by viruses, bacteria, fungi, and parasites; a 2024 review found viruses 39% and bacteria 17% among infectious etiologies reviewed, and Colombian data identified toxoplasmosis as a leading cause (25.3%) (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</td>
+<td>label-only: ocular toxoplasmosis, viral uveitis, tuberculous uveitis, herpetic uveitis</td>
+<td>Human systematic review + cohort</td>
+</tr>
+<tr>
+<td>Etiology / immune-mediated systemic associations</td>
+<td>Important associated systemic diseases include spondyloarthritis/HLA-B27 disease, juvenile idiopathic arthritis, Behçet disease, sarcoidosis, Vogt–Koyanagi–Harada syndrome, inflammatory bowel disease, and TINU syndrome (<a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</td>
+<td>label-only: HLA-B27-associated acute anterior uveitis, JIA-associated uveitis, Behçet uveitis, ocular sarcoidosis, VKH, TINU syndrome</td>
+<td>Human reviews</td>
+</tr>
+<tr>
+<td>Genetic risk</td>
+<td>HLA-B27 is a major risk allele for acute anterior uveitis; Open Targets links uveitis/anterior uveitis to ERAP1, IL23R, TNF, IL17A, and IL1B, supporting polygenic immune susceptibility (<a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, OpenTargets Search: uveitis, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</td>
+<td>label-only: HLA-B27, ERAP1, IL23R, TNF, IL17A, IL1B</td>
+<td>Human genetic + database evidence</td>
+</tr>
+<tr>
+<td>Gene-environment / microbiome</td>
+<td>HLA-B27-associated disease may involve enteric antigen exposure and molecular mimicry; YeiH-specific CD8+ T cells in B27-associated anterior uveitis show mucosal signatures (CD161, integrin α4β7, CCR6), supporting a gut-eye axis (<a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>)</td>
+<td>GO label-only: antigen processing and presentation, mucosal immune response; CL label-only: CD8+ T cell</td>
+<td>Human translational immunology</td>
+</tr>
+<tr>
+<td>Environmental / drug trigger</td>
+<td>Immune checkpoint inhibitors are a clinically important trigger of drug-induced uveitis; in TriNetX, ICI exposure was associated with HR 2.39 for incident uveitis over 144 months (<a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>)</td>
+<td>NCIT label-only: immune checkpoint inhibitor therapy; HPO label-only: uveitis adverse event</td>
+<td>Human population-based EHR cohort</td>
+</tr>
+<tr>
+<td>Diagnostics / clinical workup</td>
+<td>Standard workup includes ophthalmic examination by slit lamp, intraocular pressure measurement, dilated fundus examination, visual acuity, and evaluation for systemic/infectious disease in multidisciplinary care (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>)</td>
+<td>LOINC/SNOMED label-only: visual acuity testing, slit lamp exam, tonometry, dilated fundus exam</td>
+<td>Human clinical practice</td>
+</tr>
+<tr>
+<td>Diagnostics / imaging</td>
+<td>Imaging and grading include OCT, fluorescein angiography, ultra-widefield color fundus photography, and OCT/OCTA in trials and biomarker workups (<a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>, NCT06310837 chunk 1, NCT02595398 chunk 1)</td>
+<td>label-only: optical coherence tomography, fluorescein angiography, OCT angiography, ultra-widefield fundus photography</td>
+<td>Human imaging studies + trials</td>
+</tr>
+<tr>
+<td>Diagnostics / biomarkers</td>
+<td>Aqueous humor proteomics in idiopathic uveitis/VKH identified complement activation and suggested transferrin plus complement factor B as a biomarker panel; tear proteomics in anti-TNF nonresponders highlighted DEF-1,3, biotinidase, ABCA1, neutrophil effector functions, and redox imbalance (<a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>)</td>
+<td>label-only: transferrin, complement factor B, defensin-1/3, biotinidase, ABCA1, S100 proteins, cytokines/chemokines</td>
+<td>Human proteomics</td>
+</tr>
+<tr>
+<td>Diagnostics / AI implementation</td>
+<td>Deep learning on ultra-widefield fundus images achieved AUROC 0.996 internal and 0.973 external for uveitis screening, and AUROC 0.960/0.971 for ARN discrimination, with performance comparable to ophthalmologists (<a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>)</td>
+<td>NCIT label-only: artificial intelligence-assisted diagnosis; label-only: acute retinal necrosis</td>
+<td>Human computational / imaging validation</td>
+</tr>
+<tr>
+<td>Complications</td>
+<td>Important complications include cataract, glaucoma/ocular hypertension, cystoid macular edema, retinal detachment, epiretinal membrane, vitreous hemorrhage, retinal neovascularization, ischemia, and blindness/vision loss (<a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</td>
+<td>HPO label-only: cataract, glaucoma, cystoid macular edema, retinal detachment, vitreous hemorrhage, blindness</td>
+<td>Human cohort + reviews</td>
+</tr>
+<tr>
+<td>Prognosis / disease course</td>
+<td>Disease course may be acute, chronic, recurrent, unilateral or bilateral; recurrent or undertreated inflammation leads to structural damage and visual loss; ARN treatment delay is linked to worse vision outcomes (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</td>
+<td>HPO label-only: recurrent uveitis, chronic inflammation, severe visual loss</td>
+<td>Human cohort + disease-specific study</td>
+</tr>
+<tr>
+<td>Established treatment / corticosteroids</td>
+<td>Corticosteroids remain mainstay therapy (topical, local, systemic); glucocorticoid target association is reflected by NR3C1 linkage in Open Targets (<a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>, OpenTargets Search: uveitis)</td>
+<td>NCIT label-only: corticosteroid therapy, triamcinolone acetonide, fluocinolone acetonide implant</td>
+<td>Human reviews + database</td>
+</tr>
+<tr>
+<td>Established treatment / conventional immunomodulators</td>
+<td>Steroid-sparing systemic agents include methotrexate, azathioprine, mycophenolate mofetil, and cyclosporine (<a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>)</td>
+<td>NCIT label-only: methotrexate, azathioprine, mycophenolate mofetil, cyclosporine</td>
+<td>Human review</td>
+</tr>
+<tr>
+<td>Established treatment / biologics</td>
+<td>Adalimumab is the only systemic biologic specifically noted as FDA/EMA approved for noninfectious intermediate, posterior, and panuveitis; nonresponse may occur in up to 40% (<a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>, <a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>)</td>
+<td>NCIT label-only: adalimumab, TNF inhibitor</td>
+<td>Human review + clinical proteomics cohort</td>
+</tr>
+<tr>
+<td>Local interventional therapy</td>
+<td>Intravitreal/suprachoroidal corticosteroid delivery is established in practice and trials; PEACHTREE tested suprachoroidal triamcinolone acetonide for uveitic macular edema, and TYNI is evaluating two YUTIQ implants versus sham (NCT02595398 chunk 1, NCT05486468 chunk 1)</td>
+<td>NCIT label-only: suprachoroidal injection, intravitreal implant, triamcinolone acetonide, fluocinolone acetonide</td>
+<td>Human phase 3 trials</td>
+</tr>
+<tr>
+<td>Emerging systemic therapy / current trials</td>
+<td>Active 2024-era trials include brepocitinib phase 3 CLARITY in active noninfectious non-anterior uveitis and a randomized trial of adalimumab biosimilar + mycophenolate versus corticosteroids + mycophenolate; izokibep phase 2b was terminated after endpoints were not met (NCT06431373 chunk 1, NCT06310837 chunk 1, NCT05384249 chunk 1)</td>
+<td>NCIT label-only: brepocitinib, adalimumab biosimilar, mycophenolate mofetil, izokibep, JAK/TYK2 pathway inhibition, IL-17A inhibition</td>
+<td>Human clinical trials</td>
+</tr>
+<tr>
+<td>Emerging therapeutic targets</td>
+<td>Candidate targets/mechanisms from recent work include TIGIT agonism, PIM1/CXCR4 inhibition, IL-6/JAK/complement targeting in anti-TNF-refractory disease, and dual CD28/ICOS blockade with acazicolcept (<a href="#ref-peters2024tigitstimulationsuppresses-pages-1-2">peters2024tigitstimulationsuppresses pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>)</td>
+<td>NCIT label-only: TIGIT agonist, acazicolcept, IL-6 inhibitor, JAK inhibitor, complement inhibitor, CXCR4 inhibitor, PIM1 inhibitor</td>
+<td>Animal mechanistic + human proteomics + preclinical translational</td>
+</tr>
+<tr>
+<td>Prevention / secondary-tertiary</td>
+<td>Practical prevention centers on early detection, prompt treatment, multidisciplinary screening in at-risk groups such as JIA, and avoidance/exclusion of infectious etiologies before immunosuppression (<a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, NCT06431373 chunk 1)</td>
+<td>label-only: ophthalmic screening, tertiary prevention, tuberculosis screening before biologics</td>
+<td>Human guidelines/review + trial eligibility</td>
+</tr>
+<tr>
+<td>Natural disease in other species</td>
+<td>Equine recurrent uveitis is a spontaneous remitting-relapsing autoimmune uveitis and a leading cause of blindness in horses; it shares clinical and immunopathologic features with human recurrent panuveitis (<a href="#ref-hoffmann2022preactivatedgranulocytesfrom-pages-1-3">hoffmann2022preactivatedgranulocytesfrom pages 1-3</a>)</td>
+<td>label-only: equine recurrent uveitis; NCBI Taxon label-only: Equus caballus</td>
+<td>Veterinary natural disease + comparative pathology</td>
+</tr>
+<tr>
+<td>Model organisms / experimental models</td>
+<td>Experimental autoimmune uveitis (EAU) in mice and rats is the principal model for autoimmune/noninfectious uveitis; useful for studying Th1/Th17 disease, Treg biology, ocular infiltration, and testing therapies, but does not fully capture all human subtypes (<a href="#ref-peters2024tigitstimulationsuppresses-pages-1-2">peters2024tigitstimulationsuppresses pages 1-2</a>, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</td>
+<td>label-only: experimental autoimmune uveitis, Lewis rat model, C57BL/6 mouse model</td>
+<td>Animal model review + mechanistic studies</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes ontology-ready disease facts for uveitis across clinical, mechanistic, diagnostic, therapeutic, and translational domains. It is designed to support structured knowledge-base curation using only evidence already gathered.</em></p>
+<h2>1. Disease information</h2>
+<p><strong>Definition and classification.</strong> Uveitis means intraocular inflammation involving the uveal tract—iris, ciliary body, and choroid—and often adjacent retina, vitreous, retinal vessels, and optic nerve. Under Standardization of Uveitis Nomenclature (SUN), anterior uveitis has anterior-chamber inflammation as the principal site; intermediate uveitis predominantly affects vitreous; posterior uveitis affects retina and/or choroid; and panuveitis involves anterior chamber, vitreous, and retina/choroid without one predominant site. Descriptors also include onset, duration, course, laterality, granulomatous morphology, activity, and structural damage. (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-rosenbaum2018theeyeshave-pages-10-14">rosenbaum2018theeyeshave pages 10-14</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</p>
+<p><strong>Identifiers and synonyms.</strong> The current umbrella identifier retrieved from Open Targets/MONDO is <strong><a href="http://purl.obolibrary.org/obo/MONDO_0020283" target="_blank" rel="noopener noreferrer">MONDO:0020283</a></strong>. More specific entities include anterior uveitis <strong><a href="http://purl.obolibrary.org/obo/MONDO_0006651" target="_blank" rel="noopener noreferrer">MONDO:0006651</a></strong>, posterior uveitis <strong><a href="http://purl.obolibrary.org/obo/MONDO_0006918" target="_blank" rel="noopener noreferrer">MONDO:0006918</a></strong>, and autoimmune uveitis <strong><a href="http://purl.obolibrary.org/obo/MONDO_0031012" target="_blank" rel="noopener noreferrer">MONDO:0031012</a></strong>. Common terms include intraocular inflammation, iritis, iridocyclitis, choroiditis, chorioretinitis/retinochoroiditis, pars planitis, and panuveitis, although these are not fully interchangeable. ICD-10-CM distributes disease across H20–H22 and H30–H32 rather than providing one etiologically precise umbrella code; subtype coding should be preferred. No single OMIM or Orphanet entry appropriately represents all uveitis because the umbrella is not a unitary Mendelian or rare disease. (OpenTargets Search: uveitis, <a href="#ref-rosenbaum2018theeyeshave-pages-10-14">rosenbaum2018theeyeshave pages 10-14</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>)</p>
+<p><strong>Data provenance.</strong> Most facts here are aggregated disease-level evidence from reviews, cohorts, databases, and trials. The 2024 Colombian study aggregated clinical records from 3,404 patients; the immune-checkpoint study used propensity-matched EHR data; aqueous/tear studies used patient biospecimens; and experimental autoimmune uveitis (EAU) findings come from animals rather than individual-patient EHRs. (<a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</p>
+<h2>2. Etiology, risk, protection, and gene–environment interaction</h2>
+<h3>Causal categories</h3>
+<ol>
+<li><strong>Infectious:</strong> herpesviruses including HSV/VZV/CMV, <em>Toxoplasma gondii</em>, <em>Mycobacterium tuberculosis</em>, <em>Treponema pallidum</em>, and regionally important bacterial, fungal, and parasitic infections. A 2024 systematic review of 97 studies reported viruses in 39% and bacteria in 17% of its infectious-uveitis etiologic distribution, emphasizing that proportions vary geographically. In Colombia, toxoplasmosis accounted for 25.3% of all cases and virus-associated disease for 6.4%. (asghar2024“infectiousuveitisa pages 1-2, asghar2024“infectiousuveitisa pages 14-15, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</li>
+<li><strong>Noninfectious immune-mediated:</strong> isolated idiopathic uveitis or ocular manifestations of HLA-B27 spondyloarthritis, JIA, Behçet disease, sarcoidosis, inflammatory bowel disease, Vogt–Koyanagi–Harada disease, and tubulointerstitial nephritis–uveitis. (<a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</li>
+<li><strong>Other:</strong> trauma, surgery, lens-related inflammation, drugs, and masquerade syndromes such as intraocular lymphoma. The Colombian investigators explicitly included autoimmune, autoinflammatory, traumatic, postsurgical, drug-induced, and idiopathic categories. (<a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</li>
+</ol>
+<h3>Genetic susceptibility</h3>
+<p>Uveitis overall has <strong>multifactorial/polygenic inheritance</strong>. HLA-B27 is the strongest established risk factor for acute anterior uveitis; approximately 50% of acute anterior uveitis patients in a recent translational report were HLA-B27-positive. HLA-DR2/DR15 has been associated with pars planitis, and syndrome-specific associations include HLA-B51 in Behçet disease and melanocyte-directed HLA backgrounds in VKH. Open Targets supports associations involving <strong>ERAP1, IL23R, TNF, IL17A, IL1B</strong>, and other loci, but these are susceptibility/therapeutic associations, not deterministic “causal genes” for umbrella uveitis. (OpenTargets Search: uveitis, <a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, <a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p>Accordingly, routine claims about pathogenic variants, penetrance, carrier frequency, anticipation, germline mosaicism, or founder variants are <strong>not applicable to nonsyndromic umbrella uveitis</strong>. Germline panel/WES/WGS testing is not routine; it is reserved for unusual pediatric, familial, syndromic, autoinflammatory, immunodeficiency, or retinal-dystrophy phenotypes. No recurrent somatic mutation or chromosomal abnormality defines ordinary uveitis.</p>
+<h3>Environmental and iatrogenic factors</h3>
+<p>Geography, pathogen prevalence, sanitation, food exposure, immune status, migration, and access to molecular diagnostics shape infectious disease. Smoking and microbiome alterations are plausible modifiers in associated systemic disease, but no universal lifestyle exposure has a sufficiently consistent effect to be considered causal across all uveitis. Drug triggers include immune checkpoint inhibitors. In a 2024 matched TriNetX cohort of 71,931 exposed and 71,931 unexposed cancer patients, ICI use was associated with uveitis HR 2.39 (95% CI 2.07–2.75); anti-PD-1 monotherapy HR was 1.98, anti-CTLA-4 5.86, and combined anti-PD-1/CTLA-4 5.04. The article’s conclusion states: “A significantly increased risk for uveitis diseases was found among the ICI group from the first year of follow-up.” (<a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>)</p>
+<h3>Protective factors and gene–environment interaction</h3>
+<p>No genetic or dietary factor is validated for primary prevention of all uveitis. Immune tolerance, intact blood–ocular barriers, regulatory T-cell activity, prompt infection control, and—in JIA—regular asymptomatic screening are practically protective against onset or damage. Hormonal observations, including pregnancy-associated remission, are hypothesis-generating rather than preventive recommendations. (<a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p>The clearest recent gene–environment model concerns HLA-B27. A 2024 human study found that YeiH-specific CD8 T cells in HLA-B27 acute anterior uveitis and axial spondyloarthritis expressed CD161, integrin α4β7, and CCR6, compatible with intestinal differentiation. Because YeiH occurs in enteric microbes and can be presented by HLA-B27 to ocular/joint-enriched public T-cell receptors, the proposed chain is: <strong>HLA-B27 antigen presentation + enteric microbial exposure → cross-reactive mucosal CD8 T-cell expansion → trafficking to eye → acute anterior inflammation</strong>. The authors cautiously conclude that early antigen exposure and differentiation “may occur in enteric organs”; this is strong translational evidence but not proof that one organism causes disease. Published July 18, 2024; DOI: <a href="https://doi.org/10.1172/jci.insight.174776" target="_blank" rel="noopener noreferrer">https://doi.org/10.1172/jci.insight.174776</a>. (<a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>)</p>
+<h2>3. Phenotypes</h2>
+<p><strong>Anterior disease</strong> commonly produces acute pain, redness, photophobia, tearing, blurred vision, ciliary injection, keratic precipitates, anterior-chamber cells/flare, and sometimes posterior synechiae. HLA-B27 disease is typically sudden, unilateral, symptomatic, and recurrent. JIA-associated anterior uveitis is often bilateral, chronic, relapsing, and initially asymptomatic, making screening essential. Suggested HPO labels: ocular pain, photophobia, red eye, decreased visual acuity, anterior uveitis, posterior synechiae. (<a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p><strong>Intermediate disease</strong> often causes floaters and blurred vision with vitreous cells/haze, snowballs/snowbanking, peripheral vasculitis, and macular edema. Pars planitis has a reported pediatric mean onset near 7.8 years. Suggested HPO labels: vitreous floaters, vitreous haze, retinal vasculitis, cystoid macular edema. (<a href="#ref-rosenbaum2018theeyeshave-pages-10-14">rosenbaum2018theeyeshave pages 10-14</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p><strong>Posterior/panuveitis</strong> causes floaters, visual-field defects, metamorphopsia or reduced acuity; signs include retinitis/choroiditis, retinal vasculitis, hemorrhage, optic-disc edema, macular edema, necrosis, and exudative or rhegmatogenous detachment. Severity ranges from mild self-limited episodes to rapidly blinding disease. Acute retinal necrosis is a particularly destructive herpetic phenotype. (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>)</p>
+<p><strong>Frequency and laterality vary by setting.</strong> In the 3,404-patient Colombian cohort, anterior uveitis was 49.5%, posterior 22.9%, panuveitis 22.3%, and intermediate 5.2%; 66.7% were unilateral, 48.3% acute, and 83% nongranulomatous. Mean diagnostic age was 41.1 years, 54.2% were female, and ages 30–50 were most frequent. These are referral-cohort—not universal population—frequencies. Published March 6, 2024; DOI: <a href="https://doi.org/10.1007/s00417-024-06422-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00417-024-06422-z</a>. (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</p>
+<p><strong>Pediatric phenotype.</strong> Estimated childhood incidence is 4.3/100,000 and prevalence 27.9/100,000. Approximate diagnostic proportions reported in a pediatric review were idiopathic anterior uveitis 29%, JIA-associated 21%, pars planitis 17%, and infectious 6%. Up to 45% of children with JIA-associated uveitis already have complications such as cataract or glaucoma at first ophthalmology assessment. (<a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p><strong>Quality of life.</strong> Pain and photophobia impair work/school during active anterior episodes; floaters, contrast loss, macular edema, field loss, treatment burden, and fear of recurrence impair daily function in chronic disease. NEI VFQ-25 is used in contemporary trials, but phenotype-specific utility/frequency values are not standardized across the heterogeneous umbrella. (<a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, NCT06310837 chunk 1, NCT05384249 chunk 1)</p>
+<h2>4. Genetic, molecular, and epigenetic information</h2>
+<p>There is no single causal gene for generic uveitis. Relevant molecular categories are: antigen presentation (<strong>HLA-B27, HLA-B51, ERAP1</strong>); Th17 biology (<strong>IL23R, IL17A, STAT3, RORC</strong>); inflammatory effectors (<strong>TNF, IL1B, IL6, IFNG</strong>); trafficking (<strong>CXCR4, integrins</strong>); and regulation (<strong>FOXP3/Treg, TIGIT, PIM1</strong>). Open Targets also highlights glucocorticoid receptor <strong>NR3C1</strong> and DHFR, reflecting therapeutic biology. These should be annotated as susceptibility genes/targets rather than pathogenic monogenic variants. (OpenTargets Search: uveitis, asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>)</p>
+<p>Human pediatric literature reports uveitis-associated DNA methylation and microRNA differences, but no epigenetic signature is yet clinically validated. Likewise, current evidence does not support routine variant-level ClinVar interpretation, population allele-frequency reporting, CMA, karyotype, FISH, mtDNA, or repeat-expansion testing for typical uveitis. (<a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<h2>5. Environmental and infectious information</h2>
+<p>The principal non-genetic determinants are infection exposure, immune status, regional endemicity, drugs, surgery/trauma, and systemic inflammatory disease activity. Infectious uveitis can be viral, bacterial, fungal, or parasitic and frequently differs by geography; developing/high-TB/HIV settings carry larger infectious fractions than many high-income settings. Targeted history should cover travel/residence, animal and undercooked-meat exposure, TB and syphilis risk, immunosuppression, recent ocular surgery/trauma, and medications. (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, asghar2024“infectiousuveitisa pages 14-15)</p>
+<p>No robust evidence supports alcohol, exercise, or a specific diet as universal risk/protective factors. Microbiome associations are an active research area, but clinical manipulation cannot yet be recommended. ICI-associated uveitis is the strongest quantified recent iatrogenic signal. (<a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>, <a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Integrated causal chain</h3>
+<p><strong>Upstream events</strong> are ocular infection or immune recognition of retinal/uveal antigens in a genetically susceptible host. Pathogen-derived danger signals or antigen-presenting dendritic cells activate innate immunity and prime Th1, Th17, and cytotoxic T cells in draining lymphoid/mucosal compartments. Loss of Treg-mediated tolerance and molecular mimicry can sustain autoreactivity. <strong>Intermediate events</strong> include cytokine amplification through IL-23/IL-17/GM-CSF, IFN-γ, TNF, IL-6 and JAK–STAT; CXCR4/integrin-mediated leukocyte trafficking; complement activation; endothelial activation; and disruption of blood–aqueous/blood–retinal barriers. <strong>Downstream events</strong> are leukocyte entry, microglial/innate-cell activation, oxidative stress, edema, vasculitis, ECM disruption and photoreceptor/retinal injury, producing pain, floaters, reduced acuity, ischemia and irreversible scarring. (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>, <a href="#ref-hoffmann2022preactivatedgranulocytesfrom-pages-1-3">hoffmann2022preactivatedgranulocytesfrom pages 1-3</a>)</p>
+<p>Suggested GO processes include inflammatory response, adaptive immune response, antigen processing and presentation, T-cell activation/differentiation, leukocyte migration, cytokine-mediated signaling, complement activation, response to oxidative stress, regulation of vascular permeability, and apoptotic cell death. Suggested CL terms include Th1 cell, Th17 cell, regulatory T cell, CD8-positive alpha-beta T cell, dendritic cell, neutrophil, monocyte/macrophage, plasma cell, NK cell, microglial cell, vascular endothelial cell, retinal pigment epithelial cell, and photoreceptor cell.</p>
+<h3>Recent molecular profiling</h3>
+<ul>
+<li><strong>Human aqueous proteomics (2024):</strong> 44 samples—12 idiopathic uveitis, 16 VKH, 16 controls—yielded 557 proteins. IU and VKH shared ECM disruption, reduced retinal-cell proteins, complement activation, and innate-cell-marker enrichment; transferrin plus complement factor B formed a machine-learning-selected candidate panel validated by targeted mass spectrometry. Quote: “innate immunity played an important role, as indicated by complement cascade activation.” Published April 15, 2024; DOI: <a href="https://doi.org/10.1021/acsomega.3c10257" target="_blank" rel="noopener noreferrer">https://doi.org/10.1021/acsomega.3c10257</a>. Small sample size makes this discovery evidence, not a diagnostic standard. (<a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>)</li>
+<li><strong>Human tear proteomics (2024):</strong> adalimumab nonresponders had 29 differential proteins—14 upregulated, 15 downregulated—linked to neutrophil effectors and redox imbalance. DEF-1/3, biotinidase, and ABCA1 were candidate response biomarkers. Up to 40% may have primary/secondary adalimumab nonresponse. Published November 14, 2024; DOI: <a href="https://doi.org/10.1167/iovs.65.13.29" target="_blank" rel="noopener noreferrer">https://doi.org/10.1167/iovs.65.13.29</a>. (<a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>)</li>
+<li><strong>Mouse single-cell studies:</strong> progesterone reversed AP-1/S100/Cxcr4 inflammatory programs, Th17/Treg imbalance, Id2/Pim1 and IL-23/Th17/GM-CSF signaling. Dimethyl fumarate suppressed PIM1/CXCR4, restored Teff/Treg balance through PIM1–AKT–FOXO1, and reduced ocular Teff infiltration. These support mechanisms but not human efficacy. DOI: <a href="https://doi.org/10.1186/s12974-023-02829-3" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12974-023-02829-3</a> and <a href="https://doi.org/10.1186/s12974-024-03096-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12974-024-03096-6</a>. (<a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>)</li>
+<li><strong>Animal TIGIT work (2024):</strong> agonism at symptom onset reduced EAU severity and Th17 infiltration; transferred Tregs suppressed disease in recipients. Quote: stimulation “allows for induction of regulatory immunity that provides resistance to uveitis.” DOI: <a href="https://doi.org/10.1093/jleuko/qiae116" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/jleuko/qiae116</a>. (<a href="#ref-peters2024tigitstimulationsuppresses-pages-1-2">peters2024tigitstimulationsuppresses pages 1-2</a>)</li>
+</ul>
+<p>Spatial transcriptomics, validated human single-cell atlases, CRISPR screens, and integrated clinical multi-omics remain limited; no such assay is standard of care.</p>
+<h2>7. Anatomical structures</h2>
+<p>The primary organ is the eye. Sites include iris and anterior chamber, ciliary body, pars plana, vitreous, choroid/choriocapillaris, retina and retinal vessels, retinal pigment epithelium, macula, and optic disc/nerve head. Secondary involvement includes lens (cataract), trabecular meshwork/optic nerve (uveitic glaucoma), epiretinal interface, and sclera. Suggested UBERON labels: eye, uvea, iris, ciliary body, choroid, retina, vitreous body, anterior chamber, retinal blood vessel, and optic nerve. (<a href="#ref-rosenbaum2018theeyeshave-pages-10-14">rosenbaum2018theeyeshave pages 10-14</a>, <a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>)</p>
+<p>Relevant subcellular compartments depend on mechanism: nucleus/chromatin for transcriptional programs, plasma membrane for HLA/TCR/cytokine receptors and adhesion, ER for antigen processing, mitochondria for redox metabolism, and inflammasome/cytosolic signaling complexes. These are mechanistic annotations rather than diagnostic lesions.</p>
+<p>Laterality is subtype-dependent: HLA-B27 attacks often alternate unilaterally; JIA/VKH/Behçet and other systemic entities are commonly bilateral or become bilateral. In Colombia, all-subtype disease was unilateral in 66.7%. (<a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<h2>8. Temporal development</h2>
+<p>Onset can occur from childhood through late adulthood. Acute disease develops suddenly; insidious JIA-associated disease may be asymptomatic. SUN course descriptors include acute, recurrent, and chronic. In the Colombian cohort, 48.3% were acute. HLA-B27 episodes generally resolve over weeks but recur; chronic intermediate/posterior/panuveitis can persist or relapse for years. (<a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p>There is no universal stage system. Clinically useful states are active inflammation, improvement/inactivity, remission off therapy, recurrence, and accumulated damage. Critical windows include immediate treatment of destructive infection and early control of posterior inflammation or macular edema. In ARN, a mean treatment delay of 5.2 days was associated with a 2.3-fold higher likelihood of severe visual loss than treatment within one day. (<a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>)</p>
+<p>Remission may be spontaneous in self-limited anterior attacks or treatment-induced. Durable remission is less predictable in chronic NIU. Continued surveillance remains important because structural damage can progress independently of current symptom intensity.</p>
+<h2>9. Inheritance and population</h2>
+<p>Prevalence estimates span approximately 36.2–730/100,000 and incidence 17–52.4/100,000/year. Older reviews estimate prevalence near 1/1,000. Uveitis accounts for approximately 5–10% of global visual impairment; up to 35% of affected patients may experience significant vision loss. Differences reflect case definitions, referral patterns, geography and infection prevalence. (<a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>, <a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, <a href="#ref-rosenbaum2018theeyeshave-pages-1-3">rosenbaum2018theeyeshave pages 1-3</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>)</p>
+<p>Adults of working age carry a large burden. The Colombian cohort’s peak was age 30–50, with modest female predominance, but there is no universal sex ratio: HLA-B27/spondyloarthritis-associated disease often tracks male-enriched systemic disease, while JIA-associated patterns differ. Infectious disease predominates in some lower-resource/endemic regions; immune-mediated anterior disease is proportionally more common in many developed settings. (asghar2024“infectiousuveitisa pages 1-2, <a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, <a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p>Inheritance is generally complex/polygenic with variable, incomplete penetrance. Anticipation, carrier frequency and germline mosaicism are not meaningful umbrella-disease attributes. Population-specific HLA frequencies contribute to geographic variation, but do not determine disease by themselves.</p>
+<h2>10. Diagnostics</h2>
+<p>Diagnosis is clinical and etiologic. Minimum examination includes history, best-corrected visual acuity, pupils, slit-lamp examination with SUN anterior-cell grading, intraocular pressure, and dilated fundus examination with vitreous-haze grading. OCT quantifies macular edema/retinal structure; fluorescein angiography detects vascular leakage, ischemia and inflammatory lesions; indocyanine-green angiography supports choroidal disease; fundus photography/ultra-widefield imaging documents peripheral lesions; ultrasonography is useful when media are opaque. (<a href="#ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2">delatorre2024epidemiologyclinicalfeatures pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>, NCT06310837 chunk 1, NCT02595398 chunk 1)</p>
+<p>Laboratory investigation should be <strong>phenotype- and exposure-directed</strong>, not an indiscriminate panel. Commonly considered tests include syphilis serology and TB testing/chest imaging; HLA-B27 for recurrent acute anterior disease; ACE/chest imaging where sarcoidosis is plausible; ANA-based JIA risk assessment in children; renal studies for TINU; and ocular-fluid PCR for HSV/VZV/CMV or toxoplasma in selected atypical/severe cases. Aqueous/vitreous culture, PCR, or metagenomic testing is especially important before escalating immunosuppression when infection remains plausible. Biopsy/cytology/flow studies are reserved for suspected lymphoma or other masquerades.</p>
+<p><strong>Differential diagnoses</strong> include conjunctivitis, keratitis, scleritis, acute angle closure, endophthalmitis, retinal vascular occlusion, retinal detachment, intraocular lymphoma/leukemia, pigment dispersion, postoperative inflammation, and retinal degeneration. Distinguishing infection from sterile inflammation is the highest-stakes decision.</p>
+<p><strong>Recent implementation:</strong> DeepDrARN used 11,508 ultra-widefield images from 1,112 participants. Uveitis-screening AUROC was 0.996 internally and 0.973 externally; ARN discrimination AUROC was 0.960 and 0.971. External sensitivity/specificity for three-way classification were 78.7%/89.1%. Performance exceeded the average accuracy of seven ophthalmologists by 6.57% for screening and 11.14% for ARN identification. This is impressive retrospective validation, not yet autonomous diagnosis. DOI: <a href="https://doi.org/10.1186/s40662-024-00396-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s40662-024-00396-z</a>. (<a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>)</p>
+<p>Genetic testing, RNA-seq, proteomics, metabolomics, epigenomics and “liquid biopsy” are not standard diagnostics for generic uveitis. Aqueous/tear proteomics and microRNAs remain investigational. (<a href="#ref-golubenco2024biomarkersofuveitis-pages-1-3">golubenco2024biomarkersofuveitis pages 1-3</a>, <a href="#ref-golubenco2024biomarkersofuveitis-pages-10-10">golubenco2024biomarkersofuveitis pages 10-10</a>, <a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>)</p>
+<h2>11. Outcomes and prognosis</h2>
+<p>Uveitis usually does not independently shorten life expectancy; mortality is driven by associated infection/systemic disease or treatment complications. Therefore, conventional 5- or 10-year survival rates are not useful umbrella outcomes.</p>
+<p>The main morbidity is visual disability. Reported complications include cataract (24%), retinal neovascularization (16%) and cystoid macular edema (8.6%) in one summarized evidence base, alongside glaucoma, epiretinal membrane, vitreous hemorrhage, ischemia and retinal detachment. In ARN, 20–73% of treated eyes may still develop rhegmatogenous retinal detachment. Prognosis is better with prompt etiologic diagnosis and inflammation control, and worse with posterior involvement, macular/optic-nerve damage, chronicity, frequent relapse, delayed treatment, infection, glaucoma, or poor therapeutic response. (<a href="#ref-trivedi2019theuseof-pages-3-5">trivedi2019theuseof pages 3-5</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>, <a href="#ref-wang2024automatedearlydetection-pages-1-2">wang2024automatedearlydetection pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p>Visual recovery is possible when loss reflects reversible cells/haze or edema, but limited after photoreceptor loss, macular ischemia, optic atrophy, glaucoma or detachment. No molecular prognostic biomarker is currently validated for routine care; S100 proteins, complement factor B/transferrin, and tear DEF-1/3–biotinidase–ABCA1 panels are candidates. (<a href="#ref-golubenco2024biomarkersofuveitis-pages-1-3">golubenco2024biomarkersofuveitis pages 1-3</a>, <a href="#ref-wu2024comprehensiveproteomicprofiling-pages-1-2">wu2024comprehensiveproteomicprofiling pages 1-2</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>)</p>
+<h2>12. Treatment and current implementation</h2>
+<p>Treatment requires first deciding whether disease is infectious. <strong>Infectious uveitis</strong> receives pathogen-directed antimicrobial therapy—often with carefully timed adjunctive anti-inflammatory treatment. Immunosuppression without antimicrobial coverage can worsen infection. (asghar2024“infectiousuveitisa pages 1-2)</p>
+<p><strong>Noninfectious anterior uveitis:</strong> topical corticosteroid plus cycloplegic/mydriatic is typical initial care; periocular/systemic therapy is used when severe or refractory. <strong>Intermediate/posterior/panuveitis:</strong> local corticosteroid injection/implant or systemic corticosteroid may induce control, followed by steroid-sparing therapy for chronic, bilateral, sight-threatening or relapsing disease. Conventional agents include methotrexate, mycophenolate mofetil, azathioprine and cyclosporine. Major toxicities include cataract/glaucoma from ocular steroids and metabolic, bone, infection and organ toxicities from systemic therapy. (<a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>)</p>
+<p><strong>Biologics:</strong> adalimumab, a TNF inhibitor, is the established systemic biologic for noninfectious intermediate, posterior and panuveitis; infliximab is widely used off-label, particularly in severe Behçet disease. Etanercept is not considered equivalently effective for uveitis. Tocilizumab, rituximab, abatacept and other pathway agents are used selectively/off-label. Up to 40% of patients may fail adalimumab primarily or secondarily, underscoring the need for response biomarkers and alternatives. (<a href="#ref-trivedi2019theuseof-pages-1-3">trivedi2019theuseof pages 1-3</a>, <a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>)</p>
+<p><strong>Local therapy:</strong> fluocinolone implants and intravitreal dexamethasone/triamcinolone can reduce systemic exposure but increase ocular hypertension and cataract risk. PEACHTREE was a phase 3, 160-person, randomized quadruple-masked study of two 4-mg suprachoroidal triamcinolone injections for uveitic macular edema; the primary endpoint was a ≥15-letter BCVA gain at week 24. (NCT02595398 chunk 1)</p>
+<p><strong>Current/recent trials:</strong> </p>
+<ul>
+<li><strong>CLARITY, NCT06431373:</strong> phase 3, randomized quadruple-masked oral brepocitinib versus placebo in 371 adults with active noninfectious intermediate/posterior/panuveitis; primary endpoint is time to treatment failure through 48 weeks. Started September 11, 2024; active, not recruiting in the retrieved record. <a href="https://clinicaltrials.gov/study/NCT06431373" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT06431373</a> (NCT06431373 chunk 1)</li>
+<li><strong>NCT06310837:</strong> 128-person randomized comparison of adalimumab biosimilar + mycophenolate versus corticosteroid + mycophenolate; primary endpoint is 24-week ETDRS BCVA change, with VFQ-25, imaging and steroid-toxicity outcomes. <a href="https://clinicaltrials.gov/study/NCT06310837" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT06310837</a> (NCT06310837 chunk 1)</li>
+<li><strong>TYNI, NCT05486468:</strong> recruiting phase 3 trial of two 0.18-mg YUTIQ fluocinolone implants versus sham, target n=30, with six-month recurrence as primary endpoint. <a href="https://clinicaltrials.gov/study/NCT05486468" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT05486468</a> (NCT05486468 chunk 1)</li>
+<li><strong>Izokibep, NCT05384249:</strong> 96-person phase 2b IL-17A-inhibitor trial was terminated because primary and secondary endpoints did not reach statistical significance. This negative result warns against inferring clinical efficacy directly from Th17 biology. <a href="https://clinicaltrials.gov/study/NCT05384249" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT05384249</a> (NCT05384249 chunk 1)</li>
+</ul>
+<p>Gene, RNA and approved cell therapies are not current standard treatments. Acazicolcept, TIGIT agonism, dimethyl fumarate and progesterone remain experimental. In 57 Lewis rats, systemic acazicolcept reduced clinical score, histology, ocular CD45 cells, and IL-17A/IFN-γ-expressing T cells, without steroid-associated weight loss; human studies are still required. (<a href="#ref-peters2024tigitstimulationsuppresses-pages-1-2">peters2024tigitstimulationsuppresses pages 1-2</a>, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>)</p>
+<p>Suggested NCIT intervention labels include corticosteroid therapy, cycloplegic therapy, antimicrobial therapy, methotrexate, mycophenolate mofetil, azathioprine, cyclosporine, adalimumab, infliximab, intravitreal injection, suprachoroidal injection and fluocinolone implant. No broadly accepted pharmacogenomic dosing guideline currently directs uveitis therapy.</p>
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention</strong> is etiology-specific rather than universal: vaccination and infection control where relevant; TB/syphilis/HIV prevention and treatment; food hygiene to reduce toxoplasmosis risk; vector control for endemic infections; and avoidance or surveillance of causative drugs when alternatives exist. No vaccine prevents autoimmune uveitis generally. (asghar2024“infectiousuveitisa pages 1-2, asghar2024“infectiousuveitisa pages 14-15)</p>
+<p><strong>Secondary prevention</strong> is early detection. Children with high-risk JIA—young onset, ANA-positive, oligoarticular/RF-negative polyarticular/psoriatic/undifferentiated categories—may require slit-lamp screening every three months because disease can be silent. Prompt specialist review is also warranted for recurrent painful red eye, new floaters, or visual loss and for ICI-treated patients with ocular symptoms. (<a href="#ref-kuo2024associationbetweenimmune-pages-1-2">kuo2024associationbetweenimmune pages 1-2</a>, <a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>)</p>
+<p><strong>Tertiary prevention</strong> comprises rapid suppression of inflammation, steroid-sparing control of recurrence, OCT/pressure surveillance, antimicrobial prophylaxis where immunosuppression warrants it, vaccination before major immunosuppression, and timely cataract/glaucoma/macular-edema management. TB and infection screening before biologic/JAK-pathway therapy is integral. (NCT06431373 chunk 1, NCT06310837 chunk 1)</p>
+<p>Genetic counseling is not ordinarily indicated for isolated uveitis, but may be appropriate where a defined inherited syndrome or autoinflammatory disorder is suspected.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Naturally occurring uveitis affects companion and agricultural species, notably dogs, cats and horses; infectious etiologies vary by species. <strong>Equine recurrent uveitis (ERU)</strong> in <em>Equus caballus</em> (NCBI Taxonomy 9796) is a spontaneous painful remitting–relapsing disease and a major cause of equine blindness. Warmblood horses often develop posterior or panuveitis involving choroid, retina and vitreous. ERU shares retinal autoantigens including CRALBP, IRBP and S-antigen and T-cell/granulocyte biology with human recurrent NIU, making it a valuable comparative model. (<a href="#ref-hoffmann2022preactivatedgranulocytesfrom-pages-1-3">hoffmann2022preactivatedgranulocytesfrom pages 1-3</a>)</p>
+<p>ERU granulocyte proteomics found 170 differentially abundant proteins after IL-8 stimulation, with PKA, PTEN and leukocyte-extravasation pathways and increased MMP25 implicated in blood–retinal-barrier dysfunction. This is veterinary/in-vitro evidence, not a validated human biomarker. Published August 23, 2022; DOI: <a href="https://doi.org/10.3390/ijms23179555" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms23179555</a>; ProteomeXchange PXD013648. (<a href="#ref-hoffmann2022preactivatedgranulocytesfrom-pages-1-3">hoffmann2022preactivatedgranulocytesfrom pages 1-3</a>)</p>
+<p>Uveitis itself is not zoonotically transmitted, but pathogens capable of causing it—such as <em>Toxoplasma</em> and some vector-borne organisms—can cross species or have animal reservoirs.</p>
+<h2>15. Model organisms</h2>
+<p><strong>EAU in mouse and rat</strong> is the dominant induced model. Immunization with retinal antigens such as IRBP/S-antigen plus adjuvant breaks tolerance and produces T-cell-mediated chorioretinal inflammation. C57BL/6 reporter/knockout systems enable Th17/Treg tracking and genetic dissection; Lewis rats develop robust disease useful for pharmacology, OCT and histology. Readouts include fundus/clinical scores, OCT, histopathology, flow cytometry and aqueous cytokines. (<a href="#ref-peters2024tigitstimulationsuppresses-pages-1-2">peters2024tigitstimulationsuppresses pages 1-2</a>, <a href="#ref-liu2023progesteroneattenuatesth17cell-pages-1-2">liu2023progesteroneattenuatesth17cell pages 1-2</a>, <a href="#ref-zhu2024beneficialmechanismsof-pages-1-2">zhu2024beneficialmechanismsof pages 1-2</a>, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>)</p>
+<p>EAU recapitulates antigen-specific Th1/Th17 activation, leukocyte trafficking, blood–retinal-barrier failure, retinal inflammation and treatment response. It is useful for testing costimulation blockade, checkpoint agonism, cellular therapy and pathway inhibitors. Limitations are artificial antigen/adjuvant induction, strain dependence, compressed time course, predominantly posterior pathology, and incomplete modeling of human anterior, infectious, granulomatous, JIA-associated and spontaneous relapsing disease. Critically, no model has shown that B cells/autoantibodies alone reproduce human uveitis. (<a href="#ref-chang2021uveitisinchildren-pages-1-3">chang2021uveitisinchildren pages 1-3</a>, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>)</p>
+<p>ERU complements EAU by providing spontaneous relapsing disease in a large eye, but cost, genetics, husbandry and species-specific immunology constrain experiments. Cell cultures, retinal explants, organoids and blood–retinal-barrier systems can isolate endothelial, RPE or immune mechanisms but cannot reproduce whole-organism immune trafficking.</p>
+<h2>Evidence assessment and knowledge gaps</h2>
+<p>The most authoritative clinical conclusions are that uveitis is a syndrome requiring anatomic and etiologic classification; infection must be excluded before immunosuppression; early control prevents much visual loss; and chronic NIU often needs steroid-sparing multidisciplinary care. Epidemiologic estimates should always retain geography and referral context. Recent human HLA-B27/mucosal and proteomic studies provide biologically coherent mechanisms but need replication in larger, diverse cohorts. Animal single-cell findings identify promising PIM1, CXCR4, TIGIT and costimulation targets, yet the terminated izokibep trial demonstrates why mechanistic plausibility cannot substitute for randomized human efficacy. (<a href="#ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2">rodriguezmartinez2024potentialprognosticprotein pages 1-2</a>, <a href="#ref-paley2024mucosalsignaturesof-pages-1-2">paley2024mucosalsignaturesof pages 1-2</a>, NCT06431373 chunk 1, <a href="#ref-wilson2023systemicadministrationof-pages-1-2">wilson2023systemicadministrationof pages 1-2</a>, NCT05384249 chunk 1)</p>
+<p>Major gaps are validated noninvasive biomarkers, head-to-head treatment algorithms after anti-TNF failure, representative global incidence/DALY estimates, longitudinal pediatric risk prediction, prospective validation and bias auditing of diagnostic AI, human single-cell/spatial atlases, and precision selection among local, conventional systemic and targeted therapies.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-asghar2024-infectiousuveitisa-pages-1-2"></a>(asghar2024“infectiousuveitisa pages 1-2): Muhammad Arif Asghar, Shixin Tang, Li Ping Wong, Peizeng Yang, and Qinjian Zhao. “infectious uveitis: a comprehensive systematic review of emerging trends and molecular pathogenesis using network analysis”. Journal of Ophthalmic Inflammation and Infection, Nov 2024. URL: <a href="https://doi.org/10.1186/s12348-024-00444-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12348-024-00444-8</a>, <a href="https://doi.org/10.1186/s12348-024-00444-8" target="_blank" rel="noopener noreferrer">doi:10.1186/s12348-024-00444-8</a>. This article has 24 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-trivedi2019theuseof-pages-3-5"></a>(trivedi2019theuseof pages 3-5): Amruta Trivedi and Constance Katelaris. The use of biologic agents in the management of uveitis. Internal Medicine Journal, 49:1352-1363, Nov 2019. URL: <a href="https://doi.org/10.1111/imj.14215" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/imj.14215</a>, <a href="https://doi.org/10.1111/imj.14215" target="_blank" rel="noopener noreferrer">doi:10.1111/imj.14215</a>. This article has 46 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-rosenbaum2018theeyeshave-pages-1-3"></a>(rosenbaum2018theeyeshave pages 1-3): James T. Rosenbaum and Andrew D. Dick. The eyes have it. Arthritis &amp; Rheumatology, 70:1533-1543, Aug 2018. URL: <a href="https://doi.org/10.1002/art.40568" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/art.40568</a>, <a href="https://doi.org/10.1002/art.40568" target="_blank" rel="noopener noreferrer">doi:10.1002/art.40568</a>. This article has 67 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-delatorre2024epidemiologyclinicalfeatures-pages-1-2"></a>(delatorre2024epidemiologyclinicalfeatures pages 1-2): Alejandra de-la-Torre, Germán Mejía-Salgado, Carlos Cifuentes-González, William Rojas-Carabali, Miguel Cuevas, Sandra García, Carlos M. Rangel, Claudia Durán, Diana Isabel Pachón-Suárez, and Andrés Bustamante-Arias. Epidemiology, clinical features, and classification of 3,404 patients with uveitis: colombian uveitis multicenter study (col-uvea). Graefe's Archive for Clinical and Experimental Ophthalmology, 262:2601-2615, Mar 2024. URL: <a href="https://doi.org/10.1007/s00417-024-06422-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00417-024-06422-z</a>, <a href="https://doi.org/10.1007/s00417-024-06422-z" target="_blank" rel="noopener noreferrer">doi:10.1007/s00417-024-06422-z</a>. This article has 24 citations.</p>
+</li>
+<li>
+<p><a id="ref-wu2024comprehensiveproteomicprofiling-pages-1-2"></a>(wu2024comprehensiveproteomicprofiling pages 1-2): Lingzi Wu, Jinying An, Xueru Li, Qingqin Tao, Zheng Liu, Kai Zhang, Lei Zhou, and Xiaomin Zhang. Comprehensive proteomic profiling of aqueous humor in idiopathic uveitis and vogt–koyanagi–harada syndrome. ACS Omega, 9:18643-18653, Apr 2024. URL: <a href="https://doi.org/10.1021/acsomega.3c10257" target="_blank" rel="noopener noreferrer">https://doi.org/10.1021/acsomega.3c10257</a>, <a href="https://doi.org/10.1021/acsomega.3c10257" target="_blank" rel="noopener noreferrer">doi:10.1021/acsomega.3c10257</a>. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-peters2024tigitstimulationsuppresses-pages-1-2"></a>(peters2024tigitstimulationsuppresses pages 1-2): Kayleigh Peters, Trisha McDonald, Fauziyya Muhammad, Adrien Brady, John Dostal, and Darren J Lee. Tigit stimulation suppresses autoimmune uveitis by inhibiting th17 cell infiltration. Journal of leukocyte biology, 116:1054-1060, May 2024. URL: <a href="https://doi.org/10.1093/jleuko/qiae116" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/jleuko/qiae116</a>, <a href="https://doi.org/10.1093/jleuko/qiae116" target="_blank" rel="noopener noreferrer">doi:10.1093/jleuko/qiae116</a>. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-kuo2024associationbetweenimmune-pages-1-2"></a>(kuo2024associationbetweenimmune pages 1-2): Hou-Ting Kuo, Chia-Yun Chen, Alan Y. Hsu, Yu-Hsun Wang, Chun-Ju Lin, Ning-Yi Hsia, Yi-Yu Tsai, and James Cheng-Chung Wei. Association between immune checkpoint inhibitor medication and uveitis: a population-based cohort study utilizing trinetx database. Frontiers in Immunology, Jan 2024. URL: <a href="https://doi.org/10.3389/fimmu.2023.1302293" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fimmu.2023.1302293</a>, <a href="https://doi.org/10.3389/fimmu.2023.1302293" target="_blank" rel="noopener noreferrer">doi:10.3389/fimmu.2023.1302293</a>. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-rodriguezmartinez2024potentialprognosticprotein-pages-1-2"></a>(rodriguezmartinez2024potentialprognosticprotein pages 1-2): Lorena Rodríguez-Martínez, Carmen Antía Rodríguez-Fernández, Olalla Rodríguez Lemos, Begoña de Domingo, Pere García Bru, Jesús Mateos, and Anxo Fernández-Ferreiro. Potential prognostic protein biomarkers in tears from noninfectious uveitis patients under biologic treatment as a prelude to personalized medicine. Investigative Ophthalmology &amp; Visual Science, 65:29, Nov 2024. URL: <a href="https://doi.org/10.1167/iovs.65.13.29" target="_blank" rel="noopener noreferrer">https://doi.org/10.1167/iovs.65.13.29</a>, <a href="https://doi.org/10.1167/iovs.65.13.29" target="_blank" rel="noopener noreferrer">doi:10.1167/iovs.65.13.29</a>. This article has 4 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-liu2023progesteroneattenuatesth17cell-pages-1-2"></a>(liu2023progesteroneattenuatesth17cell pages 1-2): Xiuxing Liu, Chenyang Gu, Jianjie Lv, Qi Jiang, Wen Ding, Zhaohao Huang, Yidan Liu, Yuhan Su, Chun Zhang, Zhuping Xu, Xianggui Wang, and Wenru Su. Progesterone attenuates th17-cell pathogenicity in autoimmune uveitis via id2/pim1 axis. Journal of Neuroinflammation, Jun 2023. URL: <a href="https://doi.org/10.1186/s12974-023-02829-3" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12974-023-02829-3</a>, <a href="https://doi.org/10.1186/s12974-023-02829-3" target="_blank" rel="noopener noreferrer">doi:10.1186/s12974-023-02829-3</a>. This article has 34 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zhu2024beneficialmechanismsof-pages-1-2"></a>(zhu2024beneficialmechanismsof pages 1-2): Lei Zhu, He Li, Xuening Peng, Zhaohuai Li, Sichen Zhao, Dongting Wu, Jialing Chen, Si Li, Renbing Jia, Zuohong Li, and Wenru Su. Beneficial mechanisms of dimethyl fumarate in autoimmune uveitis: insights from single-cell rna sequencing. Journal of Neuroinflammation, 21:1-18, Apr 2024. URL: <a href="https://doi.org/10.1186/s12974-024-03096-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12974-024-03096-6</a>, <a href="https://doi.org/10.1186/s12974-024-03096-6" target="_blank" rel="noopener noreferrer">doi:10.1186/s12974-024-03096-6</a>. This article has 14 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-paley2024mucosalsignaturesof-pages-1-2"></a>(paley2024mucosalsignaturesof pages 1-2): Michael A. Paley, Xinbo Yang, Lynn M. Hassman, Frank Penkava, Lee I. Garner, Grace L. Paley, Nicole Linskey, Ryan Agnew, Paulo Henrique Arantes de Faria, Annie Feng, Sophia Y. Li, Davide Simone, Elisha D.O. Roberson, Philip A. Ruzycki, Ekaterina Esaulova, Jennifer Laurent, Lacey Feigl-Lenzen, Luke E. Springer, Chang Liu, Geraldine M. Gillespie, Paul Bowness, K. Christopher Garcia, and Wayne M. Yokoyama. Mucosal signatures of pathogenic t cells in hla-b*27+ anterior uveitis and axial spondyloarthritis. Jul 2024. URL: <a href="https://doi.org/10.1172/jci.insight.174776" target="_blank" rel="noopener noreferrer">https://doi.org/10.1172/jci.insight.174776</a>, <a href="https://doi.org/10.1172/jci.insight.174776" target="_blank" rel="noopener noreferrer">doi:10.1172/jci.insight.174776</a>. This article has 30 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-wang2024automatedearlydetection-pages-1-2"></a>(wang2024automatedearlydetection pages 1-2): Yuqin Wang, Zijian Yang, Xingneng Guo, Wang Jin, Dan Lin, Anying Chen, and Meng Zhou. Automated early detection of acute retinal necrosis from ultra-widefield color fundus photography using deep learning. Eye and Vision, Aug 2024. URL: <a href="https://doi.org/10.1186/s40662-024-00396-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s40662-024-00396-z</a>, <a href="https://doi.org/10.1186/s40662-024-00396-z" target="_blank" rel="noopener noreferrer">doi:10.1186/s40662-024-00396-z</a>. This article has 9 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct06431373-chunk-1"></a>(NCT06431373 chunk 1):  A Study of Brepocitinib in Adults With Active, Non-Infectious, Non-Anterior Uveitis. Priovant Therapeutics, Inc.. 2024. ClinicalTrials.gov Identifier: NCT06431373</p>
+</li>
+<li>
+<p><a id="ref-wilson2023systemicadministrationof-pages-1-2"></a>(wilson2023systemicadministrationof pages 1-2): Leslie Wilson, Katherine E. Lewis, Lawrence S. Evans, Stacey R. Dillon, and Kathryn L. Pepple. Systemic administration of acazicolcept, a dual cd28 and inducible t cell costimulator inhibitor, ameliorates experimental autoimmune uveitis. Mar 2023. URL: <a href="https://doi.org/10.1167/tvst.12.3.27" target="_blank" rel="noopener noreferrer">https://doi.org/10.1167/tvst.12.3.27</a>, <a href="https://doi.org/10.1167/tvst.12.3.27" target="_blank" rel="noopener noreferrer">doi:10.1167/tvst.12.3.27</a>. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-rosenbaum2018theeyeshave-pages-10-14"></a>(rosenbaum2018theeyeshave pages 10-14): James T. Rosenbaum and Andrew D. Dick. The eyes have it. Arthritis &amp; Rheumatology, 70:1533-1543, Aug 2018. URL: <a href="https://doi.org/10.1002/art.40568" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/art.40568</a>, <a href="https://doi.org/10.1002/art.40568" target="_blank" rel="noopener noreferrer">doi:10.1002/art.40568</a>. This article has 67 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-chang2021uveitisinchildren-pages-1-3"></a>(chang2021uveitisinchildren pages 1-3): Margaret H. Chang, Jessica G. Shantha, Jacob J. Fondriest, Mindy S. Lo, and Sheila T. Angeles-Han. Uveitis in children and adolescents. Rheumatic diseases clinics of North America, 47 4:619-641, Nov 2021. URL: <a href="https://doi.org/10.1016/j.rdc.2021.07.005" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.rdc.2021.07.005</a>, <a href="https://doi.org/10.1016/j.rdc.2021.07.005" target="_blank" rel="noopener noreferrer">doi:10.1016/j.rdc.2021.07.005</a>. This article has 57 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct06310837-chunk-1"></a>(NCT06310837 chunk 1):  Effect of Immunosuppressants With Adalimumab Biosimilars vs Corticosteroids on Noninfectious Uveitis. Zhongshan Ophthalmic Center, Sun Yat-sen University. 2024. ClinicalTrials.gov Identifier: NCT06310837</p>
+</li>
+<li>
+<p><a id="ref-hoffmann2022preactivatedgranulocytesfrom-pages-1-3"></a>(hoffmann2022preactivatedgranulocytesfrom pages 1-3): Anne L. C. Hoffmann, Stefanie M. Hauck, Cornelia A. Deeg, and Roxane L. Degroote. Pre-activated granulocytes from an autoimmune uveitis model show divergent pathway activation profiles upon il8 stimulation in vitro. International Journal of Molecular Sciences, 23:9555, Aug 2022. URL: <a href="https://doi.org/10.3390/ijms23179555" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms23179555</a>, <a href="https://doi.org/10.3390/ijms23179555" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms23179555</a>. This article has 9 citations.</p>
+</li>
+<li>
+<p><a id="ref-trivedi2019theuseof-pages-1-3"></a>(trivedi2019theuseof pages 1-3): Amruta Trivedi and Constance Katelaris. The use of biologic agents in the management of uveitis. Internal Medicine Journal, 49:1352-1363, Nov 2019. URL: <a href="https://doi.org/10.1111/imj.14215" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/imj.14215</a>, <a href="https://doi.org/10.1111/imj.14215" target="_blank" rel="noopener noreferrer">doi:10.1111/imj.14215</a>. This article has 46 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-uveitis"></a>(OpenTargets Search: uveitis): Open Targets Query (uveitis, 18 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-nct02595398-chunk-1"></a>(NCT02595398 chunk 1):  Suprachoroidal Injection of CLS-TA in Subjects With Macular Edema Associated With Non-infectious Uveitis. Clearside Biomedical, Inc.. 2015. ClinicalTrials.gov Identifier: NCT02595398</p>
+</li>
+<li>
+<p><a id="ref-nct05486468-chunk-1"></a>(NCT05486468 chunk 1):  The Use of Two YUTIQ Versus Sham for Treatment of Chronic Non Infectious Intraocular Inflammation Affecting the Posterior Segment. Texas Retina Associates. 2022. ClinicalTrials.gov Identifier: NCT05486468</p>
+</li>
+<li>
+<p><a id="ref-nct05384249-chunk-1"></a>(NCT05384249 chunk 1):  Phase 2b Pivotal Study of Izokibep in Non-infectious, Intermediate-, Posterior- or Pan-uveitis. ACELYRIN Inc.. 2022. ClinicalTrials.gov Identifier: NCT05384249</p>
+</li>
+<li>
+<p><a id="ref-asghar2024-infectiousuveitisa-pages-14-15"></a>(asghar2024“infectiousuveitisa pages 14-15): Muhammad Arif Asghar, Shixin Tang, Li Ping Wong, Peizeng Yang, and Qinjian Zhao. “infectious uveitis: a comprehensive systematic review of emerging trends and molecular pathogenesis using network analysis”. Journal of Ophthalmic Inflammation and Infection, Nov 2024. URL: <a href="https://doi.org/10.1186/s12348-024-00444-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12348-024-00444-8</a>, <a href="https://doi.org/10.1186/s12348-024-00444-8" target="_blank" rel="noopener noreferrer">doi:10.1186/s12348-024-00444-8</a>. This article has 24 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-golubenco2024biomarkersofuveitis-pages-1-3"></a>(golubenco2024biomarkersofuveitis pages 1-3): Elena GOLUBENCO, Elena DOLAPCIU, Olga GAIDARJI, Lucia MAZUR-NICORICI, and Ninel REVENCO. Biomarkers of uveitis in juvenile idiopathic arthritis: a systematic review. Archives of the Balkan Medical Union, 59(4):415-424, Dec 2024. URL: <a href="https://doi.org/10.31688/abmu.2024.59.4.12" target="_blank" rel="noopener noreferrer">https://doi.org/10.31688/abmu.2024.59.4.12</a>, <a href="https://doi.org/10.31688/abmu.2024.59.4.12" target="_blank" rel="noopener noreferrer">doi:10.31688/abmu.2024.59.4.12</a>. This article has 1 citations.</p>
+</li>
+<li>
+<p><a id="ref-golubenco2024biomarkersofuveitis-pages-10-10"></a>(golubenco2024biomarkersofuveitis pages 10-10): Elena GOLUBENCO, Elena DOLAPCIU, Olga GAIDARJI, Lucia MAZUR-NICORICI, and Ninel REVENCO. Biomarkers of uveitis in juvenile idiopathic arthritis: a systematic review. Archives of the Balkan Medical Union, 59(4):415-424, Dec 2024. URL: <a href="https://doi.org/10.31688/abmu.2024.59.4.12" target="_blank" rel="noopener noreferrer">https://doi.org/10.31688/abmu.2024.59.4.12</a>, <a href="https://doi.org/10.31688/abmu.2024.59.4.12" target="_blank" rel="noopener noreferrer">doi:10.31688/abmu.2024.59.4.12</a>. This article has 1 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Uveitis-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>16</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Uveal_Melanoma-falcon.html">← Uveal Melanoma (Falcon)</a>
+                
+                
+                <a href="Van_Buchem_Disease-falcon.html">Van Buchem Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Uveitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Uveitis-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

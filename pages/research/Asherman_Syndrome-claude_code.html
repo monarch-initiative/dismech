@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asherman_Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Asherman_Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Asherman_Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-08-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0015299" target="_blank" rel="noopener noreferrer">MONDO:0015299</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-4-8[1m]</span>
+                    
+                    
+                    <span class="meta-chip">19 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Asherman syndrome is a rare, acquired gynecological disorder characterized by the formation of <strong>intrauterine adhesions (IUA)</strong> / synechiae — fibrous scar tissue that partially or completely obliterates the uterine cavity and/or cervical canal. It arises from damage to the <strong>basal (regenerative) layer of the endometrium</strong>, most often after intrauterine instrumentation, leading to non-regenerative healing in which functional endometrium is replaced by fibrous connective tissue and opposing uterine walls adhere. The clinical triad is <strong>menstrual abnormality (hypomenorrhea/amenorrhea), infertility/recurrent pregnancy loss, and cyclic pelvic pain</strong>. The eponym honors Joseph Asherman, who characterized the syndrome in 1948–1950.</p>
+<p>A useful nomenclature distinction (increasingly emphasized in the literature): <strong>"intrauterine adhesions"</strong> is the anatomical/hysteroscopic finding, whereas <strong>"Asherman syndrome"</strong> is reserved for IUA <em>accompanied by symptoms</em> (menstrual disturbance, infertility, pain). In one retrospective cohort, of patients with adhesions, 76.1% were classified as IUA and 23.9% met criteria for symptomatic Asherman syndrome (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0015299" target="_blank" rel="noopener noreferrer">MONDO:0015299</a>
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:137686" target="_blank" rel="noopener noreferrer">ORPHA:137686</a>
+- <strong>ICD-10:</strong> N85.6 (Intrauterine synechiae)
+- <strong>ICD-11:</strong> GA20 (Non-inflammatory disorders of the uterus) / relevant synechiae code
+- <strong>MeSH:</strong> "Gynatresia" / "Asherman Syndrome" is indexed under MeSH term <strong>D054882</strong> (Gynatresia); IUA also indexed under uterine diseases
+- <strong>OMIM:</strong> Not applicable (acquired, non-Mendelian)
+- <strong>NORD:</strong> Listed rare disease profile (<a href="https://rarediseases.org/rare-diseases/ashermans-syndrome/">NORD</a>)</p>
+<p><strong>Synonyms / alternative names:</strong> Intrauterine adhesions; intrauterine synechiae; uterine synechiae; endometrial sclerosis; sclerotic endometrium; traumatic uterine atrophy; uterine/cervical atresia (older usage); Asherman's syndrome. (<a href="https://rarediseases.org/rare-diseases/ashermans-syndrome/">NORD</a>, <a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=137686">Orphanet</a>)</p>
+<p><strong>Data derivation:</strong> Disease-level knowledge is aggregated from case series, retrospective cohorts, hysteroscopy registries, and increasingly from <strong>single-cell molecular atlases</strong> of patient endometrium — not from a single population EHR resource. It is under-captured in administrative datasets because many cases are diagnosed only at hysteroscopy during infertility work-up.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary causal mechanism — endometrial basalis trauma.</strong> The dominant cause (&gt;90% of cases) is <strong>iatrogenic mechanical injury to the endometrial basal layer</strong>, typically in a hormonally hypoestrogenic, recently pregnant uterus where the endometrium is thin and vulnerable (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).</p>
+<p><strong>Disease causal factors / procedures:</strong>
+- <strong>Dilation and curettage (D&amp;C) for miscarriage or retained products of conception (RPOC)</strong> — the single most common cause; up to ~40% of women undergoing D&amp;C for RPOC develop adhesions (<a href="https://link.springer.com/article/10.1186/1477-7827-11-118">management review, Springer</a>).
+- <strong>Postpartum curettage</strong> — IUA in ~22% (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>Termination of pregnancy (TOP)</strong> — first-trimester ~21.2%; second-trimester 16.2–21% (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>Myomectomy</strong> — ~9.3% incidence, especially with cavity entry (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>Cesarean section</strong>, B-Lynch compression suturing, uterine artery embolization, and other conservative postpartum-hemorrhage interventions.
+- <strong>Infectious / inflammatory causes:</strong> genital tuberculosis (a leading cause in endemic regions, often producing severe disease), schistosomiasis, chronic endometritis, and pelvic inflammatory disease.
+- <strong>Congenital predisposition:</strong> Müllerian anomalies — one series found 31.6% of septate uteri developed IUAs (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).</p>
+<p><strong>Risk factors (environmental / clinical):</strong>
+- <strong>Timing of curettage</strong> is the most consistent modifiable risk factor: all women who developed IUA in one post-abortion cohort had undergone curettage <strong>8–28 days after delivery/miscarriage, with 75% in the 14–24-day window</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33462894/">Identifying risk factors and incidence, PMID:33462894</a>). Elevated risk persists up to ~4 weeks post-delivery/miscarriage.
+- <strong>Repeated uterine instrumentation / repeat abortions</strong> — the principal risk factor; risk rises with number of procedures.
+- <strong>Negative uterine (suction) pressure</strong> — extremely strong association (OR 125.61, 95% CI 67.35–183.87) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>Chronic endometritis</strong> — present in 64.3% of severe cases (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>Age &gt;35 years</strong> (confounded by cumulative prior procedures); <strong>low estrogen state</strong>.</p>
+<p><strong>Genetic risk factors:</strong> None established as causal. AS is acquired. There may be individual variation in fibrotic/wound-healing propensity (e.g., TGF-β pathway polymorphisms), but no validated susceptibility locus, GWAS signal, or ClinVar entry exists for AS. <strong>Not Applicable / Not established.</strong></p>
+<p><strong>Protective factors:</strong> The strongest protective strategy is <strong>avoiding sharp curettage</strong> in favor of medical management (misoprostol) or <strong>ultrasound-guided gentle suction/manual vacuum aspiration</strong>, and avoiding the high-risk 2–4 week postpartum window (<a href="https://www.fertstert.org/article/S0015-0282(21)00537-9/fulltext">Fertility &amp; Sterility, uterine evacuation approach</a>). No genetic protective variants are known.</p>
+<p><strong>Gene–environment interactions:</strong> Not characterized for AS. Host fibrotic response to endometrial injury is the plausible interaction axis but is unproven.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested HPO</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Amenorrhea / hypomenorrhea</td>
+<td>Menstrual sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000141" target="_blank" rel="noopener noreferrer">HP:0000141</a> (Amenorrhea); <a href="http://purl.obolibrary.org/obo/HP_0011225" target="_blank" rel="noopener noreferrer">HP:0011225</a> (Hypomenorrhea)</td>
+<td>Amenorrhea in 34.4% of AS vs 2.0% of IUA (OR 26.19); hallmark of severe disease (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>)</td>
+</tr>
+<tr>
+<td>Female infertility</td>
+<td>Reproductive sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" rel="noopener noreferrer">HP:0008222</a> (Female infertility)</td>
+<td>Very frequent; a leading cause of refractory uterine-factor infertility</td>
+</tr>
+<tr>
+<td>Recurrent pregnancy loss</td>
+<td>Reproductive sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" rel="noopener noreferrer">HP:0100615</a> / <a href="http://purl.obolibrary.org/obo/HP_0500110" target="_blank" rel="noopener noreferrer">HP:0500110</a> (Recurrent spontaneous abortion)</td>
+<td>5–39% of women with recurrent miscarriage have IUA (<a href="https://link.springer.com/article/10.1186/1477-7827-11-118">Springer review</a>)</td>
+</tr>
+<tr>
+<td>Cyclic pelvic pain / dysmenorrhea</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" rel="noopener noreferrer">HP:0002360</a> (dysmenorrhea-related); <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" rel="noopener noreferrer">HP:0012531</a> (Pain)</td>
+<td>Dysmenorrhea 43.8% in AS vs 22.5% IUA; from trapped menstrual blood (hematometra) behind cervical obstruction</td>
+</tr>
+<tr>
+<td>Hematometra</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030144" target="_blank" rel="noopener noreferrer">HP:0030144</a> (Hematometra)</td>
+<td>Occurs when outflow is obstructed by cervical/lower-segment adhesions</td>
+</tr>
+<tr>
+<td>Abnormal uterine cavity / synechiae</td>
+<td>Imaging finding</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031331" target="_blank" rel="noopener noreferrer">HP:0031331</a> (Abnormal uterine morphology)</td>
+<td>Defining hysteroscopic finding</td>
+</tr>
+<tr>
+<td>Placenta accreta spectrum (obstetric complication)</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011409" target="_blank" rel="noopener noreferrer">HP:0011409</a> (Abnormal placenta morphology)</td>
+<td>Increased in subsequent pregnancies due to deficient decidualization</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong>
+- <strong>Age of onset:</strong> Reproductive-age adult; onset is temporally linked to the inciting procedure (mean age ~33 years in cohorts; onset days-to-weeks after instrumentation) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>Severity:</strong> Variable — graded mild/moderate/severe. AS cohorts skew severe (58.1% AFS stage III) vs IUA cohorts skewing mild (54.9% AFS stage I) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>Progression:</strong> Chronic and, without treatment, <strong>stable-to-progressive</strong>; adhesions can re-form aggressively after lysis (severe cases up to 62.5% recurrence, see §11).
+- <strong>QoL impact:</strong> Substantial — infertility, pregnancy loss, chronic cyclic pain, and psychological distress; measured with general instruments (SF-36/EQ-5D) rather than AS-specific tools.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal genes:</strong> <strong>None.</strong> Asherman syndrome is an acquired fibrotic disorder with no Mendelian gene, no pathogenic germline variant, and no OMIM entry. ClinVar/HGMD/COSMIC are <strong>Not Applicable</strong>.</p>
+<p><strong>Molecularly dysregulated genes (acquired expression changes, not mutations)</strong> — from single-cell and expression studies:
+- <strong>TGFB1</strong> (TGF-β1) — up-regulated; central pro-fibrotic driver via <strong>SMAD2/3</strong> signaling, promoting myofibroblast differentiation (<a href="https://www.sciencedirect.com/science/article/pii/S2352320425000732">single-cell review searches</a>).
+- <strong>ACTA2</strong> (α-SMA) and <strong>COL1A1</strong> (collagen I) — up-regulated myofibroblast/ECM markers.
+- <strong>THBS1</strong> (thrombospondin-1) — identified as a key pro-fibrotic factor modulating <strong>PI3K/AKT</strong>, and a stem-cell-reversible target (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12916671/">Frontiers, THBS1</a>).
+- <strong>SLPI</strong> (secretory leukocyte protease inhibitor) — marks a stressed epithelial subpopulation characteristic of AS during the implantation window (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10514053/">Nat Commun single-cell atlas, PMID:37735465</a>).
+- <strong>WNT7A / FZD6 / LRP6</strong> — loss of ligand–receptor communication (impaired epithelial differentiation).
+- <strong>JAG1 / NOTCH2</strong> — decreased communication affecting glandular differentiation.
+- <strong>IGFBP3/5/6</strong> — up-regulated anti-angiogenic factors.
+- Stress-response genes <strong>HSPA1A</strong>, <strong>SOCS3</strong> co-expressed in the stressed epithelium.</p>
+<p><strong>Suggested HGNC/gene annotations:</strong> TGFB1 (hgnc:11766), ACTA2 (hgnc:130), COL1A1 (hgnc:2197), THBS1 (hgnc:11785), SLPI (hgnc:11092), WNT7A (hgnc:12786), NOTCH2 (hgnc:7882).</p>
+<p><strong>Epigenetics:</strong> Emerging evidence implicates altered DNA methylation and non-coding RNAs (various miRNAs regulating TGF-β/Smad and EMT) in endometrial fibrosis, but this remains preliminary and not part of routine characterization.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not applicable.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental / occupational toxins:</strong> No established chemical or radiation etiology (external pelvic radiation could theoretically damage endometrium, but is not a recognized AS cause).</li>
+<li><strong>Lifestyle factors:</strong> No direct causal lifestyle factors; the operative risk is procedural, not behavioral.</li>
+<li><strong>Infectious agents (can trigger/cause):</strong></li>
+<li><em>Mycobacterium tuberculosis</em> (NCBITaxon:1773) — <strong>genital tuberculosis</strong> is a major cause of severe AS in endemic regions.</li>
+<li><em>Schistosoma</em> spp. — genital schistosomiasis (regional).</li>
+<li>Polymicrobial <strong>chronic endometritis</strong> and PID organisms contribute to the inflammatory/fibrotic milieu.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain (upstream → downstream):</strong></p>
+<ol>
+<li><strong>Trauma to endometrial basalis</strong> (curettage, especially on gravid/postpartum uterus) → loss of the regenerative stem/progenitor niche.</li>
+<li><strong>Local ischemia and inflammation</strong> → hypoxic, pro-inflammatory microenvironment (increased macrophages, B cells, dendritic cells on single-cell profiling).</li>
+<li><strong>TGF-β1 → SMAD2/3 activation</strong> → <strong>fibroblast-to-myofibroblast transdifferentiation</strong> (↑α-SMA), with contributions from CXCR4 signaling and THBS1/PI3K-AKT (<a href="https://www.sciencedirect.com/science/article/pii/S2352320425000732">TGF-β/Smad2/3 in IUA</a>).</li>
+<li><strong>Excessive ECM deposition</strong> — collagen I, laminin, fibronectin (FN1) from stromal fibroblasts; single-cell data show <strong>"a shift from epithelial–stromal interactions to ECM-based self-stromal signaling"</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10514053/">PMID:37735465</a>).</li>
+<li><strong>Failed epithelial regeneration</strong> — dramatic epithelial loss (<strong>8.3% vs 51.65%</strong> of cells) and near-absent ciliated epithelium (<strong>0.19% vs 5.3%</strong>), with disrupted <strong>WNT</strong> (loss of WNT7A–FZD6/LRP6) and <strong>NOTCH</strong> (↓JAG1–NOTCH2) signaling impairing differentiation (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10514053/">PMID:37735465</a>).</li>
+<li><strong>Anti-angiogenic environment</strong> — up-regulated IGFBP3/5/6 → poor revascularization → perpetuates ischemia (a self-reinforcing fibrotic loop).</li>
+<li><strong>Adhesion formation</strong> — opposing fibrotic walls fuse; cavity/cervical obliteration.</li>
+<li><strong>Clinical manifestation</strong> — reduced functional endometrium → hypomenorrhea/amenorrhea, impaired implantation/decidualization → infertility, RPL, placenta accreta spectrum.</li>
+</ol>
+<p><strong>Cellular processes / GO terms:</strong>
+- Wound healing / fibrosis: <a href="http://purl.obolibrary.org/obo/GO_0061041" target="_blank" rel="noopener noreferrer">GO:0061041</a> (regulation of wound healing), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (ECM organization)
+- TGF-β receptor signaling: <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a>
+- Myofibroblast differentiation / fibroblast activation
+- Inflammatory response: <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>
+- Epithelial cell differentiation: <a href="http://purl.obolibrary.org/obo/GO_0030855" target="_blank" rel="noopener noreferrer">GO:0030855</a> (disrupted)
+- Angiogenesis: <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a> (suppressed)
+- Wnt signaling: <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" rel="noopener noreferrer">GO:0016055</a>; Notch signaling: <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" rel="noopener noreferrer">GO:0007219</a></p>
+<p><strong>Cell types involved (CL terms):</strong>
+- Endometrial stromal fibroblast → <strong>myofibroblast</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a>) — the fibrogenic effector
+- Endometrial (luminal/glandular) <strong>epithelial cell</strong> (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a> / <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" rel="noopener noreferrer">CL:0000066</a>) — lost/stressed
+- <strong>Ciliated epithelial cell</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" rel="noopener noreferrer">CL:0000064</a>) — markedly depleted
+- <strong>Macrophage</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), <strong>B cell</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>), <strong>dendritic cell</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>) — expanded
+- Vascular endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>) — anti-angiogenic shift</p>
+<p><strong>Molecular profiling available:</strong> Single-cell RNA-seq atlas of AS endometrium (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10514053/">PMID:37735465</a>; medRxiv preprint 2022) is the flagship dataset, defining the SLPI+ stressed epithelium and the pro-fibrotic/anti-angiogenic niche. This is the strongest candidate dataset for KB <code>datasets:</code> linkage (GEO deposition associated with the Nature Communications paper).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> <strong>Uterus</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" rel="noopener noreferrer">UBERON:0000995</a>), specifically the <strong>endometrium</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001295" target="_blank" rel="noopener noreferrer">UBERON:0001295</a>) and its <strong>basal layer</strong>.</li>
+<li><strong>Tissue level:</strong> endometrial epithelium (glandular + luminal), endometrial stroma, uterine cavity; fibrous scar replacing functional mucosa.</li>
+<li><strong>Secondary sites:</strong> <strong>cervix / cervical canal / internal os</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000002" target="_blank" rel="noopener noreferrer">UBERON:0000002</a>) — obstruction here causes hematometra; <strong>fallopian tube ostia</strong> may be occluded, contributing to infertility.</li>
+<li><strong>Subcellular/GO cellular component:</strong> ECM (extracellular region, <a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a>); collagen-containing ECM (<a href="http://purl.obolibrary.org/obo/GO_0062023" target="_blank" rel="noopener noreferrer">GO:0062023</a>).</li>
+<li><strong>Body system:</strong> Female reproductive system (<a href="http://purl.obolibrary.org/obo/UBERON_0000474" target="_blank" rel="noopener noreferrer">UBERON:0000474</a>).</li>
+<li><strong>Lateralization:</strong> Adhesions are distributed within the cavity (may be marginal, central, or diffuse); disease is of a single midline organ — not lateralized per se.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Adult, reproductive age; <strong>acquired, temporally linked to instrumentation</strong> (days–weeks after the inciting procedure). Onset pattern is subacute (fibrosis develops over the healing window).</li>
+<li><strong>Progression stages:</strong> Graded mild → moderate → severe by cavity involvement and adhesion density (see classification, §10). Severe disease features dense, cavity-obliterating adhesions and amenorrhea.</li>
+<li><strong>Course:</strong> Chronic; without intervention, stable-to-progressive. <strong>Post-treatment recurrence is the defining temporal problem</strong> — reformation of adhesions after lysis, up to 62.5% in severe disease.</li>
+<li><strong>Critical intervention windows:</strong> (a) <strong>Prevention window</strong> — the 2–4 week postpartum/post-miscarriage period when curettage is most dangerous; (b) <strong>Post-adhesiolysis window</strong> — early second-look hysteroscopy and barrier/estrogen measures to prevent reformation.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Not applicable</strong> — acquired, non-heritable. No penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, or carrier-frequency considerations.</li>
+<li><strong>Epidemiology:</strong> True population prevalence is uncertain (under-diagnosed). Procedure-conditioned incidence:</li>
+<li><strong>16–45.5%</strong> of women develop IUA after intrauterine interventions (miscarriage management, TOP, D&amp;C) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).</li>
+<li><strong>Up to ~21.5%</strong> after D&amp;C generally; <strong>up to ~40%</strong> after D&amp;C for RPOC.</li>
+<li><strong>~1.5%</strong> of women undergoing HSG show IUA; <strong>5–39%</strong> of women with recurrent miscarriage (<a href="https://link.springer.com/article/10.1186/1477-7827-11-118">Springer review</a>).</li>
+<li>Orphanet lists it as a rare disease.</li>
+<li><strong>Population demographics:</strong> Affects women of reproductive age worldwide; <strong>higher burden in regions with high rates of unsafe abortion, postpartum curettage, and genital tuberculosis</strong> (parts of South Asia, Africa). <strong>Sex:</strong> exclusively female (uterine organ). Mean age in cohorts ~33 years.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Gold standard:</strong> <strong>Hysteroscopy</strong> — direct visualization of the cavity, permitting simultaneous diagnosis and treatment (<a href="https://pubmed.ncbi.nlm.nih.gov/30936754/">Dovepress current perspectives, PMID:30936754</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).</p>
+<p><strong>Imaging / functional tests:</strong>
+- <strong>3D transvaginal ultrasound (TVUS):</strong> sensitivity 98.8%, specificity 90.8%, accuracy 91.4% (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>); useful first-line/screening; can assess endometrial thickness.
+- <strong>Saline infusion sonohysterography (SIS):</strong> less invasive cavity assessment.
+- <strong>Hysterosalpingography (HSG):</strong> shows filling defects but limited accuracy (~50%); also assesses tubal patency (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).
+- <strong>MRI:</strong> reserved for <strong>totally obliterated cavities</strong> where hysteroscopy cannot access the fundus.
+- <strong>Laboratory / endocrine:</strong> used to <em>exclude</em> other causes of amenorrhea (FSH, estradiol, prolactin, TSH, hCG) — endocrine axis is typically normal in AS, distinguishing it from ovarian/hypothalamic causes.</p>
+<p><strong>Classification systems:</strong> No universally validated system; ~7 exist. Most used:
+- <strong>American Fertility Society (AFS, 1988)</strong> scoring (extent of cavity, adhesion type, menstrual pattern) → stages I (mild), II (moderate), III (severe).
+- <strong>ESGE (European Society for Gynaecological Endoscopy)</strong> classification.
+- <strong>Nasr et al. (2000)</strong> clinicohysteroscopic score.</p>
+<p><strong>Differential diagnosis:</strong> Hypothalamic amenorrhea, premature ovarian insufficiency, PCOS, pregnancy, endometrial atrophy, cervical stenosis, Müllerian agenesis — distinguished by normal endocrine profile plus cavity findings on imaging/hysteroscopy.</p>
+<p><strong>Genetic testing:</strong> Not applicable.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Reproductive outcomes after hysteroscopic adhesiolysis:</strong> In a treated cohort, <strong>cumulative pregnancy rate 81.9%</strong> and <strong>cumulative live birth rate 51.2%</strong>, with outcomes stratifying by severity (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10848492/">low-resource setting review, PMC10848492</a>). Milder disease has far better prognosis: AFS stage I ~&gt;75% fertility prognosis; stage III often 25–50% (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">PMID:40310333</a>).</li>
+<li><strong>Recurrence:</strong> The central prognostic obstacle. Adhesion reformation correlates with baseline severity; <strong>severe IUA recurrence up to 62.5%</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10848492/">outcomes searches</a>).</li>
+<li><strong>Obstetric complications in achieved pregnancies:</strong> increased <strong>placenta accreta spectrum</strong>, placenta previa, preterm birth, IUGR, and miscarriage, owing to deficient decidualization over scarred segments.</li>
+<li><strong>Mortality:</strong> AS is <strong>not directly life-threatening</strong>; morbidity is reproductive (infertility, pregnancy loss) and quality-of-life (chronic pain, psychological burden). Rare severe placenta accreta in subsequent pregnancy carries hemorrhage risk.</li>
+<li><strong>Prognostic factors:</strong> severity/AFS stage, extent of residual functional endometrium, endometrial thickness/vascularity post-treatment, presence of chronic endometritis, and adhesion density.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Standard of care — hysteroscopic adhesiolysis</strong> (NCIT:C15329 Surgical Procedure; more specifically operative hysteroscopy):
+- <strong>Cold microscissors</strong> preferred over electrosurgery to reduce thermal injury, perforation, and recurrence (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10848492/">outcomes searches</a>).
+- Severe/obliterated cases may need ultrasound- or laparoscopy-guided dissection; often <strong>repeated procedures</strong>.</p>
+<p><strong>Post-operative adhesion-reformation prevention</strong> (adjuncts — the key strategy given high recurrence):
+- <strong>Physical barriers:</strong> intrauterine balloon (Foley/Cook), IUD, <strong>hyaluronic acid gel / auto–cross-linked HA</strong> (<a href="https://clinicaltrials.gov/study/NCT02617108">NCT02617108</a>; HA outcomes <a href="https://pubmed.ncbi.nlm.nih.gov/41267665/">PMID:41267665</a>).
+- <strong>Hormonal (estrogen ± progestogen) therapy</strong> to stimulate re-epithelialization (NCIT:C15986 Pharmacotherapy; therapeutic_agent estrogen, CHEBI). <strong>Important recent evidence caveat:</strong> a <strong>randomized trial (Hanstede et al., 2023, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10308500/">PMID:37396823</a>) found hormonal support did NOT improve recurrence, menses, or endometrial thickness</strong> — the efficacy of routine post-adhesiolysis estrogen is now questioned. Curate this as a <code>KNOWLEDGE_GAP</code> / competing-evidence point rather than settled benefit.
+- <strong>Antibiotics</strong> where chronic endometritis is present.
+- <strong>Platelet-rich plasma (PRP)</strong> intrauterine infusion — emerging adjunct.</p>
+<p><strong>Advanced / experimental (regenerative) therapeutics</strong> (NCIT:C15238 Gene Therapy / NCIT:C15431 stem-cell / cell therapy):
+- <strong>Menstrual blood-derived mesenchymal stem cells (MenSCs)</strong> — attenuate TGF-β, down-regulate α-SMA and collagen I, promote proliferation; act mainly via <strong>paracrine</strong> signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/30760192/">PMID:30760192</a>; <a href="https://www.sciencedirect.com/science/article/pii/S2352320425000732">MenSC review</a>).
+- <strong>Bone marrow / umbilical cord MSCs</strong>, autologous stem cell mobilization.
+- <strong>Stem-cell–derived exosomes</strong> and <strong>bioengineered hydrogels/scaffolds</strong>; hESC-derived endometrial organoids + 3D Matrigel (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8079828/">PMC8079828</a>).
+- <strong>Molecular targets under study:</strong> THBS1 (PI3K/AKT), TGF-β1/Smad2/3 axis.
+- <strong>Assisted reproduction:</strong> IVF ± gestational surrogacy for refractory uterine-factor infertility.</p>
+<p><strong>Pharmacogenomics:</strong> Not applicable.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention (most impactful):</strong></li>
+<li><strong>Avoid unnecessary curettage</strong>; prefer <strong>medical management (misoprostol)</strong> or expectant management for miscarriage.</li>
+<li>Use <strong>ultrasound-guided gentle suction / manual vacuum aspiration</strong> rather than sharp curettage.</li>
+<li><strong>Avoid the 2–4 week postpartum/post-miscarriage high-risk window</strong> for instrumentation (<a href="https://www.fertstert.org/article/S0015-0282(21)00537-9/fulltext">Fertility &amp; Sterility</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33462894/">PMID:33462894</a>).</li>
+<li>Limit repeat intrauterine procedures; treat genital infections (including TB) promptly.</li>
+<li><strong>Secondary prevention:</strong> early hysteroscopic diagnosis in women with post-procedure menstrual change or infertility; treat chronic endometritis.</li>
+<li><strong>Tertiary prevention:</strong> post-adhesiolysis barriers (balloon/HA gel), early <strong>second-look hysteroscopy</strong> to lyse re-forming adhesions, and endometrial-regeneration adjuncts.</li>
+<li><strong>Counseling:</strong> reproductive/pre-conception counseling; genetic counseling <strong>not applicable</strong>.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> Human disease (<em>Homo sapiens</em>, NCBITaxon:9606). Naturally occurring analogous intrauterine adhesion disease in other species is not well documented; endometrial fibrosis/scarring can occur in domestic animals but "Asherman syndrome" is a human clinical entity.</li>
+<li><strong>Breed / OMIA / veterinary:</strong> No established OMIA entry (acquired, not genetic).</li>
+<li><strong>Comparative biology:</strong> Endometrial regeneration is a conserved mammalian process; rodents serve as mechanistic surrogates rather than natural-disease models.</li>
+<li><strong>Zoonosis / transmission:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Rodent (mouse/rat) mechanical/chemical injury models — the workhorse:</strong> Induced by intrauterine curettage/scraping, electrocoagulation, ethanol/trichloroacetic-acid instillation, or dual mechanical+LPS injury. These recapitulate <strong>endometrial fibrosis, ↑TGF-β1/Smad, ↑α-SMA/collagen, thinned endometrium, and impaired fertility</strong>, and are the standard platform for testing MSC/exosome/hydrogel therapies (<a href="https://www.discoverymedicine.com/Xuechai-Bai/2019/06/endometrial-fibrosis-and-stem-cell-therapy/">mechanisms &amp; stem cell therapy review</a>).</li>
+<li><strong>In vitro / cellular models:</strong> primary human endometrial stromal cells with TGF-β1 stimulation (fibrosis induction); endometrial epithelial cultures; <strong>iPSC/hESC-derived endometrial organoids</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8079828/">PMC8079828</a>).</li>
+<li><strong>Model characteristics / limitations:</strong> Rodent uterine anatomy (bicornuate, rapid estrous cycling, high regenerative capacity) differs from human; models capture fibrosis and functional infertility well but imperfectly reproduce the human implantation-window epithelial phenotype and chronic recurrence dynamics. <code>evidence_source: MODEL_ORGANISM</code> for all rodent data; <code>IN_VITRO</code> for organoid/cell work.</li>
+<li><strong>Resources:</strong> No dedicated AS model repository; models are protocol-defined and reported ad hoc in the literature.</li>
+</ul>
+<hr />
+<h2>Key Ontology Term Summary (for KB population)</h2>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0015299" target="_blank" rel="noopener noreferrer">MONDO:0015299</a> (Asherman syndrome)</li>
+<li><strong>Phenotypes (HP):</strong> <a href="http://purl.obolibrary.org/obo/HP_0000141" target="_blank" rel="noopener noreferrer">HP:0000141</a> (Amenorrhea), <a href="http://purl.obolibrary.org/obo/HP_0011225" target="_blank" rel="noopener noreferrer">HP:0011225</a> (Hypomenorrhea), <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" rel="noopener noreferrer">HP:0008222</a> (Female infertility), <a href="http://purl.obolibrary.org/obo/HP_0500110" target="_blank" rel="noopener noreferrer">HP:0500110</a>/<a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" rel="noopener noreferrer">HP:0100615</a> (Recurrent spontaneous abortion), <a href="http://purl.obolibrary.org/obo/HP_0030144" target="_blank" rel="noopener noreferrer">HP:0030144</a> (Hematometra), <a href="http://purl.obolibrary.org/obo/HP_0031331" target="_blank" rel="noopener noreferrer">HP:0031331</a> (Abnormal uterine morphology)</li>
+<li><strong>Anatomy (UBERON):</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001295" target="_blank" rel="noopener noreferrer">UBERON:0001295</a> (endometrium), <a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" rel="noopener noreferrer">UBERON:0000995</a> (uterus), <a href="http://purl.obolibrary.org/obo/UBERON_0000002" target="_blank" rel="noopener noreferrer">UBERON:0000002</a> (cervix), <a href="http://purl.obolibrary.org/obo/UBERON_0000474" target="_blank" rel="noopener noreferrer">UBERON:0000474</a> (female reproductive system)</li>
+<li><strong>Cells (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a> (myofibroblast), <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" rel="noopener noreferrer">CL:0000066</a> (epithelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" rel="noopener noreferrer">CL:0000064</a> (ciliated cell), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage)</li>
+<li><strong>Processes (GO):</strong> <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a> (TGF-β receptor signaling), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (ECM organization), <a href="http://purl.obolibrary.org/obo/GO_0061041" target="_blank" rel="noopener noreferrer">GO:0061041</a> (regulation of wound healing), <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a> (angiogenesis), <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" rel="noopener noreferrer">GO:0016055</a> (Wnt signaling)</li>
+<li><strong>Treatments (NCIT):</strong> NCIT:C15329 (Surgical Procedure — hysteroscopic adhesiolysis), NCIT:C15986 (Pharmacotherapy — estrogen), NCIT:C15238 (Gene Therapy), cell therapy (MSC)</li>
+</ul>
+<hr />
+<h2>Curation Caveats / Evidence Notes</h2>
+<ol>
+<li><strong>Acquired disease</strong> — do not populate causal-gene, inheritance, or germline-variant slots; explicitly mark N/A.</li>
+<li><strong>Hormonal support efficacy is contested</strong> — the 2023 RCT (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10308500/">PMID:37396823</a>) is a REFUTE/PARTIAL-type evidence item against routine post-op estrogen; curate as a knowledge gap.</li>
+<li><strong>Single-cell atlas (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10514053/">PMID:37735465</a>)</strong> is the strongest molecular source for pathophysiology nodes and has an associated GEO dataset worth linking.</li>
+<li><strong>Verify all PMIDs and snippets</strong> with <code>just fetch-reference</code> before committing — PubMed abstracts were partly cookie-walled during this research; the exact-quote SOP (§Adding Evidence) must be applied to each claim.</li>
+<li>This entry is a strong candidate to <code>conforms_to</code> the <strong><code>fibrotic_response</code></strong> module (tissue injury → inflammation → myofibroblast activation → excessive ECM → organ dysfunction), substituting endometrial stromal fibroblast → myofibroblast.</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10514053/">Decoding the endometrial niche of Asherman's Syndrome at single-cell resolution — Nat Commun, PMID:37735465 (PMC10514053)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12026105/">Intrauterine Adhesions and Asherman Syndrome: Retrospective Dive into Risk Factors, Diagnosis, Surgical Perspectives — PMID:40310333 (PMC12026105)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33462894/">Identifying risk factors and incidence of Asherman Syndrome in post-abortion curettage — PMID:33462894</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39613882/">Mechanistic insights into intrauterine adhesions — PMID:39613882</a></li>
+<li><a href="https://www.dovepress.com/ashermans-syndrome-current-perspectives-on-diagnosis-and-management-peer-reviewed-fulltext-article-IJWH">Asherman's syndrome: current perspectives on diagnosis and management — PMID:30936754 (Dovepress)</a></li>
+<li><a href="https://link.springer.com/article/10.1186/1477-7827-11-118">The management of Asherman syndrome: a review of literature — Reprod Biol Endocrinol (Springer)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10308500/">Hormonal support in women with Asherman syndrome does not lead to better outcomes: a randomized trial — PMID:37396823 (PMC10308500)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2352320425000732">Novel therapeutic strategies: endometrial regeneration using menstrual blood-derived stem cells — ScienceDirect</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/30760192/">Endometrial Regeneration in Asherman's Syndrome: stem cell therapies — PMID:30760192</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12916671/">Stem cell therapy targets THBS1 to reverse endometrial fibrosis — Frontiers (PMC12916671)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8079828/">Endometrial membrane organoids from hESC + 3D Matrigel — PMC8079828</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10848492/">Review of Asherman syndrome and hysteroscopic treatment outcomes (low-resource setting) — PMC10848492</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41267665/">Fertility &amp; obstetric outcomes: hyaluronic acid post-adhesiolysis — PMID:41267665</a></li>
+<li><a href="https://www.fertstert.org/article/S0015-0282(21)00537-9/fulltext">Avoiding Asherman's syndrome: refining uterine evacuation — Fertility and Sterility</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT02617108">Intrauterine balloon + postoperative estrogen — NCT02617108</a></li>
+<li><a href="https://rarediseases.org/rare-diseases/ashermans-syndrome/">NORD — Asherman's Syndrome</a></li>
+<li><a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=137686">Orphanet — Asherman syndrome (ORPHA:137686)</a></li>
+<li><a href="https://www.discoverymedicine.com/Xuechai-Bai/2019/06/endometrial-fibrosis-and-stem-cell-therapy/">Mechanisms of Endometrial Fibrosis and Stem Cell Therapy — Discovery Medicine</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>15</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Asbestosis-claude_code.html">← Asbestosis (Claude Code)</a>
+                
+                
+                <a href="Aspartylglucosaminuria-cyberian-codex.html">Aspartylglucosaminuria (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Asherman_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Asherman_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

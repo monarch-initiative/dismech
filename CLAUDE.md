@@ -497,6 +497,34 @@ Use this when there is no individual item to name, including a knowledge gap
 attached to an intentionally empty section. A bare section name such as
 `clinical_burden` is not valid entity-reference syntax.
 
+### Cancer Entry Granularity
+
+Somatic cancer entries follow the **granularity ladder** ratified in design
+decisions §3a (`docs/explanation/design-decisions.md`) — consult it before
+creating any new cancer/neoplasm entry. The short version:
+
+- **Default level for a new cancer entry is the histologic entity** (the WHO
+  blue-book / ICD-O morphology level: PDAC, SCLC, DLBCL), or the
+  **WHO/ICC-defined molecular entity** where the field defines one
+  (IDH-wildtype glioblastoma, NPM1-mutant AML).
+- **Biomarker/therapy strata** (EGFR-mutant NSCLC, MSI-H CRC, TNBC) default to
+  `has_subtypes` on the parent; promote to a separate entry only with ≥2
+  stratum-specific pathophysiology nodes **and** a distinct first-line therapy
+  or diagnostic pathway. A promoted stratum without its own MONDO term anchors
+  to the parent term with `mapping_predicate: skos:narrowMatch` in
+  `mappings.mondo_mappings` (never bare parent-term reuse), records overlap
+  with non-disjoint sibling strata, and is covered by a `Grouping`.
+- **Variant tiers** (exon 19 del vs L858R) are `has_subtypes` inside the
+  stratum entry — unless therapy is variant-specific (KRAS G12C).
+- **Stage is never an entry.** Metastatic/advanced disease is `stages:` on the
+  parent plus `conforms_to` on the `invasion_and_metastasis` module — do not
+  create `Metastatic_X` entries.
+- **Pathways/hallmarks are never entries** — they live in `kb/modules/` and
+  mechanism groupings.
+- **Germline predisposition syndromes** (Li-Fraumeni, Lynch) follow the plain
+  Mendelian lump/split rules; keep them separate from the somatic cancer
+  entries they predispose to.
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
@@ -829,11 +857,49 @@ All evidence must have PMID references and support classification:
 ```yaml
 evidence:
   - reference: PMID:12345678
-    supports: SUPPORT  # or REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT
+    supports: SUPPORT  # or REFUTE, NO_EVIDENCE
+    directness: DIRECT  # optional: or INDIRECT, UNKNOWN
     evidence_source: HUMAN_CLINICAL  # or MODEL_ORGANISM, IN_VITRO, COMPUTATIONAL
     snippet: "Quoted text from the paper"
     explanation: "Why this evidence supports/refutes the claim"
 ```
+
+#### `supports` is direction; `directness` is a separate axis
+
+`supports` records **which way** the cited evidence cuts, and nothing else:
+
+- `SUPPORT` — the evidence supports the claim
+- `REFUTE` — the evidence contradicts the claim
+- `NO_EVIDENCE` — the cited reference does not bear on the claim at all
+
+`directness` (optional) records **how directly** the quoted text bears on the
+claim. It is *not* a strength or quality grade — an `INDIRECT` quote may come
+from a large controlled trial, and a `DIRECT` one from a single case report:
+
+- `DIRECT` — the quoted text asserts the claim itself
+- `INDIRECT` — the quote asserts something from which the claim follows by an
+  inference step: a therapeutic response cited as validation of the mechanism it
+  targets, or a result from an inverted or non-human model system
+- `UNKNOWN` — not yet assessed
+
+**Leave `directness` off unless you have actually assessed it.** Absent means
+nobody has judged it, which is the honest state of most of the KB. Do not fill
+it in to look complete.
+
+**`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
+tempted to reach for the old `PARTIAL`, one of these is what you mean:
+
+| You want to say | Use |
+|---|---|
+| supports the claim, but through an inference step | `SUPPORT` + `directness: INDIRECT` |
+| right mechanism, inverted or non-human model system | `SUPPORT` + `directness: INDIRECT` |
+| supports one part of the claim, contradicts another | **two items** — a `SUPPORT` and a `REFUTE`, each quoting the sentence that carries it |
+| true and worth citing, but not about this claim | `NO_EVIDENCE` |
+| an earlier version of this entry's text was wrong | fix the text; record the correction in a `history/` record |
+
+The third row is the one to watch. A single evidence item making two opposite
+claims is the same defect as one item mixing two `evidence_source` values, and
+has the same remedy: split it.
 
 **IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
 
@@ -939,6 +1005,13 @@ ontology bindings. Keep these session-wide invariants in mind:
   ontology term's canonical label.
 - HGNC gene CURIEs use lowercase `hgnc:` in this repository (for example,
   `hgnc:746`, not `HGNC:746`).
+- A CURIE suggested by a deep-research report is a lead. Read the report's
+  `## Term Validation` section first (`just validate-research-terms <report>`
+  adds one to a report generated before this existed), and never bind a term
+  listed there as unresolved. That section says a CURIE exists and is named
+  consistently; it does not say the term is right for your claim, and it does
+  not check dynamic-enum membership. See
+  [`docs/deep-research-term-validation.md`](docs/deep-research-term-validation.md).
 
 ```yaml
 cell_types:
@@ -1721,22 +1794,75 @@ just validate-terms kb/disorders/MyDisease.yaml
 ```
 
 CI also runs these offline gates without changed-path filtering. Run them after
-a tranche of curation edits; only the duplicate-key check accepts a file path:
+a tranche of curation edits; only the duplicate-key and entity-ref checks accept
+a file path:
 
 ```bash
 just check-folded-hyphens
 just check-snippet-length
 just check-title-snippets
+just check-snippet-grading
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
+just check-entity-refs kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
 They catch folded-scalar word corruption, non-propositional short snippets,
-paper titles used as findings, environmental claims without entry-level
-evidence, duplicate YAML keys, and prose claims about defective sources that
-the cache contradicts. The first four use baselines; do not update a baseline
-to admit a defect introduced by the current change.
+paper titles used as findings, one quoted sentence graded with two different
+`evidence_source` values in the same file, environmental claims without
+entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
+references, and prose claims about defective sources that the cache
+contradicts. The first four use baselines; do not update a baseline to admit a
+defect introduced by the current change. `check-environmental-evidence` had one
+too, until the #8296 backlog reached zero and it became a hard gate -- an
+exposure that genuinely cannot be cited now carries a `review_notes:` waiver
+instead of a baseline row (see below).
+
+**When an exposure genuinely cannot be cited, say so in `review_notes:`.**
+`check-environmental-evidence` treats an `environmental[]` entry whose
+`review_notes` *begins* with the sentence
+
+```
+Left deliberately uncited.
+```
+
+as dispositioned rather than uncited, and reports it under `just
+list-environmental-evidence-waivers` instead of as an outstanding gap. Say
+which searches you ran and why they failed, as the `Gout` → Dehydration and
+`Myasthenia_Gravis` → Stress entries do — **the sentence alone does not
+waive**. At least 20 words of recorded search must follow it, and that floor
+is enforced by `check-environmental-evidence` itself, which is ungated, rather
+than only by a test that a `kb/`-only PR would skip. The
+sentinel is matched on `review_notes` only, and only as a prefix: `notes:` is
+disease content and cannot waive, and prose that merely mentions the phrase
+does not trigger it. An entry carrying both a waiver and real evidence is not
+reported as waived — the evidence supersedes it. This exists so that "searched,
+found nothing quotable" is a recordable answer rather than a permanent backlog
+item; it is not a way to skip the search (#8296).
+
+`check-snippet-grading` (#8184) is the one to know about when copying an
+evidence item into a second block: `evidence_source` classifies the cited
+*publication*, so it cannot change because the quote moved. Re-grading a copied
+quote is the defect. Note it is keyed on the **quoted sentence**, not the PMID —
+one paper legitimately carries several values across different sentences, which
+is what "If a paper mixes sources, split evidence items" above already asks for.
+`supports` is deliberately *not* gated: it is claim-relative, so the same
+sentence correctly reads `SUPPORT` for one claim and `REFUTE` for another
+(`just list-snippet-grading --fields all` shows those as a triage view). Note
+this is now a much weaker effect than it used to be — retiring `PARTIAL` cut
+`supports` divergences from 8,285 to 353, against 715 for `evidence_source`, so
+most of that signal was the value's ambiguity rather than claim-relativity.
+Gating `supports` is worth revisiting.
+
+**Why the entity-ref check is a CI step and not just a test.** The same rules
+run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
+and a curation PR touches only `kb/` — matching neither the `python` nor the
+`schema` filter. So the checks written to protect KB content were the ones a
+content-only PR skipped, which is how two alias prefixes reached `main`
+(#9473). `just check-entity-refs` is ungated and whole-KB for the same reason
+`check-duplicate-keys` is. A nightly sweep (`.github/workflows/nightly-kb-sweep.yaml`)
+runs both pytest lanes against `main` as a backstop.
 
 Before a PR, run the authoritative batched check once over every changed file:
 
@@ -2074,12 +2200,14 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `dashboard/*.html` | NO | Derived — generated by `just gen-dashboard` |
 | `docs/` HTML output | NO | Derived — regenerated by CI |
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
+| `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
 git, but only the `generate-pages` workflow writes them, in its own
-`auto/generate-pages` PR (`pages/`, `app/data.js`, `pathographs/`, `dashboard/`,
-`elements/`). Such a bot PR is not a policy violation. See
+`auto/generate-pages` PR (`pages/`, `app/data.js`, `app/models/data.js`,
+`pathographs/`, `dashboard/`, `elements/`). Such a bot PR is not a policy
+violation. See
 [`docs/page-build.md`](docs/page-build.md).
 
 ### Never force-push someone else's branch
@@ -2111,6 +2239,14 @@ This prevents committing generated files (HTML, schema docs, cache CSVs) that ca
 
 ### Commit and push as final step
 Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Write GitHub comments in plain language
+
+Before posting any PR body, issue comment, or review, use the
+`github-communication` skill: lead with the finding in plain language, and
+calibrate the opening to the audience the thread is actually for. This governs
+GitHub prose only — YAML `description`/`explanation`/`notes` and `docs/` keep
+their denser, more technical register.
 
 ### Never write bare `#1`, `#2` for local list items
 In GitHub comments, PR/issue bodies, and reviews, never refer to your own numbered list items as `#1`, `#2`, `#3` — GitHub auto-links these as issue/PR references and expands them into unrelated titles. Write "item 1", "finding 2", or "proposal 3" instead, and reserve `#N` for genuine issue/PR references.

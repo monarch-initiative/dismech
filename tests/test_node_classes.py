@@ -165,6 +165,26 @@ def test_committed_tree_parses():
     assert "MOLECULAR ACTIVITY EFFECT" in names
 
 
+def test_committed_tree_renders_back_to_its_own_bytes():
+    # The header claims `--format text` round-trips. Idempotence (render twice,
+    # get the same thing) is weaker than that claim and was all the sample test
+    # checked: the renderer emits each class's examples before its subclasses,
+    # so an example stranded AFTER a subclass parses correctly, renders to a
+    # different LINE ORDER, and still passes an idempotence check. One had been
+    # sitting in COMPENSATION exactly that way. Comments and blank lines are not
+    # preserved by design, so compare the non-comment body.
+    raw = TREE.read_text(encoding="utf-8")
+    body = [
+        line
+        for line in raw.split("\n")
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    rendered = [
+        line for line in render_text(parse_file(TREE)).split("\n") if line.strip()
+    ]
+    assert rendered == body
+
+
 def test_committed_tree_class_ids_are_unique_and_slug_safe():
     ids = [node.id for _, node in iter_classes(parse_file(TREE))]
     assert len(ids) == len(set(ids)), "duplicate class ids in the tree"
