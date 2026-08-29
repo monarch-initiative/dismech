@@ -157,7 +157,7 @@ prose, while the ordinal grade sits on the AOP.
 |---|---|
 | `<weight-of-evidence>` | prose |
 | `<biological-plausibility>` | prose |
-| `<emperical-support-linkage>` | prose — note the schema's own typo, which matters for anyone parsing it |
+| `<empirical-support-linkage>` | prose |
 | `<quantitative-understanding>` | prose, with `<description>` and `<response-response-relationship>` |
 | `<uncertainties-or-inconsistencies>` | contradicting evidence, as a first-class field |
 
@@ -184,6 +184,23 @@ The grade vocabulary is **High / Moderate / Low / Not Specified**. Counted acros
 
 Not Specified is ~34% of weight-of-evidence grades and ~57% of quantitative-understanding
 grades — a large share of the deployed corpus carries no grade at all.
+
+**Grade coverage is not evidence strength, because the grade and the evidence behind it are
+stored in different places.** The grade sits on the AOP's relationship listing; the
+citations and the supporting prose sit on the KER. Nothing in the serialization couples
+them, so a fully graded AOP can sit on top of relationships that document nothing. Whether
+a grade carries weight has to be checked against that KER's `references`,
+`<empirical-support-linkage>`, and `<biological-plausibility>` fields, one relationship at
+a time.
+
+This is an observation about the deployed data, not about what the Handbook asks of AOP
+developers — the caveat above applies, and the Handbook's guidance on assigning the
+weight-of-evidence grade has not been read here. Worth noting for anyone who does read it
+that the Handbook's three-level `Low`/`Moderate`/`High` scale keyed to evidence
+("biologically plausible, but has not been shown experimentally" through "considerable
+supporting evidence") belongs to **KER Biological Domain of Applicability**, a different
+construct, and should not be mistaken for the criteria behind the `<evidence>` grade
+counted above.
 
 Biological plausibility is a named field on the KER, kept separate from empirical
 support, so the distinction between what is plausible and what is demonstrated is
@@ -237,6 +254,13 @@ that merely resemble each other across the two models are left out.
 | Experiment Type | `EvidenceItem.evidence_source` | Mappable term by term, with one named gap: no clinical or epidemiological term on the AOP side |
 | Evidence (attached to the KER) | `CausalEdge.evidence` | A validated verbatim quote supporting causality between two Events — the unit a KER with no weight-of-evidence assessment needs |
 | Observation (attached to the Event) | `EnvironmentalMechanismTarget.evidence`, `ExperimentalReadout.evidence` | Grounds a stressor/exposure-to-mechanism record, with direction, in a quote validated against the cited source |
+| Event reuse across AOPs; consensus Events | `kb/modules/` plus `Pathophysiology.conforms_to` | Both frameworks factor a recurring mechanism out of the entries sharing it. A module node is dismech's consensus Event, and `conforms_to` declares an entry's node "an organ-specific instance of" it — the relation needed when two AOP authors name one process differently. It is deliberately not inheritance: conforming entries duplicate the content, so this checks consistency and does not merge graphs |
+
+The module layer is the part of dismech with no counterpart named elsewhere in this table,
+and it is the closest dismech comes to the AOP's stressor-agnostic posture — a module
+describes a conserved process rather than one disease. Where an AOP reuses one Event across
+several pathways, dismech writes the process once in `kb/modules/` and has each entry
+declare conformance to it.
 
 ### What blocks integration until resolved
 
@@ -287,8 +311,142 @@ The AOP side of the comparison is expected to come from the OpenScientist networ
 rather than from a single published AOP, so AOP 17 may not remain the comparator.
 -->
 
-*Not yet written.* The AOP side of this use case will draw on an AOP network with
-consensus nodes, under development in OpenScientist.
+The AOP side draws on the eight AOPs that AOP-Wiki aggregates under lead as a prototypical
+stressor ([stressor 59](https://aopwiki.org/stressors/59)): AOPs 12, 499, and 500
+(neurodevelopmental) and 552, 555, 556, 558, and 560 (cardiac).
+
+### Weight of evidence across the eight lead AOPs
+
+They are a stark worked instance of the gap between grade coverage and evidence described
+under Weight of Evidence above. All 40 relationship listings across them carry a grade and
+none is Not Specified — by the corpus measure there, exemplary. But of their 36 unique
+KERs, **20 carry no references, no empirical-support text and no biological-plausibility
+text at all, and 18 of those 20 are graded High.** The empty ones are exactly the 20
+cardiac KERs — every relationship in AOPs 552, 555, 556, 558 and 560 — while the 16
+neurodevelopmental KERs in AOPs 12, 499 and 500 each carry roughly 1,500–10,600 characters
+of references alongside empirical-support and plausibility narrative. The grades then run
+*backwards* to that documentation: all three Low grades and seven of the nine Moderates sit
+on the documented neuro relationships, while the undocumented cardiac ones are almost
+uniformly High. The same inversion holds one level up — AOP 12 is the only OECD-endorsed
+pathway of the eight, and the only one carrying Low grades.
+
+### Do dismech modules already hold the consensus Events?
+
+Asking whether Events chosen by different AOP authors denote one process is a question
+dismech answers in `kb/modules/`, not with `mechanistic_hypotheses` — a module node is the
+generic process and `conforms_to` declares an entry's node an organ-specific instance of
+it. Testing that against the **21 unique Key Events** in the five cardiac lead AOPs, with
+`cardiac_ion_channel_repolarization` and `cardiomyopathy_maladaptive_remodeling` as the
+candidate modules:
+
+| KE | Event | Module node | Fit |
+|---|---|---|---|
+| 698 | Altered, Action Potential | Altered Action Potential and Calcium Handling | yes |
+| 1961 | Prolongation of Action Potential Duration | Altered Action Potential and Calcium Handling | yes — module names long QT physiology |
+| 1962 | Prolongation of QT interval | Altered Action Potential and Calcium Handling | yes |
+| 389 | Increased, Intracellular Calcium overload | Altered Action Potential and Calcium Handling | yes — `calcium ion transport` |
+| 2289 | Hyperphosphorylation of RyR2 | Altered Action Potential and Calcium Handling | yes — module names SR calcium-release destabilization |
+| 2283 | Increased early premature depolarizations | Arrhythmogenic Substrate and Triggered Activity | yes — module names EADs |
+| 1963 | Torsades de Pointes | Ventricular Tachyarrhythmia | yes — module names torsade |
+| 1106 | Occurrence, cardiac arrhythmia *(AO)* | Arrhythmogenic Substrate and Triggered Activity | yes |
+| 2291 | Slowed Heart Rate | Sinoatrial Node Pacemaker Dysfunction | yes — module names sinus bradycardia and HCN4 |
+| 2292 | Altered Cardiac Electrical Conduction | Sinoatrial Node Pacemaker Dysfunction | yes |
+| 1321 | Increased, intracellular sodium | Altered Action Potential and Calcium Handling | partial — module names late sodium current, not Na⁺ accumulation |
+| 2287 | Impaired Sodium-Calcium Exchange | Arrhythmogenic Substrate and Triggered Activity | partial — NCX appears only in the DAD description |
+| 2281 | Increased uncoordinated cardiac contraction | Ventricular Tachyarrhythmia | partial |
+| 1532 | Decrease, Cardiac contractility | Progressive Contractile Dysfunction | endpoint only — see below |
+| 1535 | Heart failure *(AO)* | Structural Cardiac Impairment and Heart Failure | endpoint only — see below |
+| 1529 | Blockade, L-Type Calcium Channels *(MIE)* | — | none |
+| 593 | Inhibition, ERG voltage-gated potassium channel *(MIE)* | — | none |
+| 1562 | Decreased Na/K ATPase activity *(MIE)* | — | none |
+| 2288 | Phosphodiesterase inhibition *(MIE)* | — | none |
+| 2290 | Inhibition of Funny current (If) *(MIE)* | — | none |
+| 693 | Increased, cyclic adenosine monophosphate | — | none |
+
+**Ten of 21 map cleanly and three partially, and the six that do not fall into three
+groups that each say something different.**
+
+*All five MIEs are unmatched, and for one reason.* **These two modules start with a genetic
+cause, while an AOP starts with the damage itself — so a chemical that does the same damage
+has nothing to attach to.** `cardiac_ion_channel_repolarization` begins at `Cardiac
+Ion-Channel or Calcium-Handling Variant`, described as "a pathogenic germline variant alters
+a cardiac ion channel"; `cardiomyopathy_maladaptive_remodeling` begins at a sarcomeric
+variant. AOP 552 begins at `Blockade, L-Type Calcium Channels` and stays silent on what did
+the blocking, which is what lets one pathway serve many chemicals. A calcium channel that is
+not working produces the same altered action potential whether a mutation broke it or lead
+is sitting in it, so everything downstream matches — but lead cannot conform to a node that
+asserts the cause was a mutation.
+
+This is a gap in these two modules, **not** a property of the module layer. Of the 127
+modules in `kb/modules/`, only 38 open on a node naming a genetic cause; 89 do not, and
+several open exactly where an AOP would — `drug_induced_nephrotoxicity` at "Nephrotoxic Drug
+Exposure and Tubular Uptake", `drug_induced_liver_injury` at "Reactive Drug Metabolite
+Formation", `diabetic_vascular_complications` at "Chronic Hyperglycemia". The five
+antibacterial modules begin at a drug target. So dismech can express a chemical entry point;
+the two modules that happen to cover lead's cardiac physiology were written for inherited
+channelopathy and cardiomyopathy and do not.
+
+*The contractility arm reaches a matching endpoint by a different route.* KE1532 → KE1535
+asserts calcium overload depresses contractility and produces heart failure directly.
+`cardiomyopathy_maladaptive_remodeling` reaches the same outcome through neurohormonal
+activation and ventricular remodeling, and `cardiac_ion_channel_repolarization` explicitly
+scopes itself to "structurally normal hearts". So the endpoints align while the mechanism
+between them does not — the AOPs compress a chain the module expands, or assert an acute
+pump failure the module does not model.
+
+*The cAMP/PDE arm is simply absent* from both modules.
+
+#### The neurodevelopmental side scores worse, and for a different reason
+
+Repeating the exercise on the **14 unique Key Events** in AOPs 12, 499, and 500, against
+`glutamate_excitotoxicity`, `synaptic_vesicle_cycle`, and `mitochondrial_dysfunction`:
+
+| KE | Event | Module node | Fit |
+|---|---|---|---|
+| 1339 | Increase, intracellular calcium | Glutamate Receptor Overactivation and Calcium Overload | yes |
+| 2151 | Disruption, neurotransmitter release | Neurotransmitter Release Failure and Synaptic Transmission Deficit | yes |
+| 177 | Increase, Mitochondrial dysfunction | Mitochondrial Dysfunction and Oxidative Stress | yes |
+| 1115 | Increase, Reactive oxygen species | Mitochondrial Dysfunction and Oxidative Stress | yes |
+| 55 | Increase, Cell injury/death | Excitotoxic Neuronal Death | partial — module's death is excitotoxic specifically |
+| 1262 | Apoptosis | Excitotoxic Neuronal Death | partial — same |
+| 352 | N/A, Neurodegeneration *(AO)* | Excitotoxic Neuronal Death | partial — generic outcome against a specific one |
+| 341 | Impairment, Learning and memory *(AO)* | Neurodevelopmental Phenotypic Output | partial — from `excitatory_synapse_scaffold_disruption` |
+| 201 | Binding of antagonist, NMDA receptors *(MIE)* | — | none — sign-inverted, see below |
+| 195 | Inhibition, NMDARs | — | none — sign-inverted |
+| 52 | Decreased, Calcium influx | — | none — sign-inverted |
+| 381 | Reduced levels of BDNF | — | none — no module covers BDNF |
+| 188 | Neuroinflammation | — | none — appears only fused into organ-specific composite nodes |
+| 2146 | Activation of MEK/ERK1/2 *(MIE)* | — | none — MAPK nodes exist but all are proliferation- or fibrosis-framed |
+
+**Four of 14 clean and four partial** — worse than the cardiac side, despite these being the
+well-documented AOPs. Documentation quality and module coverage turn out to be independent.
+
+The reason is worth recording, because it is not the entry-point problem again. Three of the
+six misses fail together because **dismech's only glutamate module is the mirror image of
+lead's mechanism**. `glutamate_excitotoxicity` is built end to end on *over*activation —
+"Excessive Glutamatergic Stimulation", "Glutamate Receptor Overactivation and Calcium
+Overload" — while lead's neurodevelopmental MIE is NMDAR *antagonism*, giving decreased
+calcium influx. The sign is inverted at every node, so KE52 cannot conform to a node whose
+name asserts overload even though `modifier` could carry the direction.
+
+This is the same directional split the OpenScientist report hit as its Finding 9 and
+handled by keeping KE52 out of the merge. Finding it independently on the dismech side
+establishes it as a real gap rather than an AOP-authoring artifact: the KB has no module for
+developmental hypo-activation of glutamatergic signalling. Note the split runs *inside* the
+neuro cluster — KE1339 (increase, from the MEK/ERK arm of AOPs 499 and 500) conforms cleanly
+while KE52 (decrease, from AOP 12) cannot, so no single calcium node holds both.
+
+The result cuts both ways. Two-thirds of the cardiac Events already have a home in modules
+written for inherited arrhythmia and cardiomyopathy, with no lead in view — which is the
+Event-reuse property that makes AOP networks work, arrived at independently. But
+conformance is consistency-checking, not inheritance, so this yields a checkable claim that
+two Events are instances of one process and **not** a merged network render. The graph half
+of the question stays a query over the XML export.
+
+*The rest is not yet written.* A consensus network from OpenScientist was the original plan
+for the AOP side; whether it is still the right comparator is open, given the assessment
+recorded in
+[`AOP_EMOD_ALIGNMENT/assessments/`](AOP_EMOD_ALIGNMENT/assessments/openscientist-assessment-by-claude-code.yaml).
 
 ---
 
