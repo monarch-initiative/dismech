@@ -1767,6 +1767,7 @@ just check-snippet-grading
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
+just check-community-evidence kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
@@ -1774,7 +1775,8 @@ They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
-references, and prose claims about defective sources that the cache
+references, evidence blocks whose only support is a community-tagged reference,
+and prose claims about defective sources that the cache
 contradicts. The first four use baselines; do not update a baseline to admit a
 defect introduced by the current change. `check-environmental-evidence` had one
 too, until the #8296 backlog reached zero and it became a hard gate -- an
