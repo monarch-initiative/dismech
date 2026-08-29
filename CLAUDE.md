@@ -2417,9 +2417,10 @@ real merge queue (plus `merge_group` CI), not wider update batches.
 
 Do not enable GitHub auto-merge on ordinary PRs: it is a separate server-side
 path and bypasses this controller's health, ancestry, age, assignment, and
-one-merge guards. The shepherd agent and weekly-compliance classifier therefore
-never arm it. The separately owned `auto/` lanes may manage their own auto-merge;
-a maintainer who manually arms another PR is making an explicit human override.
+one-merge guards. The shepherd agent never arms it, and weekly-compliance PRs use
+this common controller rather than a separate merge path. The separately owned
+`auto/` lanes may manage their own auto-merge; a maintainer who manually arms
+another PR is making an explicit human override.
 
 Preview what the next sweep would do (read-only):
 

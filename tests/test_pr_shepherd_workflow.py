@@ -6,7 +6,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SHEPHERD = ROOT / ".github" / "workflows" / "pr-shepherd.yml"
-COMPLIANCE = ROOT / ".github" / "workflows" / "auto-merge-compliance.yml"
 CRON_PROFILES = ROOT / ".github" / "cron-profiles.yaml"
 CONTROLLER_ONLY_CRON = "37 1-3,5-7,9-11,13-15,17-19,21-23 * * *"
 
@@ -69,6 +68,12 @@ def test_agent_token_is_scoped_and_cannot_outlive_the_job():
     job = workflow(SHEPHERD)["jobs"]["shepherd"]
     assert job["timeout-minutes"] == 55
     assert set(job["permissions"].values()) == {"read"}
+    checkout = step(job, "Checkout trusted default branch")
+    assert checkout["with"]["ref"] == ("${{ github.event.repository.default_branch }}")
+    assert checkout["with"]["persist-credentials"] is False
+    restore = step(job, "Restore trusted default branch checkout")
+    assert restore["with"]["ref"] == ("${{ github.event.repository.default_branch }}")
+    assert restore["with"]["persist-credentials"] is False
     token = step(job, "Generate ai4c-agent token")
     assert {
         key: token["with"][key]
@@ -85,19 +90,23 @@ def test_agent_token_is_scoped_and_cannot_outlive_the_job():
 
 def test_active_cron_profile_matches_workflow_and_preserves_the_lane_split():
     data = workflow(SHEPHERD)
-    schedules = {item["cron"] for item in data[True]["schedule"]}
     profiles = workflow(CRON_PROFILES)
     active = profiles["active"]
     configured = {
         item["cron"]
         for item in profiles["profiles"][active]["workflows"]["pr-shepherd"]
     }
+    schedules = {item["cron"] for item in data[True].get("schedule", [])}
     assert schedules == configured
-    assert "37 */4 * * *" in schedules
-    assert CONTROLLER_ONLY_CRON in schedules
-    agent_condition = data["jobs"]["shepherd"]["if"]
-    assert CONTROLLER_ONLY_CRON in agent_condition
-    assert "!=" in agent_condition
+
+    if active == "slow":
+        assert "37 */4 * * *" in schedules
+        assert CONTROLLER_ONLY_CRON in schedules
+        agent_condition = data["jobs"]["shepherd"]["if"]
+        assert CONTROLLER_ONLY_CRON in agent_condition
+        assert "!=" in agent_condition
+    elif active == "off":
+        assert "schedule" not in data[True]
 
     for name, profile in profiles["profiles"].items():
         crons = {item["cron"] for item in profile["workflows"]["pr-shepherd"]}
@@ -125,20 +134,6 @@ def test_agent_lane_uses_a_bounded_deterministic_shortlist():
     assert "Squash merge it directly" not in prompt
 
 
-def test_compliance_lane_only_classifies_for_the_common_controller():
-    data = workflow(COMPLIANCE)
-    # PyYAML 1.1 parses the unquoted workflow key `on` as boolean true.
-    triggers = data[True]["pull_request_target"]["types"]
-    assert "ready_for_review" not in triggers
-    assert data["permissions"]["pull-requests"] == "read"
-    job = data["jobs"]["prepare-pr"]
-    eligibility = step(job, "Check PR eligibility")
-    assert "scripts/pr_shepherd_policy.py compliance" in eligibility["run"]
-    serialized = COMPLIANCE.read_text(encoding="utf-8")
-    assert "gh pr ready" not in serialized
-    assert "gh pr merge" not in serialized
-
-
 def test_scanner_no_longer_uses_draft_as_a_lifecycle_signal():
     text = (ROOT / ".github/workflows/curation-scanner.yml").read_text(encoding="utf-8")
     assert "Prefer draft PRs" not in text
@@ -149,7 +144,6 @@ def test_workflow_policy_changes_run_the_python_test_job():
     text = (ROOT / ".github/workflows/main.yaml").read_text(encoding="utf-8")
     for path in (
         ".github/cron-profiles.yaml",
-        ".github/workflows/auto-merge-compliance.yml",
         ".github/workflows/curation-scanner.yml",
         ".github/workflows/main.yaml",
         ".github/workflows/pr-shepherd.yml",

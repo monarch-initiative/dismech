@@ -174,7 +174,6 @@ class BaseHealth:
     healthy: bool
     sha: str
     reason: str
-    terminal_failure: bool = False
 
 
 def base_alignment_decision(
@@ -440,7 +439,6 @@ def main_health_decision(
             sha,
             f"{required_check!r} on current base {sha[:12]} concluded "
             f"{conclusion or 'without a result'}",
-            terminal_failure=True,
         )
     return BaseHealth(
         True,
@@ -536,12 +534,21 @@ def list_open_prs(repo: str, limit: int, base_branch: str) -> list[dict]:
     return json.loads(out)
 
 
-def view_pr(repo: str, number: int, *, attempts: int = 3, delay: float = 2.0) -> dict:
-    """Fetch one PR, waiting for GitHub to finish computing mergeability.
+def view_pr(
+    repo: str,
+    number: int,
+    *,
+    attempts: int = 3,
+    delay: float = 2.0,
+    expected_draft: bool | None = None,
+) -> dict:
+    """Fetch one PR, waiting for GitHub to expose expected computed state.
 
     Requesting a single PR is what *triggers* the background mergeability
     computation, so the first response often still says ``UNKNOWN``. Retry a
-    couple of times before giving up; an unresolved PR is skipped, not merged.
+    couple of times before giving up. ``expected_draft`` also covers the short
+    GraphQL read-after-write lag following ``gh pr ready``. An unresolved or
+    stale response is returned after the attempt budget and then fails closed.
     """
     pr: dict = {}
     for attempt in range(attempts):
@@ -555,7 +562,10 @@ def view_pr(repo: str, number: int, *, attempts: int = 3, delay: float = 2.0) ->
             (pr.get("mergeable") or "").upper(),
             (pr.get("mergeStateStatus") or "").upper(),
         }
-        if "UNKNOWN" not in unresolved:
+        draft_state_pending = (
+            expected_draft is not None and bool(pr.get("isDraft")) != expected_draft
+        )
+        if "UNKNOWN" not in unresolved and not draft_state_pending:
             return pr
         if attempt < attempts - 1:
             time.sleep(delay)
@@ -767,11 +777,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         if decision.eligible:
             candidates.append(pr)
-        elif (
-            pr.get("reviewDecision") or ""
-        ).upper() == "APPROVED" and decision.code != TOO_YOUNG:
+        elif args.specific_pr is not None or (
+            (pr.get("reviewDecision") or "").upper() == "APPROVED"
+            and decision.code != TOO_YOUNG
+        ):
             # Report near-misses only. An unapproved PR is not this step's
-            # business, and a too-young one needs nothing from anybody.
+            # business, and a too-young one needs nothing from anybody. An
+            # explicitly requested PR is the exception: always say why it did
+            # not qualify so a targeted dispatch is diagnostically useful.
             skipped.append({"number": pr["number"], "reason": decision.reason})
 
     print(
@@ -827,11 +840,10 @@ def main(argv: list[str] | None = None) -> int:
             break
         if not health.healthy:
             circuit_open = health.reason
-            if health.terminal_failure:
-                print(f"FAIL  main-health circuit: {circuit_open}", file=sys.stderr)
-                failed.append({"number": number, "reason": circuit_open})
-            else:
-                print(f"STOP  main-health circuit: {circuit_open}")
+            # A red, pending, or not-yet-observed base is repository state, not
+            # a controller malfunction. Keep the workflow green while making
+            # the fail-closed stop prominent in stdout and the step summary.
+            print(f"STOP  main-health circuit: {circuit_open}")
             break
         was_draft = bool(fresh.get("isDraft"))
         # Avoid a visible ready/draft flip for a branch that cannot pass the
@@ -905,21 +917,18 @@ def main(argv: list[str] | None = None) -> int:
                     break
                 if not health.healthy:
                     circuit_open = health.reason
-                    if health.terminal_failure:
-                        print(
-                            f"FAIL  main-health circuit: {circuit_open}",
-                            file=sys.stderr,
-                        )
-                        failed.append({"number": number, "reason": circuit_open})
-                    else:
-                        print(f"STOP  main-health circuit: {circuit_open}")
+                    print(f"STOP  main-health circuit: {circuit_open}")
                     break
 
             # This is the load-bearing PR read for both drafts and non-drafts:
             # it occurs after the successful base-health lookup and immediately
             # before the final base-SHA comparison and head-pinned merge.
             try:
-                fresh = view_pr(args.repo, number)
+                fresh = view_pr(
+                    args.repo,
+                    number,
+                    expected_draft=False if ready_transition_succeeded else None,
+                )
             except (subprocess.CalledProcessError, ValueError) as exc:
                 detail = (
                     _gh_error(exc)
@@ -999,7 +1008,11 @@ def main(argv: list[str] | None = None) -> int:
                 merged.append(
                     {"number": number, "title": fresh["title"], "action": action}
                 )
-                continue
+                print(
+                    "STOP  one-merge safety limit reached; remaining PRs would "
+                    "wait for the next run"
+                )
+                break
 
             try:
                 merge_pr(

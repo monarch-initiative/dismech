@@ -20,8 +20,6 @@ BOT_APP_LOGINS = frozenset({"ai4c-agent", "claude", "github-actions"})
 MACHINE_USER_LOGINS = frozenset({"dragon-ai-agent"})
 AGENT_LOGINS = BOT_APP_LOGINS | MACHINE_USER_LOGINS
 AUTOMATED_HEAD_PREFIX = "auto/"
-WEEKLY_COMPLIANCE_HEAD_PREFIX = "weekly-compliance-"
-WEEKLY_COMPLIANCE_TITLE_PREFIX = "🤖 Weekly Compliance Fixes"
 
 
 @dataclass(frozen=True)
@@ -76,24 +74,6 @@ def agent_candidate_decision(pr: dict) -> Decision:
     ):
         return Decision(False, f"author {login} lacks a verified Bot identity")
     return Decision(True, f"allowlisted agent author {login}")
-
-
-def weekly_compliance_decision(pr: dict) -> Decision:
-    """Recognize the narrow weekly-compliance lane across App login spellings."""
-    if str(pr.get("state") or "").upper() != "OPEN":
-        return Decision(False, "PR is not open")
-    if pr.get("baseRefName") != "main":
-        return Decision(False, "base branch is not main")
-    if not str(pr.get("headRefName") or "").startswith(WEEKLY_COMPLIANCE_HEAD_PREFIX):
-        return Decision(False, "head branch is not weekly-compliance")
-    if not str(pr.get("title") or "").startswith(WEEKLY_COMPLIANCE_TITLE_PREFIX):
-        return Decision(False, "title is not weekly compliance")
-    author = pr.get("author")
-    if normalize_login(author) != "ai4c-agent":
-        return Decision(False, "author is not ai4c-agent")
-    if not (isinstance(author, dict) and author.get("is_bot") is True):
-        return Decision(False, "author lacks a verified Bot identity")
-    return Decision(True, "eligible weekly-compliance PR")
 
 
 def _gh_json(args: list[str]) -> object:
@@ -203,7 +183,14 @@ def _agent_action_rank(
 def list_agent_candidates(
     repo: str, specific_pr: int | None = None, limit: int = 12
 ) -> list[dict]:
-    """Fetch, rank, and bound the PRs the LLM may inspect or modify."""
+    """Fetch, rank, and bound the PRs the LLM may inspect or modify.
+
+    The output is bounded *after* exact ownership ranking. Do not pre-truncate
+    the input by ``updatedAt``: ancestry and controller ownership are learned by
+    the per-approved-PR lookups below, so an early cap can fill with work the
+    controller owns and hide genuinely stuck PRs. If this fan-out becomes
+    material, optimize those exact lookups without changing the candidate set.
+    """
     if limit < 1:
         raise ValueError("candidate limit must be positive")
     fields = (
@@ -313,43 +300,11 @@ def main(argv: list[str] | None = None) -> int:
     candidates.add_argument("--limit", type=int, default=12)
     candidates.add_argument("--github-output")
 
-    compliance = subparsers.add_parser(
-        "compliance", help="classify one weekly-compliance PR"
-    )
-    compliance.add_argument("--repo", required=True)
-    compliance.add_argument("--pr-number", required=True, type=int)
-    compliance.add_argument("--github-output")
-
     args = parser.parse_args(argv)
-    if args.command == "candidates":
-        prs = list_agent_candidates(args.repo, args.specific_pr, args.limit)
-        _write_outputs(
-            args.github_output,
-            {"pr_numbers": ",".join(str(pr["number"]) for pr in prs)},
-        )
-        return 0
-
-    pr = _gh_json(
-        [
-            "pr",
-            "view",
-            str(args.pr_number),
-            "--repo",
-            args.repo,
-            "--json",
-            "author,baseRefName,headRefName,isDraft,state,title",
-        ]
-    )
-    if not isinstance(pr, dict):
-        raise ValueError("GitHub PR response was not an object")
-    decision = weekly_compliance_decision(pr)
+    prs = list_agent_candidates(args.repo, args.specific_pr, args.limit)
     _write_outputs(
         args.github_output,
-        {
-            "eligible": str(decision.eligible).lower(),
-            "is_draft": str(bool(pr.get("isDraft"))).lower(),
-            "reason": decision.reason,
-        },
+        {"pr_numbers": ",".join(str(pr["number"]) for pr in prs)},
     )
     return 0
 

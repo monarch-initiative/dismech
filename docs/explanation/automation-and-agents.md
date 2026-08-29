@@ -112,9 +112,8 @@ PRs: `curation-scanner`, `literature-scan`, `preprint-scan`,
 
 **PR lifecycle** — `claude-code-review` (automated review on every PR),
 `post-review-agent` (acts on editorial review comments), `pr-shepherd` (unsticks
-stalled PRs and deterministically merges ready ones), `auto-merge-compliance`
-(normalizes and classifies the narrowly-scoped weekly compliance PR for that same
-closing controller).
+stalled bot-authored PRs and deterministically merges ready PRs, including weekly
+compliance PRs, through one common closing controller).
 
 **Interactive agents** — `claude.yml` and `dragon-ai.yml` respond to `@`-mentions
 on issues, PRs, and review comments. `claude-issue-triage` and
@@ -125,7 +124,7 @@ on issues, PRs, and review comments. `claude-issue-triage` and
 publisher PDFs.
 
 **Scheduled housekeeping** — `weekly-compliance` opens a periodic
-compliance-fix PR (the one `auto-merge-compliance` classifies);
+compliance-fix PR, which enters the ordinary review and PR-shepherd closing path;
 `sync-epic-checkboxes` reconciles a tracking issue against the KB.
 
 **Releases** — `kgx-release`, `mondo-emc-release`, `pypi-publish`, triggered by
@@ -295,6 +294,13 @@ Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
 does not merge, its original draft state is restored.
 
+The agent-tending shortlist is authorized by verified author identity, not by a
+head-branch naming convention. In particular, a human-authored `claude/` branch
+does not become agent-tendable, while an allowlisted bot-authored PR may use any
+head name outside the separately managed `auto/` lanes. This deliberately
+replaces the older `claude/` prefix heuristic with the boundary the guardrail
+actually means: never modify a human-authored PR.
+
 The closing controller runs on a fresh runner, separate from the LLM job, and
 uses a read-only token for discovery plus a dedicated write token only for its
 fixed transitions. The controller runs hourly; under the active `slow` cron
@@ -304,7 +310,9 @@ capped at three times its action budget. The controller merges at most one PR
 per run. Before that merge it
 checks the required build on current `main`, performs the final PR-state read,
 proves the final head contains current `main`, and confirms `main` still has the
-healthy SHA.
+healthy SHA. A red, pending, or not-yet-observed required check opens that
+circuit and performs no merge, but is repository state rather than a controller
+failure; API, policy-execution, and write failures still make the run fail.
 
 This runner split protects the deterministic job from process-level changes
 made during the LLM run. It is not a complete GitHub capability boundary: the
@@ -325,9 +333,24 @@ safe drain rate is a merge-queue project—including `merge_group` CI—not a re
 to weaken ancestry checks or batch more branch updates.
 
 GitHub auto-merge is a separate server-side path and does not execute these
-controller guards. Ordinary agents and the weekly-compliance classifier must not
-arm it; the separately managed `auto/` workflows own their own merge path. A
-maintainer can still enable it manually as an explicit override.
+controller guards. Ordinary agents must not arm it, and weekly-compliance PRs use
+the common controller rather than a separate merge path. The separately managed
+`auto/` workflows own their own merge path. A maintainer can still enable it
+manually as an explicit override.
+
+Those `auto/` workflows mint a short-lived `ai4c-agent` token after their long
+build phase, leave checkout credentials unpersisted, and use the App specifically
+for the three writes that advance the lane: branch push, PR creation, and
+`gh pr merge --auto`. The late mint avoids the App token's one-hour lifetime
+expiring during a full page build. The identity is load-bearing twice.
+App-authenticated branch pushes and PR creation start the required
+`pull_request` checks; the built-in token instead leaves these bot runs at
+`action_required`. App-attributed merges then trigger the `push` workflows on
+the new `main` SHA, ensuring the exact-SHA main-health circuit gets its
+`test (3.13)` result. Each lane also removes an
+existing auto-merge request before re-enabling it, because merely issuing
+`--auto` again can preserve the previous request's `enabledBy` actor. A workflow
+test enumerates the six lanes and protects all three App-authenticated writes.
 
 This applies to **all authors, humans included**.
 

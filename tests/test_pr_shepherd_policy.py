@@ -118,36 +118,6 @@ def test_other_automated_lanes_are_also_excluded():
     assert not decision.eligible
 
 
-@pytest.mark.parametrize(
-    "author",
-    ["app/ai4c-agent", "ai4c-agent[bot]", "ai4c-agent"],
-)
-def test_weekly_compliance_accepts_normalized_ai4c_and_drafts(author):
-    assert policy.weekly_compliance_decision(
-        make_pr(
-            author={"login": author, "is_bot": True},
-            headRefName="weekly-compliance-2026-08",
-            isDraft=True,
-        )
-    ).eligible
-
-
-@pytest.mark.parametrize(
-    "overrides",
-    [
-        {"author": {"login": "app/claude"}},
-        {"baseRefName": "feature"},
-        {"headRefName": "curation/example"},
-        {"title": "Not weekly compliance"},
-        {"state": "CLOSED"},
-        {"state": None},
-        {"author": {"login": "ai4c-agent", "is_bot": False}},
-    ],
-)
-def test_weekly_compliance_rejects_out_of_lane_prs(overrides):
-    assert not policy.weekly_compliance_decision(make_pr(**overrides)).eligible
-
-
 def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
     monkeypatch,
 ):

@@ -70,6 +70,15 @@ def test_human_authored_pr_is_eligible():
     assert decide(make_pr(headRefName="ci/some-fix")).eligible
 
 
+def test_weekly_compliance_pr_uses_the_common_controller():
+    pr = make_pr(
+        headRefName="weekly-compliance-2026-08",
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+    )
+    assert decide(pr).eligible
+
+
 def test_skipped_and_neutral_checks_do_not_block():
     pr = make_pr(
         statusCheckRollup=[
@@ -414,8 +423,6 @@ def test_main_health_fails_closed(checks, expected):
     health = auto_merge.main_health_decision("base123", checks, "test (3.13)")
     assert not health.healthy
     assert expected in health.reason
-    if expected == "failure":
-        assert health.terminal_failure
 
 
 def test_main_health_rejects_a_same_named_check_from_another_app():
@@ -630,6 +637,28 @@ def test_specific_pr_never_falls_back_to_a_global_scan(monkeypatch, tmp_path):
     assert merges[0][2] == "99"
 
 
+def test_specific_pr_reports_why_an_unapproved_target_was_skipped(
+    monkeypatch, tmp_path
+):
+    target = make_pr(
+        number=99,
+        headRefOid="head99",
+        reviewDecision="REVIEW_REQUIRED",
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=target,
+        listed=[make_pr(number=42)],
+        extra_args=["--specific-pr", "99"],
+    )
+    assert code == 0
+    assert not [call for call in calls if call[:2] == ["pr", "list"]]
+    assert not [call for call in calls if call[:2] == ["pr", "merge"]]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "#99 — review decision is review_required, not approved" in summary
+
+
 def test_main_does_not_merge_when_only_the_per_pr_view_disqualifies(
     monkeypatch, tmp_path
 ):
@@ -675,6 +704,26 @@ def test_main_dry_run_merges_nothing(monkeypatch, tmp_path):
     assert "Would merge 1" in (tmp_path / "summary.md").read_text()
 
 
+def test_main_dry_run_reports_only_the_one_merge_a_real_run_would_attempt(
+    monkeypatch, tmp_path
+):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    view = make_pr(number=41, headRefOid="head41")
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=view,
+        listed=listed,
+        extra_args=["--dry-run"],
+    )
+    assert code == 0
+    assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Would merge 1" in summary
+    assert "#41" in summary
+    assert "#42" not in summary
+
+
 def test_main_promotes_reverifies_and_merges_an_approved_draft(monkeypatch, tmp_path):
     listed = [
         make_pr(
@@ -697,6 +746,41 @@ def test_main_promotes_reverifies_and_merges_an_approved_draft(monkeypatch, tmp_
     assert len(ready_calls) == 1
     assert "--undo" not in ready_calls[0]
     assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
+    assert len([c for c in calls if c[:2] == ["pr", "merge"]]) == 1
+
+
+def test_main_retries_a_stale_draft_read_after_marking_ready(monkeypatch, tmp_path):
+    listed = [
+        make_pr(
+            number=42,
+            isDraft=True,
+            mergeable="MERGEABLE",
+            mergeStateStatus="DRAFT",
+        )
+    ]
+    before = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    lagging = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    after = make_pr(number=42, isDraft=False, headRefOid="cafe1234")
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=[before, lagging, after],
+        listed=listed,
+    )
+    assert code == 0
+    ready_calls = [c for c in calls if c[:2] == ["pr", "ready"]]
+    assert len(ready_calls) == 1
+    assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 3
     assert len([c for c in calls if c[:2] == ["pr", "merge"]]) == 1
 
 
@@ -777,7 +861,7 @@ def _run_draft_controller(
     calls = []
 
     monkeypatch.setattr(auto_merge, "list_open_prs", lambda *_: [initial])
-    monkeypatch.setattr(auto_merge, "view_pr", lambda *_: next(views))
+    monkeypatch.setattr(auto_merge, "view_pr", lambda *_, **__: next(views))
     monkeypatch.setattr(auto_merge, "get_base_health", lambda *_: next(health_values))
     monkeypatch.setattr(auto_merge, "get_base_sha", lambda *_: "base123")
     monkeypatch.setattr(
@@ -848,7 +932,9 @@ def test_health_circuit_opening_after_ready_restores_draft(monkeypatch, tmp_path
     assert calls == ["ready", "draft"]
 
 
-def test_ready_transition_still_reporting_draft_is_rolled_back(monkeypatch, tmp_path):
+def test_ready_transition_still_draft_after_retry_budget_is_rolled_back(
+    monkeypatch, tmp_path
+):
     still_draft = make_pr(
         number=42,
         isDraft=True,
@@ -1024,7 +1110,9 @@ def test_main_health_api_error_fails_closed(monkeypatch, tmp_path):
     assert "could not verify current base health" in (tmp_path / "s.md").read_text()
 
 
-def test_completed_failure_on_main_makes_the_controller_run_fail(monkeypatch, tmp_path):
+def test_completed_failure_on_main_opens_circuit_without_failing_controller(
+    monkeypatch, tmp_path
+):
     calls = []
 
     def fake_gh(args, *, token=None):
@@ -1044,9 +1132,12 @@ def test_completed_failure_on_main_makes_the_controller_run_fail(monkeypatch, tm
     code = auto_merge.main(
         ["--repo", "o/r", "--summary-file", str(tmp_path / "red-main.md")]
     )
-    assert code == 1
+    assert code == 0
     assert not [call for call in calls if call[:2] == ["pr", "merge"]]
-    assert "concluded failure" in (tmp_path / "red-main.md").read_text()
+    summary = (tmp_path / "red-main.md").read_text()
+    assert "Main-health circuit open" in summary
+    assert "concluded failure" in summary
+    assert "Failed to merge" not in summary
 
 
 # --- reporting ------------------------------------------------------------
@@ -1124,6 +1215,19 @@ def test_view_pr_also_waits_on_merge_state_status(monkeypatch):
     )
     pr = auto_merge.view_pr("o/r", 7)
     assert pr["mergeStateStatus"] == "CLEAN"
+    assert len(calls) == 2
+
+
+def test_view_pr_can_wait_for_a_ready_transition_to_be_observable(monkeypatch):
+    calls = _stub_views(
+        monkeypatch,
+        [
+            {"isDraft": True, "mergeable": "MERGEABLE", "mergeStateStatus": "DRAFT"},
+            {"isDraft": False, "mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+        ],
+    )
+    pr = auto_merge.view_pr("o/r", 7, expected_draft=False)
+    assert not pr["isDraft"]
     assert len(calls) == 2
 
 
