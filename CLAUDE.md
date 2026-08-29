@@ -1735,6 +1735,13 @@ Non-negotiable rules:
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- **A patient-advocacy organization's published page is citable; a public forum
+  is not** (design decision 6b). Tag the advocacy reference
+  `tags: [PatientOrganization]` on its top-level `references:` entry, and give
+  every claim it supports at least one non-community citation as well — an
+  advocacy page can corroborate a claim, never carry it. Social-media citations
+  fail `just check-social-media-references`; record a community signal you
+  cannot cite in `discussions` as an unvalidated lead instead.
 
 Example:
 
@@ -1768,6 +1775,7 @@ just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
 just check-community-evidence kb/disorders/MyDisease.yaml
+just check-social-media-references kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
@@ -1775,8 +1783,9 @@ They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
-references, evidence blocks whose only support is a community-tagged reference,
-and prose claims about defective sources that the cache
+references, evidence blocks whose only support is a patient-organization
+reference, citations of user-generated social media, and prose claims about
+defective sources that the cache
 contradicts. The first four use baselines; do not update a baseline to admit a
 defect introduced by the current change. `check-environmental-evidence` had one
 too, until the #8296 backlog reached zero and it became a hard gate -- an

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Guard the community-source corroboration rule across the whole KB.
 
-Design decision 6b: a reference tagged ``PatientOrganization`` or
-``PatientCommunity`` may corroborate a curated claim but may never be its sole
-support. The rule is invisible to every other gate -- LinkML validation, term
-validation and snippet verification all pass on a phenotype whose only citation
-is a patient-advocacy page, because that page is a real URL and the snippet is a
-real quote from it.
+Design decision 6b: a reference tagged ``PatientOrganization`` may corroborate a
+curated claim but may never be its sole support. The rule is invisible to every
+other gate -- LinkML validation, term validation and snippet verification all
+pass on a phenotype whose only citation is a patient-advocacy page, because that
+page is a real URL and the snippet is a real quote from it.
 
 Why this needs its own ungated, whole-KB pass
 ---------------------------------------------
@@ -113,11 +112,11 @@ def main() -> int:
 
     if findings:
         print("Community-sourced evidence is sole support in KB YAML.\n")
-        print("A reference tagged PatientOrganization or PatientCommunity may")
-        print("corroborate a curated claim but may not be the only thing")
-        print("supporting it. Add a literature, registry or structured-database")
-        print("reference to the block, or move the claim to `discussions` as an")
-        print("explicitly unvalidated lead. See design decision 6b in")
+        print("A reference tagged PatientOrganization may corroborate a curated")
+        print("claim but may not be the only thing supporting it. Add a")
+        print("literature, registry or structured-database reference to the")
+        print("block, or move the claim to `discussions` as an explicitly")
+        print("unvalidated lead. See design decision 6b in")
         print("docs/explanation/design-decisions.md.\n")
         for path, error in findings:
             print(f"{_display(path)}: {error}")

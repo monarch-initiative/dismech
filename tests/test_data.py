@@ -25,6 +25,10 @@ from dismech.entity_refs import (
     iter_entity_refs,
     parse_entity_ref,
 )
+from dismech.social_media_refs import (
+    is_social_media_reference,
+    social_media_reference_errors,
+)
 from dismech.yaml_io import safe_load
 
 # Paths
@@ -364,12 +368,12 @@ def test_community_sole_support_check_skips_reference_provenance_records():
     Evidence hangs off `Finding`, not off `PublicationReference` itself, so this
     is the real shape of a provenance record documenting a community sweep.
     """
-    community_ref = "url:https://old.reddit.com/r/Example/"
+    community_ref = "url:https://example.org/patient-org/symptoms/"
     data = {
         "references": [
             {
                 "reference": community_ref,
-                "tags": ["PatientCommunity"],
+                "tags": ["PatientOrganization"],
                 "findings": [
                     {
                         "statement": "Community sweep provenance.",
@@ -383,6 +387,65 @@ def test_community_sole_support_check_skips_reference_provenance_records():
         ]
     }
     assert community_sole_support_errors(data) == []
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", REFERENCE_BEARING_FILES)
+def test_no_social_media_references(filepath):
+    """Public forums and social platforms are not citable sources (6b).
+
+    Second lane behind `scripts/check_social_media_references.py`, which runs
+    ungated in CI for the same reason the corroboration gate does.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = social_media_reference_errors(data)
+
+    assert not errors, (
+        f"Social-media references in {Path(filepath).name}: {errors}. "
+        "An advocacy organization's published page is citable; a forum is not. "
+        "Record an uncitable community signal in `discussions` as an "
+        "unvalidated lead (design decision 6b)."
+    )
+
+
+def test_social_media_check_matches_hosts_not_substrings():
+    """Subdomains match, look-alike hosts and non-url prefixes do not."""
+    assert is_social_media_reference("url:https://old.reddit.com/r/Example/")
+    assert is_social_media_reference("url:https://www.facebook.com/groups/1")
+    assert is_social_media_reference("url:https://x.com/someone/status/1")
+
+    # An advocacy organization's own page is the citable case 6b permits.
+    assert not is_social_media_reference(
+        "url:https://www.fshdsociety.org/living-with-fshd/symptoms/"
+    )
+    # Substring look-alikes must not match the bare host.
+    assert not is_social_media_reference("url:https://notreddit.com/page")
+    assert not is_social_media_reference("url:https://reddit.com.example.org/page")
+    # Non-url references are out of scope entirely.
+    assert not is_social_media_reference("PMID:20301616")
+
+
+def test_social_media_check_finds_references_at_any_depth():
+    """Both a top-level `references:` entry and a nested evidence item are caught."""
+    forum = "url:https://old.reddit.com/r/Example/top/?t=all"
+    data = {
+        "references": [{"reference": forum, "title": "Example"}],
+        "treatments": [
+            {
+                "name": "Genetic Counseling",
+                "evidence": [
+                    {"reference": forum, "snippet": "a thread title"},
+                    {"reference": "PMID:20301616", "snippet": "a real finding"},
+                ],
+            }
+        ],
+    }
+    errors = social_media_reference_errors(data)
+    assert len(errors) == 2, errors
+    assert any("references[0]" in e for e in errors)
+    assert any("treatments[0].evidence[0]" in e for e in errors)
 
 
 def test_schema_validity(validator):

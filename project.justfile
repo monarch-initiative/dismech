@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-community-evidence check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-community-evidence check-social-media-references check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -991,6 +991,16 @@ check-entity-refs *files:
 [group('QC')]
 check-community-evidence *files:
     uv run python scripts/check_community_evidence.py "$@"
+
+# Fail any reference to a user-generated social-media host (design decision 6b).
+# A patient-advocacy organization's published page is citable; a public forum is
+# not. Separate from check-community-evidence because that rule is opt-in by
+# tagging, so an untagged forum URL is invisible to it -- and every other gate
+# passes a forum citation, since the URL resolves and the snippet is a real
+# quote from the page. Ungated in CI; offline.
+[group('QC')]
+check-social-media-references *files:
+    uv run python scripts/check_social_media_references.py "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the

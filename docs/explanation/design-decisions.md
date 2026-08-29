@@ -367,68 +367,61 @@ whose literature is itself the documented subject of a citation-distortion analy
 (PMID:19622839) — the clearest available case of citation weight outrunning data. See
 [the exploration report](../reports/ibm-amyloid-beta-hypothesis-2026-08-02.md).
 
-### 6b. Community sources may corroborate, never carry, a claim (PROPOSED)
+### 6b. Patient-organization sources may corroborate, never carry, a claim (2026-08-29)
 
-**Status: PROPOSED — awaiting a maintainer decision.** Drafted from the pattern worked out
-in [#7674](https://github.com/monarch-initiative/dismech/pull/7674) (FSHD), which is
-approved on content and held open on exactly this question. Nothing in `kb/` uses these
-tags yet, so this section describes what the rule *would* be; it is not yet in force.
+**Decision (`@mellybelly`).** Published content from patient-advocacy and disease-foundation
+organizations is a citable `url:` reference, subject to a corroboration rule. **User-generated
+social-media content is not citable.** The pattern was worked out in
+[#7674](https://github.com/monarch-initiative/dismech/pull/7674) (FSHD), which swept both an
+advocacy organization and a public subreddit; the organization half is accepted and the
+forum half is not.
 
-**Decision.** Patient-advocacy content and public patient-community content are citable
-`url:` references, in two distinct classes with different rules, and neither may be the
-sole support for a curated claim.
-
-- **`PatientOrganization`** — published disease-education content from an advocacy
-  organization or disease foundation. Institutionally authored, publicly distributed, no
-  personal data. It may corroborate a claim and may supply the experiential phrasing a
-  community actually uses, which is often what makes an under-reported manifestation
-  findable at all.
-- **`PatientCommunity`** — user-generated content from a public patient community. It is
-  evidence about **salience** — what a community discusses and prioritizes — and never
-  evidence about biology.
-- **Never sole support.** Every evidence block containing a community-tagged reference
+- **`PatientOrganization` is citable.** Published disease-education content from an advocacy
+  organization or disease foundation — institutionally authored, publicly distributed, no
+  personal data. It may corroborate a claim, and may supply the experiential phrasing a
+  community actually uses, which is often what makes an under-reported manifestation findable
+  at all.
+- **Never sole support.** Every evidence block containing a `PatientOrganization` reference
   must also carry at least one non-community reference. Enforced in CI by
-  `scripts/check_community_evidence.py`, which runs ungated and whole-KB — the
-  matching pytest (`test_community_sourced_evidence_is_not_sole_support`) carries the
-  `kb_data` marker and so is selected by path filters that a `kb/`-only curation PR
-  never matches, which is the #9473 shape. The rule is otherwise invisible: the URL
-  resolves and the snippet is a real quote from it, so LinkML, term and reference
-  validation all pass.
-- **The rule is opt-in by tagging.** An untagged advocacy URL is invisible to the gate,
-  exactly as it is to a query. No tool can infer the tag — no cache marker distinguishes
-  an advocacy page from any other fetched URL — so applying it is a curation step, and
-  a reviewer checking a community sweep should check that it was applied.
+  `scripts/check_community_evidence.py`, which runs ungated and whole-KB — the matching
+  pytest (`test_community_sourced_evidence_is_not_sole_support`) carries the `kb_data`
+  marker and so is selected by path filters that a `kb/`-only curation PR never matches,
+  which is the #9473 shape. The rule is otherwise invisible: the URL resolves and the
+  snippet is a real quote from it, so LinkML, term and reference validation all pass.
+- **Tag it.** The reference carries `tags: [PatientOrganization]` on its top-level
+  `references:` entry, so the sourcing class is filterable, auditable, and — if this policy
+  is ever narrowed — retractable by query rather than by re-reading every entry. Tagging is
+  a curation step: no tool can infer it, because no cache marker distinguishes an advocacy
+  page from any other fetched URL. The corroboration gate is therefore opt-in, and a
+  reviewer should check the tag was applied.
 - **Adjudicate, don't promote.** A community signal that literature corroborates becomes a
-  normal curated entry; one it does not becomes a `discussions` entry recording an
-  explicitly unvalidated lead. It does not become a phenotype on community assertion alone.
-- **Aggregate only, for `PatientCommunity`.** Cite aggregate topics and listings. Do not
-  quote an individual's personal health narrative, and do not commit a raw HTML capture of
-  a user-generated page — those carry usernames and self-disclosed health status into git
-  permanently. Cache the extracted titles instead.
-- **Public and consented.** A closed group (a private Facebook family group) is out of
-  scope regardless of technical accessibility: members disclosing health information there
-  have not consented to public aggregation. Where a community signal needs quantifying, a
-  national patient registry is the consented substitute.
-- **Tag it.** Community references carry a `ReferenceTagEnum` tag on their top-level
-  `references:` entry, so the sourcing class is filterable and — if this policy is later
-  reversed — retractable by query rather than by re-reading every entry.
+  normal curated entry; one it does not becomes a `discussions` entry recording an explicitly
+  unvalidated lead. It does not become a phenotype on organizational assertion alone.
+- **Social media is not citable, for now.** Public forums, subreddits, and social platforms
+  may not be cited as references. `scripts/check_social_media_references.py` fails a
+  reference on a known social-media host. This is **deferred, not settled** — the question
+  may be revisited, and the enum has no `PatientCommunity` value until it is.
+- **Closed groups are out of scope regardless.** Members disclosing health information in a
+  private group have not consented to public aggregation, whatever the platform's technical
+  accessibility. Where a community signal needs quantifying, a national patient registry is
+  the consented substitute — in #7674 that substitution is what produced the head-pain and
+  hearing-loss findings.
 
 **Rationale.** Patient communities describe manifestations the primary clinical literature
 under-represents: in FSHD, fatigue and pain rank at nearly the prevalence of the weakness
-that defines the disease, and the mechanism graph explains neither. Refusing the source
-class entirely means those manifestations stay invisible to the KB. Accepting it without
-constraint means unreviewed assertion enters a knowledge base whose credibility rests on
-the exact-quote pipeline. The corroboration rule takes the useful half — community sources
-are good at telling you *where to look* — while keeping every curated claim standing on
-something citable.
+that defines the disease, and the mechanism graph explains neither. Refusing the source class
+entirely means those manifestations stay invisible to the KB. Accepting it without constraint
+means unreviewed assertion enters a knowledge base whose credibility rests on the exact-quote
+pipeline. The corroboration rule takes the useful half — these sources are good at telling
+you *where to look* — while keeping every curated claim standing on something citable.
 
-The two classes are separated because they are not the same risk. An advocacy
-organization's symptom page is institutional publishing that happens not to be indexed in
-PubMed. A forum is individuals talking about their own health. In #7674 the organization
-produced seven of the eight community-sourced evidence items and the forum produced one,
-which is also the shape of the yield: organized advocacy content substantially
-out-performed the forum as a curation input.
-
+The line falls between organizations and forums because they are not the same risk, and the
+yield matched the risk. An advocacy organization's symptom page is institutional publishing
+that happens not to be indexed in PubMed. A forum is individuals talking about their own
+health: citing one means quoting a person who did not consent to being a source, and caching
+it means carrying usernames and self-disclosed health status in git permanently. In #7674 the
+organization produced seven of the eight community-sourced evidence items and the forum
+produced one — for a claim already supported by GeneReviews.
 
 ## 7. Curation process & governance
 
@@ -791,7 +784,7 @@ This section details decisions we have **not yet made or formalized**.
 | Area | Status | Tracking |
 |---|---|---|
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
-| Community sources as evidence (§6b) | **PROPOSED — awaiting a maintainer decision, not yet in force.** `ReferenceTagEnum` carries `PatientOrganization` and `PatientCommunity`, and `scripts/check_community_evidence.py` gates the corroboration rule ungated in CI, but **no entry in `kb/` carries either tag**, so the machinery is inert until the decision lands. Accepting it means deleting the status paragraph from §6b and tagging the references on the FSHD entry; rejecting it means deleting §6b and the two enum values, and the section should then be rewritten to record the refusal and its reasoning rather than removed silently. Two questions are deliberately left open by the draft: whether `evidence_source` also needs a community value (the current answer is no — it describes study type, and an advocacy symptom page is not a study), and whether `tags:` should be surfaced in the rendered disorder page, which today shows them nowhere. | [#7674](https://github.com/monarch-initiative/dismech/pull/7674) · [#9654](https://github.com/monarch-initiative/dismech/pull/9654) |
+| Social media as a citable source | **DEFERRED (2026-08-29).** §6b accepts patient-organization content and declines user-generated social media; `@mellybelly`'s decision was "not social media, may be included at a later date", so this is deferred rather than settled. `ReferenceTagEnum` carries no `PatientCommunity` value and `scripts/check_social_media_references.py` fails a reference on a known social-media host, so revisiting means adding both back, not relaxing a host list. The open sub-questions are the ones that made the forum half hard: quoting an identifiable account without its consent, and what a cached copy of a user-generated page carries into git permanently (the r/FSHD listing cached in #7674 held 19 usernames). A national patient registry remains the consented substitute. | [#7674](https://github.com/monarch-initiative/dismech/pull/7674) · [#9654](https://github.com/monarch-initiative/dismech/pull/9654) |
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | `would_support` / `would_refute` range | **ENACTED (#9224).** These two `Experiment` slots hold **entity references only** — the `[<file>:]<kind>#<name>` grammar shared with `attaches_to` — and name *what a result bears on*. A prose statement of *what would be observed* goes in the sibling `supporting_outcome` / `refuting_outcome` slots. The alternative (widen the reference slots to accept both forms and split on whitespace at render time) was rejected: the two are different **types**, not two spellings of one. "No enrichment of these lesions in tissue would indicate that the dominant clinical resistance mechanism lies outside the bypass lesions currently modeled at this node" is a conditional inference with no referent, and a slot whose meaning turns on whether its value contains a space cannot be exported. The ~51 prose values that motivated the issue have been migrated (zero remain across `kb/`), and the anchors now resolve: `render._build_semantic_ref_index` is driven by `entity_refs.SECTION_KEYS` (#9193), so **562 of 564** references in these slots render as live in-page links rather than dead chips — the 2 exceptions name `diagnosis` and `prevalence`, sections the disorder page renders no card for, which is a page-coverage gap rather than a modeling one. Gated by `test_entity_ref_foreign_keys`, which now fails a prose value, an unknown `<kind>`, or a dangling anchor in these slots, with **no baseline** — the backlog is zero, so a finding is always newly introduced. **Not precluded:** if a structural `knowledge_gaps:` slot (#2617) later wants a `ModelMechanismLink`-shaped object carrying a target *plus* qualifying prose *plus* its own evidence, this decision is compatible with it — the prose lives in a named slot either way. | [#9224](https://github.com/monarch-initiative/dismech/issues/9224) · [#9193](https://github.com/monarch-initiative/dismech/issues/9193) |

@@ -201,8 +201,8 @@ def add_tag_to_existing_entry(
     Writing a second `tags:` key into the same mapping would be a duplicate
     mapping key (the #8623 defect) -- YAML keeps only the last one, so the
     existing tags would be silently dropped. This became reachable once
-    `ReferenceTagEnum` grew curator-applied values (PatientOrganization,
-    PatientCommunity): before that, this script was the only writer of the slot
+    `ReferenceTagEnum` grew a curator-applied value (PatientOrganization):
+    before that, this script was the only writer of the slot
     and every `tags:` key it met was one it had written itself.
 
     Otherwise a fresh `tags:` block is inserted after `title:` if present, else

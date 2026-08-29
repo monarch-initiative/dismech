@@ -1,11 +1,13 @@
 """Guard the community-source corroboration rule (design decision 6b).
 
-A reference tagged ``PatientOrganization`` or ``PatientCommunity`` may
-corroborate a curated claim but may never be the only thing supporting it. A
-patient-advocacy symptom page is good at telling a curator *where to look*; a
-public patient forum records what a community discusses, which is evidence about
-salience rather than about biology. Either can make an under-reported
-manifestation findable, and neither is a study.
+A reference tagged ``PatientOrganization`` may corroborate a curated claim but
+may never be the only thing supporting it. A patient-advocacy symptom page is
+good at telling a curator *where to look* — it can make an under-reported
+manifestation findable at all — but it is not a study.
+
+The sibling ban on social-media citation lives in ``social_media_refs`` and is
+enforced separately, because it cannot ride on this rule: tagging is opt-in, so
+an untagged forum URL is invisible here.
 
 The rule is therefore mechanical: every ``evidence:`` block that cites a
 community-tagged reference must also cite at least one reference that is not
@@ -27,8 +29,12 @@ from __future__ import annotations
 
 from typing import Any, Iterator
 
-# ReferenceTagEnum values marking a reference as community-sourced.
-COMMUNITY_REFERENCE_TAGS = frozenset({"PatientOrganization", "PatientCommunity"})
+# ReferenceTagEnum values marking a reference as community-sourced. A set rather
+# than a single value because the sourcing class is the thing being gated, not
+# the one tag that currently names it -- if social media becomes citable (6b
+# defers rather than settles it), its tag joins this set and the rule applies
+# unchanged.
+COMMUNITY_REFERENCE_TAGS = frozenset({"PatientOrganization"})
 
 
 def iter_evidence_lists(node: Any, path: str = "") -> Iterator[tuple[str, list]]:

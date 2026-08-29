@@ -2,9 +2,9 @@
 
 The script edits YAML as text to preserve formatting, so its correctness rests on
 reading the two list styles a `tags:` value can be written in. It was the sole
-writer of the slot until `ReferenceTagEnum` grew curator-applied values
-(PatientOrganization, PatientCommunity), which is what made these paths
-reachable on entries it did not write itself.
+writer of the slot until `ReferenceTagEnum` grew a curator-applied value
+(PatientOrganization), which is what made these paths reachable on entries it
+did not write itself.
 
 Both failure modes are covered here because both produced broken YAML on real
 `kb/` files: writing a second `tags:` key into one mapping (the #8623
