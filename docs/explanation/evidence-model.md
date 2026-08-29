@@ -14,7 +14,7 @@ the direction in which we would like to extend it.
 
 ## What an evidence item is
 
-An `EvidenceItem` is a **validated pointer into the literature**. Its seven fields are:
+An `EvidenceItem` is a **validated pointer into the literature**. Its eight fields are:
 
 ```yaml
 evidence:
@@ -28,7 +28,7 @@ evidence:
   images: [...]                      # optional figures from deep-research artifacts
 ```
 
-Two of those fields carry the evidence *semantics*:
+Three of those fields carry the evidence *semantics*:
 
 - **`supports`** records the **direction** the reference points relative to the claim —
   whether it supports it, contradicts it, or does not bear on it at all.
