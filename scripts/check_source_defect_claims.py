@@ -109,16 +109,24 @@ from dismech.yaml_io import safe_load
 
 SCAN_DIR = ROOT / "kb"
 
-# Free-text slots a claim about a source can hide in. All seven are real slots
+# Free-text slots a claim about a source can hide in. All eight are real slots
 # in src/dismech/schema/dismech.yaml. `notes` is deliberately included even
 # though it carries the most legitimate narration: it is where #9207's *first*
 # finding was, and exempting it would make round one silent and leave the gate
 # strictly worse than the reviewer it assists.
+#
+# `review_notes` is included for a sharper reason: it is where the
+# `environmental:` waiver convention puts its evidence (#8296). A waiver's
+# canonical content -- "this paper is indexed without an abstract", "this one
+# has no retrievable abstract text" -- is exactly the claim this checker
+# exists to police, so omitting the slot would tell curators to file the
+# claim in the one field the check cannot read.
 PROSE_FIELDS = frozenset(
     {
         "description",
         "explanation",
         "notes",
+        "review_notes",
         "association",
         "rationale",
         "interpretation",
