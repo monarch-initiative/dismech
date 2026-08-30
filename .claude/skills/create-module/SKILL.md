@@ -129,9 +129,20 @@ committing.
 
 ## Record and connect
 
-1. Do not add the module to a static catalog. `kb/modules/` is the source of
-   truth; choose a descriptive filename and keep the top-level `name` and
-   `description` useful for repository search.
+1. **Do not add the module to a static catalog, and in particular not to a list
+   in `CLAUDE.md`.** There is no module registry there any more — it did not
+   scale and drifted behind `kb/modules/`, which is the source of truth.
+   Discovery is `just list-modules` (or `ls kb/modules/`), which reads the module
+   YAML directly, so choose a descriptive filename and keep the top-level `name`
+   and `description` useful for repository search. What that makes load-bearing
+   is the module's own `description:` slot: write it so it states the causal
+   chain in one sentence, the drug-target pattern if there is one, the key
+   conformance target, how the module is complementary to (not overlapping with)
+   its sibling modules, and — for an Xogenesis module — the OGMS/MPATH/UBERON
+   anchor. That description is the only place a curator will find this, so it
+   must stand alone. Put curation guardrails ("do NOT create a `Foo` Disease
+   entry", species caveats) in `notes:`; `just list-modules <filter>` prints both
+   fields in full and matches on both.
 2. Scaffold a history record:
    `just new-history --kind module --slug <name> --event CREATE --outcome changed …`
 3. Wire real conformers: add `conforms_to: "<name>#<Node>"` to the matching
