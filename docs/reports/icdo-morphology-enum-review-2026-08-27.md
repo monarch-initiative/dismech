@@ -164,6 +164,17 @@ despite an existing value fitting them (colon adenocarcinoma, Hodgkin lymphoma,
 osteosarcoma, angiosarcoma, hairy cell leukaemia, MALT lymphoma, and so on).
 That is a curation backlog, not a vocabulary gap, and is out of scope here.
 
+## A note for the next enum extension
+
+A change like this one needs the **`scope-override` label** on its PR. CI's
+curation-scope guard fails any PR that touches `kb/` *and* anything outside
+`kb/`, `stubs/`, `history/`, `cache/`, `references_cache/`, `research/`,
+`pages/` or `dashboard/` — and an enum extension is inherently both halves at
+once: the schema value and the entries that exercise it. Splitting them is
+worse, not better, because the KB half cannot validate until the schema half
+has merged. The guard exists to catch curation PRs that pick up infra changes
+by accident; this is the intentional case it provides the label for.
+
 ## What this review did not do
 
 Everything in #7548 that needs a schema decision rather than a vocabulary
