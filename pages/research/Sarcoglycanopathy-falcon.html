@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarcoglycanopathy · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sarcoglycanopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sarcoglycanopathy</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-08-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0016140" target="_blank" rel="noopener noreferrer">MONDO:0016140</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">21 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Sarcoglycanopathy</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Mendelian</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Sarcoglycanopathy</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Sarcoglycanopathy: comprehensive disease-characteristics report</h1>
+<h2>Executive summary</h2>
+<p>Sarcoglycanopathy is a collective term for four autosomal-recessive muscular dystrophies caused by biallelic pathogenic variants in <strong>SGCA, SGCB, SGCG,</strong> or <strong>SGCD</strong>. Their products—α-, β-, γ-, and δ-sarcoglycan—form a transmembrane subcomplex of the dystrophin-associated protein complex (DAPC). Loss of one component commonly destabilizes the others, weakening the sarcolemma during contraction and initiating myofiber injury, inflammation, fibrosis, and fatty replacement. Clinical severity ranges from asymptomatic hyperCKemia or adult-onset limb-girdle weakness to a Duchenne-like childhood disorder with loss of walking in adolescence, respiratory failure, and dilated cardiomyopathy. Cognitive impairment is not characteristic. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>, <a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</p>
+<p>The most important recent clinical development is systemic <strong>SGCB</strong> replacement with bidridistrogene xeboparvovec. In a six-patient phase 1/2 study published January 4, 2024, mean β-sarcoglycan expression reached 36.2% and 62.1% of normal at day 60 in low- and high-dose cohorts, respectively, with preliminary motor improvements maintained through two years. The study was small, open-label, and nonrandomized, so efficacy remains provisional. (<a href="#ref-mendell2024genetherapywith-pages-1-2">mendell2024genetherapywith pages 1-2</a>, <a href="#ref-mendell2024genetherapywith-pages-7-8">mendell2024genetherapywith pages 7-8</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Current subtype / legacy name</th>
+<th>Causal gene / protein</th>
+<th>Inheritance</th>
+<th>Hallmark severity / onset</th>
+<th>Cardiac / respiratory notes</th>
+<th>Key evidence / statistics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LGMDR3 / LGMD2D</td>
+<td><strong>SGCA</strong> / α-sarcoglycan</td>
+<td>Autosomal recessive</td>
+<td>In the 100-patient sarcoglycanopathy cohort, α-SG cases had later mean onset than γ-SG: <strong>8.0 years</strong>; phenotype is variable from severe childhood-onset to milder late-onset forms. Earlier onset predicts earlier loss of ambulation. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</td>
+<td>Dilated cardiomyopathy can occur across all sarcoglycanopathy subtypes; heart and respiratory surveillance are recommended. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>, <a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</td>
+<td>α-SG was one of the major subtypes in the 100-patient cohort (<strong>41/100</strong>). In the broader Dutch AR-LGMD/Miyoshi cohort, sarcoglycanopathies represented <strong>67/244 (27%)</strong> of cases. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>LGMDR4 / LGMD2E</td>
+<td><strong>SGCB</strong> / β-sarcoglycan</td>
+<td>Autosomal recessive</td>
+<td>Often severe, but heterogeneous. In one 32-patient series, phenotypes were <strong>15 severe, 12 mild, 5 unknown</strong>; another multicenter cohort reported mean onset around <strong>24.4 years</strong> for β-SG cases represented there, highlighting variability and probable ascertainment effects. (<a href="#ref-semplicini2015clinicalandgenetic-pages-2-3">semplicini2015clinicalandgenetic pages 2-3</a>, <a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</td>
+<td>Cardiac involvement is prominent: <strong>63%</strong> had cardiac involvement, <strong>19%</strong> dilated cardiomyopathy, <strong>28%</strong> rhythm abnormalities; <strong>19%</strong> required respiratory support. Constant surveillance is emphasized, especially for LGMDR4. (<a href="#ref-semplicini2015clinicalandgenetic-pages-2-3">semplicini2015clinicalandgenetic pages 2-3</a>, <a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</td>
+<td>Estimated prevalence reported as <strong>0.86 × 10⁻⁶</strong>. First-in-human SGCB gene therapy trial enrolled <strong>6</strong> patients aged 4–15 years; Day-60 SGCB expression reached <strong>36.2%</strong> and <strong>62.1%</strong> of normal in low/high dose cohorts, respectively. (<a href="#ref-semplicini2015clinicalandgenetic-pages-2-3">semplicini2015clinicalandgenetic pages 2-3</a>, <a href="#ref-mendell2024genetherapywith-pages-1-2">mendell2024genetherapywith pages 1-2</a>, NCT03652259 chunk 1)</td>
+</tr>
+<tr>
+<td>LGMDR5 / LGMD2C</td>
+<td><strong>SGCG</strong> / γ-sarcoglycan</td>
+<td>Autosomal recessive</td>
+<td>Typically earlier and more severe. In the 100-patient cohort, γ-SG cases had mean onset <strong>5.5 years</strong> and more frequent severe progression with early loss of ambulation. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</td>
+<td>Dilated cardiomyopathy occurred in all subtypes and was reported <strong>especially in γ-SG patients</strong>; respiratory problems needing ventilation are common in sarcoglycanopathy overall. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>, <a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</td>
+<td>In the French multicenter cohort, γ-SG was the largest subgroup (<strong>54/100</strong>); <strong>&gt;90%</strong> carried the homozygous <strong>c.525delT</strong> frameshift variant, indicating a strong founder effect in some populations. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>LGMDR6 / LGMD2F</td>
+<td><strong>SGCD</strong> / δ-sarcoglycan</td>
+<td>Autosomal recessive</td>
+<td>Ultra-rare and generally severe/rapidly progressive. In the largest international cohort, <strong>60%</strong> were wheelchair-bound from early teens with median loss of ambulation at <strong>12.0 years</strong>; distal weakness appeared early in <strong>56.5%</strong>. Absent sarcoglycan expression predicted earlier onset and ambulation loss. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>, <a href="#ref-alonsoperez2022clinicalandgenetic-pages-2-3">alonsoperez2022clinicalandgenetic pages 2-3</a>)</td>
+<td>Cardiac involvement in <strong>21.7%</strong> (5/23); <strong>17.4%</strong> (4/23) required non-invasive ventilation. Surveillance is recommended, especially because cardiomyopathy can occur across sarcoglycanopathies. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>, <a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</td>
+<td>Largest cohort identified <strong>23</strong> analyzed patients from <strong>18 families</strong> across <strong>9 countries</strong>; <strong>87%</strong> had consanguineous parents, supporting enrichment in consanguineous settings. Geographic concentration has been noted in Brazil. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-2-3">alonsoperez2022clinicalandgenetic pages 2-3</a>, <a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes the four canonical sarcoglycanopathy subtypes for knowledge-base use, linking nomenclature, gene/protein, inheritance, and major clinical distinctions. It highlights the strongest gathered quantitative evidence on onset, severity, and cardio-respiratory burden.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and identifiers</h3>
+<ul>
+<li><strong>Preferred name:</strong> sarcoglycanopathy; <strong><a href="http://purl.obolibrary.org/obo/MONDO_0016140" target="_blank" rel="noopener noreferrer">MONDO:0016140</a></strong>.</li>
+<li><strong>MeSH:</strong> <em>Sarcoglycanopathies</em>, <strong>D058088</strong>; parent term <em>Muscular Dystrophies, Limb-Girdle</em>, D049288. (OpenTargets Search: sarcoglycanopathy, NCT04475926 chunk 2)</li>
+<li><strong>Orphanet umbrella concept:</strong> qualitative or quantitative defects of sarcoglycan, <strong><a href="https://bioregistry.io/ORPHA:207052" target="_blank" rel="noopener noreferrer">ORPHA:207052</a></strong>. (OpenTargets Search: sarcoglycanopathy)</li>
+<li><strong>ICD:</strong> ICD-10 does not provide a reliable gene-specific code; coding usually falls under muscular dystrophy (for example G71.0 in ICD-10-CM, depending on jurisdiction). ICD-11 should be recorded under the relevant inherited muscular-dystrophy category, with the molecular subtype represented separately.</li>
+<li><strong>Canonical subtypes:</strong> LGMDR3 α-sarcoglycan-related (legacy LGMD2D), LGMDR4 β-sarcoglycan-related (LGMD2E), LGMDR5 γ-sarcoglycan-related (LGMD2C), and LGMDR6 δ-sarcoglycan-related (LGMD2F). (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</li>
+<li><strong>Common synonyms:</strong> sarcoglycan muscular dystrophy, sarcoglycan-deficient muscular dystrophy, autosomal-recessive limb-girdle muscular dystrophy 3–6, α/β/γ/δ-sarcoglycanopathy, and severe childhood autosomal-recessive muscular dystrophy.</li>
+</ul>
+<p>This report synthesizes <strong>aggregated disease-level resources and published cohorts</strong>, not individual EHR records. The strongest human datasets include a 100-patient multicenter series and subtype-specific cohorts; therefore, frequencies should not be interpreted as population-screening estimates. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>, <a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</p>
+<h2>2. Etiology, risk, protection, and gene–environment interaction</h2>
+<h3>Causal factors</h3>
+<p>The primary cause is <strong>germline biallelic loss of sarcoglycan function</strong>. Approximately 67% of reported causal variants are missense variants, followed by frameshift and null alleles. Null/out-of-frame variants generally produce the greatest disruption of complex biogenesis. Missense proteins may misfold and be prematurely eliminated through endoplasmic-reticulum-associated degradation (ERAD). (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</p>
+<h3>Risk factors</h3>
+<ul>
+<li><strong>Genetic:</strong> two pathogenic/likely pathogenic alleles in the same sarcoglycan gene; absent residual protein and onset before age 10 predict severe disease. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>, <a href="#ref-alonsoperez2022clinicalandgenetic-pages-2-3">alonsoperez2022clinicalandgenetic pages 2-3</a>)</li>
+<li><strong>Family history/consanguinity:</strong> as expected for recessive disease, consanguinity increases the probability of homozygosity. In the international LGMDR6 cohort, 87% had consanguineous parents. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>)</li>
+<li><strong>Founder effects:</strong> more than 90% of γ-sarcoglycan cases in one French/North-African-enriched cohort carried homozygous <strong>SGCG c.525delT</strong>. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</li>
+<li><strong>Sex:</strong> both sexes are affected; there is no established sex-specific penetrance.</li>
+<li><strong>Mechanical loading:</strong> contraction is not the genetic cause, but repeated mechanical stress exposes sarcolemmal fragility. In knockout zebrafish, viscous-medium swimming accelerated phenotype appearance, providing experimental evidence of a load–genotype interaction. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</li>
+</ul>
+<p>No validated environmental toxin, infection, diet, smoking exposure, protective allele, or disease-preventing lifestyle factor has been established. Avoiding extreme eccentric or exhaustion exercise is prudent after diagnosis, but ordinary activity is not a cause. Evidence for specific modifier genes, epigenetic protective factors, or reproducible human G×E effects remains insufficient.</p>
+<h2>3. Phenotypes</h2>
+<h3>Core phenotype and suggested HPO annotations</h3>
+<ul>
+<li><strong>Progressive proximal weakness</strong>—pelvic before or with shoulder-girdle involvement; difficulty running, climbing stairs, rising from the floor, and frequent falls. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" rel="noopener noreferrer">HP:0003324</a></strong> (generalized muscle weakness), <strong><a href="http://purl.obolibrary.org/obo/HP_0008994" target="_blank" rel="noopener noreferrer">HP:0008994</a></strong> (proximal muscle weakness), <strong><a href="http://purl.obolibrary.org/obo/HP_0003560" target="_blank" rel="noopener noreferrer">HP:0003560</a></strong> (muscular dystrophy).</li>
+<li><strong>Axial weakness and contractures</strong> are frequent; suggested <strong><a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" rel="noopener noreferrer">HP:0003701</a></strong> (proximal muscle weakness), <strong><a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" rel="noopener noreferrer">HP:0001371</a></strong> (flexion contracture), and <strong><a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" rel="noopener noreferrer">HP:0003306</a></strong> (spinal rigidity), where applicable. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</li>
+<li><strong>Calf hypertrophy</strong>, scapular winging, lumbar lordosis, waddling gait, and Gowers sign are common dystrophic manifestations; suggested <strong><a href="http://purl.obolibrary.org/obo/HP_0008981" target="_blank" rel="noopener noreferrer">HP:0008981</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" rel="noopener noreferrer">HP:0003691</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002937" target="_blank" rel="noopener noreferrer">HP:0002937</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" rel="noopener noreferrer">HP:0002515</a></strong>, and <strong><a href="http://purl.obolibrary.org/obo/HP_0003391" target="_blank" rel="noopener noreferrer">HP:0003391</a></strong>, respectively.</li>
+<li><strong>HyperCKemia:</strong> frequently marked and may precede weakness; <strong><a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a></strong>. CK can decline late as muscle mass is lost, so a falling CK is not necessarily improvement.</li>
+<li><strong>Loss of ambulation:</strong> <strong><a href="http://purl.obolibrary.org/obo/HP_0002355" target="_blank" rel="noopener noreferrer">HP:0002355</a></strong>. At mean 22.9-year follow-up, 65.3% of a 100-patient cohort were wheelchair-dependent; six had died. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</li>
+<li><strong>Respiratory muscle weakness/restrictive ventilatory defect:</strong> <strong><a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" rel="noopener noreferrer">HP:0002747</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" rel="noopener noreferrer">HP:0002093</a></strong>. Thirty of 100 patients in the multicenter cohort were ventilated. In LGMDR6, 17.4% required non-invasive ventilation. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>, <a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</li>
+<li><strong>Dilated cardiomyopathy and rhythm disturbance:</strong> <strong><a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" rel="noopener noreferrer">HP:0001644</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" rel="noopener noreferrer">HP:0011675</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0010987" target="_blank" rel="noopener noreferrer">HP:0010987</a></strong>. Cardiac disease can occur in every subtype. In a 32-person LGMDR4 cohort, 63% had cardiac involvement, including DCM in 19% and rhythm abnormalities in 28%. (<a href="#ref-semplicini2015clinicalandgenetic-pages-2-3">semplicini2015clinicalandgenetic pages 2-3</a>)</li>
+<li><strong>Distal weakness:</strong> usually secondary but can appear early, particularly in LGMDR6, where it occurred in 56.5%. <strong><a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" rel="noopener noreferrer">HP:0002460</a></strong>. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>)</li>
+<li><strong>Cognition:</strong> intellectual disability is not a characteristic phenotype; the 2023 model review states, “Cognitive impairment has never been reported.” (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</li>
+</ul>
+<p>Onset is usually insidious in childhood, but expression is highly variable. In the 100-patient cohort, median/mean reported onset differed substantially: γ-SG 5.5 years, α-SG 8 years, and β-SG 24.4 years. These figures are cohort-dependent and do not imply that β-sarcoglycanopathy is usually benign. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</p>
+<h3>Quality of life</h3>
+<p>Weakness progressively limits mobility, self-care, education/employment, community participation, and independence; ventilation and cardiomyopathy add treatment burden. Disease-specific EQ-5D/SF-36 reference values and per-phenotype utilities are not well established. Current prospective studies instead emphasize NSAD, PUL, timed motor tests, FVC, and wearable mobility measures. (NCT04475926 chunk 1, NCT05876780 chunk 1)</p>
+<h2>4. Genetic and molecular information</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Subtype</th>
+<th>Gene/protein</th>
+<th>Useful identifiers</th>
+<th>Typical molecular consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LGMDR3/2D</td>
+<td><strong>SGCA</strong>, α-SG</td>
+<td><a href="https://bioregistry.io/HGNC:6615" target="_blank" rel="noopener noreferrer">HGNC:6615</a>; OMIM gene 600119; phenotype 253600</td>
+<td>Usually loss/reduction or mislocalization of α-SG; secondary complex deficiency</td>
+</tr>
+<tr>
+<td>LGMDR4/2E</td>
+<td><strong>SGCB</strong>, β-SG</td>
+<td><a href="https://bioregistry.io/HGNC:10806" target="_blank" rel="noopener noreferrer">HGNC:10806</a>; OMIM gene 600900; phenotype 604286</td>
+<td>Loss of β-SG and destabilization of associated SGs</td>
+</tr>
+<tr>
+<td>LGMDR5/2C</td>
+<td><strong>SGCG</strong>, γ-SG</td>
+<td><a href="https://bioregistry.io/HGNC:10809" target="_blank" rel="noopener noreferrer">HGNC:10809</a>; OMIM gene 608896; phenotype 253700</td>
+<td>Loss of γ-SG; severe founder-associated disease is common in some populations</td>
+</tr>
+<tr>
+<td>LGMDR6/2F</td>
+<td><strong>SGCD</strong>, δ-SG</td>
+<td><a href="https://bioregistry.io/HGNC:10807" target="_blank" rel="noopener noreferrer">HGNC:10807</a>; OMIM gene 601411; phenotype 601287</td>
+<td>Loss/misfolding of δ-SG; skeletal and cardiac membrane dysfunction</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Open Targets independently identifies SGCA, SGCB, SGCG, and SGCD as the four leading sarcoglycanopathy-associated targets. (OpenTargets Search: sarcoglycanopathy)</p>
+<p>Variants include missense, nonsense, frameshift, canonical splice, exon-level deletion/duplication, and rarer structural alleles. They are <strong>constitutional germline</strong>, not somatic. Most act through loss of function, abnormal folding/trafficking, ERAD, or failure to assemble the tetramer; gain-of-function and dominant-negative mechanisms are not established as the canonical cause. Variant interpretation should use ACMG/AMP criteria, segregation, population frequency, phenotype, RNA studies where relevant, and muscle protein expression. A VUS alone does not establish diagnosis.</p>
+<p>Population allele frequencies must be reported <strong>variant by variant</strong> from the current gnomAD release; no single meaningful frequency applies to a gene. Pathogenic alleles are individually rare, while founder variants can be locally enriched. No recurrent aneuploidy, translocation, anticipation mechanism, or characteristic epigenetic lesion defines the disease. Germline mosaicism is theoretically possible but is not a major documented mechanism.</p>
+<h2>5. Environmental, lifestyle, and infectious information</h2>
+<p>There is no evidence that sarcoglycanopathy is caused by toxins, radiation, pollution, occupation, diet, alcohol, smoking, or infection. Exercise modifies mechanical demand on vulnerable muscle: individualized low-to-moderate aerobic and submaximal activity is generally favored, whereas unaccustomed high-intensity eccentric exercise may increase injury. Respiratory vaccination, nutrition, and weight management prevent complications rather than the inherited disease itself. The condition is noninfectious and nontransmissible.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Upstream genetic defect:</strong> biallelic SGCA/B/G/D variant.</li>
+<li><strong>Protein defect:</strong> absent, unstable, misfolded, or mistargeted sarcoglycan; secondary loss of interacting partners.</li>
+<li><strong>Complex failure:</strong> reduced sarcoglycan–sarcospan/DAPC function at the sarcolemma.</li>
+<li><strong>Biomechanical injury:</strong> contraction-induced membrane instability and abnormal permeability.</li>
+<li><strong>Downstream responses:</strong> ionic dysregulation, myofiber necrosis, damage-associated signaling, immune-cell recruitment, repeated regeneration, oxidative/mitochondrial stress.</li>
+<li><strong>Tissue remodeling:</strong> fibrosis and adipose replacement reduce contractile tissue.</li>
+<li><strong>Clinical output:</strong> progressive skeletal weakness, respiratory restriction, and—depending on genotype—cardiomyopathy/arrhythmia. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>, <a href="#ref-barba2023modelingsarcoglycanopathyin-pages-6-9">barba2023modelingsarcoglycanopathyin pages 6-9</a>)</li>
+</ol>
+<p>The 2023 primary zebrafish paper states that SGs form a tetramer in the DAPC, which “plays a key role in protecting sarcolemma from stress deriving from muscle contraction.” It also showed that a δ-SG missense protein was an ERAD substrate, supporting misfolding and premature degradation as a distinct upstream mechanism. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</p>
+<p>Adult sgcd-null zebrafish developed disorganized fibers, myofibrillar fragmentation, hypercontracted fibers, inflammatory L-plastin-positive cells, fibrosis, adipose replacement, and progressively abnormal mitochondria. These findings support inflammation, fibrosis, and mitochondrial injury as downstream—not initiating—processes. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-6-9">barba2023modelingsarcoglycanopathyin pages 6-9</a>)</p>
+<p><strong>Suggested GO terms:</strong> sarcolemma organization (<a href="http://purl.obolibrary.org/obo/GO_0042383" target="_blank" rel="noopener noreferrer">GO:0042383</a>), muscle contraction (<a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" rel="noopener noreferrer">GO:0006936</a>), regulation of membrane integrity, protein quality control/ERAD (<a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" rel="noopener noreferrer">GO:0036503</a>), inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), muscle-cell apoptosis/necrosis, extracellular-matrix organization (<a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a>), and muscle-organ development (<a href="http://purl.obolibrary.org/obo/GO_0007517" target="_blank" rel="noopener noreferrer">GO:0007517</a>). Suggested cellular components include <strong>sarcolemma (<a href="http://purl.obolibrary.org/obo/GO_0042383" target="_blank" rel="noopener noreferrer">GO:0042383</a>)</strong> and dystrophin-associated glycoprotein complex. Suggested cell types: skeletal-muscle fiber/myocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a></strong>), cardiomyocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a></strong>), satellite cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000596" target="_blank" rel="noopener noreferrer">CL:0000596</a></strong>), fibroblast (<strong><a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a></strong>), and macrophage (<strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>).</p>
+<p>Disease-specific human single-cell, spatial-transcriptomic, metabolomic, lipidomic, and epigenomic signatures are not yet mature enough for routine knowledge-base assertions. Available molecular profiling is dominated by biopsy protein expression and preclinical histology.</p>
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary organ/tissue:</strong> bilateral skeletal muscle, especially pelvic-girdle, thigh, shoulder-girdle, axial, and respiratory muscles. Suggested UBERON: skeletal muscle organ <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001630" target="_blank" rel="noopener noreferrer">UBERON:0001630</a></strong>, diaphragm <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a></strong>, heart <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a></strong>.</li>
+<li><strong>Secondary/variable:</strong> myocardium and cardiac conduction system; diaphragm/intercostal muscles; tendons and joints through contracture; spine through lordosis/scoliosis.</li>
+<li><strong>Cellular target:</strong> multinucleated skeletal myofibers and cardiomyocytes; macrophages and fibroblasts participate secondarily.</li>
+<li><strong>Subcellular localization:</strong> sarcolemma/DAPC; ER and proteasome become relevant for misfolded variants; mitochondria show downstream injury. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-6-9">barba2023modelingsarcoglycanopathyin pages 6-9</a>, <a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</li>
+<li><strong>Lateralization:</strong> usually symmetric; marked unilateral disease is atypical and should prompt reconsideration.</li>
+</ul>
+<h2>8. Temporal development</h2>
+<p>The disorder is chronic, lifelong, and usually progressive rather than episodic or relapsing. Early disease features running difficulty, Gowers maneuver, stair-climbing difficulty, hyperCKemia, and calf enlargement. Intermediate disease brings contractures, axial/upper-limb weakness, and declining timed function. Advanced disease includes loss of ambulation, restrictive respiratory insufficiency, and possible cardiomyopathy.</p>
+<p>Age at onset is the strongest repeatedly observed clinical predictor. In the 100-person study, younger onset independently predicted severity and time to loss of ambulation; absent biopsy protein also predicted earlier loss of walking. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>) LGMDR6 illustrates the severe end: 60% were wheelchair-bound in the early teens, at median age 12. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>)</p>
+<p>There is no spontaneous remission. The critical therapeutic window is probably before extensive fibrofatty replacement, because gene replacement can restore protein but cannot readily replace lost contractile tissue. This is a biologically strong inference rather than a proven age cutoff.</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is <strong>autosomal recessive</strong>. For two confirmed carrier parents, each pregnancy has a 25% affected, 50% carrier, and 25% unaffected/non-carrier probability. Penetrance of clearly deleterious biallelic genotypes is generally high but may be age-dependent; expressivity is markedly variable. Anticipation is not expected.</p>
+<p>Sarcoglycanopathies are ultra-rare, and incidence is not reliably quantified. A β-sarcoglycanopathy series cited an estimated prevalence of <strong>0.86 per million</strong>. In a Dutch clinically ascertained cohort, sarcoglycanopathies constituted 67/244 (27%) of molecularly diagnosed AR-LGMD/Miyoshi cases; this is a diagnostic mix, not population prevalence. (<a href="#ref-semplicini2015clinicalandgenetic-pages-2-3">semplicini2015clinicalandgenetic pages 2-3</a>, <a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</p>
+<p>Geographic enrichment differs: α-SG is prominent in Europe, γ-SG in North Africa, β-SG occurs worldwide, and reported δ-SG cases have been concentrated in Brazil. These patterns reflect founder alleles, ascertainment, and consanguinity rather than ethnic restriction. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>) Both sexes are affected approximately equally.</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended approach</h3>
+<ol>
+<li><strong>Clinical suspicion:</strong> symmetric proximal weakness, Gowers sign, calf enlargement, contractures, markedly elevated CK, recessive pedigree, or incidental hyperCKemia.</li>
+<li><strong>Baseline laboratory testing:</strong> serum CK, AST/ALT, LDH, aldolase where available; muscle-derived transaminase elevation should not automatically be labeled hepatic disease.</li>
+<li><strong>Molecular confirmation:</strong> an NGS neuromuscular/LGMD panel containing <strong>SGCA, SGCB, SGCG, SGCD</strong>, with deletion/duplication analysis. WES or WGS is appropriate if panel testing is negative, the phenotype is atypical, or structural/noncoding variation is suspected. A Dutch study using sequential targeted testing, panels, and WES achieved diagnoses in 57/60 families with available DNA. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>)</li>
+<li><strong>RNA analysis:</strong> useful for uncertain splice variants; muscle RNA may be necessary.</li>
+<li><strong>Muscle biopsy:</strong> now usually second-line, but valuable when genetics is unresolved or functional validation is needed. Histology is dystrophic, with necrosis/regeneration and fibrofatty change. Immunohistochemistry or Western blot should assess all four sarcoglycans because secondary deficiency can obscure which gene is primary. Residual expression has prognostic value. (<a href="#ref-alonsoperez2022clinicalandgenetic-pages-1-1">alonsoperez2022clinicalandgenetic pages 1-1</a>, <a href="#ref-semplicini2015clinicalandgenetic-pages-2-3">semplicini2015clinicalandgenetic pages 2-3</a>)</li>
+<li><strong>Cardiac assessment:</strong> ECG, echocardiography, and ambulatory rhythm monitoring; cardiac MRI when indicated.</li>
+<li><strong>Respiratory assessment:</strong> seated and supine FVC, maximal inspiratory/expiratory pressures, peak cough flow, nocturnal oximetry/capnography or sleep study when symptoms or declining function warrant.</li>
+<li><strong>Functional/imaging biomarkers:</strong> NSAD, PUL 2.0, 10- and 100-m walk/run, rise-from-floor, stair climb, TUG, and quantitative muscle MRI fat fraction. These are being implemented in prospective natural-history and gene-therapy studies. (NCT04475926 chunk 1, NCT05876780 chunk 1, NCT06246513 chunk 1)</li>
+</ol>
+<p>CMA, karyotyping, FISH, mitochondrial DNA testing, and repeat-expansion testing are not first-line unless another diagnosis is suspected. Differential diagnoses include dystrophinopathy, FKRP-related disease, calpainopathy, dysferlinopathy, anoctaminopathy, dystroglycanopathy, Pompe disease, spinal muscular atrophy, congenital myopathy, and inflammatory myopathy.</p>
+<p>Cascade testing should be offered to relatives after identifying familial variants. Population newborn screening is not standard; CK-first newborn approaches remain investigational. Carrier, prenatal, and preimplantation genetic testing are feasible once familial pathogenic variants are known.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Prognosis is determined chiefly by age at onset, residual sarcoglycan expression, genotype, and cardiac/respiratory involvement. In the 100-person cohort, 65.3% were wheelchair-bound after mean follow-up of 22.9 years, 30 required ventilation, and six died. (<a href="#ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3">guimaraescosta2021clinicalcorrelationsand pages 1-3</a>) In LGMDR4, CK, pulmonary function, and left-ventricular function declined in parallel with age, and ejection fraction was the strongest independent progression variable in one 26-patient analysis. (<a href="#ref-semplicini2015clinicalandgenetic-pages-2-3">semplicini2015clinicalandgenetic pages 2-3</a>)</p>
+<p>No robust universal 5- or 10-year survival estimate exists. Severe childhood disease can cause major disability by adolescence and premature death from respiratory failure or cardiomyopathy; mild patients may remain ambulant into late adulthood. Recovery of established weakness is uncommon with supportive care, but complications can be delayed or treated. Formal sarcoglycanopathy-specific EQ-5D, SF-36, and PROMIS benchmarks remain a research gap.</p>
+<h2>12. Treatment and current applications</h2>
+<h3>Present standard of care</h3>
+<p>No gene-specific drug is yet established as routine curative therapy. Management is multidisciplinary:</p>
+<ul>
+<li>individualized physical and occupational therapy, stretching, orthoses, mobility aids, seating, and contracture prevention;</li>
+<li>low-to-moderate, non-exhaustive activity; avoid prolonged immobilization and excessive eccentric loading;</li>
+<li>respiratory physiotherapy, assisted cough, non-invasive ventilation, and prompt treatment of infections;</li>
+<li>standard guideline-directed cardiomyopathy/arrhythmia therapy—commonly ACE inhibitor/ARB/ARNI, β-blocker, mineralocorticoid antagonist, and device therapy when clinically indicated;</li>
+<li>nutrition, bone health, pain management, psychosocial support, anesthesia planning, and orthopedic intervention for function-threatening contracture or scoliosis.</li>
+</ul>
+<p>Suggested NCIt intervention concepts include physical therapy, occupational therapy, noninvasive positive-pressure ventilation, assisted coughing, genetic counseling, AAV gene therapy, prednisone, and cardiac transplantation. Drug-level pharmacogenomic guidance specific to sarcoglycanopathy is unavailable.</p>
+<h3>Pharmacotherapy</h3>
+<p>Glucocorticoids are not supported by the same evidence base as in Duchenne dystrophy. A small exploratory study of 19 genetically heterogeneous LGMD patients receiving weekly prednisone for 24 weeks found acceptable safety, reduced CK, and a trend toward motor improvement; it does not establish efficacy for sarcoglycanopathy. (<a href="#ref-andrea2024molecularmechanismsand-pages-18-19">andrea2024molecularmechanismsand pages 18-19</a>)</p>
+<h3>Gene and molecular therapy</h3>
+<p><strong>Bidridistrogene xeboparvovec (SRP-9003; scAAVrh74.MHCK7.hSGCB).</strong> Six children aged 4–15 years received one IV dose: 1.85×10^13 vg/kg (n=3) or 7.41×10^13 vg/kg (n=3). Day-60 mean β-SG expression was 36.2% and 62.1% of normal; β-SG-positive fibers were 51% and 72%. At year 2, expression remained 54.0% and 60.3%, and year-1 NSAD improved by 5.7 and 4.0 points. (<a href="#ref-mendell2024genetherapywith-pages-1-2">mendell2024genetherapywith pages 1-2</a>, <a href="#ref-mendell2024genetherapywith-pages-3-4">mendell2024genetherapywith pages 3-4</a>, <a href="#ref-mendell2024genetherapywith-pages-4-5">mendell2024genetherapywith pages 4-5</a>)</p>
+<p>The abstract reports: “The 2-year safety and efficacy of bidridistrogene xeboparvovec support clinical development advancement. Further studies are necessary to confirm the long-term safety and efficacy.” Vomiting occurred in 4/6, increased GGT in 3/6, and one patient developed AAV-related hepatitis requiring four days of hospitalization; serious events resolved with standard therapy. PMID <strong>38177855</strong>; published online <strong>2024-01-04</strong>; <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41591-023-02730-9</a>. (<a href="#ref-mendell2024genetherapywith-pages-1-2">mendell2024genetherapywith pages 1-2</a>, <a href="#ref-mendell2024genetherapywith-pages-9-10">mendell2024genetherapywith pages 9-10</a>, <a href="#ref-mendell2024genetherapywith-pages-3-4">mendell2024genetherapywith pages 3-4</a>, NCT03652259 chunk 1)</p>
+<p>Key caveats are the tiny sample, open-label/nonrandomized design, post-hoc functional analysis, and unmatched natural-history comparators. (<a href="#ref-mendell2024genetherapywith-pages-7-8">mendell2024genetherapywith pages 7-8</a>)</p>
+<p><strong>Active development:</strong></p>
+<ul>
+<li><strong>NCT05876780:</strong> phase 1 SRP-9003 study in ambulatory and nonambulatory LGMDR4, six participants, with day-60 and month-24 protein endpoints and five-year follow-up. (NCT05876780 chunk 1)</li>
+<li><strong>NCT06246513/EMERGENE:</strong> multinational phase 3, 17 participants, single SRP-9003 infusion plus prophylactic prednisone; primary day-60 β-SG-positive-fiber endpoint, with NSAD/PUL and safety through month 60. Trial began January 15, 2024. (NCT06246513 chunk 1)</li>
+<li><strong>NCT05973630:</strong> ATA-200, an AAV vector carrying human <strong>SGCG</strong>, phase 1 for ambulant children with LGMDR5; four participants receive 1.0×10^14 vg/kg IV with five-year follow-up. (NCT05973630 chunk 1)</li>
+<li><strong>NCT04475926/Journey:</strong> prospective natural history, 205 participants across LGMDR3–5 and calpainopathy, measuring NSAD, PUL, timed function, ROM, and FVC for up to five years. (NCT04475926 chunk 1)</li>
+</ul>
+<p>Earlier isolated-limb SGCA transfer produced only modest expression and inconsistent function. Preclinical AAV-SGCA/SGCG studies improved protein expression, histology, force, motor function, and CK in knockout mice. Exon skipping for selected SGCG variants and mesoangioblast therapy remain preclinical. (<a href="#ref-andrea2024molecularmechanismsand-pages-18-19">andrea2024molecularmechanismsand pages 18-19</a>)</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention by lifestyle or vaccination is impossible because the initiating defect is inherited. Reproductive prevention options include carrier testing, partner testing, cascade screening, preimplantation genetic testing, chorionic-villus sampling, and amniocentesis after counseling. Secondary prevention consists of early molecular diagnosis and presymptomatic cardiac/respiratory surveillance. Tertiary prevention includes stretching, safe activity, vaccinations, airway clearance, timely ventilation, cardioprotective therapy, fall prevention, and avoidance of prolonged immobility. There is no disease-specific vaccine or preventive medication.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Orthologous sarcoglycan disease occurs naturally in several mammals. The best-established comparative systems include δ-sarcoglycan-deficient Syrian hamsters with cardiomyopathy and muscular dystrophy and naturally occurring canine sarcoglycan deficiencies. Their pathology supports evolutionary conservation of DAPC-mediated membrane stabilization. Veterinary disease is inherited and nonzoonotic; there is no cross-species transmission. Relevant taxa include <strong>Mus musculus</strong> (NCBI Taxon 10090), <strong>Danio rerio</strong> (7955), <strong>Mesocricetus auratus</strong> (10036), and <strong>Canis lupus familiaris</strong> (9615). Breed-specific assertions should be linked to OMIA/VBO records rather than generalized across dogs.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<ul>
+<li><strong>Mouse:</strong> Sgca, Sgcb, Sgcg, and Sgcd knockout models reproduce progressive skeletal dystrophy. β-, γ-, and δ-SG-null mice develop dilated or hypertrophic cardiomyopathy, whereas α-SG-null mice generally do not—an important limitation and genotype-specific strength. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</li>
+<li><strong>Zebrafish:</strong> CRISPR sgcb−/− and sgcd−/− lines progress from mild larval impairment to adult myopathy and cardiac disease. The models reproduce fiber disarray, inflammation, fibrosis, adipose replacement, and mitochondrial injury and permit high-throughput drug screening. Mechanical challenge accelerates phenotype onset. Published <strong>2023-08-11</strong>; <a href="https://doi.org/10.3390/ijms241612707" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms241612707</a>. (<a href="#ref-barba2023modelingsarcoglycanopathyin-pages-6-9">barba2023modelingsarcoglycanopathyin pages 6-9</a>, <a href="#ref-barba2023modelingsarcoglycanopathyin-pages-1-2">barba2023modelingsarcoglycanopathyin pages 1-2</a>)</li>
+<li><strong>Hamster:</strong> naturally occurring δ-SG deficiency is particularly useful for cardiomyopathy and systemic therapy studies.</li>
+<li><strong>Cellular systems:</strong> patient myoblasts, engineered myotubes, and heterologous expression systems are used for trafficking, ERAD, proteasome rescue, splice assays, and AAV construct validation. Mature human iPSC-derived skeletal-muscle/cardiac models and organoids are promising but not yet standardized diagnostic platforms.</li>
+</ul>
+<p>The principal model limitation is that disease tempo, immune response to AAV, body size, and cardiac penetrance differ from humans. Consequently, successful rescue in rodents or fish is necessary but not sufficient evidence of clinical efficacy.</p>
+<h2>Evidence appraisal and principal gaps</h2>
+<p>The strongest evidence is human cohort evidence for natural history and a 2024 peer-reviewed first-in-human SGCB trial. Mechanistic evidence is mainly model-organism and in vitro evidence. Major unresolved areas include precise population incidence, standardized quality-of-life utilities, validated circulating biomarkers beyond CK, human modifier genes, disease-specific single-cell/multi-omics maps, optimal exercise prescriptions, long-term AAV durability and safety, and therapies for patients with advanced fibrofatty replacement. The most authoritative current interpretation is therefore that sarcoglycanopathy is molecularly well defined but clinically heterogeneous, and that early genotype confirmation plus lifelong cardiac and respiratory surveillance remains essential while gene-replacement efficacy is being confirmed.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-barba2023modelingsarcoglycanopathyin-pages-1-2"></a>(barba2023modelingsarcoglycanopathyin pages 1-2): Francesco Dalla Barba, Michela Soardi, Leila Mouhib, Giovanni Risato, Eylem Emek Akyürek, Tyrone Lucon-Xiccato, Martina Scano, Alberto Benetollo, Roberta Sacchetto, Isabelle Richard, Francesco Argenton, Cristiano Bertolucci, Marcello Carotti, and Dorianna Sandonà. Modeling sarcoglycanopathy in danio rerio. Aug 2023. URL: <a href="https://doi.org/10.3390/ijms241612707" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms241612707</a>, <a href="https://doi.org/10.3390/ijms241612707" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms241612707</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-guimaraescosta2021clinicalcorrelationsand-pages-1-3"></a>(guimaraescosta2021clinicalcorrelationsand pages 1-3): R. Guimarães-Costa, G. Fernández-Eulate, K. Wahbi, F. Leturcq, E. Malfatti, A. Béhin, S. Leonard-Louis, I. Desguerre, C. Barnerias, Marie-Christine Nouguès, A. Isapof, B. Estournet‐Mathiaud, S. Quijano-roy, A. Fayssoil, D. Orlikowski, B. Fauroux, I. Richard, C. Semplicini, N. Romero, G. Querin, B. Eymard, P. Laforêt, and T. Stojkovic. Clinical correlations and long‐term follow‐up in 100 patients with sarcoglycanopathies. Nov 2021. URL: <a href="https://doi.org/10.1111/ene.14592" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/ene.14592</a>, <a href="https://doi.org/10.1111/ene.14592" target="_blank" rel="noopener noreferrer">doi:10.1111/ene.14592</a>. This article has 33 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mendell2024genetherapywith-pages-1-2"></a>(mendell2024genetherapywith pages 1-2): Jerry R. Mendell, Eric R. Pozsgai, Sarah Lewis, Danielle A. Griffin, Linda P. Lowes, Lindsay N. Alfano, Kelly J. Lehman, Kathleen Church, Natalie F. Reash, Megan A. Iammarino, Brenna Sabo, Rachael Potter, Sarah Neuhaus, Xiaoxi Li, Herb Stevenson, and Louise R. Rodino-Klapac. Gene therapy with bidridistrogene xeboparvovec for limb-girdle muscular dystrophy type 2e/r4: phase 1/2 trial results. Nature Medicine, 30:199-206, Jan 2024. URL: <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41591-023-02730-9</a>, <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s41591-023-02730-9</a>. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mendell2024genetherapywith-pages-7-8"></a>(mendell2024genetherapywith pages 7-8): Jerry R. Mendell, Eric R. Pozsgai, Sarah Lewis, Danielle A. Griffin, Linda P. Lowes, Lindsay N. Alfano, Kelly J. Lehman, Kathleen Church, Natalie F. Reash, Megan A. Iammarino, Brenna Sabo, Rachael Potter, Sarah Neuhaus, Xiaoxi Li, Herb Stevenson, and Louise R. Rodino-Klapac. Gene therapy with bidridistrogene xeboparvovec for limb-girdle muscular dystrophy type 2e/r4: phase 1/2 trial results. Nature Medicine, 30:199-206, Jan 2024. URL: <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41591-023-02730-9</a>, <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s41591-023-02730-9</a>. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-semplicini2015clinicalandgenetic-pages-2-3"></a>(semplicini2015clinicalandgenetic pages 2-3): Claudio Semplicini, John Vissing, Julia R. Dahlqvist, Tanya Stojkovic, Luca Bello, Nanna Witting, Morten Duno, France Leturcq, Cinzia Bertolin, Paola D'Ambrosio, Bruno Eymard, Corrado Angelini, Luisa Politano, Pascal Laforêt, and Elena Pegoraro. Clinical and genetic spectrum in limb-girdle muscular dystrophy type 2e. Neurology, 84:1772-1781, Apr 2015. URL: <a href="https://doi.org/10.1212/wnl.0000000000001519" target="_blank" rel="noopener noreferrer">https://doi.org/10.1212/wnl.0000000000001519</a>, <a href="https://doi.org/10.1212/wnl.0000000000001519" target="_blank" rel="noopener noreferrer">doi:10.1212/wnl.0000000000001519</a>. This article has 85 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct03652259-chunk-1"></a>(NCT03652259 chunk 1):  Gene Delivery Clinical Trial of SRP-9003 (Bidridistrogene Xeboparvovec) for Participants With Limb-Girdle Muscular Dystrophy, Type 2E (LGMD2E) (Beta-Sarcoglycan Deficiency). Sarepta Therapeutics, Inc.. 2018. ClinicalTrials.gov Identifier: NCT03652259</p>
+</li>
+<li>
+<p><a id="ref-alonsoperez2022clinicalandgenetic-pages-1-1"></a>(alonsoperez2022clinicalandgenetic pages 1-1): Jorge Alonso-Pérez, Lidia González-Quereda, Claudio Bruno, Chiara Panicucci, Afagh Alavi, Shahriar Nafissi, Yalda Nilipour, Edmar Zanoteli, Lucas Michielon de Augusto Isihi, Béla Melegh, Kinga Hadzsiev, Nuria Muelas, Juan J Vílchez, Mario Emilio Dourado, Naz Kadem, Gultekin Kutluk, Muhammad Umair, Muhammad Younus, Elena Pegorano, Luca Bello, Thomas O Crawford, Xavier Suárez-Calvet, Ana Töpf, Michela Guglieri, Chiara Marini-Bettolo, Pia Gallano, Volker Straub, and Jordi Díaz-Manera. Clinical and genetic spectrum of a large cohort of patients with δ-sarcoglycan muscular dystrophy. Brain, 145:596-606, Sep 2022. URL: <a href="https://doi.org/10.1093/brain/awab301" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/brain/awab301</a>, <a href="https://doi.org/10.1093/brain/awab301" target="_blank" rel="noopener noreferrer">doi:10.1093/brain/awab301</a>. This article has 34 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-alonsoperez2022clinicalandgenetic-pages-2-3"></a>(alonsoperez2022clinicalandgenetic pages 2-3): Jorge Alonso-Pérez, Lidia González-Quereda, Claudio Bruno, Chiara Panicucci, Afagh Alavi, Shahriar Nafissi, Yalda Nilipour, Edmar Zanoteli, Lucas Michielon de Augusto Isihi, Béla Melegh, Kinga Hadzsiev, Nuria Muelas, Juan J Vílchez, Mario Emilio Dourado, Naz Kadem, Gultekin Kutluk, Muhammad Umair, Muhammad Younus, Elena Pegorano, Luca Bello, Thomas O Crawford, Xavier Suárez-Calvet, Ana Töpf, Michela Guglieri, Chiara Marini-Bettolo, Pia Gallano, Volker Straub, and Jordi Díaz-Manera. Clinical and genetic spectrum of a large cohort of patients with δ-sarcoglycan muscular dystrophy. Brain, 145:596-606, Sep 2022. URL: <a href="https://doi.org/10.1093/brain/awab301" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/brain/awab301</a>, <a href="https://doi.org/10.1093/brain/awab301" target="_blank" rel="noopener noreferrer">doi:10.1093/brain/awab301</a>. This article has 34 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-sarcoglycanopathy"></a>(OpenTargets Search: sarcoglycanopathy): Open Targets Query (sarcoglycanopathy, 6 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-nct04475926-chunk-2"></a>(NCT04475926 chunk 2):  A Study of the Natural History of Participants With LGMD2E/R4, LGMD2D/R3, LGMD2C/R5, and LGMD2A/R1 ≥ 4 Years of Age, Who Are Managed in Routine Clinical Practice. Sarepta Therapeutics, Inc.. 2021. ClinicalTrials.gov Identifier: NCT04475926</p>
+</li>
+<li>
+<p><a id="ref-nct04475926-chunk-1"></a>(NCT04475926 chunk 1):  A Study of the Natural History of Participants With LGMD2E/R4, LGMD2D/R3, LGMD2C/R5, and LGMD2A/R1 ≥ 4 Years of Age, Who Are Managed in Routine Clinical Practice. Sarepta Therapeutics, Inc.. 2021. ClinicalTrials.gov Identifier: NCT04475926</p>
+</li>
+<li>
+<p><a id="ref-nct05876780-chunk-1"></a>(NCT05876780 chunk 1):  A Gene Transfer Single Dose Study to Evaluate the Safety, Tolerability and Efficacy of SRP-9003 in Non-Ambulatory and Ambulatory Participants With Limb Girdle Muscular Dystrophy, Type 2E/R4 (Beta-Sarcoglycan [β-SG] Deficiency). Sarepta Therapeutics, Inc.. 2022. ClinicalTrials.gov Identifier: NCT05876780</p>
+</li>
+<li>
+<p><a id="ref-barba2023modelingsarcoglycanopathyin-pages-6-9"></a>(barba2023modelingsarcoglycanopathyin pages 6-9): Francesco Dalla Barba, Michela Soardi, Leila Mouhib, Giovanni Risato, Eylem Emek Akyürek, Tyrone Lucon-Xiccato, Martina Scano, Alberto Benetollo, Roberta Sacchetto, Isabelle Richard, Francesco Argenton, Cristiano Bertolucci, Marcello Carotti, and Dorianna Sandonà. Modeling sarcoglycanopathy in danio rerio. Aug 2023. URL: <a href="https://doi.org/10.3390/ijms241612707" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms241612707</a>, <a href="https://doi.org/10.3390/ijms241612707" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms241612707</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct06246513-chunk-1"></a>(NCT06246513 chunk 1):  A Trial to Learn More About an Experimental Gene Therapy Called Bidridistrogene Xeboparvovec (SRP-9003) as a Possible Treatment for Limb Girdle Muscular Dystrophy 2E/R4. Sarepta Therapeutics, Inc.. 2024. ClinicalTrials.gov Identifier: NCT06246513</p>
+</li>
+<li>
+<p><a id="ref-andrea2024molecularmechanismsand-pages-18-19"></a>(andrea2024molecularmechanismsand pages 18-19): Zambon Alberto Andrea, Falzone Yuri Matteo, Bolino Alessandra, and Previtali Stefano Carlo. Molecular mechanisms and therapeutic strategies for neuromuscular diseases. Cellular and Molecular Life Sciences: CMLS, Apr 2024. URL: <a href="https://doi.org/10.1007/s00018-024-05229-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00018-024-05229-9</a>, <a href="https://doi.org/10.1007/s00018-024-05229-9" target="_blank" rel="noopener noreferrer">doi:10.1007/s00018-024-05229-9</a>. This article has 23 citations.</p>
+</li>
+<li>
+<p><a id="ref-mendell2024genetherapywith-pages-3-4"></a>(mendell2024genetherapywith pages 3-4): Jerry R. Mendell, Eric R. Pozsgai, Sarah Lewis, Danielle A. Griffin, Linda P. Lowes, Lindsay N. Alfano, Kelly J. Lehman, Kathleen Church, Natalie F. Reash, Megan A. Iammarino, Brenna Sabo, Rachael Potter, Sarah Neuhaus, Xiaoxi Li, Herb Stevenson, and Louise R. Rodino-Klapac. Gene therapy with bidridistrogene xeboparvovec for limb-girdle muscular dystrophy type 2e/r4: phase 1/2 trial results. Nature Medicine, 30:199-206, Jan 2024. URL: <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41591-023-02730-9</a>, <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s41591-023-02730-9</a>. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mendell2024genetherapywith-pages-4-5"></a>(mendell2024genetherapywith pages 4-5): Jerry R. Mendell, Eric R. Pozsgai, Sarah Lewis, Danielle A. Griffin, Linda P. Lowes, Lindsay N. Alfano, Kelly J. Lehman, Kathleen Church, Natalie F. Reash, Megan A. Iammarino, Brenna Sabo, Rachael Potter, Sarah Neuhaus, Xiaoxi Li, Herb Stevenson, and Louise R. Rodino-Klapac. Gene therapy with bidridistrogene xeboparvovec for limb-girdle muscular dystrophy type 2e/r4: phase 1/2 trial results. Nature Medicine, 30:199-206, Jan 2024. URL: <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41591-023-02730-9</a>, <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s41591-023-02730-9</a>. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mendell2024genetherapywith-pages-9-10"></a>(mendell2024genetherapywith pages 9-10): Jerry R. Mendell, Eric R. Pozsgai, Sarah Lewis, Danielle A. Griffin, Linda P. Lowes, Lindsay N. Alfano, Kelly J. Lehman, Kathleen Church, Natalie F. Reash, Megan A. Iammarino, Brenna Sabo, Rachael Potter, Sarah Neuhaus, Xiaoxi Li, Herb Stevenson, and Louise R. Rodino-Klapac. Gene therapy with bidridistrogene xeboparvovec for limb-girdle muscular dystrophy type 2e/r4: phase 1/2 trial results. Nature Medicine, 30:199-206, Jan 2024. URL: <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41591-023-02730-9</a>, <a href="https://doi.org/10.1038/s41591-023-02730-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s41591-023-02730-9</a>. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct05973630-chunk-1"></a>(NCT05973630 chunk 1):  ATA-200 Gene Therapy Trial in Patients With LGMDR5. Atamyo Therapeutics. 2025. ClinicalTrials.gov Identifier: NCT05973630</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Sarcoglycanopathy-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>6</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sanjad-Sakati_Syndrome-claude_code.html">← Sanjad-Sakati Syndrome (Claude Code)</a>
+                
+                
+                <a href="Sarcoidosis-claude_code.html">Sarcoidosis (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sarcoglycanopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sarcoglycanopathy-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
