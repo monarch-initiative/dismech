@@ -219,7 +219,7 @@ Why not a `datasets/` folder instead, one file per dataset shared across
 entries? Because de-duplication is not the problem: of 1,747 dataset records,
 1,696 accessions are distinct, and the 49 that repeat (2.9%, maximum fan-out 3)
 are all pairs of sibling entries. See
-[design decision 6b](explanation/design-decisions.md#6b-a-dataset-accession-is-a-reference-cached-one-file-per-record-2026-08-27).
+[design decision 6c](explanation/design-decisions.md#6c-a-dataset-accession-is-a-reference-cached-one-file-per-record-2026-08-27).
 
 ## Verification statuses
 
