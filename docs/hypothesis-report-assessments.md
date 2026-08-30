@@ -14,7 +14,7 @@ kb/hypotheses/<Disease>/<hypothesis_id>/
   <provider-a>.md
   <provider-b>.md
   <provider-a>_artifacts/                         # optional provider bundle
-    MANIFEST.yaml                                 # recommended inventory
+    MANIFEST.yaml                                 # required for computational bundles
     analysis.py                                   # example committed code
     results.tsv                                   # example small derived output
   reconciliation.yaml
@@ -89,7 +89,7 @@ data_sources:
     name: Wilson disease liver transcriptome
     identifier: geo:GSE197406
     access_status: ACCESSED
-    retrieved_at: '2026-08-29T19:20:00Z'
+    retrieved_at: '2026-08-29T21:58:56Z'
     cohort: Liver tissue from people with Wilson disease and controls.
     subset: Samples retained after the provider's documented quality filters.
     organism: Homo sapiens
@@ -99,36 +99,52 @@ data_sources:
     byte_count: 2831048
     source_artifacts:
       - ../biomni_artifacts/MANIFEST.yaml
-      - ../biomni_artifacts/GSE197406_metadata.tsv
-  - data_source_id: searched-gtex-wilson
-    source_type: DATABASE
-    name: GTEx Portal
-    access_status: SEARCHED_NO_RESULT
-    retrieved_at: '2026-08-29T19:30:00Z'
-    query: 'Wilson disease ATP7B liver'
+      - ../biomni_artifacts/input_manifest.tsv
+      - ../biomni_artifacts/sample_manifest.tsv
+  - data_source_id: geo-gpl570
+    source_type: PUBLIC_DATASET
+    name: GPL570 platform annotation
+    identifier: geo:GPL570
+    access_status: ACCESSED
+    retrieved_at: '2026-08-29T21:58:57Z'
+    organism: Homo sapiens
+    assay: Affymetrix Human Genome U133 Plus 2.0 Array annotation
     source_artifacts:
-      - ../biomni_artifacts/GTEx_wilson_search.txt
-    notes: No disease-labelled cohort was found with the documented query and filters.
+      - ../biomni_artifacts/MANIFEST.yaml
+      - ../biomni_artifacts/input_manifest.tsv
 analyses:
   - analysis_id: wilson-liver-de
-    status: SUCCEEDED
+    status: PARTIAL
     auditability: REPRODUCIBLE
-    method: Differential-expression analysis after the documented sample filtering.
+    method: >-
+      Per-probe two-sided Welch tests on the deposited log2-like expression
+      scale, with Benjamini-Hochberg correction over all platform probes.
     comparison: Wilson disease liver versus normal-control liver.
     input_data_source_ids:
       - geo-gse197406
+      - geo-gpl570
     software:
-      - software_name: DESeq2
-        software_version: '1.48.1'
+      - software_name: Python
+        software_version: '3.12.9'
+      - software_name: SciPy
+        software_version: '1.18.1'
+      - software_name: statsmodels
+        software_version: '0.15.0'
     parameters:
-      - design=~condition
-      - adjusted-p-value<0.05
+      - transform=none
+      - test=two-sided Welch t-test per probe
+      - multiplicity=Benjamini-Hochberg over all platform probes
     code_artifacts:
-      - ../biomni_artifacts/analyze_gse197406.R
-    environment_artifact: ../biomni_artifacts/sessionInfo.txt
+      - ../biomni_artifacts/analysis.py
+    environment_artifact: ../biomni_artifacts/environment.txt
     output_artifacts:
-      - ../biomni_artifacts/GSE197406_differential_expression.tsv
-    limitations: Small cohort and potential treatment-status confounding.
+      - ../biomni_artifacts/sample_manifest.tsv
+      - ../biomni_artifacts/probe_level_results.tsv
+      - ../biomni_artifacts/gene_level_results.tsv
+    status_reason: >-
+      The corrected replay is reproducible, but the provider did not attest the
+      correction, so the assessment does not grade it as SUCCEEDED.
+    limitations: Small cohort, age imbalance, and transplant-versus-resection confounding.
 claims:
   - claim_id: copper-iron-expression-shift
     statement: Wilson disease liver shows a specified iron-homeostasis expression shift.

@@ -290,7 +290,7 @@ scripts/run_deep_research_client.sh validate-references research/Foo.md --json /
 
 ## What this does **not** replace
 
-A clean counts table is not permission to skip the evidence SOP. Three distinct
+A clean counts table is not permission to skip the evidence SOP. Four distinct
 things stay exactly as they were:
 
 **1. KB snippet validation.** This checks the *report's* citations. It says
