@@ -205,8 +205,9 @@ project memory. This is the subagent's **own** branch, so rebase/force-push of
 *its* branch is fine — never touch anyone else's.
 
 **Done = green + approved + mergeable → STOP and report the PR URL.** Do **not**
-click merge; leave the final merge to the human / `auto-merge-compliance`. If the
-reviewer and agent reach an impasse, or a conflict can't be resolved cleanly:
+click merge; leave the final merge to a human or the common deterministic PR
+Shepherd controller. If the reviewer and agent reach an impasse, or a conflict
+can't be resolved cleanly:
 **assign @cmungall, comment with the specifics, and stop** — never a review
 back-and-forth (CLAUDE.md).
 

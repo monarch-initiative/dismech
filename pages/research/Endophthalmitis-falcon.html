@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endophthalmitis · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Endophthalmitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Endophthalmitis</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-08-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0016047" target="_blank" rel="noopener noreferrer">MONDO:0016047</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">34 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Endophthalmitis</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Infectious Disease</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Endophthalmitis</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Endophthalmitis: comprehensive disease-characteristics report</h1>
+<h2>Executive summary</h2>
+<p>Endophthalmitis is a sight-threatening inflammatory syndrome caused most often by microbial infection of the aqueous, vitreous, retina, or adjacent intraocular tissues. <strong>Exogenous endophthalmitis</strong> follows surgery, intravitreal injection, penetrating trauma, keratitis, or filtering-bleb infection; <strong>endogenous endophthalmitis</strong> results from hematogenous seeding during bacteremia or fungemia. It is an ophthalmic emergency because pathogen proliferation, toxins, and an intense host inflammatory response can destroy retinal architecture within hours to days.</p>
+<p>Modern series remain dominated by exogenous disease and Gram-positive organisms, especially coagulase-negative staphylococci. In an Australian 18-year cohort, 87.1% of cases were exogenous, post-cataract and post-injection cases each represented approximately 38%, organisms were recovered in 56%, and 52.5% of treated eyes improved visually. A German 2019–2023 series identified a pathogen in 58.7%; <em>Staphylococcus epidermidis</em> represented 58.1% of identified organisms. These figures are center- and procedure-dependent rather than population prevalence estimates. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>)</p>
+<p>The disease is not a Mendelian disorder: no causal germline gene, inheritance pattern, disease-defining variant, or routine genetic test is established. Recent mechanistic research instead concerns host-response genes and pathways—AMPKα1, NLRP3, cytokine signaling, macrophage polarization, and fungal-response transcriptomes—which may eventually support host-directed adjuncts but are not current clinical genetic biomarkers. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>, <a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</p>
+<h2>1. Disease information</h2>
+<h3>Definition and classification</h3>
+<p>Infectious endophthalmitis is microbial invasion of intraocular fluids or tissues producing severe inflammation. Panophthalmitis denotes extension through all ocular coats and often periocular tissue. Classification is clinically useful along four axes:</p>
+<ol>
+<li><strong>Route:</strong> exogenous versus endogenous.</li>
+<li><strong>Setting:</strong> postoperative, post-intravitreal injection, post-traumatic/foreign body, keratitis-associated, bleb-associated, or hematogenous.</li>
+<li><strong>Timing:</strong> acute—usually days—or delayed/chronic, often weeks to months.</li>
+<li><strong>Organism:</strong> bacterial, fungal, or rarely parasitic.</li>
+</ol>
+<p>Endogenous endophthalmitis accounts for approximately 2–8% in reviews, although referral cohorts vary; recent series reported 7.9–12.9%. It is defined by bloodstream dissemination without preceding direct ocular inoculation. (<a href="#ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2">alshehri2024endogenousendophthalmitisassociated pages 1-2</a>, <a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>)</p>
+<h3>Identifiers and synonyms</h3>
+<ul>
+<li><strong>Preferred name:</strong> Endophthalmitis.</li>
+<li><strong>Synonyms:</strong> infectious endophthalmitis, purulent endophthalmitis, intraocular infection; subtype terms include postoperative, post-injection, post-traumatic, endogenous, metastatic, bacterial, and fungal endophthalmitis.</li>
+<li><strong>ICD-10-CM:</strong> H44.0, purulent endophthalmitis; H44.1, other endophthalmitis. More specific child codes are jurisdiction/version dependent.</li>
+<li><strong>MeSH:</strong> Endophthalmitis.</li>
+<li><strong>MONDO:</strong> a MONDO concept exists for endophthalmitis, but the exact identifier should be verified against the current MONDO release before database ingestion rather than inferred here.</li>
+<li><strong>OMIM/Orphanet:</strong> not generally applicable as a primary inherited or rare Mendelian disease entity.</li>
+<li><strong>ICD-11:</strong> use the current browser’s endophthalmitis concept under disorders of the eye; release-specific code verification is required.</li>
+</ul>
+<p>The evidence summarized here is predominantly <strong>aggregated disease-level information</strong> from cohorts, reviews, clinical studies, and model systems. Individual case reports are used only to illustrate rare organisms or presentations; it is not an EHR-derived patient profile.</p>
+<h2>2. Etiology, risk, and protective factors</h2>
+<h3>Causal factors and infectious agents</h3>
+<p><strong>Exogenous inoculation:</strong> Cataract surgery and intravitreal injection are now major causes in high-income settings. Other routes include pars plana vitrectomy, glaucoma surgery, penetrating trauma, retained intraocular foreign body, corneal ulcer, and infected filtering bleb. In a German series of 126 cases, antecedents were injection in 55.6%, cataract surgery in 23.8%, vitrectomy in 5.6%, and glaucoma surgery in 4.8%. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>)</p>
+<p><strong>Endogenous seeding:</strong> Bloodstream organisms cross the blood–ocular barriers during bacteremia or fungemia. Common systemic sources include endocarditis, liver abscess, urinary infection, indwelling vascular access, gastrointestinal or hepatobiliary infection, and injection-drug use. COVID-era reports suggested increased fungal endogenous disease in critically ill, immunosuppressed patients, particularly involving <em>Candida</em> and <em>Aspergillus</em>. (<a href="#ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2">alshehri2024endogenousendophthalmitisassociated pages 1-2</a>, <a href="#ref-shah2025riskfactorsfor-pages-1-2">shah2025riskfactorsfor pages 1-2</a>)</p>
+<p><strong>Organisms:</strong> Exogenous disease is usually Gram-positive: coagulase-negative staphylococci, <em>S. aureus</em>, streptococci, <em>Enterococcus</em>, and delayed <em>Cutibacterium acnes</em>. Virulent Gram-negative organisms include <em>Pseudomonas aeruginosa</em>, <em>Klebsiella pneumoniae</em>, and <em>Escherichia coli</em>. Trauma—especially soil-contaminated injury—is associated with <em>Bacillus cereus</em>. Endogenous fungi are commonly <em>Candida</em> or <em>Aspergillus</em>; rare molds can produce relapsing infection. In the German series, all Gram-positive isolates were vancomycin susceptible, but this should not substitute for local surveillance. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</p>
+<h3>Risk factors</h3>
+<ul>
+<li><strong>Procedural:</strong> wound leak or poor wound construction, posterior-capsule rupture/vitreous loss, prolonged or complicated surgery, contaminated instruments/medications, inadequate antisepsis, repeated intravitreal injections, and filtering blebs.</li>
+<li><strong>Traumatic:</strong> delayed wound closure, dirty rural injury, lens disruption, and retained IOFB. In 218 cases, IOFB independently predicted poor postoperative vision in traumatic disease (OR 2.215; p=0.016). A 2024 metallic-injury cohort found IOFB associated with faster onset, greater WBC/neutrophil/CRP responses, and poorer control (R=0.39; p&lt;0.05). (<a href="#ref-li2025clinicalretrospectiveanalysis-pages-1-2">li2025clinicalretrospectiveanalysis pages 1-2</a>, <a href="#ref-wu2024systematicinflammatoryindicators-pages-1-2">wu2024systematicinflammatoryindicators pages 1-2</a>)</li>
+<li><strong>Endogenous:</strong> diabetes, malignancy, neutropenia, HIV/AIDS, transplantation, systemic corticosteroids or other immunosuppression, recent major surgery, indwelling catheter, parenteral nutrition, intravenous drug use, and endocarditis. Among 769,472 inpatients with infective endocarditis, 2,248 had coded endogenous endophthalmitis; diabetes with complications conferred OR 2.043, alcohol-use disorder OR 1.795, and cirrhosis OR 1.452. (<a href="#ref-shah2025riskfactorsfor-pages-1-2">shah2025riskfactorsfor pages 1-2</a>)</li>
+<li><strong>Age/sex/geography:</strong> Exogenous cohorts skew older because cataract surgery and anti-VEGF treatment increase with age. In one cohort, median age was 76.8 years for exogenous versus 60.5 for endogenous disease. Trauma cohorts are often predominantly working-age men; a 2024 metallic-injury study was 86.2% male. Organism distributions vary geographically—hypervirulent <em>Klebsiella</em> endogenous infection is especially important in East and Southeast Asia. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>, <a href="#ref-wu2024systematicinflammatoryindicators-pages-1-2">wu2024systematicinflammatoryindicators pages 1-2</a>)</li>
+</ul>
+<h3>Protective factors and gene–environment interactions</h3>
+<p>Strongly supported protective interventions are procedural rather than genetic: povidone–iodine antisepsis, sterile technique, prompt wound repair/foreign-body removal, and intracameral antibiotic prophylaxis during cataract surgery where adopted. No validated protective germline variant or modifier allele is known. Apparent host-genetic effects such as myeloid AMPKα1 activity are preclinical mechanistic observations, not population susceptibility loci. Thus, “gene–environment interaction” is best conceptualized as host immune/metabolic state interacting with pathogen virulence and inoculation route, rather than a validated clinical G×E association. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</p>
+<h2>3. Phenotypes</h2>
+<p>Typical disease is unilateral after a local procedure or injury; endogenous disease can be bilateral. Severity and progression range from indolent chronic inflammation to fulminant retinal destruction.</p>
+<ul>
+<li><strong>Reduced or rapidly declining vision:</strong> core symptom, variable from mild blur to hand-motion/light-perception vision. Suggested HPO: decreased visual acuity; blindness. Presenting acuity is among the strongest outcome predictors. (<a href="#ref-nowosielski2026visualacuityinfluences-pages-1-2">nowosielski2026visualacuityinfluences pages 1-2</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</li>
+<li><strong>Eye pain and photophobia:</strong> common but not universal; pain can be absent in indolent or immunocompromised disease. Suggested HPO: eye pain; photophobia. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</li>
+<li><strong>Red eye/conjunctival injection and eyelid edema:</strong> inflammatory signs. Suggested HPO: conjunctival hyperemia; periorbital edema. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</li>
+<li><strong>Anterior chamber cells/flare, fibrin, hypopyon:</strong> signs of severe anterior inflammation. Suggested HPO: anterior uveitis; hypopyon. The 2024 <em>E. coli</em> case had a 3+/4+ anterior chamber reaction. (<a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</li>
+<li><strong>Vitritis/vitreous haze, absent red reflex, poor fundus view:</strong> defining posterior-segment manifestations. Suggested HPO: vitritis; vitreous opacity. The same <em>E. coli</em> case had 4+/4+ vitritis. (<a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</li>
+<li><strong>Floaters:</strong> common early posterior symptom. Suggested HPO: vitreous floaters. (<a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</li>
+<li><strong>Retinal/choroidal infiltrates or abscesses:</strong> particularly endogenous bacterial or fungal disease. Suggested HPO: chorioretinal inflammation; retinal lesion. A hypervirulent <em>Klebsiella</em> case showed retinochoroidal abscesses by ultrasonography. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>)</li>
+<li><strong>Laboratory abnormalities:</strong> ocular-fluid Gram stain/culture/PCR positivity; endogenous cases may have positive blood cultures, leukocytosis, elevated CRP, or systemic organ infection. No single blood biomarker is diagnostic.</li>
+</ul>
+<p><strong>Onset:</strong> Acute postoperative/post-injection disease often develops within approximately 3–7 days; an 18-year cohort reported a median of 5 days after procedure, whereas trabeculectomy-associated cases presented at a median 28 days. Chronic <em>C. acnes</em> or fungal disease can evolve over weeks or recur months after treatment withdrawal. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>, <a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</p>
+<p><strong>Quality of life:</strong> Permanent monocular or bilateral visual loss affects reading, driving, employment, mobility, falls risk, and independence. Eye pain, repeated injections/surgery, prolonged antifungal treatment, and fear of losing the fellow eye add substantial burden. Endophthalmitis-specific EQ-5D/SF-36 reference values are limited; visual acuity and vision-related instruments such as NEI-VFQ are more disease-proximal.</p>
+<h2>4. Genetic and molecular information</h2>
+<p>No established <strong>causal genes, pathogenic germline variants, chromosomal abnormalities, inheritance pattern, penetrance, anticipation, founder effect, or carrier frequency</strong> applies to infectious endophthalmitis. ClinVar-style variant classification and routine WES/WGS, panel, CMA, karyotype, FISH, mtDNA, or repeat-expansion testing are therefore not indicated for diagnosis.</p>
+<p>Host-response genes are research targets rather than disease-causing genes:</p>
+<ul>
+<li><strong>PRKAA1/AMPKα1:</strong> Myeloid-specific deletion in mice worsened <em>S. aureus</em> infection, elevated IL-1β, TNF-α, IL-6 and CXCL2, shifted macrophages toward inflammatory M1 states, and impaired phagocytosis. Wild-type marrow transfer preserved retinal function. The abstract states that deletion “skewed macrophage polarization toward the inflammatory M1 phenotype and impaired the phagocytic clearance of <em>S. aureus</em>.” This is model-organism causality, not evidence for pathogenic human PRKAA1 variants. Published October 2024; DOI/URL: <a href="https://doi.org/10.4049/jimmunol.2400282" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.2400282</a>. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</li>
+<li><strong>NLRP3/miR-223-3p:</strong> Emerging translational work links extracellular-vesicle miR-223-3p with NLRP3 inflammasome modulation; potential diagnostic or therapeutic use remains experimental.</li>
+<li><strong>Fungal-response genes:</strong> Murine <em>Candida</em> RNA sequencing highlighted CD3-associated signaling, CAMP, LCK, C-type lectin, NOD-like receptor, T-cell, and NK-cell pathways. These represent infection-induced expression changes rather than inherited pathogenic variants. (<a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</li>
+</ul>
+<p>No reproducible disease-specific epigenetic signature, somatic mutation, structural genomic lesion, or clinical pharmacogenomic algorithm is established.</p>
+<h2>5. Environmental and lifestyle information</h2>
+<p>Relevant non-genetic exposures are primarily iatrogenic or traumatic: intraocular surgery, repeated injection, penetrating metal/organic injury, soil contamination, contact with contaminated compounded products, and healthcare-associated bloodstream infection. Hot/humid environments and regional microbiology may alter organism distributions, but no universal environmental exposure–response estimate is available.</p>
+<p>Smoking, diet, alcohol, and exercise are not established direct causes of exogenous disease. Alcohol-use disorder was associated with endogenous disease among endocarditis inpatients, plausibly through liver disease, immune dysfunction, and infection risk rather than a direct ocular toxic effect. Diabetes and immunosuppressive therapy are clinically important host-environment modifiers. (<a href="#ref-shah2025riskfactorsfor-pages-1-2">shah2025riskfactorsfor pages 1-2</a>)</p>
+<p>There is no contagious person-to-person ocular transmission in ordinary endophthalmitis. The underlying systemic infection may itself be transmissible depending on the organism, but endophthalmitis is generally a complication rather than an independently transmitted disease.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Upstream trigger:</strong> Direct inoculation breaches the cornea/sclera or introduces organisms during surgery/injection; alternatively, bloodstream organisms cross retinal/choroidal vascular barriers.</li>
+<li><strong>Early microbial phase:</strong> Organisms proliferate in immune-privileged, nutrient-rich aqueous/vitreous. Capsules, adhesins, biofilm, proteases, cytolysins, and toxins influence virulence. <em>Bacillus</em>, streptococci, <em>Pseudomonas</em>, <em>Klebsiella</em>, and molds can cause especially rapid damage.</li>
+<li><strong>Innate recognition:</strong> Retinal Müller glia, resident microglia/macrophages, vascular cells, and infiltrating myeloid cells detect pathogen-associated molecules through TLR, C-type lectin, and NOD-like receptor pathways.</li>
+<li><strong>Inflammatory amplification:</strong> NF-κB/inflammasome signaling and cytokines/chemokines—including IL-1β, TNF-α, IL-6 and CXCL2—recruit neutrophils and monocytes. These cells clear organisms but release proteases, reactive oxygen species, and inflammatory mediators that damage the blood-retinal barrier and neurons.</li>
+<li><strong>Downstream tissue injury:</strong> Vitreous opacification, fibrin, edema, photoreceptor/inner-retinal dysfunction, ischemia, necrosis, retinal detachment, and fibrosis/PVR produce vision loss. Delayed therapy allows both microbial burden and immunopathology to become irreversible. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</li>
+</ol>
+<p>Suggested terms include GO: inflammatory response, response to bacterium/fungus, neutrophil migration, macrophage activation, phagocytosis, cytokine-mediated signaling, NOD-like receptor signaling, inflammasome complex assembly, reactive oxygen species metabolic process, and apoptotic process. Suggested CL terms: neutrophil, monocyte, macrophage, microglial cell, retinal Müller glial cell, T cell, NK cell, retinal ganglion cell, and photoreceptor cell.</p>
+<h3>Recent molecular profiling</h3>
+<p>A 2024 C57BL/6 murine <em>Candida albicans</em> study found 27,717 differentially expressed transcripts overall and 1,493 significant DEGs—924 upregulated and 569 downregulated. Upregulated pathways included T-cell signaling, NK-cell cytotoxicity, C-type lectin and NOD-like receptor signaling; MAPK, cAMP, and metabolic pathways were downregulated. The model used intravitreal <em>Candida</em> and sampled at 24 and 72 hours, so it depicts early experimental disease rather than the full human course. Published September 2024; DOI/URL: <a href="https://doi.org/10.1021/acsomega.4c05081" target="_blank" rel="noopener noreferrer">https://doi.org/10.1021/acsomega.4c05081</a>. (<a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</p>
+<p>The 2024 AMPK study integrated retinal transcriptomic/metabolic findings implicating immune signaling, antimicrobial defense, ER stress, trafficking, NAD+ metabolism, and lipid biosynthesis. These data support immunometabolic regulation of resolution but do not yet justify AMPK-targeted human treatment. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</p>
+<p>Human single-cell, spatial-transcriptomic, lipidomic, and validated multi-omic diagnostic signatures remain sparse. This is an important evidence gap.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The primary organ is the <strong>eye</strong>, especially:</p>
+<ul>
+<li>Vitreous body and vitreous chamber—major inflammatory compartment.</li>
+<li>Aqueous humor/anterior chamber—cells, flare, fibrin, and hypopyon.</li>
+<li>Retina, retinal pigment epithelium, and choroid—neuronal injury, infiltrates, abscesses, ischemia, edema.</li>
+<li>Ciliary body, lens capsule, and intraocular lens surfaces—potential microbial reservoirs in chronic disease.</li>
+<li>Cornea and sclera—entry routes or contiguous sources; extensive infection may progress to panophthalmitis.</li>
+<li>Optic nerve—secondary injury in destructive disease.</li>
+</ul>
+<p>Suggested UBERON terms: eye, vitreous humor, anterior chamber of eyeball, retina, retinal pigment epithelium, choroid, ciliary body, lens, cornea, sclera, and optic nerve. Suggested GO cellular components include inflammasome complex, extracellular vesicle, lysosome/phagolysosome, plasma membrane, and extracellular space. Disease is usually unilateral after local inoculation but can be bilateral in endogenous fungemia.</p>
+<p>A recurrent 2024 dematiaceous fungal case demonstrated persistent organisms at the ciliary processes and posterior lens surface, illustrating protected anatomical reservoirs. Despite local/systemic therapy, recurrence led to painful glaucoma and enucleation. Published June 2024; DOI/URL: <a href="https://doi.org/10.1186/s12348-024-00408-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12348-024-00408-y</a>. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</p>
+<h2>8. Temporal development</h2>
+<p>Acute bacterial disease generally progresses over hours to days. The key therapeutic window is before irreversible retinal damage: one 2024 trauma series found intervention within two hours of symptom exacerbation associated with fewer complications (AUC 0.708, 95% CI 0.547–0.838; p=0.047). This small retrospective result supports urgency but is not a universally validated cutoff. (<a href="#ref-wu2024systematicinflammatoryindicators-pages-1-2">wu2024systematicinflammatoryindicators pages 1-2</a>)</p>
+<p>A practical course is:</p>
+<ul>
+<li><strong>Early:</strong> pain/blur, anterior reaction, small retinal infiltrate or mild vitritis.</li>
+<li><strong>Intermediate:</strong> dense vitritis, hypopyon, marked acuity loss, retinal/choroidal lesions.</li>
+<li><strong>Advanced:</strong> no fundus view, retinal necrosis/ischemia or detachment, panophthalmitis.</li>
+<li><strong>Recovery/sequelae:</strong> clearing inflammation with variable visual recovery, or macular edema, epiretinal membrane, PVR, retinal detachment, glaucoma, hypotony, phthisis, or enucleation.</li>
+</ul>
+<p>Fungal and <em>C. acnes</em> disease may be indolent or relapsing. The <em>Cladophialophora</em> case recurred three months after treatment discontinuations despite prolonged antifungals, illustrating that apparent remission may not equal eradication. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</p>
+<h2>9. Epidemiology, inheritance, and population</h2>
+<p>No universal prevalence per 100,000 is meaningful because endophthalmitis is usually reported per procedure or among bloodstream infections. Historical post-cataract rates were approximately 0.13–0.15%; contemporary rates are often lower with small-incision surgery, antisepsis, and intracameral prophylaxis. Post-injection risk in one Australian cohort was 0.035%, approximately 1 per 2,857 injections, with cumulative risk rising as injections accumulate. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-8-9">maher2026epidemiologymicrobiologymanagement pages 8-9</a>)</p>
+<p>In 232 Australian cases from 2006–2024, exogenous disease accounted for 87.1%, endogenous 12.9%, and annual cases declined (slope −0.17/year; p=0.005), driven by declining post-cataract disease while injection-associated cases rose. Organisms were predominantly Gram-positive cocci. These are referral-center distributions, not national incidence estimates. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>)</p>
+<p>Sex and age patterns reflect exposure: older adults dominate postoperative/injection disease, whereas traumatic cases often affect younger men. Endogenous disease varies with regional bloodstream pathogens; hypervirulent <em>Klebsiella</em> and diabetes are particularly relevant in Asian populations. There is no AD, AR, X-linked, mitochondrial, polygenic-inheritance, carrier, consanguinity, anticipation, or mosaicism framework for the disease.</p>
+<h2>10. Diagnostics</h2>
+<h3>Emergency clinical work-up</h3>
+<p>Diagnosis is clinical and treatment should not await laboratory confirmation. Assess visual acuity, pupils, intraocular pressure, slit-lamp inflammation/hypopyon, wound/bleb/cornea, and dilated fundus. If media opacity prevents retinal examination, <strong>B-scan ultrasound</strong> evaluates vitreous echoes, membranes, retinal detachment, choroidal thickening, or abscess. OCT/OCTA can characterize macular or chorioretinal sequelae once imaging is possible. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>)</p>
+<p>Obtain aqueous and preferably vitreous samples for microscopy, aerobic/anaerobic bacterial and fungal culture, susceptibility testing, and targeted or broad-range PCR. In endogenous disease, obtain multiple blood cultures before systemic antimicrobials when feasible and investigate endocarditis, liver/renal/urinary infection, catheter infection, or other source.</p>
+<p>Culture sensitivity is limited: positivity was 44.04% in a 218-case Chinese series and 53.2% in a German series; in the latter, overall organism detection was 58.7%, while PCR detected 43.5%. The authors concluded that no single method identified every infection, supporting combined culture and molecular testing. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-li2025clinicalretrospectiveanalysis-pages-1-2">li2025clinicalretrospectiveanalysis pages 1-2</a>)</p>
+<h3>Emerging diagnostics</h3>
+<p>Broad-range 16S/18S/ITS PCR and metagenomic next-generation sequencing can detect nonviable, unculturable, unexpected, or antibiotic-exposed organisms. A 2024 infectious-uveitis pilot tested aqueous from 20 eyes; MGS found candidate pathogens in seven and conventional ELISA/qPCR verified five. Its abstract states that MGS “cannot completely replace the traditional diagnostic techniques,” accurately reflecting current limitations: contamination, low biomass, background reads, cost, turnaround time, and uncertain causal interpretation. Molecular sequencing is therefore an adjunct, especially for culture-negative, atypical, fungal, or chronic cases, not a replacement for culture and susceptibility testing. (<a href="#ref-asao2025overviewofmicroorganisms-pages-26-28">asao2025overviewofmicroorganisms pages 26-28</a>)</p>
+<h3>Differential diagnosis</h3>
+<p>Rule out toxic anterior-segment syndrome—usually earlier, often painless, and initially anterior-predominant—sterile post-injection inflammation, severe noninfectious uveitis, retained lens material, lens-induced inflammation, suprachoroidal hemorrhage, retinal necrosis, intraocular foreign-body inflammation, and vitreoretinal lymphoma. Vitreoretinal lymphoma is especially important in chronic, steroid-responsive/recurrent “uveitis.”</p>
+<p>No asymptomatic population screening or genetic testing is recommended. Targeted ophthalmic examination may be appropriate in candidemia or high-risk bacteremia according to local infectious-disease/ophthalmology guidance and symptoms.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Endophthalmitis rarely determines long-term survival directly, except as a marker of severe systemic sepsis; conventional 5- or 10-year survival measures are not useful. Ocular morbidity is substantial.</p>
+<p>In the Australian cohort, 52.5% improved by at least one visual category. In the 218-case Chinese study, acuity &gt;0.02 increased from 12.39% at admission to 27.98% at discharge (p&lt;0.001). A later cohort reported improvement from median 2.3 logMAR at diagnosis to 1.0 at six months. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-5-8">maher2026epidemiologymicrobiologymanagement pages 5-8</a>, <a href="#ref-li2025clinicalretrospectiveanalysis-pages-1-2">li2025clinicalretrospectiveanalysis pages 1-2</a>, <a href="#ref-nowosielski2026visualacuityinfluences-pages-1-2">nowosielski2026visualacuityinfluences pages 1-2</a>)</p>
+<p>Poor prognostic factors include light-perception/no-light-perception presentation, treatment delay, virulent streptococci, <em>Bacillus</em>, Gram-negative rods or molds, endogenous route, corneal source, retinal/choroidal involvement, IOFB, retinal detachment, immunosuppression, and inadequate source control. Presenting visual acuity is consistently a major predictor. In one exogenous cohort, delayed surgery increased the re-intervention hazard (HR 5.7, 95% CI 2.9–11.1; p&lt;0.001), although retrospective confounding limits causal interpretation. (<a href="#ref-nowosielski2026visualacuityinfluences-pages-1-2">nowosielski2026visualacuityinfluences pages 1-2</a>)</p>
+<p>Complications include macular edema, epiretinal membrane, retinal detachment/PVR, optic atrophy, secondary glaucoma, hypotony/phthisis, cataract, recurrent infection, evisceration/enucleation, and permanent blindness. Fungal cases may also reflect life-threatening disseminated infection. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</p>
+<h2>12. Treatment</h2>
+<h3>Emergency algorithm</h3>
+<ol>
+<li>Treat suspected infectious endophthalmitis as a same-day emergency.</li>
+<li>Obtain vitreous/aqueous samples without materially delaying treatment.</li>
+<li>Give empiric <strong>intravitreal vancomycin plus ceftazidime</strong> for broad Gram-positive and Gram-negative coverage; local protocols and allergy/resistance patterns govern alternatives.</li>
+<li>Consider early pars plana vitrectomy for light-perception vision, dense vitreous disease, severe/rapidly progressive infection, IOFB, retinal complications, fungal infection, inadequate response, or need for better diagnostic/source control.</li>
+<li>Add systemic antimicrobials for endogenous disease and eradicate the systemic source. Routine systemic antibiotics add limited value in uncomplicated acute post-cataract disease, consistent with landmark EVS evidence.</li>
+<li>Use cycloplegia, analgesia, careful pressure control, and topical corticosteroid only under antimicrobial coverage and specialist direction. The role of intravitreal corticosteroid remains controversial.</li>
+</ol>
+<p>Intravitreal therapy was used in 97.3% and vitrectomy in 41.5% of the Australian cohort. The vitrectomy win ratio was 1.31 overall but 2.28 in the light-perception subgroup; neither estimate reached conventional significance in that retrospective analysis, but the direction aligns with the landmark Endophthalmitis Vitrectomy Study. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-5-8">maher2026epidemiologymicrobiologymanagement pages 5-8</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>)</p>
+<p>Suggested NCIT terms: Intravitreal Injection; Vancomycin; Ceftazidime; Pars Plana Vitrectomy/Vitrectomy; Antibiotic Therapy; Antifungal Therapy; Cycloplegic Agent; Corticosteroid Therapy.</p>
+<h3>Organism-specific considerations</h3>
+<ul>
+<li><strong>Bacteria:</strong> tailor to ocular-fluid susceptibilities; repeat intravitreal treatment or vitrectomy if worsening.</li>
+<li><strong>Yeasts:</strong> intravitreal amphotericin B or voriconazole plus systemic fluconazole/voriconazole when susceptible, with vitrectomy for significant vitritis.</li>
+<li><strong>Molds:</strong> intravitreal and systemic voriconazole are commonly used; amphotericin or other azoles depend on species/susceptibility. Surgical source control is frequently required.</li>
+<li><strong>Rare fungi:</strong> prolonged therapy and repeated sampling may be necessary. A 2024 <em>Cladophialophora</em> case required amphotericin, itraconazole, repeated intravitreal voriconazole, posaconazole, and isavuconazole yet ultimately underwent enucleation. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</li>
+</ul>
+<p>There is no approved gene, cell, RNA, or immune-checkpoint therapy. AMPK activation, inflammasome modulation, EV-miRNA biomarkers, antimicrobial nanoparticles, and phage/host-directed approaches remain experimental.</p>
+<h3>Trials and implementation</h3>
+<p>Relevant ClinicalTrials.gov records found include the completed phase-3 EVS (NCT00000130), ESCRS cataract prophylaxis study (NCT00136344; approximately 35,000), intracameral moxifloxacin prevention trial (NCT02595359; phase 2, 1,000), early vitrectomy studies NCT04192994 and NCT05249413, recruiting nanopore-sequencing study NCT05372861, and recruiting vascular-change observational study NCT07175311. These records should be checked directly for current status and posted results before structured ingestion.</p>
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> preoperative ocular-surface assessment; treatment of active lid/corneal infection when surgery is elective; povidone–iodine preparation of conjunctival sac and periocular skin; sterile lid speculum, instruments and medication handling; secure wounds; and intracameral antibiotic prophylaxis for cataract surgery where supported by policy. Intracameral agents prevent rather than treat infection; drug choice, formulation, dilution safety, allergy, and stewardship matter.</p>
+<p><strong>Injection prevention:</strong> povidone–iodine remains central; minimize talking or use masks according to protocol, avoid needle contact with lids/lashes, use sterile single-use equipment, and educate patients about pain, redness, or vision decline. Routine peri-injection topical antibiotics are generally not favored because they do not clearly reduce risk and select resistance.</p>
+<p><strong>Trauma prevention:</strong> occupational eye protection; urgent closure of open globe; prompt IOFB removal and antimicrobial prophylaxis based on injury contamination. The 2024 metallic-trauma data reinforce rapid escalation when symptoms worsen. (<a href="#ref-wu2024systematicinflammatoryindicators-pages-1-2">wu2024systematicinflammatoryindicators pages 1-2</a>)</p>
+<p><strong>Secondary/tertiary prevention:</strong> rapid recognition, immediate intravitreal therapy, culture-guided adjustment, systemic-source control, serial retinal imaging, and management of retinal detachment, edema, glaucoma, and low-vision needs. No vaccine, genetic screening, carrier testing, prenatal testing, or population screening program applies.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Naturally occurring endophthalmitis occurs in companion and production animals after trauma, surgery, corneal ulceration, or hematogenous infection. Reported host species include dog (<em>Canis lupus familiaris</em>, NCBI Taxon 9615), cat (<em>Felis catus</em>, 9685), horse (<em>Equus caballus</em>, 9796), cattle (<em>Bos taurus</em>, 9913), and birds. Organisms and anatomy overlap with humans, but exposure patterns, veterinary access, and likelihood of enucleation differ. Breed-specific Mendelian predisposition and VBO mappings are not established as general features.</p>
+<p>The condition itself is not ordinarily zoonotic. Shared environmental organisms may infect different species, and animal-associated trauma could introduce pathogens, but cross-species transmission is not a defining mechanism.</p>
+<h2>15. Model organisms</h2>
+<p><strong>Mouse:</strong> C57BL/6 intravitreal inoculation with <em>S. aureus</em>, <em>Pseudomonas</em>, <em>Bacillus</em>, <em>Candida</em>, or <em>Aspergillus</em> is the dominant mammalian model. It reproduces microbial growth, neutrophil influx, cytokine induction, retinal dysfunction, and histologic damage, and supports knockout, bone-marrow chimera, transcriptomic, metabolomic, and treatment experiments. The 2024 AMPKα1 model demonstrated myeloid-cell control of macrophage phenotype and bacterial clearance; the <em>Candida</em> model resolved early innate/adaptive transcriptional programs. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>, <a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</p>
+<p><strong>Rabbit:</strong> Larger eyes facilitate surgery, pharmacokinetics, intravitreal dosing, implant testing, and serial sampling, although immunological reagents/genetic tools are less extensive than in mice.</p>
+<p><strong>Zebrafish (<em>Danio rerio</em>, NCBI Taxon 7955):</strong> Intravitreal <em>S. aureus</em> did not reproduce destructive murine/human disease. Fish maintained retinal architecture and rapidly cleared bacteria via retinal vessels/optic nerve with a monocyte/macrophage response. It is therefore a model of protective innate clearance rather than a faithful severe-endophthalmitis model.</p>
+<p><strong>In vitro/ex vivo:</strong> Retinal Müller glia, microglia/macrophages, retinal pigment epithelium, organotypic retinal explants, and ocular-fluid pathogen assays support receptor, cytokine, biofilm, toxicity, and antimicrobial studies. Human retinal organoids and eye-on-chip systems are promising but not yet validated replacements for in vivo disease.</p>
+<p>Principal limitations are artificial high-dose intravitreal inoculation, compressed time course, species-specific immunity, lack of cataract hardware or human comorbidities, and imperfect modeling of vision. Model findings should be annotated as preclinical rather than human causal evidence.</p>
+<h2>Recent 2023–2024 research highlights and expert interpretation</h2>
+<ol>
+<li><strong>Immunometabolic regulation:</strong> The October 2024 AMPKα1 study gives causal model evidence that macrophage metabolism can determine bacterial clearance versus destructive inflammation. It identifies a plausible adjunctive-treatment direction, but human dosing and the risk of suppressing antimicrobial defense require study. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</li>
+<li><strong>Fungal systems biology:</strong> The September 2024 <em>Candida</em> transcriptome demonstrated coordinated innate and adaptive activation rather than purely neutrophil-driven disease. The enormous DEG count and intravitreal challenge design demand cautious translation. (<a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</li>
+<li><strong>Precision microbiology:</strong> Molecular sequencing can rescue selected culture-negative diagnoses, but the most defensible current implementation is culture plus targeted PCR/mNGS—not sequencing alone—because only culture yields routine phenotypic susceptibility. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-asao2025overviewofmicroorganisms-pages-26-28">asao2025overviewofmicroorganisms pages 26-28</a>)</li>
+<li><strong>Urgency in trauma:</strong> The December 2024 metallic-IOFB cohort links delayed treatment and systemic inflammatory patterns with difficult control. Its small sample supports, but does not independently establish, a universal two-hour threshold. (<a href="#ref-wu2024systematicinflammatoryindicators-pages-1-2">wu2024systematicinflammatoryindicators pages 1-2</a>)</li>
+<li><strong>Changing epidemiology:</strong> Better cataract prophylaxis has reduced post-cataract disease in some systems, while repeated anti-VEGF injections shift absolute case burden toward post-injection infection. Prevention programs should therefore monitor both procedure volume and infection per procedure. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-8-9">maher2026epidemiologymicrobiologymanagement pages 8-9</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>)</li>
+</ol>
+<h2>Selected exact abstract quotations</h2>
+<ul>
+<li>“Endogenous endophthalmitis (EE) is a rare but severe intraocular infection resulting from hematogenous dissemination of microorganisms.” Alshehri, September 2024; <a href="https://doi.org/10.7759/cureus.70523" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.70523</a>. (<a href="#ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2">alshehri2024endogenousendophthalmitisassociated pages 1-2</a>)</li>
+<li>“Endophthalmitis is a severe form of purulent inflammation caused by the infection of the intraocular tissues or fluids.” Braga et al., March 2024; <a href="https://doi.org/10.5935/0004-2749.2023-0066" target="_blank" rel="noopener noreferrer">https://doi.org/10.5935/0004-2749.2023-0066</a>. (<a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</li>
+<li>“The deletion of AMPKα1 in myeloid cells skewed macrophage polarization toward the inflammatory M1 phenotype and impaired the phagocytic clearance of <em>S. aureus</em> by macrophages.” Singh et al., October 2024; <a href="https://doi.org/10.4049/jimmunol.2400282" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.2400282</a>. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</li>
+<li>The rare-fungal report concluded that, “Despite early diagnosis and prolonged local and systemic antifungal therapy, it was not possible to achieve long-term control of the fungal infection.” Krohn et al., June 2024; <a href="https://doi.org/10.1186/s12348-024-00408-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12348-024-00408-y</a>. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</li>
+</ul>
+<p>PMIDs were not consistently available in the retrieved full-text metadata; DOI URLs are therefore supplied and should be resolved against PubMed during final database curation.</p>
+<h2>Ontology-ready summary</h2>
+<p>The following table consolidates phenotype, anatomical, mechanistic, diagnostic, treatment, and model annotations. Exact ontology identifiers marked uncertain should be validated against current releases before production ingestion.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>domain</th>
+<th>knowledge-base statement</th>
+<th>suggested ontology terms/IDs</th>
+<th>evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease definition</td>
+<td>Endophthalmitis is a severe intraocular infection/inflammation involving ocular fluids and tissues; major clinical forms are exogenous (postoperative, post-injection, post-traumatic) and endogenous (hematogenous spread). (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>, <a href="#ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2">alshehri2024endogenousendophthalmitisassociated pages 1-2</a>)</td>
+<td>MONDO: term-name-only suggestion <code>endophthalmitis</code> (exact MONDO ID uncertain); MeSH: <code>Endophthalmitis</code> (term-name-only); ICD-10: H44.0 <code>Purulent endophthalmitis</code>, H44.1 <code>Other endophthalmitis</code></td>
+<td>Human clinical cohorts; systematic review</td>
+</tr>
+<tr>
+<td>Resource provenance</td>
+<td>Most knowledge here is aggregated disease-level evidence from cohorts, systematic reviews, guidelines, and model-organism studies rather than individual-patient EHR alone. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-5-8">maher2026epidemiologymicrobiologymanagement pages 5-8</a>, <a href="#ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2">alshehri2024endogenousendophthalmitisassociated pages 1-2</a>, <a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</td>
+<td>Evidence provenance annotation: aggregated disease-level resource</td>
+<td>Mixed evidence synthesis</td>
+</tr>
+<tr>
+<td>Classification</td>
+<td>Exogenous disease predominates overall; endogenous disease is a minority but clinically important subtype. In a German state study, only 7.9% were endogenous; in an Australian cohort, 87.1% were exogenous. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>)</td>
+<td>Disease subtypes: <code>exogenous endophthalmitis</code> (term-name-only), <code>endogenous endophthalmitis</code> (term-name-only)</td>
+<td>Human epidemiology</td>
+</tr>
+<tr>
+<td>Disease timing</td>
+<td>Presentation is usually acute/subacute after ocular procedures; median time to presentation was 5 days post-procedure in one 18-year cohort. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>)</td>
+<td>HPO term-name-only suggestions: <code>Acute onset</code>, <code>Abnormality of vision</code>; temporal annotation: acute/subacute</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Reduced visual acuity is a core presenting feature and major prognostic marker. (<a href="#ref-nowosielski2026visualacuityinfluences-pages-1-2">nowosielski2026visualacuityinfluences pages 1-2</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>HPO: <code>Decreased visual acuity</code> (exact ID not asserted)</td>
+<td>Human cohort; case report</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Ocular pain is common, especially in endogenous fungal or bacterial presentations. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</td>
+<td>HPO term-name-only: <code>Eye pain</code></td>
+<td>Human case reports</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Red eye/conjunctival injection is a typical inflammatory manifestation. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</td>
+<td>HPO term-name-only: <code>Red eye</code></td>
+<td>Human case reports</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Vitritis/vitreous opacity is a hallmark sign and often limits retinal visualization. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>HPO term-name-only: <code>Vitritis</code>, <code>Vitreous haze</code></td>
+<td>Human case reports</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Hypopyon/anterior chamber reaction occurs in severe bacterial cases. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>HPO term-name-only: <code>Hypopyon</code>, <code>Anterior chamber inflammation</code></td>
+<td>Human case reports</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>Floaters and photophobia may occur in endogenous disease. (<a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>HPO term-name-only: <code>Floaters</code>, <code>Photophobia</code></td>
+<td>Human case report</td>
+</tr>
+<tr>
+<td>Complications</td>
+<td>Severe outcomes include retinal damage, retinal detachment/PVR after surgery, secondary glaucoma, enucleation, and permanent vision loss. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>, <a href="#ref-nowosielski2026visualacuityinfluences-pages-1-2">nowosielski2026visualacuityinfluences pages 1-2</a>)</td>
+<td>HPO term-name-only: <code>Retinal detachment</code>, <code>Secondary glaucoma</code>, <code>Blindness</code></td>
+<td>Human case report; cohort</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td>Primary affected compartments are vitreous body and aqueous/anterior chamber, with spread to retina and choroid; fungal disease may persist at ciliary processes and posterior lens surface. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>UBERON term-name-only: <code>vitreous humor</code>, <code>anterior chamber of eyeball</code>, <code>retina</code>, <code>choroid</code>, <code>ciliary body</code>, <code>lens</code></td>
+<td>Human pathology/case reports</td>
+</tr>
+<tr>
+<td>Localization</td>
+<td>Endogenous cases may show retinochoroidal abscess/chorioretinal involvement. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>)</td>
+<td>UBERON/HPO term-name-only: <code>retinochoroidal abscess</code>, <code>chorioretinal lesion</code></td>
+<td>Human imaging/case report</td>
+</tr>
+<tr>
+<td>Etiology</td>
+<td>Exogenous causes include cataract surgery, intravitreal injection, vitrectomy, glaucoma surgery, and penetrating trauma/IOFB. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-wu2024systematicinflammatoryindicators-pages-1-2">wu2024systematicinflammatoryindicators pages 1-2</a>)</td>
+<td>Exposure annotations: <code>cataract surgery</code>, <code>intravitreal injection</code>, <code>penetrating eye injury</code>, <code>intraocular foreign body</code></td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td>Etiology</td>
+<td>Endogenous disease results from hematogenous dissemination during systemic infection; associated settings include bacteremia, infective endocarditis, urinary tract infection, diabetes, immunosuppression, and indwelling catheters. (<a href="#ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2">alshehri2024endogenousendophthalmitisassociated pages 1-2</a>, <a href="#ref-shah2025riskfactorsfor-pages-1-2">shah2025riskfactorsfor pages 1-2</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>Disease/exposure term-name-only: <code>bacteremia</code>, <code>infective endocarditis</code>, <code>urinary tract infection</code>, <code>immunosuppression</code>, <code>diabetes mellitus</code></td>
+<td>Systematic review; cohort; case report</td>
+</tr>
+<tr>
+<td>Pathogens</td>
+<td>Gram-positive cocci predominate overall; <code>Staphylococcus epidermidis</code> is the most common organism in multiple cohorts. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-li2025clinicalretrospectiveanalysis-pages-1-2">li2025clinicalretrospectiveanalysis pages 1-2</a>)</td>
+<td>NCBI Taxonomy term-name-only: <code>Staphylococcus epidermidis</code>, <code>Staphylococcus aureus</code>, <code>Enterococcus faecalis</code></td>
+<td>Human microbiology cohorts</td>
+</tr>
+<tr>
+<td>Pathogens</td>
+<td>Other important bacteria include streptococci, <code>Pseudomonas aeruginosa</code>, <code>Escherichia coli</code>, and hypervirulent <code>Klebsiella pneumoniae</code>. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-5-8">maher2026epidemiologymicrobiologymanagement pages 5-8</a>, <a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>NCBI Taxonomy term-name-only: <code>Streptococcus spp.</code>, <code>Pseudomonas aeruginosa</code>, <code>Escherichia coli</code>, <code>Klebsiella pneumoniae</code></td>
+<td>Human cohort; case reports</td>
+</tr>
+<tr>
+<td>Pathogens</td>
+<td>Fungal causes include <code>Candida albicans</code>, <code>Aspergillus spp.</code>, and rare dematiaceous fungi such as <code>Cladophialophora devriesii</code>; fungi are relatively more important in endogenous disease. (<a href="#ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2">alshehri2024endogenousendophthalmitisassociated pages 1-2</a>, <a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>, <a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>)</td>
+<td>NCBI Taxonomy term-name-only: <code>Candida albicans</code>, <code>Aspergillus spp.</code>, <code>Cladophialophora devriesii</code></td>
+<td>Systematic review; case report; cohort</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Post-cataract and post-injection disease are currently dominant exogenous forms; one Australian cohort found both accounted for 38.1% each among all cases. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>)</td>
+<td>Epidemiology annotation only</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Post-injection endophthalmitis risk in one anti-VEGF era cohort was approximately 0.035% (about 1 in 2,857 injections). (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-8-9">maher2026epidemiologymicrobiologymanagement pages 8-9</a>)</td>
+<td>Epidemiology annotation only</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td>Risk factor</td>
+<td>Metallic intraocular foreign body correlates with faster symptom onset and poorer control after vitrectomy. (<a href="#ref-wu2024systematicinflammatoryindicators-pages-1-2">wu2024systematicinflammatoryindicators pages 1-2</a>, <a href="#ref-li2025clinicalretrospectiveanalysis-pages-1-2">li2025clinicalretrospectiveanalysis pages 1-2</a>)</td>
+<td>Exposure term-name-only: <code>intraocular foreign body</code></td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td>Risk factor</td>
+<td>In infective endocarditis patients, diabetes, alcohol use disorder, cirrhosis, and older age increased endogenous endophthalmitis risk. (<a href="#ref-shah2025riskfactorsfor-pages-1-2">shah2025riskfactorsfor pages 1-2</a>)</td>
+<td>Disease/exposure term-name-only: <code>diabetes mellitus</code>, <code>alcohol use disorder</code>, <code>cirrhosis</code>, <code>advanced age</code></td>
+<td>Human database study</td>
+</tr>
+<tr>
+<td>Protective factor</td>
+<td>In a national post-injection study, non-smoking was protective. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-8-9">maher2026epidemiologymicrobiologymanagement pages 8-9</a>)</td>
+<td>Exposure term-name-only: <code>non-smoker status</code></td>
+<td>Human epidemiology</td>
+</tr>
+<tr>
+<td>Immune mechanism</td>
+<td>Disease pathogenesis involves rapid innate immune activation with neutrophil infiltration, inflammatory cytokines, and retinal tissue injury. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>, <a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</td>
+<td>GO term-name-only: <code>neutrophil migration</code>, <code>inflammatory response</code>, <code>cytokine-mediated signaling pathway</code>; CL term-name-only: <code>neutrophil</code></td>
+<td>Murine model; translational</td>
+</tr>
+<tr>
+<td>Immune mechanism</td>
+<td>Key inflammatory mediators elevated in bacterial endophthalmitis include IL-1β, TNF-α, IL-6, and CXCL2. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</td>
+<td>GO term-name-only: <code>interleukin-1 production</code>, <code>tumor necrosis factor production</code>, <code>interleukin-6 production</code>, <code>chemokine production</code></td>
+<td>Murine model</td>
+</tr>
+<tr>
+<td>Immune mechanism</td>
+<td>Macrophage phenotype influences outcome; myeloid AMPKα1 supports infection resolution, whereas deletion skews toward inflammatory M1 macrophages and impairs phagocytic clearance. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</td>
+<td>GO term-name-only: <code>macrophage activation</code>, <code>phagocytosis</code>, <code>response to bacterium</code>; CL term-name-only: <code>macrophage</code>, <code>monocyte</code></td>
+<td>Murine model</td>
+</tr>
+<tr>
+<td>Immune mechanism</td>
+<td>Fungal endophthalmitis transcriptomics showed enriched T-cell signaling, NK-cell mediated cytotoxicity, C-type lectin receptor signaling, and NOD-like receptor signaling. (<a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</td>
+<td>GO/Pathway term-name-only: <code>T cell activation</code>, <code>natural killer cell mediated immunity</code>, <code>pattern recognition receptor signaling pathway</code>, <code>NOD-like receptor signaling pathway</code></td>
+<td>Murine transcriptomics</td>
+</tr>
+<tr>
+<td>Molecular profiling</td>
+<td>In murine <code>Candida albicans</code> endophthalmitis, 1,493 significant DEGs were reported (924 upregulated, 569 downregulated). (<a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</td>
+<td>Omics annotation only</td>
+<td>Murine RNA-seq</td>
+</tr>
+<tr>
+<td>Molecular profiling</td>
+<td>Extracellular-vesicle miR-223-3p is linked to modulation of the NLRP3 inflammasome and may have biomarker potential in culture-negative bacterial disease. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>)</td>
+<td>GO term-name-only: <code>inflammasome complex assembly</code>; molecular entities: <code>miR-223-3p</code>, <code>NLRP3</code></td>
+<td>Murine + human vitreous translational study</td>
+</tr>
+<tr>
+<td>Cell types</td>
+<td>Major involved cells include neutrophils, monocytes/macrophages, retinal immune cells, T cells, and NK cells. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>, <a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</td>
+<td>CL term-name-only: <code>neutrophil</code>, <code>monocyte</code>, <code>macrophage</code>, <code>T cell</code>, <code>natural killer cell</code>, <code>retinal Müller glial cell</code> (supportive literature context)</td>
+<td>Murine model</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Core microbiology remains vitreous/aqueous sampling with Gram stain/culture plus molecular testing; no single method detects all cases. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>)</td>
+<td>Diagnostic procedure term-name-only: <code>vitreous tap</code>, <code>aqueous tap</code>, <code>microbial culture</code>, <code>broad-range PCR</code></td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Culture positivity is incomplete: 58.7% in one German series and 44.0% in one Chinese series. (<a href="#ref-englisch2026microbiologicaletiologyof-pages-1-2">englisch2026microbiologicaletiologyof pages 1-2</a>, <a href="#ref-li2025clinicalretrospectiveanalysis-pages-1-2">li2025clinicalretrospectiveanalysis pages 1-2</a>)</td>
+<td>Laboratory finding annotation only</td>
+<td>Human cohorts</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Metagenomic sequencing is an emerging adjunct for infectious uveitis/endophthalmitis workups, especially when culture/PCR are negative or limited. (<a href="#ref-asao2025overviewofmicroorganisms-pages-26-28">asao2025overviewofmicroorganisms pages 26-28</a>)</td>
+<td>Diagnostic procedure term-name-only: <code>metagenomic sequencing</code>, <code>mNGS</code></td>
+<td>Review/technology assessment</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>B-scan ultrasonography can identify vitritis and retinochoroidal abscess when the fundus view is obscured. (<a href="#ref-saeed2024auniquecase-pages-1-3">saeed2024auniquecase pages 1-3</a>, <a href="#ref-braga2024endogenousendophthalmitisdue-pages-1-2">braga2024endogenousendophthalmitisdue pages 1-2</a>)</td>
+<td>Imaging term-name-only: <code>B-scan ultrasonography</code></td>
+<td>Human case reports</td>
+</tr>
+<tr>
+<td>Differential diagnosis</td>
+<td>Important mimics include noninfectious uveitis and vitreoretinal lymphoma; distinguishing infection is clinically critical. (<a href="#ref-asao2025overviewofmicroorganisms-pages-26-28">asao2025overviewofmicroorganisms pages 26-28</a>)</td>
+<td>Disease term-name-only: <code>uveitis</code>, <code>vitreoretinal lymphoma</code></td>
+<td>Review/contextual expert synthesis</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Standard empiric bacterial therapy remains intravitreal vancomycin plus ceftazidime; intravitreal antibiotics were used in 97.3% of cases in one large cohort. (<a href="#ref-nowosielski2026visualacuityinfluences-pages-1-2">nowosielski2026visualacuityinfluences pages 1-2</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>)</td>
+<td>NCIT term-name-only: <code>Intravitreal Injection</code>, <code>Vancomycin</code>, <code>Ceftazidime</code></td>
+<td>Human cohort; expert-standard practice</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Pars plana vitrectomy is frequently used for severe disease, diagnostic sampling, or poor initial vision; one cohort reported vitrectomy in 41.5% of cases, and benefit appears greatest in light-perception presentations. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-5-8">maher2026epidemiologymicrobiologymanagement pages 5-8</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>)</td>
+<td>NCIT term-name-only: <code>Vitrectomy</code>, <code>Pars Plana Vitrectomy</code></td>
+<td>Human cohort; EVS-aligned expert practice</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Fungal disease often requires combined local and systemic antifungal therapy, with cases using amphotericin B, voriconazole, posaconazole, itraconazole, or isavuconazole. (<a href="#ref-krohn2024endogenousfungalendophthalmitis-pages-1-2">krohn2024endogenousfungalendophthalmitis pages 1-2</a>)</td>
+<td>NCIT term-name-only: <code>Amphotericin B</code>, <code>Voriconazole</code>, <code>Posaconazole</code>, <code>Itraconazole</code>, <code>Isavuconazole</code></td>
+<td>Human case report</td>
+</tr>
+<tr>
+<td>Treatment outcomes</td>
+<td>Visual improvement is common but incomplete; one cohort found 52.5% improved, while presenting BCVA strongly predicts final outcome. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-5-8">maher2026epidemiologymicrobiologymanagement pages 5-8</a>, <a href="#ref-nowosielski2026visualacuityinfluences-pages-1-2">nowosielski2026visualacuityinfluences pages 1-2</a>)</td>
+<td>Outcome annotation only</td>
+<td>Human cohorts</td>
+</tr>
+<tr>
+<td>Prevention</td>
+<td>Intracameral antibiotic prophylaxis after cataract surgery is a major preventive strategy; modern post-cataract rates are substantially lower than historical ~0.13%–0.15%. (<a href="#ref-li2025clinicalretrospectiveanalysis-pages-1-2">li2025clinicalretrospectiveanalysis pages 1-2</a>)</td>
+<td>NCIT term-name-only: <code>Antibiotic Prophylaxis</code>, <code>Intracameral Administration</code></td>
+<td>Editorial/surveillance synthesis</td>
+</tr>
+<tr>
+<td>Prevention</td>
+<td>Peri-procedural sterile protocols and microbiological surveillance are central to prevention, especially as post-injection cases rise with anti-VEGF use. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-8-9">maher2026epidemiologymicrobiologymanagement pages 8-9</a>, <a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-1-2">maher2026epidemiologymicrobiologymanagement pages 1-2</a>)</td>
+<td>Public health/clinical process annotation only</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td>Genetics</td>
+<td>No established Mendelian causal gene defines infectious endophthalmitis as a disease entity.</td>
+<td>N/A for causal Mendelian genes</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>No Mendelian inheritance pattern applies; susceptibility is primarily infectious/procedural/systemic-risk based rather than inherited as a monogenic disorder.</td>
+<td>N/A for AD/AR/X-linked inheritance</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Pathogenic variants</td>
+<td>No disease-defining germline pathogenic variant set is established for endophthalmitis.</td>
+<td>N/A for variant annotation</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Genetic testing</td>
+<td>Routine clinical genetic testing (single-gene, panel, WES/WGS, CMA, FISH, mtDNA, repeat expansion) is not standard for diagnosis of infectious endophthalmitis.</td>
+<td>N/A for genetic testing workflow</td>
+<td>Not applicable</td>
+</tr>
+<tr>
+<td>Model organisms</td>
+<td>Mouse intravitreal infection models are widely used for bacterial and fungal pathogenesis and treatment studies. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>, <a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</td>
+<td>Model annotation only</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td>Model organisms</td>
+<td>Zebrafish are comparatively resistant to <code>Staphylococcus aureus</code> endophthalmitis and may model protective innate responses rather than full human disease severity. (<a href="#ref-maher2026epidemiologymicrobiologymanagement-pages-2-5">maher2026epidemiologymicrobiologymanagement pages 2-5</a>)</td>
+<td>Model annotation only</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td>Comparative limitation</td>
+<td>Animal models reproduce inflammatory and microbiological features but may not fully capture human procedure-related heterogeneity, chronicity, or visual outcome trajectories. (<a href="#ref-singh2024myeloidcellspecificdeletion-pages-1-6">singh2024myeloidcellspecificdeletion pages 1-6</a>, <a href="#ref-khapuinamai2024unveilingtheinnate-pages-1-2">khapuinamai2024unveilingtheinnate pages 1-2</a>)</td>
+<td>Evidence limitation annotation</td>
+<td>Model-based inference</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table condenses clinically and biologically relevant endophthalmitis facts into ontology-ready statements with suggested term mappings and evidence types. It is designed to help populate a disease knowledge base while clearly marking uncertain IDs and non-applicable Mendelian genetics fields.</em></p>
+<h2>Evidence limitations</h2>
+<p>Much of contemporary management still rests on the 1995 EVS, observational cohorts, organism-specific case series, and expert practice because randomized trials are difficult for a rare emergency. Incidence, organisms, resistance, and outcomes vary by procedure, geography, referral pattern, and prophylaxis. Recent 2024 mechanistic results are mainly murine and should not be represented as validated human biomarkers or therapies. Likewise, rare-organism case reports demonstrate biological possibility and diagnostic strategy, not frequency or comparative efficacy.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-englisch2026microbiologicaletiologyof-pages-1-2"></a>(englisch2026microbiologicaletiologyof pages 1-2): Colya N. Englisch, Tim Berger, Fabian N. Fries, Alexander Halfmann, Markus Bischoff, Philip Wakili, Annekatrin Rickmann, Boris V. Stanzel, Eugen Reifschneider, Marc A. Macek, Alaa Din Abdin, Shady Suffo, Loay Daas, Karl T. Boden, Peter Szurman, Berthold Seitz, Sören L. Becker, Clara E. Englisch, and Núria Pérez Guerra. Microbiological etiology of endogenous and exogenous postprocedural endophthalmitis: a 5-year german federal state study. Infection, 54(3):1383-1388, Mar 2026. URL: <a href="https://doi.org/10.1007/s15010-026-02763-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s15010-026-02763-5</a>, <a href="https://doi.org/10.1007/s15010-026-02763-5" target="_blank" rel="noopener noreferrer">doi:10.1007/s15010-026-02763-5</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-maher2026epidemiologymicrobiologymanagement-pages-1-2"></a>(maher2026epidemiologymicrobiologymanagement pages 1-2): Clare Maher, Brad Guo, Benjamin Sim, Mark Loewenthal, Donna Gillies, and Anthony Hall. Epidemiology, microbiology, management and outcomes of endophthalmitis: an 18 year retrospective observational study at a tertiary referral center in australia. Clinical Ophthalmology, Volume 20:1-11, Feb 2026. URL: <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/opth.s583832</a>, <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">doi:10.2147/opth.s583832</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-maher2026epidemiologymicrobiologymanagement-pages-2-5"></a>(maher2026epidemiologymicrobiologymanagement pages 2-5): Clare Maher, Brad Guo, Benjamin Sim, Mark Loewenthal, Donna Gillies, and Anthony Hall. Epidemiology, microbiology, management and outcomes of endophthalmitis: an 18 year retrospective observational study at a tertiary referral center in australia. Clinical Ophthalmology, Volume 20:1-11, Feb 2026. URL: <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/opth.s583832</a>, <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">doi:10.2147/opth.s583832</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-singh2024myeloidcellspecificdeletion-pages-1-6"></a>(singh2024myeloidcellspecificdeletion pages 1-6): Sukhvinder Singh, Pawan Kumar Singh, Zeeshan Ahmad, Susmita Das, Marc Foretz, Benoit Viollet, Shailendra Giri, and Ashok Kumar. Myeloid cell-specific deletion of ampkα1 worsens ocular bacterial infection by skewing macrophage phenotypes. Journal of immunology, 213:1656-1665, Oct 2024. URL: <a href="https://doi.org/10.4049/jimmunol.2400282" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.2400282</a>, <a href="https://doi.org/10.4049/jimmunol.2400282" target="_blank" rel="noopener noreferrer">doi:10.4049/jimmunol.2400282</a>. This article has 3 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-khapuinamai2024unveilingtheinnate-pages-1-2"></a>(khapuinamai2024unveilingtheinnate pages 1-2): Agimanailiu Khapuinamai, Dhanwini Rudraprasad, Suchita Pandey, Dilip Kumar Mishra, and Joveeta Joseph. Unveiling the innate and adaptive immunity interplay: global transcriptomic profiling of the host immune response in <i>candida albicans</i> endophthalmitis in a murine model. Sep 2024. URL: <a href="https://doi.org/10.1021/acsomega.4c05081" target="_blank" rel="noopener noreferrer">https://doi.org/10.1021/acsomega.4c05081</a>, <a href="https://doi.org/10.1021/acsomega.4c05081" target="_blank" rel="noopener noreferrer">doi:10.1021/acsomega.4c05081</a>. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-alshehri2024endogenousendophthalmitisassociated-pages-1-2"></a>(alshehri2024endogenousendophthalmitisassociated pages 1-2): Abdulaziz M Alshehri. Endogenous endophthalmitis associated with covid-19: a systematic review on its incidence, risk factors, causative organisms, and prognosis. Sep 2024. URL: <a href="https://doi.org/10.7759/cureus.70523" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.70523</a>, <a href="https://doi.org/10.7759/cureus.70523" target="_blank" rel="noopener noreferrer">doi:10.7759/cureus.70523</a>. This article has 5 citations.</p>
+</li>
+<li>
+<p><a id="ref-shah2025riskfactorsfor-pages-1-2"></a>(shah2025riskfactorsfor pages 1-2): Megh K. Shah, Aretha Zhu, Aditya Uppuluri, Roger K. Henry, Marco A. Zarbin, and Neelakshi Bhagat. Risk factors for endogenous endophthalmitis in infectious endocarditis patients. Eye, 39:125-132, Oct 2025. URL: <a href="https://doi.org/10.1038/s41433-024-03390-w" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41433-024-03390-w</a>, <a href="https://doi.org/10.1038/s41433-024-03390-w" target="_blank" rel="noopener noreferrer">doi:10.1038/s41433-024-03390-w</a>. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-saeed2024auniquecase-pages-1-3"></a>(saeed2024auniquecase pages 1-3): Ghazal Talal Saeed, Montaser Nabeeh Al Smady, Gunjan Awatramani, Hessa Alqasimi, Mohammed Amaan Khokar, Mohamed Awad, and Khadija Hafidh. A unique case of hypervirulent klebsiella pneumoniae invasive syndrome with endogenous endophthalmitis and left renal vein thrombosis without liver abscess. European Journal of Case Reports in Internal Medicine, Oct 2024. URL: <a href="https://doi.org/10.12890/2024_004927" target="_blank" rel="noopener noreferrer">https://doi.org/10.12890/2024_004927</a>, <a href="https://doi.org/10.12890/2024_004927" target="_blank" rel="noopener noreferrer">doi:10.12890/2024_004927</a>. This article has 5 citations.</p>
+</li>
+<li>
+<p><a id="ref-braga2024endogenousendophthalmitisdue-pages-1-2"></a>(braga2024endogenousendophthalmitisdue pages 1-2): João Pedro Romero Braga, Victor C. F. Bellanda, Moises Moura de Lucena, Francyne Veiga Reis, and Rodrigo Jorge. Endogenous endophthalmitis due to escherichia coli: a case report. Arquivos Brasileiros de Oftalmologia, Mar 2024. URL: <a href="https://doi.org/10.5935/0004-2749.2023-0066" target="_blank" rel="noopener noreferrer">https://doi.org/10.5935/0004-2749.2023-0066</a>, <a href="https://doi.org/10.5935/0004-2749.2023-0066" target="_blank" rel="noopener noreferrer">doi:10.5935/0004-2749.2023-0066</a>. This article has 3 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-li2025clinicalretrospectiveanalysis-pages-1-2"></a>(li2025clinicalretrospectiveanalysis pages 1-2): Chunhui Li, Zheyi Yan, Guohong Zhou, Yan Gao, and Peini Cheng. Clinical retrospective analysis of 218 cases of infectious endophthalmitis. BMC Ophthalmology, Jun 2025. URL: <a href="https://doi.org/10.1186/s12886-025-04142-4" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12886-025-04142-4</a>, <a href="https://doi.org/10.1186/s12886-025-04142-4" target="_blank" rel="noopener noreferrer">doi:10.1186/s12886-025-04142-4</a>. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-wu2024systematicinflammatoryindicators-pages-1-2"></a>(wu2024systematicinflammatoryindicators pages 1-2): Donghai Wu, Yuan Lin, Huping Wu, and Jinhong Cai. Systematic inflammatory indicators and clinical management of exogenous endophthalmitis due to metal penetrating injury of eyeball. Frontiers in Medicine, Dec 2024. URL: <a href="https://doi.org/10.3389/fmed.2024.1466530" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fmed.2024.1466530</a>, <a href="https://doi.org/10.3389/fmed.2024.1466530" target="_blank" rel="noopener noreferrer">doi:10.3389/fmed.2024.1466530</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-nowosielski2026visualacuityinfluences-pages-1-2"></a>(nowosielski2026visualacuityinfluences pages 1-2): Yvonne Nowosielski, Charlotte Erlacher, Sarah Maier, Teresa Rauchegger, Alexander Franchi, and Matus Rehak. Visual acuity influences visual outcome in endophthalmitis: a 10-year retrospective observational cohort analysis. Ophthalmology and Therapy, Aug 2026. URL: <a href="https://doi.org/10.1007/s40123-026-01468-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s40123-026-01468-0</a>, <a href="https://doi.org/10.1007/s40123-026-01468-0" target="_blank" rel="noopener noreferrer">doi:10.1007/s40123-026-01468-0</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-krohn2024endogenousfungalendophthalmitis-pages-1-2"></a>(krohn2024endogenousfungalendophthalmitis pages 1-2): Jørgen Krohn, Øystein A. Power, Haima Mylvaganam, Andreas J. Askim, Jarle B. Arnes, and Bjørn Blomberg. Endogenous fungal endophthalmitis caused by cladophialophora devriesii: report of a case and literature review. Journal of Ophthalmic Inflammation and Infection, Jun 2024. URL: <a href="https://doi.org/10.1186/s12348-024-00408-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12348-024-00408-y</a>, <a href="https://doi.org/10.1186/s12348-024-00408-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s12348-024-00408-y</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-maher2026epidemiologymicrobiologymanagement-pages-8-9"></a>(maher2026epidemiologymicrobiologymanagement pages 8-9): Clare Maher, Brad Guo, Benjamin Sim, Mark Loewenthal, Donna Gillies, and Anthony Hall. Epidemiology, microbiology, management and outcomes of endophthalmitis: an 18 year retrospective observational study at a tertiary referral center in australia. Clinical Ophthalmology, Volume 20:1-11, Feb 2026. URL: <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/opth.s583832</a>, <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">doi:10.2147/opth.s583832</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-asao2025overviewofmicroorganisms-pages-26-28"></a>(asao2025overviewofmicroorganisms pages 26-28): Kazunobu Asao and Noriyasu Hashida. Overview of microorganisms: bacterial microbiome, mycobiome, virome identified using next-generation sequencing, and their application to ophthalmic diseases. Jun 2025. URL: <a href="https://doi.org/10.3390/microorganisms13061300" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/microorganisms13061300</a>, <a href="https://doi.org/10.3390/microorganisms13061300" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms13061300</a>. This article has 6 citations.</p>
+</li>
+<li>
+<p><a id="ref-maher2026epidemiologymicrobiologymanagement-pages-5-8"></a>(maher2026epidemiologymicrobiologymanagement pages 5-8): Clare Maher, Brad Guo, Benjamin Sim, Mark Loewenthal, Donna Gillies, and Anthony Hall. Epidemiology, microbiology, management and outcomes of endophthalmitis: an 18 year retrospective observational study at a tertiary referral center in australia. Clinical Ophthalmology, Volume 20:1-11, Feb 2026. URL: <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/opth.s583832</a>, <a href="https://doi.org/10.2147/opth.s583832" target="_blank" rel="noopener noreferrer">doi:10.2147/opth.s583832</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Endophthalmitis-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Endomyocardial_Fibrosis-claude_code.html">← Endomyocardial Fibrosis (Claude Code)</a>
+                
+                
+                <a href="Eosinophilic_Esophagitis-falcon.html">Eosinophilic Esophagitis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Endophthalmitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Endophthalmitis-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
