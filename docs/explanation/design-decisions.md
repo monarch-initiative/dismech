@@ -112,6 +112,59 @@ This graph backs the rendered pathographs and the computational-model integratio
 (see [computational models](computational-models.md)).
 
 
+### 3a. Cancer granularity ladder (2026-08-28)
+
+**Decision.** Somatic cancer entries follow an explicit **granularity ladder**. The
+generic §3 rule ("separate file only for a distinct MONDO identity and a substantially
+independent mechanism") was written for Mendelian disease; cancer needs its own clause
+because the field's own taxonomy is layered — a histogenesis backbone with molecular
+alterations *promoted* into entity definitions case by case (WHO Classification of
+Tumours 5th ed. / cIMPACT-NOW integrated diagnosis, WHO-HAEM5 and ICC 2022, ICD-O,
+OncoTree) — and because most of the KB's precision-oncology entries sit *below* MONDO's
+granularity, which the Mendelian rule never contemplated.
+
+| Level | Represent as | Rule |
+|---|---|---|
+| **L1 Organ/system pool** ("lung cancer", "lymphoma") | Lean umbrella `Disease` entry or a `Grouping` | Never the curation target for mechanism content; every pathophysiology node must hold for all members |
+| **L2 Histologic entity** (PDAC, SCLC, DLBCL, osteosarcoma) | `Disease` entry — **the default level for a new cancer entry** | The WHO blue-book / ICD-O morphology level; anchor to the entity's MONDO term |
+| **L3 Molecularly defined entity** (IDH-wildtype glioblastoma, APL with PML::RARA, NPM1-mutant AML, Ewing sarcoma) | `Disease` entry | Create when WHO/ICC defines the entity molecularly — the field has already made the promotion call, and MONDO nearly always has the term |
+| **L4 Biomarker/therapy stratum** (EGFR-mutant NSCLC, MSI-H CRC, TNBC, FLT3-mutant AML) | Default: `has_subtypes` on the L2/L3 entry. **Promote to its own entry** only when it passes the disjunction test (issue #7082): ≥2 pathophysiology nodes not true of sibling strata **and** a distinct first-line therapy or diagnostic pathway | On promotion: (a) file a MONDO NTR; until granted, anchor `disease_term` to the parent term but record `mapping_predicate: skos:narrowMatch` in `mappings.mondo_mappings` with a justification — never a bare parent-term reuse presented as exact; (b) record non-disjointness with sibling strata (e.g. FLT3×NPM1 AML, MSI-H×BRAF-V600E CRC) in `notes` and grouping `differentiating_mechanisms`; (c) add or extend the covering `Grouping` (`Molecularly_Defined_NSCLC_Subtypes` is the worked precedent); (d) the parent's `has_subtypes` keeps a *pointer* subtype naming the split file rather than a divergent copy |
+| **L5 Variant tier** (exon 19 del vs L858R vs T790M) | `has_subtypes` inside the L4 entry | Never its own file. Exception: a variant *is* the L4 stratum when therapy is variant-specific (KRAS G12C is the stratum because sotorasib/adagrasib are G12C-covalent; "KRAS-mutant NSCLC" would be the wrong grain) |
+| **Stage / metastasis** | `stages:` on the parent entry, progression records, and `conforms_to` on the `invasion_and_metastasis` module | **Never a `Disease` entry.** TNM stage is orthogonal to taxonomy in every classification system |
+| **Etiologic stratum** (HPV± oropharyngeal SCC, EBV-associated gastric cancer) | Case-by-case via the same L4 promotion test | HPV-positive oropharyngeal SCC passes (distinct mechanism, AJCC 8 stages it separately); EBV-GC is a TCGA molecular subgroup and sits closer to a subtype |
+| **Tissue-agnostic biomarker indication** (NTRK fusion-positive cancer) | One MONDO-anchored entry per biomarker, categorized `Tumor-Agnostic Indication` | Do not also stamp it as a subtype of every organ cancer; organ-specific entries reference it |
+| **Pathway / hallmark biology** (MAPK, PI3K, the Hanahan–Weinberg hallmarks) | `kb/modules/` + mechanism `Grouping` only | **Never a `Disease` entry** — pathways recur across entities and across the cancer/non-cancer boundary (cf. RASopathies) |
+
+**Germline cancer-predisposition syndromes** (Li-Fraumeni, Lynch, FAP, VHL, HBOC…) are
+Mendelian diseases and stay under the plain §3 rules; this clause governs the somatic
+neoplasm entries only. The associated somatic cancer remains a separate entry
+(Lynch vs MSI-H CRC, Gorlin vs basal cell carcinoma).
+
+**Rationale.** Neither variants, genes, nor pathways can serve as the primary axis: the
+same lesion is a different disease in a different lineage (BRAF V600E melanoma responds
+to BRAF inhibition; BRAF V600E CRC does not, via EGFR feedback — modeled in the KB's own
+entry), yet a single lesion *can* define an entity when it is the initiating, universal,
+lineage-bound driver (CML, APL, Ewing). The KB's biomarker-stratum entries are retained
+— they carry exactly the distinct mechanism + therapy content that justifies a
+mechanism-first split and that `has_subtypes` cannot scope (no `subtype:` discriminator
+exists on `Pathophysiology` or `Treatment`) — but new ones must earn promotion rather
+than default to it. This supersedes the informal "Molecular Subtypes as Discrete
+Entities" policy in `projects/CANCER.md` and resolves the cancer buckets (A/B) of issue
+#5121 non-uniformly: driver strata stay split under the anchoring convention above;
+"Metastatic X" stage entries are folded into their parents (enacted in the same PR as
+this decision — the ten former `Metastatic_*` entries are now `stages` + merged content
+on their histologic parents, with `Cutaneous_Melanoma` and `Breast_Carcinoma` created as
+previously missing parent rungs).
+
+**Origin.** Issues [#306](https://github.com/monarch-initiative/dismech/issues/306),
+[#3881](https://github.com/monarch-initiative/dismech/issues/3881),
+[#5121](https://github.com/monarch-initiative/dismech/issues/5121),
+[#7082](https://github.com/monarch-initiative/dismech/issues/7082); full review in
+[cancer-taxonomy-granularity-review-2026-08-28](../reports/cancer-taxonomy-granularity-review-2026-08-28.md).
+Enacted at maintainer direction (@cmungall, 2026-08-28 session). **Still open:** the
+MONDO NTR list for promoted strata; creating remaining missing L2 parents (e.g.
+`Lung_Adenocarcinoma`); structural overlap annotation between non-disjoint strata.
+
 ## 4. Ontology constraints
 
 **Decision.** Term validation is restricted to an explicit, curated set of ontologies.
@@ -287,7 +340,7 @@ assert it as the current mechanism.
 - **Both sides get cited.** The hypothesis's own `evidence` list carries the founding
   supporting citations (`supports: SUPPORT`) alongside the refutations (`supports: REFUTE`),
   each with a verified snippet, so the assessment is auditable rather than editorial
-  assertion. Renderers surface the SUPPORT/PARTIAL/REFUTE split as an evidence-balance row.
+  assertion. Renderers surface the SUPPORT/REFUTE/NO_EVIDENCE split as an evidence-balance row.
 - **Disputed nodes are marked, not asserted.** A pathophysiology node that exists only to
   represent a deprecated model carries `mechanism_confidence: HYPOTHETICAL`, and its causal
   edges opt into the deprecated `hypothesis_groups` so the disputed chain stays separable
@@ -305,6 +358,62 @@ myositis (`amyloid_beta_proteotoxicity` in `kb/disorders/Inclusion_Body_Myositis
 whose literature is itself the documented subject of a citation-distortion analysis
 (PMID:19622839) — the clearest available case of citation weight outrunning data. See
 [the exploration report](../reports/ibm-amyloid-beta-hypothesis-2026-08-02.md).
+
+### 6b. `supports` is direction only; directness is a separate axis (2026-08-29)
+
+**Decision.** `EvidenceItemSupportEnum` is narrowed to `SUPPORT` / `REFUTE` /
+`NO_EVIDENCE`, and an optional `directness` slot (`DIRECT` / `INDIRECT` / `UNKNOWN`) is
+added alongside it. `PARTIAL` and `WRONG_STATEMENT` are retired. This is the partial
+adoption of the SEPIO evidence model proposed in
+[#7439](https://github.com/monarch-initiative/dismech/issues/7439).
+
+**Rationale.** `supports` conflated several unrelated judgements. Reading the curators'
+own `explanation` prose on the 11,620 `PARTIAL` items, the value was carrying at least
+four: indirect support, an inverted model system, an item that supported one claim while
+contradicting another, and plain irrelevance. `WRONG_STATEMENT` had a single use, which
+recorded that an earlier version of an entry's text was inaccurate — provenance for a
+`history/` record, not a direction of evidence.
+
+**Directness rather than strength.** #7439 proposed SEPIO's direction/strength split.
+We took direction/directness instead:
+
+- **Strength is not judgeable from the record.** It needs study design, sample size and
+  replication, none of which the evidence item holds. Directness needs the snippet and
+  the claim, both of which are right there — so two curators who disagree about
+  directness have a shared referent, and two who disagree about strength do not.
+- **The measured churn argues against it.** `scripts/check_snippet_grading.py` counts one
+  quoted sentence graded two ways in one file. Before this change: 8,285 divergences on
+  `supports` against 715 on `evidence_source`. Strength would be worse than either, being
+  a property of the evidence itself (so any divergence is a flat contradiction) *and* the
+  most judgement-laden of the three.
+- This is consistent with the §12 position that strength should be **derived** from a
+  typed, snippet-anchored experiment model rather than authored as a grade.
+
+**Migrated items are left unassessed.** All 11,620 `PARTIAL` items became `SUPPORT` with
+`directness` **absent**, not backfilled to a default. Absent means nobody has assessed the
+item, which is true of essentially the whole KB; defaulting would have manufactured 11,620
+appraisals no curator made. The population is enumerated in
+`docs/reports/data/partial-evidence-directness-worklist-2026-08-29.tsv`.
+
+**Effect.** Retiring `PARTIAL` cut `supports` divergences from 8,285 to 353 — a 96%
+reduction — which indicates most of that signal was the value's ambiguity rather than the
+legitimate claim-relativity that justifies leaving `supports` ungated. Gating it is worth
+revisiting.
+
+**Not adopted:** SEPIO's `EvidenceLine` / `DataItem` / `Document` classes. An
+`EvidenceItem` is already an evidence line holding one data item and one document, and
+`linkml-reference-validator`'s `ELLIPSIS_INSERTION` support means a single `snippet`
+already carries a discontinuous multi-span quote — which was most of what the nesting
+bought. §5's export-layer-only rule for external models therefore stands: the SEPIO
+alignment is expressed as `exact_mappings` on the dismech-native slots, and in
+`sepio_export.py`. The known cost is that evidence *about* other evidence (a rebuttal of a
+refutation, as in `glymphatic_dysfunction.yaml`) remains unrepresentable.
+
+**Consequence for the exporter.** `NO_EVIDENCE` has no SEPIO direction — SEPIO's `neutral`
+means the evidence bears on the claim without favouring a side, whereas `NO_EVIDENCE`
+means it does not bear on the claim at all. The old mapping of `NO_EVIDENCE` to `NEUTRAL`
+asserted something the curator did not and was removed; such lines now carry no
+`direction_of_evidence_provided` and retain the raw value on `dismech_supports`.
 
 
 ## 7. Curation process & governance
@@ -682,6 +791,7 @@ This section details decisions we have **not yet made or formalized**.
 | Investigation-readout phenotype backfill (`reports_on`) | New lean `PhenotypeReadout` slot added (§10): investigation-result phenotypes (abnormal ERG/EEG, `Elevated circulating … concentration`) attach to the mechanism they measure via a dashed observational readout edge instead of floating as orphan nodes or being mis-wired as causal `downstream` edges. `Bardet-Biedl_Syndrome` (Abnormal electroretinogram → Photoreceptor outer-segment transport defect) is the worked exemplar. **First batch done** (`scripts/migrate_readout_phenotypes.py`): 69 mis-wired causal edges across 60 files migrated to `reports_on` — restricted to **pure lab/investigation readouts that are never themselves disease drivers** (tissue-leakage enzymes: transaminases/CK/LDH/aldolase/ALP; acute-phase reactants; tumor markers AFP/β-hCG; newborn-screening acylcarnitines; the electroretinogram), HP-verified via descendants of `HP:0032180`/`HP:0034684`/`HP:0010876`/`HP:0003111`/`HP:0030453`. **Deliberately NOT flipped:** ~179 causally-active analytes where the `downstream` edge is *correct* — ammonia (→ encephalopathy), lactate (→ acidosis), vitamins (deficiency → neuropathy/retinopathy), cholesterol, hormones, ions, immunoglobulins — plus any readout carrying its own `sequelae`. **Second batch done** (floating pure readouts): 55 `reports_on` links added across 47 files by a parallel curation pass, each choosing the best-fit existing mechanism node (liver enzymes → hepatocyte-injury node, CK/aldolase/LDH → myofiber-necrosis node, ERG/EOG → photoreceptor-degeneration node, CRP/acute-phase → inflammation node, AFP/β-hCG/tryptase → tumor/mast-cell node, bone ALP → osteoblast node). **~14 deliberately left unlinked** where the disease pathograph has no node the organ-injury lab measures (e.g. transaminases in Graves/Celiac/Stevens-Johnson, the Murine-typhus organ-injury labs) — these are genuine *modeling gaps* (the entry doesn't yet represent that organ's involvement), not readout-link gaps, and were skipped rather than invent a node. **Open:** the ~58 non-pure floating readouts (causally-active analytes) and the modeling-gap skips; causally-active analytes could also optionally gain a *second* `reports_on` link alongside their (correct) causal edge where the value is used diagnostically. | KB migration (batches 1–2 done) |
 | Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. (Note: category-gated *rules* are a non-goal — the category is derived from the term, so such a rule would be circular; see §10.) | schema follow-up / KB migration |
 | Histopathology (NCIT) vs phenotype (HP) boundary | **Undecided — maintainer call outstanding.** `HistopathologyFindingTerm` binds the NCIT Histopathology Result branch (`NCIT:C83490`) plus a narrow `HP:0025461` (Abnormal cell morphology) carve-out; HP covers many organ-specific microscopic findings (foot-process effacement, ragged-red fibers) that fall outside both. Four questions are open: (1) should `finding_term` bind HP beyond `HP:0025461`, and what is the NCIT-vs-HP selection rule; (2) HP+NCIT dual-coding, mirroring the HP+MONDO disease-like-phenotype precedent (§4); (3) the authoritative `phenotypes` vs `histopathology` rule for a microscopic observation — §10's test ("if the term already lives in the phenotype ontology it belongs in `phenotypes`") answers the *class-existence* question but not the *slot-choice* one; (4) whether entity-level "findings" (Barrett esophagus, Castleman variants, the DNET glioneuronal element) should move to `disease_term`/subtype — independent of the vocabulary question. **Re-census (2026-08-18)** reframes the options: **325 of 707 findings (46%) across 188 files are unbound** (up from 123/76 at the 2026-07-02 triage), the `HP:0025461` carve-out carries almost no load (14 bound findings vs 368 NCIT), and the unbound tail is **not** a recurring-vocabulary gap — 324 distinct labels for 325 findings, 58% of them post-composed clauses vs 20% of bound ones. So broadening the HP root reaches at most the ~135 single-concept findings. Meanwhile **0 of 707 findings use any of the `located_in`/`modifier`/`laterality`/`spatial_extent`/`severity` slots `HistopathologyFindingDescriptor` already inherits from `Descriptor`** — undocumented on that class, unlike its `ImagingFindingDescriptor` sibling — making "bind the head term, post-compose the rest" a fifth option needing no schema change. | [#5140](https://github.com/monarch-initiative/dismech/issues/5140) · [re-census](../reports/histopathology-binding-recensus-2026-08-18.md) · [2026-07-02 triage](../reports/histopathology_ncit_triage-2026-07-02.md) |
+| Heteroplasmy and genome of origin for mtDNA disease | **Undecided — proposed, not enacted.** Gene assignment binds HGNC CURIEs on `GeneDescriptor.gene_term` with no `reachable_from` constraint. That is *complete* for mitochondrial genetics at the identifier level — all 37 mtDNA-encoded genes resolve in HGNC with correct labels and SO types — but two things it cannot express. (1) **Genome of origin.** No HGNC gene group unites the 37 (`hgnc.genegroup:1974` covers only the 13 protein-coding genes; tRNAs sit in `843`, rRNAs in `1378`), and in the OAK sqlite build every gene-group node is a label-less `rdf:type` stub, so a `reachable_from` enum on it would be unlabeled and incomplete. SO type does not separate genomes either (`MT-ND1` and `NDUFS4` are both `SO:0001217`). The only current signal is the `MT-` symbol prefix — a naming convention, not an assertion. (2) **Heteroplasmy.** `ZygosityEnum` has no homoplasmic/heteroplasmic values, and heteroplasmy is orthogonal to zygosity in any case; the fraction and its tissue-specific threshold are what determine penetrance and severity for an mtDNA disease. The concept appears in 20 files as free text only. Proposed shape: an optional `Genetic.genome` (`GenomeEnum: NUCLEAR | MITOCHONDRIAL`) plus an optional `Genetic.heteroplasmy` block (`state: HOMOPLASMIC | HETEROPLASMIC | BOTH`, `threshold_percent`, `threshold_tissue`, standard `evidence`). `genome` is mechanically backfillable over a closed 37-gene set; `heteroplasmy` needs per-entry curation from the 20 prose files. Both additive and optional, so legacy entries validate unchanged. | [report](../reports/mitochondrial-disease-genetics-review-2026-08-27.md) |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |

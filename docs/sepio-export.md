@@ -114,6 +114,7 @@ classDiagram
 | `evidence[]` | `Statement.has_evidence_lines[]` | one line per evidence item — each snippet is its own interpretation |
 | `evidence[].evidence_source` | `EvidenceLine.evidence_type` | `HUMAN_CLINICAL`, `MODEL_ORGANISM`, … |
 | `evidence[].supports` | `EvidenceLine.direction_of_evidence_provided` | see mapping below |
+| `evidence[].directness` | `EvidenceLine.dismech_directness` | dismech-native; SEPIO has no directness slot |
 | `evidence[].snippet` | `DataItem.value`, with `data_type: TextSpan` | the actual evidence |
 | `evidence[].reference` | `Document.id` via `DataItem.reported_in` | |
 | `evidence[].reference_title` | `Document.title` | |
@@ -121,18 +122,31 @@ classDiagram
 | `evidence[].supports` | `EvidenceLine.dismech_supports` | the raw enum value, kept verbatim — see below |
 | — | `Document.document_type` | not in dismech; inferred from the reference prefix |
 
-`EvidenceItemSupportEnum` is mostly a direction-of-support enum and passes
-through unchanged; the two exceptions are `WRONG_STATEMENT` → `REFUTE` (a
-factually wrong claim disputes the assertion) and `NO_EVIDENCE` → `NEUTRAL` (the
-reference is silent on the claim, which is not a direction).
+Since the issue #7439 narrowing, `EvidenceItemSupportEnum` is a pure direction
+enum, so `SUPPORT` and `REFUTE` pass straight through to SEPIO's `supports` and
+`disputes`.
 
-Both exceptions are lossy — the schema deliberately separates "contradicts the
-claim" (`REFUTE`) from "the claim is factually wrong" (`WRONG_STATEMENT`), and
-the SEPIO direction cannot express that. Since the whole point of the sidecar is
-to stop flattening evidence, the raw value is carried through unchanged on
-`EvidenceLine.dismech_supports`, so the mapping round-trips: consumers that only
-want a direction read `direction_of_evidence_provided`, and consumers that need
-the dismech distinction read `dismech_supports`.
+`NO_EVIDENCE` is the one value with no SEPIO counterpart, and it is deliberately
+**not** mapped. SEPIO's third direction, `neutral`, means the evidence bears on
+the claim without favouring either side; `NO_EVIDENCE` means the cited reference
+does not bear on the claim at all. Those are different assertions, so such a line
+gets no `direction_of_evidence_provided` at all rather than a `NEUTRAL` that
+states something the curator did not.
+
+The raw enum value is still carried on `EvidenceLine.dismech_supports`, which is
+what makes that omission safe: consumers wanting a SEPIO direction read
+`direction_of_evidence_provided`, and consumers needing the dismech value —
+`NO_EVIDENCE` included — read `dismech_supports`. `dismech_directness` carries
+`directness` the same way, since SEPIO has no slot for it.
+
+!!! note "This section previously described two lossy mappings"
+
+    Before #7439 it read `WRONG_STATEMENT` → `REFUTE` and `NO_EVIDENCE` →
+    `NEUTRAL`. `WRONG_STATEMENT` no longer exists, and the `NEUTRAL` mapping was
+    a genuine bug fixed by that PR — it asserted that a silent reference bore on
+    the claim. `dismech_supports` was originally added to round-trip the
+    `WRONG_STATEMENT`/`REFUTE` collapse; it is retained because `NO_EVIDENCE`
+    now needs it.
 
 `document_type` is inferred from the reference CURIE prefix: `PMID:`/`DOI:` →
 `PRIMARY_LITERATURE`, `PPR:` → `PREPRINT`, `clinicaltrials:` →

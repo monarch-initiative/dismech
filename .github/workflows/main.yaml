@@ -64,7 +64,21 @@ jobs:
           list-files: shell
           filters: |
             python:
+              - '.github/actions/approve-regen-pr/action.yml'
+              - '.github/cron-profiles.yaml'
+              - '.github/workflows/claude-code-review.yml'
+              - '.github/workflows/curation-scanner.yml'
+              - '.github/workflows/generate-grouping-pages.yaml'
+              - '.github/workflows/generate-pages.yaml'
+              - '.github/workflows/generate-project-pages.yaml'
+              - '.github/workflows/main.yaml'
+              - '.github/workflows/pr-shepherd.yml'
+              - '.github/workflows/reference-title-baseline.yaml'
+              - '.github/workflows/title-snippet-baseline.yaml'
+              - '.github/workflows/warm-reference-cache.yaml'
               - 'src/**'
+              - 'scripts/auto_merge_ready_prs.py'
+              - 'scripts/pr_shepherd_policy.py'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -356,6 +370,43 @@ jobs:
       # lane, not a replacement.
       - name: Check entity references resolve
         run: uv run python scripts/check_entity_refs.py
+
+      # Ungated for the same reason as the entity-ref step above, and the
+      # argument is if anything sharper. The contract IS covered by pytest
+      # (`test_existing_repo_caches_match_frontmatter_contract`), but that lane
+      # is selected by the `python`/`schema` path filters -- and the PR that
+      # ADDS a cache file is a curation PR touching `kb/` and
+      # `references_cache/`, matching neither. So the sweep never ran on the
+      # only kind of PR that can introduce a malformed entry.
+      #
+      # It matters more now that `reference_title` carries
+      # `implements: dcterms:title` and is validated: lrv reads frontmatter
+      # with ruamel, so an entry ruamel cannot parse does not fail loudly --
+      # it silently drops every title on that reference out of the checked
+      # set. That is the failure mode PMID:27951541 demonstrated, and a
+      # coverage hole is exactly what a validation gate must not have.
+      #
+      # Slower than its neighbours: ~2 min over 43,947 cache files, offline.
+      # The pytest sweep stays as-is; this is a second lane, not a replacement.
+      #
+      # On scope, since the reasoning differs from the two steps above and is
+      # worth not re-deriving: those are whole-repo because a MERGE or a rename
+      # elsewhere can break a file the PR never touched. A malformed cache file
+      # arrives by authoring instead -- the PR that adds it necessarily contains
+      # it -- so changed-file scoping would be sound here and would cost seconds.
+      # Whole-directory is kept for now because it also catches drift from an
+      # unrelated refetch, and because the module's CLI takes a directory rather
+      # than a file list, so narrowing it means changing an entry point shared
+      # with `just qc` and the pytest sweep. If CI time becomes a complaint, the
+      # nightly KB sweep is the right home for the whole-directory pass and this
+      # step should narrow to changed files.
+      #
+      # Note it prints a standing ADVISORY for references_cache/PMID_1899320.md
+      # (a literal `---` inside a value, issue #7697). That never fails the
+      # build, but it does mean the step's steady state is not silent, so a
+      # second advisory would be easy to miss. Closing #7697 removes it.
+      - name: Check reference cache frontmatter
+        run: uv run python -m dismech.reference_cache_frontmatter references_cache
 
       # Ungated and whole-KB on purpose, and REPORT-ONLY: every other gate here
       # checks a snippet against the cache, so a false claim in *prose* that a
