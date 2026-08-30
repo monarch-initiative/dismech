@@ -186207,7 +186207,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "6"
   },
   {
@@ -255851,8 +255851,8 @@ window.searchMetrics = {
   "total_disorder_pages": 2481,
   "total_subtypes": 3529,
   "total_disorders_and_subtypes": 6010,
-  "total_unique_evidence_sources": 35583,
-  "total_unique_publications": 33464,
+  "total_unique_evidence_sources": 35584,
+  "total_unique_publications": 33465,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
   "total_pathographs": 2476,
