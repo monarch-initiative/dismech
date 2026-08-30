@@ -394,8 +394,8 @@ grouping wearing a Disease costume.
 ### Rung 3 — `has_subtypes` within a Disease entry  *(the organism axis)*
 
 Strata below the entry go here: **species → subspecies → serovar → serotype →
-pathotype / strain**. This rung is deliberately generous. A stratum earns a
-subtype when it differs from its siblings in **any one** of:
+pathotype / strain**. A stratum earns a subtype when it is **documented to
+differ** from its siblings in any one of:
 
 - clinical presentation or organ involvement
 - diagnosis or diagnostic pathway
@@ -404,9 +404,26 @@ subtype when it differs from its siblings in **any one** of:
 - transmission route, vector, or reservoir
 - geography or at-risk population
 
-One axis is enough for a subtype. (Two are needed to *promote* to a separate
-entry — rung 4.) Recording a stratum as a subtype is cheap and reversible;
-leaving it inside an undifferentiated lump is not.
+One documented axis is enough for a subtype. (Two are needed to *promote* to a
+separate entry — rung 4.)
+
+**The threshold is documented difference, not nomenclatural availability, and
+the default is to lump.** A taxonomy offering a name for a stratum is not a
+reason to create a subtype for it. *M. tuberculosis* lineages and HCV genotypes
+earn subtypes because the literature reports distinct clinical behaviour; the
+~2,000 *Salmonella* serovars do not, and enumerating them would bury the handful
+(Typhi, Paratyphi A, Typhimurium) that genuinely behave differently. Where the
+differentiating evidence does not yet exist, keep the strata together in one
+entry and record in `notes:` that they are deliberately lumped.
+
+**Splitting is progressive and additive.** A subtype added later, as
+pathogenicity, symptom or treatment evidence accrues, is the expected lifecycle
+of an entry — not a correction of an earlier mistake. This is why the rung-3
+threshold is one axis rather than two: a subtype is cheap to add and cheap to
+revise, so the KB can track the literature as it develops rather than waiting
+for a stratum to be fully characterised before acknowledging it. The same logic
+runs upward — a subtype that accumulates a second differentiating axis becomes a
+rung-4 promotion candidate.
 
 | Requirement per subtype | Level |
 |---|---|
@@ -448,6 +465,16 @@ classical vs El Tor), **lineage** (*M. tuberculosis* L1–L9), **viral genotype*
 (HCV 1–6, HBV A–H) and **clade** (mpox I vs II). Bind where NCBITaxon has a node;
 otherwise carry it structurally and say so.
 
+The rung-3 evidence gate applies here too, and this is where it bites hardest. A
+pathotype earns a subtype when its **clinical features, pathogenicity or
+treatment** are documented to differ — which for ETEC, EPEC, EAEC and EHEC they
+clearly are, since each maps to a different toxin, a different syndrome, and in
+the EHEC case a different management rule (antibiotics are avoided because they
+raise the risk of haemolytic uraemic syndrome). A serotype carrying a name but
+no reported clinical distinction stays lumped. The asymmetry is deliberate:
+pathotype is the stratum where sub-species variation most often carries clinical
+weight, and serovar is the stratum where it least often does.
+
 ### Rung 4 — Promotion of a stratum to its own Disease entry
 
 **The Treponematoses test.** Promote only when the stratum differs from its
@@ -473,13 +500,41 @@ and reaching for a new entry for any of them is the error:
 
 | Distinction | Belongs in |
 |---|---|
-| Phase of one infection (acute vs chronic; primary / latent / reactivated; colonisation vs invasive disease) | `progression:` / `stages:` on the single entry |
+| Phase of one infection (acute vs chronic; primary / latent / reactivated; colonisation vs invasive disease) | `progression:` on the single entry — which **should list them**, see below |
 | Severity or stage | `stages:`, `severity` qualifiers |
 | Organ syndrome across unrelated organisms | rung-1 Grouping, or a `kb/modules/` module |
 | Post-infectious immune sequela (rheumatic heart disease, MIS-C, post-infectious vasculitis, ADEM) | its own Disease entry — the mechanism is host-immune, not microbial — cross-linked to the index infection via `parents` |
 | Infection-attributed neoplasm | §3a cancer ladder; the pathogen is an `infectious_agent` annotation, never a granularity axis |
 | Mechanism shared across diseases | `kb/modules/` + `conforms_to` |
 | Antimicrobial resistance, where it does not change the syndrome | `treatments` / `notes` — but see rung 3a where it defines a pathotype (MRSA) |
+
+#### Phases are listed, not split off
+
+The rule has two halves and the second is easy to lose: a phase is never its own
+entry, **and the entry should enumerate its phases**. Dropping the phase
+distinction is as wrong as promoting it to an entry.
+
+`progression:` (`ProgressionInfo`) is the home. It already carries `phase`,
+`subtype` — so a phase can be scoped to one subtype — `age_range`,
+`incubation_days` / `incubation_years`, `duration_days` / `duration`, `notes`
+and `evidence`. That is enough to say everything an acute-vs-chronic split was
+being used to say.
+
+| Requirement | Level |
+|---|---|
+| `progression` entries for the phases the field recognises, where the disease has them | required |
+| `phase` naming the phase as the field names it (`Acute infection`, `Chronic infection`, `Latency`, `Reactivation`, `Active TB`) | required |
+| `evidence` for a phase's existence or duration where the claim is substantive | required |
+| `incubation_*` / `duration_*` where reported | recommended |
+| `subtype` where the phase applies to only one stratum | conditional |
+
+The mechanism is already in use and works: 48 of the 125 flagged entries carry a
+`progression` block, 44 of them with two or more phases. The gap is the other 77.
+
+Where MONDO has a separate class for a phase, it is recorded as a
+`mappings.mondo_mappings` entry with `skos:narrowMatch` on the single entry —
+which retires the concept from the curation queue under the existing MONDO
+coverage rule, so nothing is lost by not making it an entry.
 
 ### Decision procedure
 
@@ -511,6 +566,9 @@ and should be tracked as a separate general issue.
 | 9 | **[M]** Decide `entry_type` on the 40 infectious stubs, and seed the coverage gaps in §2.5 (typhoid fever, herpes zoster, anthrax, diphtheria, sepsis, UTI and the rest) | queue work |
 | 10 | **[M]** Retire `Infectious_Disease` (`MONDO:0005550`) under rung 0, recording the reasoning so the concept is not re-nominated | 1 entry |
 | 11 | **[M]** Add rung-1 groupings: *Rickettsioses*, *Viral hepatitides*, *Soil-transmitted helminthiases*, *Enteric fevers*, *Arboviral haemorrhagic fevers* | ~5 groupings |
+| 11a | **[M]** Merge `Acute_Hepatitis_C_Virus_Infection` into `Hepatitis_C` as a `progression` phase, keeping `MONDO:0100371` as a `skos:narrowMatch` mapping (decision 1) | 2 entries |
+| 11b | **[M]** Add `progression` phases to the 77 flagged entries with no `progression` block, prioritising those with a clinically recognised phase structure — syphilis, TB, HIV, the hepatitides, Lyme disease, Chagas disease (decision 1) | ~77 entries, triaged |
+| 11c | **[M]** Review the ten unstructured lumps in §1.3 individually against the rung-3 evidence gate; add subtypes only where the literature already reports a clinical difference, and record deliberate lumping in `notes:` where it does not (decision 2) | 10 entries |
 | 12 | **[G]** Normalise `parents:` to a controlled vocabulary and decide whether it should be ontology-bound rather than `range: string`. The microbial set alone uses 131 distinct strings for 125 entries, but 2,366 entries KB-wide use the slot | KB-wide |
 | 13 | **[G]** Raise `subtype_term` binding rates KB-wide. 29% in the microbial set; measure and target the rest | KB-wide |
 | 14 | **[G]** Audit for grouping-shaped Disease entries outside infection — the `Spotted_Fever_Rickettsiosis` pattern is the same one §3a found in cancer organ-umbrella entries | KB-wide |
@@ -519,25 +577,40 @@ Items 2, 3 and 7 are mechanical and independently verifiable; item 1 should land
 first so items 4, 5, 6 and 9 have a rule to cite. Items 12–14 belong in a separate
 general issue so the microbial work is not blocked behind KB-wide refactors.
 
-### Two questions for a human
+Item 11c is the one to resist rushing. Under decision 2 an undifferentiated lump
+is not a defect by definition — it is a defect only where the literature already
+carries the distinction. The output of 11c is as likely to be a `notes:` line
+recording a deliberate lump as it is a new subtype.
 
-**1. Does the ladder or MONDO win when they disagree?** The orthogonal-axes table
-says phase is `progression:`, not an entry — which implies merging
-`Acute_Hepatitis_C_Virus_Infection` into `Hepatitis_C`. Both are substantial
-curated entries with their own MONDO classes, and MONDO itself distinguishes
-them. The alternative reading is that MONDO's split should be honoured and the
-rule narrowed to phases MONDO does *not* separately class. Settle this before
-item 5 begins.
+### Two decisions taken
 
-**2. How far down does rung 3 go before it becomes noise?** The rung is
-deliberately generous — one differentiating axis earns a subtype. For *M.
-tuberculosis* lineages or HCV genotypes that is clearly right; for the ~2,000
-*Salmonella* serovars it clearly is not. The working answer is that a stratum
-earns a subtype when the difference is *documented in the literature for this
-disease*, not merely nomenclaturally available, but that is a judgement the
-curation community should confirm.
+Both questions this review opened have been settled by the maintainers.
 
----
+**1. The ladder wins over MONDO on phase, and the entry lists its phases.** A
+phase of one infection is never a separate Disease entry, but the entry it
+belongs to should enumerate its phases in `progression:` rather than leave the
+distinction unrecorded. Consequence for the KB:
+`Acute_Hepatitis_C_Virus_Infection` merges into `Hepatitis_C` as a
+`progression` phase, and `MONDO:0100371` is retained on `Hepatitis_C` as a
+`skos:narrowMatch` mapping. The same treatment applies to any future
+acute/chronic, latent/reactivated, or colonisation/invasive pair that MONDO
+happens to class separately.
+
+**2. Rung 3 is gated on documented clinical difference, and lumping is the
+default.** Individual serovars do not earn subtypes. Pathotypes with distinct
+clinical features do — ETEC, EPEC, EAEC and EHEC each map to a different toxin
+and syndrome, and EHEC to a different management rule. Everything else stays
+grouped in one entry until pathogenicity, symptom or treatment evidence accrues,
+at which point it is split. A subtype added later is the normal lifecycle of an
+entry, not a repair.
+
+The second decision changes how the KB should read an undifferentiated lump.
+`Babesiosis` with five taxa and no subtypes is not automatically a defect — it is
+a defect only if the literature already distinguishes *B. microti* from
+*B. divergens* clinically, which it does (geography, severity, splenectomy risk).
+`Rhinovirus_Infection` with three species and no subtypes is probably correct as
+it stands. Each of the ten unstructured lumps in §1.3 needs that question asked
+of it individually rather than being treated as a uniform backlog.
 
 ## Tracking
 
