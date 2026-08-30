@@ -169,7 +169,20 @@ it does not mean no evidence was examined. Use the wrapper's affirmative
 
 Reference prefixes in `skip_prefixes` within
 `conf/reference_validator_config.yaml`, including `DOI:`, are not
-snippet-checked. Treat a skipped reference as unverified by these commands.
+snippet-checked by default, and the `(N skipped by prefix)` tail of the summary
+line says how many were passed over.
+
+Skipped is not the same as uncheckable. Where the body is cached — every `DOI:`
+reference is — `--unskip-prefix` verifies it on demand:
+
+```bash
+just count-verified-snippets --unskip-prefix DOI kb/disorders/YourFile.yaml
+```
+
+The flag is repeatable. Use it before committing a `DOI:`-keyed snippet, since
+the gating validator will not check that quote for you. Treat a reference as
+genuinely unverified only when it is skipped *and* nothing cached backs it —
+a dataset accession, for instance.
 
 ## Titles and brackets
 
