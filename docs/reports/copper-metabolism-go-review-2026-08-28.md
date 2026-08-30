@@ -275,12 +275,40 @@ plus the new `GO:0004129` cytochrome-c-oxidase MF.
   re-homed Menkes evidence item (findings 5–6), and the ICIMD/`biological_scale`
   backfill (finding 7).
 
+## Post-review refinements (2026-08-30)
+
+Applied after the `ai4c-reviewer` pass on PR #9852, alongside a merge with a
+fast-moving `main`:
+
+- `PMID:18650808` (Setty et al.) regraded `MODEL_ORGANISM` → `IN_VITRO`: the
+  study is entirely cultured mouse melanocyte lines, and CLAUDE.md places
+  cultured animal cells under `IN_VITRO`. The hypopigmented-mice line in that
+  abstract is a citation to the paper's own refs, not its data.
+- The Menkes `PMID:32381719` snippet was swapped from the paper's background
+  sentence to its own in-vivo result (elesclomol raising brain cytochrome c
+  oxidase), which grounds the COX/OXPHOS annotations from the intervention.
+- MEDNIK's `GO:0070830` tight-junction modifier changed `DECREASED` → `ABNORMAL`
+  (the source reports mislocalization and functional barrier loss, not reduced
+  assembly), with the CaCo2-AP1S1-KO measurement added as its own `IN_VITRO`
+  evidence item — matching the finding-5 homeostasis convention.
+- The Wilson biliary node kept `GO:0035434` as its BP but regained the
+  trans-Golgi `GO:0005794` cellular component alongside the canalicular
+  `GO:0016324`, since the node still describes resting TGN localization.
+- `icimd_category: complex_iv_subunits_and_assembly_factors` was added to SCO2
+  and COX11 to match the SCO1 sibling.
+- Both Wilson gene-therapy trials are now curated at their earliest registered
+  phase (the single-valued `phase` slot cannot express a range).
+
+The merge kept main's independent additions to these entries — the `genes`
+blocks on SCO1/COX11 and an `INCREASED` modifier on the Wilson cuproptosis
+node — alongside this branch's copper-delivery molecular functions and the
+cell-death rewiring.
+
 ## Validation
 
 All eight edited entries pass `just validate-disorders` (schema + terms +
-reference snippets; 503/535 snippets verified, the remainder skipped by prefix),
-`just check-duplicate-keys`, `just check-entity-refs`, and the offline
-title/grading/length/hyphen/environmental gates. New GO terms were verified
-against OLS before binding, new reference titles match their cache frontmatter,
-and one `history/disorders/` record was added per edited entry
-(`just validate-history-all` clean).
+reference snippets), `just check-duplicate-keys`, `just check-entity-refs`, and
+the offline title/grading/length/hyphen/environmental gates. New GO terms were
+verified against OLS before binding, new reference titles match their cache
+frontmatter, and a `history/disorders/` record was added per edited entry in
+both passes (`just validate-history-all` clean).
