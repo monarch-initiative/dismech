@@ -248,7 +248,7 @@ a bare identifier (`NCT06087757`) back to its prefixed file. Prefer the recipes
 that take a reference id or a KB file:
 
 ```bash
-just fetch-reference PMID:29167994     # fetch or regenerate; prints the path
+just fetch-reference PMID:29167994     # fetch or regenerate the cache entry
 just count-verified-snippets kb/disorders/Asthma.yaml
 ```
 

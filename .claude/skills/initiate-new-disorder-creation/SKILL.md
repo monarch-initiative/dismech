@@ -480,6 +480,21 @@ identifiers happened to appear in the prose you read most closely. The report
 body cites the same paper in several places and omits some of its sources from
 the narrative entirely, so reading the body alone gives you an arbitrary subset.
 
+Most reports have one; `--fallback` runs often do not. When the sidecar is
+missing, sweep the body for identifiers rather than reading linearly, so the set
+you work from is still the report's and not your reading path's:
+
+```bash
+grep -o "PMID:[0-9]*" research/DISORDER-deep-research-PROVIDER.md | sort -u
+```
+
+That covers about four in five sidecar-less reports. It returns nothing on the
+rest — including every `falcon` report, which cites by author-year key
+(`martelli2024clinicalspectrumof`) and carries no PMID strings at all. Those keys
+are not identifiers and cannot be fetched; resolve each one by searching PubMed
+for its author, year and title words. If a `falcon` report is missing its
+sidecar, prefer re-running the report over transcribing keys by hand.
+
 Let the *claims you are curating* choose the references, not a target count. Every
 assertion you write needs its own citation, so the number falls out of how much of
 the entry the report actually supports. If a well-covered report leaves you with
@@ -488,13 +503,24 @@ two or three references, you have almost certainly dropped claims it supported.
 Two preferences that are not just taste:
 
 - **Prefer a PMID over a DOI for the same paper.** `DOI:` is in `skip_prefixes`
-  in `conf/reference_validator_config.yaml`, so a DOI-keyed evidence item is
-  never snippet-checked — the quote is taken on trust, by you and by every
-  reviewer after you. Look the paper up and cite its PMID when it has one. Use
-  `DOI:` when there is genuinely no PubMed record, and expect to defend the quote
-  yourself. The same applies to a `PPR:` preprint: cite the peer-reviewed version
-  when one exists, and say in the `explanation` that it is a preprint when it
-  does not.
+  in `conf/reference_validator_config.yaml`, so a DOI-keyed evidence item is not
+  snippet-checked by the gating validator — CI will not catch a bad quote there.
+  Look the paper up and cite its PMID when it has one.
+
+  When there is genuinely no PubMed record, `DOI:` is fine, but check the quote
+  yourself rather than leaving it unverified. The body is cached like any other,
+  and the audit tool takes a flag for exactly this:
+
+  ```bash
+  just count-verified-snippets --unskip-prefix DOI kb/disorders/YourFile.yaml
+  ```
+
+  Say in the history record that you ran it, since the PR's own CI will not.
+- **Prefer the peer-reviewed version of a `PPR:` preprint** when one exists —
+  for a different reason: a preprint's text can differ from the published
+  paper's, so a quote taken from it may not survive. This is not a validation
+  gap; `PPR:` is *not* in `skip_prefixes` and its snippets are checked normally.
+  When only the preprint exists, cite it and say so in the `explanation`.
 - **Prefer the primary report over the review that cites it** for a specific
   finding — a number, a cohort frequency, an experimental result. Reviews are
   the right citation for a synthesis claim ("X is the dominant mechanism"), and
@@ -504,7 +530,6 @@ Two preferences that are not just taste:
 A citation the report listed but you could not use is worth a line in the history
 record when the reason is substantive — the paper turned out to be about a
 different disease, or reported a negative result the report read as positive.
-
 
 Note that a validated report (Step 3a) has already fetched most of these — its
 lookups are cached into the same `references_cache/` — so `just fetch-reference`
@@ -530,6 +555,12 @@ pathophysiology:
   downstream:
   - target: Excess TGF-beta Signaling
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:nnnnnnnn
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: "exact quote showing this step causes the next one"
+      explanation: Why this supports the edge, not merely either node.
 - name: Excess TGF-beta Signaling
   biological_scale: CELLULAR
   downstream:
@@ -541,6 +572,14 @@ pathophysiology:
 `target` is a foreign key to another node's `name` in the same file, so it must
 match exactly. A node may name several downstream targets where the mechanism
 genuinely branches.
+
+The `evidence` on an edge is a **different claim** from the evidence on either
+node it connects: the schema's own wording is "evidence that supports this
+specific edge (not just the parent node-level claim)". Two well-cited nodes do
+not establish that one causes the other, so cite the edge separately where a
+source actually makes the causal claim. It is not required, and an uncited edge
+the report clearly asserts is fine — but do not reach for a node's citation to
+paper over an edge you cannot source.
 
 The report usually states the causality even when its layout hides it — "leads
 to", "resulting in", "consequently", or a pathway described in order within one
@@ -745,6 +784,10 @@ The same generic `evidence` list schema is used for most types.
 ### Step 5: Add term objects
 
 Add term objects using ontology term IDs; for example, for a `pathophsyiology` object, it might look like this:
+
+The `downstream` and `biological_scale` lines below are the ones covered under
+"Build the pathophysiology as a chain, not a list" in Step 4 — that section says
+how to choose them; this one is only the shape.
 
 ```
 pathophysiology:
