@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEF6 Deficiency · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>DEF6 Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>DEF6 Deficiency</h1>
+                
+                <p class="report-subtitle">DEF6 Deficiency: Disease-Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0030457" target="_blank" rel="noopener noreferrer">MONDO:0030457</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">14 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>DEF6 Deficiency: Disease-Characteristics Research Report</h1>
+<h2>Executive summary and evidence limits</h2>
+<p>DEF6 deficiency is an <strong>ultra-rare, autosomal-recessive inborn error of immunity (IEI)</strong> caused by biallelic loss-of-function/hypomorphic variants in <strong>DEF6</strong>. It combines immunodeficiency with severe, usually infantile immune dysregulation—particularly autoimmune enteropathy, systemic autoimmunity, lymphoproliferation, hypogammaglobulinemia, poor specific-antibody responses, and recurrent infections. The defining human evidence remains the July 2019 <em>Nature Communications</em> report of <strong>three patients from two unrelated families</strong>; therefore, percentages below are descriptive fractions of this tiny ascertainment cohort, not population estimates. Recent 2023–2024 literature mainly places the disorder among CTLA-4-pathway Tregopathies and has not supplied a substantially larger DEF6-specific cohort. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-sogkas2021cellularandmolecular-pages-4-5">sogkas2021cellularandmolecular pages 4-5</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Summary</th>
+<th>Evidence type</th>
+<th>Key citations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Evidence base</td>
+<td>Ultra-rare monogenic inborn error of immunity described in a foundational 2019 report of 3 affected individuals from 2 unrelated families; later literature is mainly review/contextual, with no large dedicated cohort or trial identified.</td>
+<td>Direct human cohort + later expert review</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>, <a href="#ref-serwas2019humandef6deficiency-pages-15-15">serwas2019humandef6deficiency pages 15-15</a>)</td>
+</tr>
+<tr>
+<td>Inheritance / variants</td>
+<td>Autosomal recessive pattern supported by biallelic homozygous DEF6 missense variants in consanguineous families: family A c.991G&gt;A p.Glu331Lys (2 siblings), family B c.628T&gt;G p.Tyr210Asp (1 patient). Both were reported as damaging and absent in homozygous state in ExAC/gnomAD/TOPMed in the source paper.</td>
+<td>Direct human genetic evidence</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype</td>
+<td>Early-onset systemic autoimmunity with immunodeficiency: severe enteropathy/diarrhea, bowel inflammation, hepatosplenomegaly or hepatomegaly/cholestasis, cardiomyopathy/cardiac malformations, recurrent infections, and autoimmune hematologic disease in one patient. One sibling died in infancy from cardiomyopathy-related multiorgan failure.</td>
+<td>Direct human clinical evidence</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Laboratory phenotype</td>
+<td>Reported abnormalities included reduced CD8+ T cells, reduced Tregs, few class-switched B cells, decreased mature NK cells, hypogammaglobulinemia with poor vaccine responses, positive autoantibodies/autoimmune markers (ANCA, cardiolipin, beta2-glycoprotein, positive direct Coombs), while neutrophil phagocytosis and oxidative burst were normal.</td>
+<td>Direct human immunology/lab evidence</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>DEF6 deficiency impairs CTLA-4 homeostasis in T cells by disrupting DEF6-RAB11 interaction, reducing RAB11+CTLA-4 recycling vesicles, CTLA-4 cycling, ligand uptake/transendocytosis, and functional surface CTLA-4 availability. Variants also reduce DEF6 protein abundance/stability, especially p.Tyr210Asp.</td>
+<td>Direct human cellular evidence + engineered cell validation</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-8-9">serwas2019humandef6deficiency pages 8-9</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-8">serwas2019humandef6deficiency pages 7-8</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-7">serwas2019humandef6deficiency pages 7-7</a>, <a href="#ref-serwas2019humandef6deficiency-pages-6-7">serwas2019humandef6deficiency pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Supported approach from available evidence: molecular sequencing confirming biallelic DEF6 variants in patients with early immune dysregulation plus functional corroboration using CTLA-4 trafficking/cycling or ligand-uptake assays in T cells when available. No disease-specific formal diagnostic criteria, screening program, or validated biomarker panel was identified.</td>
+<td>Direct human evidence + expert extrapolation</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>, <a href="#ref-sogkas2021cellularandmolecular-pages-4-5">sogkas2021cellularandmolecular pages 4-5</a>)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Directly reported care included immunoglobulin replacement, antibiotics/anti-infectives, conventional immunosuppression for autoimmune complications, and targeted CTLA-4-Ig (abatacept). One patient treated from 15 months had marked improvement and sustained remission over ~4 years. No DEF6-specific HSCT, gene therapy, RNA therapy, or trial evidence was identified.</td>
+<td>Direct human treatment evidence</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Clinical course appears severe and variable: 1 of 3 known patients died in infancy; another had sustained remission of autoimmunity and stable cardiorespiratory status on abatacept; persistent infection susceptibility remained a concern despite supportive therapy. Long-term survival, penetrance, and natural-history estimates are unknown.</td>
+<td>Direct human follow-up evidence</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</td>
+</tr>
+<tr>
+<td>Major knowledge gaps</td>
+<td>No verified disease-specific population prevalence/incidence, no large natural-history study, no robust genotype-phenotype map, no established penetrance estimate, no DEF6-specific interventional trial, no validated prevention strategy, and no standardized diagnostic or management guideline. Mouse/model work suggests broader roles in T-cell signaling, TFH/TH17 biology, lupus-like disease, arthritis, and osteoclastogenesis, but these are not yet equivalent to proven human disease features.</td>
+<td>Explicit gap statement with model/extrapolation boundary</td>
+<td>(<a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-manni2017regulationofsystemic-pages-6-7">manni2017regulationofsystemic pages 6-7</a>, <a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-6-8">binder2017def6restrainsosteoclastogenesis pages 6-8</a>, <a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-3-4">binder2017def6restrainsosteoclastogenesis pages 3-4</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table provides a compact disease knowledge-base summary for DEF6 deficiency, separating direct human evidence from model-based extrapolation. It is useful for quickly identifying what is established, what is clinically actionable, and where major evidence gaps remain.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition</h3>
+<p>DEF6 deficiency is a monogenic immune-regulatory disorder in which defective DEF6-dependent vesicular trafficking reduces functional <strong>CTLA-4</strong> availability on activated conventional and regulatory T cells. Loss of this inhibitory checkpoint causes systemic autoimmunity, while broader T- and B-cell abnormalities confer susceptibility to infection. It is best classified as an <strong>IEI with immune dysregulation/systemic autoimmunity</strong> and, mechanistically, a secondary CTLA-4 trafficking disorder or Tregopathy. (<a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-sogkas2021cellularandmolecular-pages-4-5">sogkas2021cellularandmolecular pages 4-5</a>)</p>
+<h3>Names and identifiers</h3>
+<ul>
+<li>Preferred name: <strong>DEF6 deficiency</strong>.</li>
+<li>Descriptive synonym: <strong>immunodeficiency syndrome with systemic autoimmunity and aberrant CTLA-4 homeostasis</strong>.</li>
+<li>Gene/protein aliases: <strong>differentially expressed in FDCP6 homolog</strong>, <strong>SLAT</strong> (“SWAP-70-like adaptor of T cells”), and <strong>IBP</strong> (“IRF4-binding protein”). (<a href="#ref-serwas2019humandef6deficiency-pages-15-15">serwas2019humandef6deficiency pages 15-15</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</li>
+<li>Disease-specific <strong>MONDO, Orphanet, MeSH, ICD-10, and ICD-11 identifiers were not verified in the retrieved evidence</strong>. A knowledge base should not substitute a generic immunodeficiency or autoimmunity code as if it were disease-specific.</li>
+<li>The disease appears to correspond to the OMIM phenotype commonly called <em>immunodeficiency 68 with or without autoimmunity</em>, but its numerical OMIM identifier was not established by the retrieved primary text and should be verified directly against current OMIM before ingestion.</li>
+</ul>
+<p>The primary data are <strong>individual-patient research records</strong>, pathology, immunophenotyping, sequencing, and functional experiments, not EHR-scale or registry-level aggregated data. Later sources are disease-level reviews.</p>
+<h3>Foundational citation and abstract quotation</h3>
+<p>Serwas NK et al., “Human DEF6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant CTLA-4 homeostasis,” <em>Nature Communications</em> 10:3106, published July 2019. DOI/URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>. The PMID was not present in the retrieved full text and should be checked in PubMed rather than guessed. (<a href="#ref-serwas2019humandef6deficiency-pages-15-15">serwas2019humandef6deficiency pages 15-15</a>, <a href="#ref-serwas2019humandef6deficiency-pages-14-15">serwas2019humandef6deficiency pages 14-15</a>)</p>
+<p>The abstract states: <strong>“Here, we identify biallelic mutations in three patients from two unrelated families … as the molecular cause of an inborn error of immunity with systemic autoimmunity.”</strong> It further reports that <strong>“Patient T cells exhibit impaired regulation of CTLA-4 surface trafficking associated with reduced functional CTLA-4 availability.”</strong> (<a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</p>
+<h2>2. Etiology, risk, protection, and gene–environment interaction</h2>
+<h3>Causal factor</h3>
+<p>The primary cause is <strong>germline biallelic DEF6 dysfunction</strong>. Two homozygous missense variants were reported:</p>
+<ol>
+<li><strong>c.991G&gt;A, p.Glu331Lys (E331K)</strong> in two siblings from family A, affecting the PH–DH region and reducing protein abundance and RAB11 binding.</li>
+<li><strong>c.628T&gt;G, p.Tyr210Asp (Y210D)</strong> in one patient from family B, causing marked protein instability; proteasome inhibition restored mutant protein in vitro. (<a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-serwas2019humandef6deficiency-pages-5-6">serwas2019humandef6deficiency pages 5-6</a>)</li>
+</ol>
+<p>Both were predicted damaging and were absent in homozygous form from ExAC, gnomAD, and TOPMed in the 2019 analysis. They should be curated as disease-associated, functionally supported biallelic variants; current ClinVar assertions and ACMG classifications require direct database verification. (<a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</p>
+<h3>Risk factors</h3>
+<ul>
+<li><strong>Genetic:</strong> two pathogenic/hypomorphic alleles; parental consanguinity and an affected sibling are major family-level risk indicators. Family A was Pakistani and consanguineous; family B had consanguineous Iraqi parents. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</li>
+<li><strong>Environmental/lifestyle:</strong> no toxins, diet, smoking, alcohol, occupation, radiation, sex-specific exposure, or lifestyle factor has been shown to cause DEF6 deficiency.</li>
+<li><strong>Infection as trigger:</strong> infection is not the primary cause, but immune challenges may reveal disease. In P3, autoimmune hemolytic anemia appeared during CMV infection; this is compatible with infection-triggered expression of autoimmunity but does not establish a general gene–environment interaction. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>)</li>
+<li><strong>Modifiers:</strong> no validated modifier genes, protective alleles, environmental protective factors, or epigenetic modifiers have been reported.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p>Frequencies are calculated from the three published patients only and are therefore highly unstable.</p>
+<h3>Core clinical and laboratory features</h3>
+<ul>
+<li><strong>Infantile onset:</strong> all three had clinically important disease during infancy (3/3). P1 developed watery diarrhea in the first month; P2 had neonatal/premature multisystem disease; P3 presented at seven months. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a> Infantile onset</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+<li><strong>Enteropathy/diarrhea:</strong> severe watery diarrhea, bowel inflammation, villous atrophy, T-cell/eosinophilic infiltration, rectal/perianal lesions, or necrotizing enterocolitis-like intestinal disease occurred in both family-A siblings (2/3). Suggested HPO: <strong>Chronic diarrhea</strong>, <strong>Enteropathy</strong>, <strong>Villous atrophy</strong>, <strong>Abnormality of the gastrointestinal tract</strong>. Course was severe and chronic before targeted therapy. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</li>
+<li><strong>Recurrent infections:</strong> reported across the cohort, involving bacterial, viral, and fungal organisms. Documented organisms included <em>Streptococcus pneumoniae</em>, <em>Staphylococcus aureus</em>, <em>Enterobacter aerogenes</em>, <em>Enterococcus faecalis</em>, rhinovirus, influenza B, RSV, rotavirus, CMV, and <em>Malassezia furfur</em>. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a> Recurrent infections</strong>, <strong>Recurrent respiratory infections</strong>, <strong>Viral infection</strong>, <strong>Fungal infection</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</li>
+<li><strong>Liver/lymphoid-organ disease:</strong> hepatomegaly or hepatosplenomegaly occurred in the family-A patients; P2 developed cholestasis and liver failure. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> Hepatomegaly</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a> Splenomegaly</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" rel="noopener noreferrer">HP:0001396</a> Cholestasis</strong>, <strong>Liver failure</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+<li><strong>Cardiac disease:</strong> the siblings had cardiomyopathy and/or congenital structural heart disease; P2 had atrioventricular septal defect, progressive heart failure and pacemaker requirement, while P1 had biventricular hypertrophy and atrial septal defect. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" rel="noopener noreferrer">HP:0001638</a> Cardiomyopathy</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a> Atrial septal defect</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0006695" target="_blank" rel="noopener noreferrer">HP:0006695</a> Atrioventricular septal defect</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> Congestive heart failure</strong>. Whether congenital heart anomalies are intrinsic DEF6 manifestations remains uncertain because only one family was affected. (<a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+<li><strong>Autoimmune cytopenia:</strong> P3 developed autoimmune hemolytic anemia during CMV infection (1/3); direct Coombs positivity was also recorded. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" rel="noopener noreferrer">HP:0001890</a> Autoimmune hemolytic anemia</strong>, <strong>Positive direct antiglobulin test</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</li>
+<li><strong>Autoantibodies:</strong> ANCA, anticardiolipin, anti-β2-glycoprotein and smooth-muscle antibodies were reported. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" rel="noopener noreferrer">HP:0002960</a> Autoimmunity</strong>, <strong>Abnormal circulating autoantibody concentration</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</li>
+<li><strong>Immunologic abnormalities:</strong> T-cell/CD8 lymphopenia, reduced CD25-high/CD127-low/FOXP3-positive Tregs, low class-switched memory B cells, decreased mature NK cells, hypogammaglobulinemia and poor tetanus/pneumococcal antibody responses were found variably. P1 had IgG 1.60 g/L, IgA 0.009 g/L and IgM 0.17 g/L at one assessment; neutrophil phagocytosis and oxidative burst were normal. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" rel="noopener noreferrer">HP:0005403</a> T-cell lymphopenia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" rel="noopener noreferrer">HP:0004313</a> Decreased circulating antibody level</strong>, <strong>Hypogammaglobulinemia</strong>, <strong>Impaired specific antibody response</strong>, <strong>Decreased switched memory B-cell count</strong>, and <strong>Decreased regulatory T-cell count</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</li>
+</ul>
+<h3>Severity, progression, and quality of life</h3>
+<p>Severity ranged from life-threatening infantile multiorgan disease to treatable chronic immune dysregulation. Enteropathy impaired nutrition and required intensive care/parenteral nutrition in P2; recurrent infection and cardiopulmonary disease increased care burden. No EQ-5D, SF-36, PROMIS, developmental, educational, or formal disability measurements have been published. One patient died at 10.5 months; P1 achieved sustained control of autoimmunity with abatacept. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</p>
+<h2>4. Genetic and molecular information</h2>
+<ul>
+<li><strong>Causal gene:</strong> <strong>DEF6</strong>; HGNC/NCBI Gene/Ensembl/OMIM gene numbers should be imported from their current authoritative records rather than inferred from this literature set.</li>
+<li><strong>Inheritance:</strong> autosomal recessive; variants are constitutional/germline, not somatic. (<a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>, <a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</li>
+<li><strong>Variant classes:</strong> both known disease alleles are missense variants with partial or severe loss of protein/function. E331K is defective in RAB11 interaction and functional rescue; Y210D is strongly destabilized. Thus, the most defensible functional annotation is <strong>loss of function/hypomorphic loss of function</strong>, not gain of function or dominant negative. (<a href="#ref-serwas2019humandef6deficiency-pages-5-6">serwas2019humandef6deficiency pages 5-6</a>, <a href="#ref-serwas2019humandef6deficiency-pages-8-9">serwas2019humandef6deficiency pages 8-9</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>)</li>
+<li><strong>Population frequency:</strong> no homozygotes in the population resources queried in 2019; exact allele frequencies were not available in the retrieved excerpts. (<a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</li>
+<li><strong>Protein architecture:</strong> DEF6 contains an N-terminal EF-hand, ITAM-like sequence, phosphoinositide-binding PH domain and C-terminal DH-like GEF region. Resting DEF6 is autoinhibited; TCR engagement and LCK-mediated phosphorylation open the molecule and recruit it to the immunological synapse. (<a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-3-4">binder2017def6restrainsosteoclastogenesis pages 3-4</a>, <a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-11-12">binder2017def6restrainsosteoclastogenesis pages 11-12</a>, <a href="#ref-manni2017regulationofsystemic-pages-12-14">manni2017regulationofsystemic pages 12-14</a>)</li>
+<li><strong>Modifier genes, epigenetics, and chromosomal abnormalities:</strong> none established. There is no evidence that aneuploidy, translocation, inversion, methylation disorder, repeat expansion, or mitochondrial mutation causes this phenotype.</li>
+</ul>
+<h2>5. Environmental and infectious information</h2>
+<p>There is no evidence for a primary environmental, toxic, dietary, occupational, radiation, or lifestyle etiology. Infectious agents are <strong>complications or possible immune triggers</strong>, not inherited-cause substitutes. CMV coincided with hemolytic anemia in P3, while respiratory, enteric, bacterial and fungal infections reflected immunodeficiency. No zoonotic or transmissible form exists. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Principal human causal chain</h3>
+<p><strong>Biallelic DEF6 variant → reduced/unstable DEF6 or impaired PH–DH function → defective binding/GEF activity toward RAB11 → loss of RAB11-positive CTLA-4 recycling vesicles → impaired CTLA-4 cycling to the T-cell surface → reduced CD80/CD86 capture and transendocytosis → inadequate inhibition of antigen-presenting-cell/T-cell costimulation → systemic autoimmunity and lymphoproliferation.</strong> Parallel defects in T-cell signaling, lymphocyte composition and antibody responses contribute to infection susceptibility. (<a href="#ref-serwas2019humandef6deficiency-pages-8-9">serwas2019humandef6deficiency pages 8-9</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-8">serwas2019humandef6deficiency pages 7-8</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-7">serwas2019humandef6deficiency pages 7-7</a>)</p>
+<p>The evidence is unusually strong for an ultra-rare disease: patient CD4 T cells and memory Tregs had impaired CTLA-4 cycling; CRISPR DEF6-knockout Jurkat cells phenocopied the defect; wild-type DEF6 rescued it, whereas E331K did not; RAB11 abundance itself was normal; and co-immunoprecipitation established DEF6–RAB11 interaction. (<a href="#ref-serwas2019humandef6deficiency-pages-8-9">serwas2019humandef6deficiency pages 8-9</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-8">serwas2019humandef6deficiency pages 7-8</a>, <a href="#ref-serwas2019humandef6deficiency-pages-6-7">serwas2019humandef6deficiency pages 6-7</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-9">serwas2019humandef6deficiency pages 9-9</a>)</p>
+<p>Suggested annotations:</p>
+<ul>
+<li>GO biological processes: <strong>T-cell receptor signaling</strong>, <strong>regulation of immune response</strong>, <strong>vesicle-mediated transport</strong>, <strong>recycling endosome organization</strong>, <strong>regulation of T-cell activation</strong>, <strong>small-GTPase-mediated signal transduction</strong>, <strong>actin cytoskeleton organization</strong>, and <strong>calcium-mediated signaling</strong>.</li>
+<li>GO cellular components: <strong>immunological synapse</strong>, <strong>recycling endosome</strong>, <strong>cytoplasmic vesicle</strong>, <strong>plasma membrane</strong>, <strong>cytosol</strong>, and <strong>nucleus</strong>.</li>
+<li>Cell Ontology: <strong><a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> T cell</strong>, <strong><a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" rel="noopener noreferrer">CL:0000815</a> regulatory T cell</strong>, <strong><a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a> CD4-positive alpha-beta T cell</strong>, <strong><a href="http://purl.obolibrary.org/obo/CL_0000785" target="_blank" rel="noopener noreferrer">CL:0000785</a> mature B cell</strong>, <strong><a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a> natural killer cell</strong>, <strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> macrophage</strong>, and <strong><a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> osteoclast</strong>.</li>
+</ul>
+<h3>Additional DEF6 biology—model or contextual evidence</h3>
+<p>In T cells, DEF6 activates RAC and CDC42, regulates actin dynamics, synapse formation and Ca²⁺/NFAT signaling, sequesters IRF4, limits ROCK2-dependent IRF4 phosphorylation, and restrains TH17/IL-17/IL-21 and TFH programs. It also inhibits assembly of a p62–TRAF6–Raptor complex, thereby regulating mTORC1-dependent translation, including BCL6. These pathways plausibly modify the human phenotype but the RAB11–CTLA-4 defect is the mechanism directly demonstrated in patients. (<a href="#ref-manni2017regulationofsystemic-pages-3-4">manni2017regulationofsystemic pages 3-4</a>, <a href="#ref-manni2017regulationofsystemic-pages-12-14">manni2017regulationofsystemic pages 12-14</a>)</p>
+<p>In myeloid/osteoclast models, DEF6 promotes an autocrine IFN-β brake on the c-FOS–NFATC1–BLIMP1 osteoclastogenic axis. Def6-null precursors are hypersensitive to RANKL and can undergo TNF-driven osteoclastogenesis; mice develop reduced trabecular bone and enhanced inflammatory erosion. These are credible downstream biological roles but osteoporosis or inflammatory arthritis has not yet been established as a recurrent human DEF6-deficiency phenotype. (<a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-9-11">binder2017def6restrainsosteoclastogenesis pages 9-11</a>, <a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-6-8">binder2017def6restrainsosteoclastogenesis pages 6-8</a>)</p>
+<p>No disease-specific single-cell, spatial-transcriptomic, metabolomic, lipidomic, patient proteomic, organoid, iPSC, or multi-omics signature has been validated. The 2019 work used primary immune cells, conventional immunophenotyping, microscopy, co-immunoprecipitation and engineered cell models rather than clinical multi-omics.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>Directly observed sites include:</p>
+<ul>
+<li><strong>Immune/lymphoid system:</strong> circulating T, B and NK cells; spleen and lymphoid compartments. Suggested UBERON: blood, spleen, lymph node, thymus.</li>
+<li><strong>Gastrointestinal tract:</strong> stomach, duodenum, colon, rectum/perianal region; mucosa and villi were affected. Suggested UBERON: stomach, duodenum, colon, rectum, intestinal mucosa, intestinal villus. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</li>
+<li><strong>Liver:</strong> hepatomegaly, cholestasis and liver failure in severe disease. Suggested UBERON: liver, intrahepatic biliary system. (<a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+<li><strong>Heart:</strong> myocardium and septal structures in family A. Suggested UBERON: heart, myocardium, atrial septum, ventricular septum. (<a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+<li><strong>Bone in models:</strong> trabecular bone and osteoclast surfaces; human relevance remains unproven. (<a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-6-8">binder2017def6restrainsosteoclastogenesis pages 6-8</a>)</li>
+</ul>
+<p>At the subcellular level, the critical sites are the <strong>recycling endosome, CTLA-4-positive vesicle, immunological synapse, plasma membrane, cytosol and nucleus</strong>. No consistent lateralization is applicable.</p>
+<h2>8. Temporal development and natural history</h2>
+<p>Typical recognized onset is <strong>congenital/infantile</strong>, often chronic and multisystemic. The course can be progressive, episodic with infections, or treatment-responsive. P1 began with diarrhea during the first month; P3 presented at seven months; P2 had severe neonatal/infantile disease and died at 10.5 months. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</p>
+<p>No validated stages exist. A pragmatic clinical sequence is: early infection/enteropathy or autoimmune cytopenia → evolving lymphoproliferation, antibody deficiency and systemic autoimmunity → organ complications. Remission may be treatment-induced: P1's bowel inflammation improved within approximately one month of abatacept, and no overt autoimmune recurrence was reported over about four years. No spontaneous-remission rate or critical intervention window has been quantified, although the observed infantile severity supports early genomic diagnosis and immune-directed treatment. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>)</p>
+<h2>9. Inheritance and population</h2>
+<ul>
+<li><strong>Pattern:</strong> autosomal recessive.</li>
+<li><strong>Penetrance:</strong> apparently high among the three biallelic affected individuals, but numerically unknowable; age-dependent and organ-specific penetrance cannot be estimated.</li>
+<li><strong>Expressivity:</strong> clearly variable, including lethal infantile cardiomyopathy/multiorgan failure, predominant enteropathy, and CMV-associated autoimmune hemolysis.</li>
+<li><strong>Anticipation, germline mosaicism and founder effect:</strong> not reported.</li>
+<li><strong>Consanguinity:</strong> present in both discovery families and important for case ascertainment, but not biologically required for autosomal-recessive disease. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</li>
+<li><strong>Prevalence/incidence/carrier frequency:</strong> unknown; no cases-per-100,000 estimate or registry-based denominator exists.</li>
+<li><strong>Demographics:</strong> two girls were siblings in a Pakistani family; P3 came from an Iraqi family. The dataset is too small to infer ethnicity, geography, sex ratio or age distribution. No sex-limited inheritance exists.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<h3>Clinical recognition</h3>
+<p>Consider DEF6 deficiency in an infant or child with a <strong>CTLA-4/LRBA-like syndrome</strong>: autoimmune enteropathy, autoimmune cytopenia, hepatosplenomegaly/lymphoproliferation, hypogammaglobulinemia or impaired vaccine responses, and recurrent infections—especially with consanguinity or similarly affected siblings. DEF6-mutated patients may lack some T-cell activation/exhaustion features described in CTLA4 or LRBA disease, so phenotype alone is insufficient. (<a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-sogkas2021cellularandmolecular-pages-4-5">sogkas2021cellularandmolecular pages 4-5</a>)</p>
+<h3>Recommended work-up</h3>
+<ol>
+<li>CBC with differential; lymphocyte subsets and naïve/memory phenotyping.</li>
+<li>Quantitative IgG/IgA/IgM and vaccine-specific antibodies.</li>
+<li>Treg enumeration using an age-appropriate CD4/CD25-high/CD127-low/FOXP3 panel.</li>
+<li>Autoimmune testing guided by presentation: direct antiglobulin test, hemolysis profile, ANCA, antiphospholipid and organ-specific antibodies.</li>
+<li>Microbiological testing, including CMV/EBV where clinically indicated.</li>
+<li>Fecal calprotectin, endoscopy and intestinal biopsy for severe diarrhea; biopsy may show villous atrophy and lymphocytic/eosinophilic infiltration.</li>
+<li>Cardiac echocardiography/ECG where symptoms or family history warrant it; liver chemistry and imaging for hepatobiliary disease. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-3-5">serwas2019humandef6deficiency pages 3-5</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+</ol>
+<h3>Genetic diagnosis</h3>
+<p>Use an IEI/immune-dysregulation panel containing <strong>DEF6</strong>, <strong>CTLA4</strong>, <strong>LRBA</strong> and other Tregopathy/autoimmune-lymphoproliferation genes, or trio WES/WGS when the phenotype is broad. Confirm candidate variants by an orthogonal method and test segregation. Single-gene sequencing is efficient when a familial DEF6 variant is known. Copy-number analysis should accompany sequencing where technically possible. CMA, karyotype, FISH, mitochondrial and repeat-expansion testing are not first-line unless another diagnosis is suspected.</p>
+<p>Functional confirmation may include DEF6 protein abundance, stimulated CTLA-4 expression/cycling, CD80/CD86 uptake or transendocytosis, and RAB11–CTLA-4 colocalization in specialized laboratories. These are research-supported assays, not standardized diagnostic criteria. (<a href="#ref-serwas2019humandef6deficiency-pages-8-9">serwas2019humandef6deficiency pages 8-9</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-8">serwas2019humandef6deficiency pages 7-8</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-7">serwas2019humandef6deficiency pages 7-7</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</p>
+<h3>Differential diagnosis</h3>
+<p>Major differentials include <strong>CTLA-4 haploinsufficiency</strong>, <strong>LRBA deficiency</strong>, <strong>FOXP3/IPEX</strong>, activated PI3Kδ syndrome, STAT3 gain-of-function disease, autoimmune lymphoproliferative syndrome, common variable immunodeficiency, NBEAL2 deficiency with immune dysregulation, and monogenic inflammatory bowel disease. The strongest mechanistic mimics are CTLA4 and LRBA disorders because all reduce functional CTLA-4 checkpoint activity. (<a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-sogkas2021cellularandmolecular-pages-4-5">sogkas2021cellularandmolecular pages 4-5</a>)</p>
+<p>No population or newborn screening program exists. Cascade testing is appropriate after molecular diagnosis.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>One of the three discovery patients died at 10.5 months from cardiomyopathy-associated multiorgan failure, giving a crude discovery-cohort mortality of <strong>1/3</strong>, which must not be interpreted as a population mortality rate. P1 remained without overt recurrent autoimmunity and had stable cardiorespiratory function approximately four years after starting abatacept. Persistent infection susceptibility can continue despite immunoglobulin replacement and immune control. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>)</p>
+<p>No five- or ten-year survival rate, median life expectancy, validated prognostic score, disability scale, or prognostic biomarker exists. Plausible adverse indicators include neonatal onset, severe enteropathy, cardiomyopathy, liver failure, recurrent sepsis, profound lymphopenia and uncontrolled autoimmunity, but none has been validated statistically.</p>
+<h2>12. Treatment and current implementation</h2>
+<p>Treatment is individualized in an expert pediatric immunology/IEI center.</p>
+<ul>
+<li><strong>Abatacept (CTLA-4-Ig):</strong> the principal mechanism-directed therapy. P1 began four-weekly abatacept at 15 months. Bowel inflammation improved within about one month, villous atrophy and lymphocytic infiltration resolved, perianal lesions reversed, and remission persisted for approximately four years. This is compelling single-patient precision-medicine evidence, not a response-rate trial. Suggested NCIt term: <strong>Abatacept</strong> / <strong>CTLA-4 immunoglobulin</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</li>
+<li><strong>Immunoglobulin replacement:</strong> used for low immunoglobulins and poor vaccine titers; all reported patients received regular immunoglobulin treatment. Suggested NCIt: <strong>Intravenous Immunoglobulin Therapy</strong> or <strong>Immunoglobulin Replacement Therapy</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+<li><strong>Anti-infective therapy:</strong> organism-directed antibiotics and antivirals; P3 received ganciclovir/valganciclovir for CMV. Suggested NCIt: <strong>Antibiotic Therapy</strong>, <strong>Antiviral Therapy</strong>, <strong>Ganciclovir</strong>, <strong>Valganciclovir</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>)</li>
+<li><strong>Conventional immunosuppression:</strong> corticosteroids and azathioprine were used for autoimmune hemolytic anemia. Suggested NCIt: <strong>Corticosteroid Therapy</strong>, <strong>Azathioprine</strong>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>)</li>
+<li><strong>Organ-supportive care:</strong> nutritional therapy, management of heart failure and structural cardiac disease, and liver/critical-care support according to phenotype. P1 received enalapril, atenolol, spironolactone and furosemide for cardiac disease. (<a href="#ref-serwas2019humandef6deficiency-pages-10-11">serwas2019humandef6deficiency pages 10-11</a>)</li>
+</ul>
+<p>No DEF6-specific randomized trial, approved gene therapy, CRISPR therapy, RNA therapy, CAR-T approach, or published DEF6-specific hematopoietic stem-cell transplantation outcome was identified. HSCT may be discussed by analogy with severe immune-dysregulation IEIs, but efficacy and risk in DEF6 deficiency are unknown. Abatacept can itself contribute to infection risk, requiring surveillance. (<a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>)</p>
+<h2>13. Prevention</h2>
+<p>The genetic defect cannot presently be prevented by lifestyle modification.</p>
+<ul>
+<li><strong>Primary prevention/family planning:</strong> genetic counseling, parental carrier testing, reproductive options including preimplantation genetic testing and prenatal diagnosis once familial variants are known.</li>
+<li><strong>Secondary prevention:</strong> cascade testing of siblings and relatives; prompt evaluation of infants at 25% Mendelian recurrence risk; early immune, gastrointestinal, hepatic and cardiac assessment.</li>
+<li><strong>Tertiary prevention:</strong> immunoglobulin replacement where indicated, rapid treatment of infections, vaccination planning under immunology guidance, monitoring for CMV/other opportunistic infection when immunosuppressed, surveillance for enteropathy, cytopenias, liver disease and cardiac dysfunction, and early control of autoimmunity.</li>
+</ul>
+<p>No DEF6-specific vaccine, antimicrobial-prophylaxis regimen, public-health program, newborn screen or evidence-based behavioral intervention exists. Live-vaccine decisions must be individualized to immune competence rather than inferred solely from genotype.</p>
+<h2>14. Other species and natural disease</h2>
+<p>The human disorder is not infectious or zoonotic. No naturally occurring veterinary DEF6-deficiency syndrome or breed association was identified. The principal comparative species is <strong>mouse (<em>Mus musculus</em>, NCBI Taxon 10090)</strong>, which has the ortholog <strong>Def6</strong>. Ortholog-specific NCBI Gene and VBO identifiers require direct database retrieval.</p>
+<p>Evolutionary conservation is supported by shared roles in lymphocyte signaling and autoimmunity, but mouse manifestations are highly background-dependent. Consequently, mouse lupus, arthritis and bone phenotypes should be annotated as comparative-model evidence—not natural human manifestations. (<a href="#ref-biswas2010irf4andits-pages-14-15">biswas2010irf4andits pages 14-15</a>, <a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-3-4">binder2017def6restrainsosteoclastogenesis pages 3-4</a>)</p>
+<h2>15. Model organisms and experimental systems</h2>
+<h3>Mouse models</h3>
+<ul>
+<li><strong>Def6-null, mixed 129/B6 background:</strong> approximately 60% of females developed lupus-like disease by five months, including lymphadenopathy, splenomegaly, hypergammaglobulinemia, anti-dsDNA antibodies and glomerulonephritis. (<a href="#ref-biswas2010irf4andits-pages-14-15">biswas2010irf4andits pages 14-15</a>)</li>
+<li><strong>Def6-null × DO11.10 TCR-transgenic BALB/c:</strong> RA-like disease began around two months, with symmetric joint swelling, synovitis, pannus, cartilage/subchondral bone destruction, rheumatoid factor and anti-CCP antibodies. (<a href="#ref-biswas2010irf4andits-pages-14-15">biswas2010irf4andits pages 14-15</a>, <a href="#ref-biswas2010irf4andits-pages-15-16">biswas2010irf4andits pages 15-16</a>)</li>
+<li><strong>Def6/Swap70 double knockout:</strong> female-biased systemic autoimmunity, TFH/TH17 expansion, aged/atypical CD11c-positive T-bet-positive B-cell accumulation, anti-DNA/nuclear antibodies and immune-complex glomerulonephritis; IL-21 signaling is important. (<a href="#ref-manni2017regulationofsystemic-pages-6-7">manni2017regulationofsystemic pages 6-7</a>, <a href="#ref-manni2017regulationofsystemic-pages-7-9">manni2017regulationofsystemic pages 7-9</a>)</li>
+<li><strong>C57BL/6 Def6-null:</strong> may lack spontaneous autoantibodies/systemic disease, highlighting strain effects. Independently, these mice show excessive RANKL/TNF-driven osteoclastogenesis, osteopenia and inflammatory bone erosion. (<a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-6-8">binder2017def6restrainsosteoclastogenesis pages 6-8</a>, <a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-3-4">binder2017def6restrainsosteoclastogenesis pages 3-4</a>)</li>
+</ul>
+<h3>Cellular models</h3>
+<p>Primary patient PBMCs/CD4 T cells, feeder-expanded T cells, CRISPR DEF6-knockout Jurkat cells, reconstitution with wild-type or E331K DEF6, and HEK293T co-immunoprecipitation systems established the RAB11–CTLA-4 trafficking mechanism. Wild-type—but not mutant—DEF6 rescued trafficking, satisfying a strong functional-causality criterion. (<a href="#ref-serwas2019humandef6deficiency-pages-8-9">serwas2019humandef6deficiency pages 8-9</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>, <a href="#ref-serwas2019humandef6deficiency-pages-7-8">serwas2019humandef6deficiency pages 7-8</a>)</p>
+<h3>Model limitations</h3>
+<p>Mouse disease depends strongly on strain, sex, TCR transgene and concurrent Swap70 loss. Mice prominently model lupus, arthritis and bone loss, whereas the known human syndrome emphasizes infantile enteropathy, infections, antibody deficiency and CTLA-4 trafficking. Jurkat and overexpression systems clarify molecular interactions but cannot reproduce tissue-level disease, development, infection susceptibility or treatment toxicity.</p>
+<h2>Current assessment and priority research needs</h2>
+<p>The most authoritative interpretation is that DEF6 deficiency is a <strong>RAB11-dependent CTLA-4 recycling disorder with broader TCR-signaling effects</strong>. The abatacept response is a notable real-world example of mechanism-guided therapy, but it rests on one treated patient. Priorities are international case aggregation, standardized phenotyping and CTLA-4 functional assays, contemporary ClinVar/gnomAD curation, longitudinal infection and malignancy surveillance, formal HSCT evaluation, and genotype–phenotype studies. Larger cohorts are explicitly required to define the full clinical spectrum. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-9-10">serwas2019humandef6deficiency pages 9-10</a>)</p>
+<h3>Evidence-source hierarchy</h3>
+<ul>
+<li><strong>Direct human clinical/genetic:</strong> Serwas et al., July 2019, DOI <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>. (<a href="#ref-serwas2019humandef6deficiency-pages-2-3">serwas2019humandef6deficiency pages 2-3</a>, <a href="#ref-serwas2019humandef6deficiency-pages-1-2">serwas2019humandef6deficiency pages 1-2</a>)</li>
+<li><strong>Current expert synthesis:</strong> Sogkas et al., published April 2021, DOI <a href="https://doi.org/10.1038/s41423-020-00626-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41423-020-00626-z</a>; 2024 Tregopathy reviews support current placement but do not materially enlarge the DEF6 cohort. (<a href="#ref-sogkas2021cellularandmolecular-pages-4-5">sogkas2021cellularandmolecular pages 4-5</a>)</li>
+<li><strong>Mechanistic/model literature:</strong> Binder et al., May 2017, DOI <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.1601716</a>; Manni et al., November 2017, DOI <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.cellimm.2017.05.010</a>. (<a href="#ref-binder2017def6restrainsosteoclastogenesis-pages-3-4">binder2017def6restrainsosteoclastogenesis pages 3-4</a>, <a href="#ref-manni2017regulationofsystemic-pages-6-7">manni2017regulationofsystemic pages 6-7</a>)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-2-3"></a>(serwas2019humandef6deficiency pages 2-3): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-9-10"></a>(serwas2019humandef6deficiency pages 9-10): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-sogkas2021cellularandmolecular-pages-4-5"></a>(sogkas2021cellularandmolecular pages 4-5): Georgios Sogkas, Faranaz Atschekzei, Ignatius Ryan Adriawan, Natalia Dubrowinskaja, Torsten Witte, and Reinhold Ernst Schmidt. Cellular and molecular mechanisms breaking immune tolerance in inborn errors of immunity. Cellular and Molecular Immunology, 18:1122-1140, Apr 2021. URL: <a href="https://doi.org/10.1038/s41423-020-00626-z" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41423-020-00626-z</a>, <a href="https://doi.org/10.1038/s41423-020-00626-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41423-020-00626-z</a>. This article has 103 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-1-2"></a>(serwas2019humandef6deficiency pages 1-2): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-15-15"></a>(serwas2019humandef6deficiency pages 15-15): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-3-5"></a>(serwas2019humandef6deficiency pages 3-5): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-10-11"></a>(serwas2019humandef6deficiency pages 10-11): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-8-9"></a>(serwas2019humandef6deficiency pages 8-9): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-7-8"></a>(serwas2019humandef6deficiency pages 7-8): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-7-7"></a>(serwas2019humandef6deficiency pages 7-7): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-6-7"></a>(serwas2019humandef6deficiency pages 6-7): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-manni2017regulationofsystemic-pages-6-7"></a>(manni2017regulationofsystemic pages 6-7): Michela Manni, Edd Ricker, and Alessandra B. Pernis. Regulation of systemic autoimmunity and cd11c+ tbet+ b cells by swef proteins. Cellular immunology, 321:46-51, Nov 2017. URL: <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.cellimm.2017.05.010</a>, <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">doi:10.1016/j.cellimm.2017.05.010</a>. This article has 30 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-binder2017def6restrainsosteoclastogenesis-pages-6-8"></a>(binder2017def6restrainsosteoclastogenesis pages 6-8): N. Binder, Christine H. Miller, Masaki Yoshida, Kazuki Inoue, Shinichi Nakano, Xiaoyu Hu, L. Ivashkiv, L. Ivashkiv, G. Schett, Alessandra B. Pernis, Alessandra B. Pernis, S. Goldring, F. Ross, Baohong Zhao, and Baohong Zhao. Def6 restrains osteoclastogenesis and inflammatory bone resorption. The Journal of Immunology, 198:3436-3447, May 2017. URL: <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.1601716</a>, <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">doi:10.4049/jimmunol.1601716</a>. This article has 27 citations.</p>
+</li>
+<li>
+<p><a id="ref-binder2017def6restrainsosteoclastogenesis-pages-3-4"></a>(binder2017def6restrainsosteoclastogenesis pages 3-4): N. Binder, Christine H. Miller, Masaki Yoshida, Kazuki Inoue, Shinichi Nakano, Xiaoyu Hu, L. Ivashkiv, L. Ivashkiv, G. Schett, Alessandra B. Pernis, Alessandra B. Pernis, S. Goldring, F. Ross, Baohong Zhao, and Baohong Zhao. Def6 restrains osteoclastogenesis and inflammatory bone resorption. The Journal of Immunology, 198:3436-3447, May 2017. URL: <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.1601716</a>, <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">doi:10.4049/jimmunol.1601716</a>. This article has 27 citations.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-14-15"></a>(serwas2019humandef6deficiency pages 14-15): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-5-6"></a>(serwas2019humandef6deficiency pages 5-6): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-binder2017def6restrainsosteoclastogenesis-pages-11-12"></a>(binder2017def6restrainsosteoclastogenesis pages 11-12): N. Binder, Christine H. Miller, Masaki Yoshida, Kazuki Inoue, Shinichi Nakano, Xiaoyu Hu, L. Ivashkiv, L. Ivashkiv, G. Schett, Alessandra B. Pernis, Alessandra B. Pernis, S. Goldring, F. Ross, Baohong Zhao, and Baohong Zhao. Def6 restrains osteoclastogenesis and inflammatory bone resorption. The Journal of Immunology, 198:3436-3447, May 2017. URL: <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.1601716</a>, <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">doi:10.4049/jimmunol.1601716</a>. This article has 27 citations.</p>
+</li>
+<li>
+<p><a id="ref-manni2017regulationofsystemic-pages-12-14"></a>(manni2017regulationofsystemic pages 12-14): Michela Manni, Edd Ricker, and Alessandra B. Pernis. Regulation of systemic autoimmunity and cd11c+ tbet+ b cells by swef proteins. Cellular immunology, 321:46-51, Nov 2017. URL: <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.cellimm.2017.05.010</a>, <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">doi:10.1016/j.cellimm.2017.05.010</a>. This article has 30 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-serwas2019humandef6deficiency-pages-9-9"></a>(serwas2019humandef6deficiency pages 9-9): Nina K. Serwas, Birgit Hoeger, Rico C. Ardy, Sigrun V. Stulz, Zhenhua Sui, Nima Memaran, Marie Meeths, Ana Krolo, Özlem Yüce Petronczki, Laurène Pfajfer, Tie Z. Hou, Neil Halliday, Elisangela Santos-Valente, Artem Kalinichenko, Alan Kennedy, Emily M. Mace, Malini Mukherjee, Bianca Tesi, Anna Schrempf, Winfried F. Pickl, Joanna I. Loizou, Renate Kain, Bettina Bidmon-Fliegenschnee, Jean-Nicolas Schickel, Salomé Glauzy, Jakob Huemer, Wojciech Garncarz, Elisabeth Salzer, Iro Pierides, Ivan Bilic, Jens Thiel, Peter Priftakis, Pinaki P. Banerjee, Elisabeth Förster-Waldl, David Medgyesi, Wolf-Dietrich Huber, Jordan S. Orange, Eric Meffre, David M. Sansom, Yenan T. Bryceson, Amnon Altman, and Kaan Boztug. Human def6 deficiency underlies an immunodeficiency syndrome with systemic autoimmunity and aberrant ctla-4 homeostasis. Nature Communications, Jul 2019. URL: <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-019-10812-x</a>, <a href="https://doi.org/10.1038/s41467-019-10812-x" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-019-10812-x</a>. This article has 94 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-manni2017regulationofsystemic-pages-3-4"></a>(manni2017regulationofsystemic pages 3-4): Michela Manni, Edd Ricker, and Alessandra B. Pernis. Regulation of systemic autoimmunity and cd11c+ tbet+ b cells by swef proteins. Cellular immunology, 321:46-51, Nov 2017. URL: <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.cellimm.2017.05.010</a>, <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">doi:10.1016/j.cellimm.2017.05.010</a>. This article has 30 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-binder2017def6restrainsosteoclastogenesis-pages-9-11"></a>(binder2017def6restrainsosteoclastogenesis pages 9-11): N. Binder, Christine H. Miller, Masaki Yoshida, Kazuki Inoue, Shinichi Nakano, Xiaoyu Hu, L. Ivashkiv, L. Ivashkiv, G. Schett, Alessandra B. Pernis, Alessandra B. Pernis, S. Goldring, F. Ross, Baohong Zhao, and Baohong Zhao. Def6 restrains osteoclastogenesis and inflammatory bone resorption. The Journal of Immunology, 198:3436-3447, May 2017. URL: <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">https://doi.org/10.4049/jimmunol.1601716</a>, <a href="https://doi.org/10.4049/jimmunol.1601716" target="_blank" rel="noopener noreferrer">doi:10.4049/jimmunol.1601716</a>. This article has 27 citations.</p>
+</li>
+<li>
+<p><a id="ref-biswas2010irf4andits-pages-14-15"></a>(biswas2010irf4andits pages 14-15): Partha S. Biswas, Govind Bhagat, and Alessandra B. Pernis. Irf4 and its regulators: evolving insights into the pathogenesis of inflammatory arthritis? Immunological Reviews, 233:79-96, Jan 2010. URL: <a href="https://doi.org/10.1111/j.0105-2896.2009.00864.x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/j.0105-2896.2009.00864.x</a>, <a href="https://doi.org/10.1111/j.0105-2896.2009.00864.x" target="_blank" rel="noopener noreferrer">doi:10.1111/j.0105-2896.2009.00864.x</a>. This article has 63 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-biswas2010irf4andits-pages-15-16"></a>(biswas2010irf4andits pages 15-16): Partha S. Biswas, Govind Bhagat, and Alessandra B. Pernis. Irf4 and its regulators: evolving insights into the pathogenesis of inflammatory arthritis? Immunological Reviews, 233:79-96, Jan 2010. URL: <a href="https://doi.org/10.1111/j.0105-2896.2009.00864.x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/j.0105-2896.2009.00864.x</a>, <a href="https://doi.org/10.1111/j.0105-2896.2009.00864.x" target="_blank" rel="noopener noreferrer">doi:10.1111/j.0105-2896.2009.00864.x</a>. This article has 63 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-manni2017regulationofsystemic-pages-7-9"></a>(manni2017regulationofsystemic pages 7-9): Michela Manni, Edd Ricker, and Alessandra B. Pernis. Regulation of systemic autoimmunity and cd11c+ tbet+ b cells by swef proteins. Cellular immunology, 321:46-51, Nov 2017. URL: <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.cellimm.2017.05.010</a>, <a href="https://doi.org/10.1016/j.cellimm.2017.05.010" target="_blank" rel="noopener noreferrer">doi:10.1016/j.cellimm.2017.05.010</a>. This article has 30 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/DEF6_Deficiency-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>5</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="DECR_Deficiency-falcon.html">← DECR Deficiency (Falcon)</a>
+                
+                
+                <a href="Deficiency_of_Adenosine_Deaminase_2-falcon.html">Deficiency of Adenosine Deaminase 2 (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/DEF6_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/DEF6_Deficiency-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
