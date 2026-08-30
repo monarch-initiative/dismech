@@ -48811,21 +48811,22 @@ window.searchData = [
       "RP12",
       "Macular dystrophy"
     ],
-    "description": "CRB1-associated retinal dystrophies are a spectrum of autosomal recessive inherited retinal diseases caused by biallelic pathogenic variants in CRB1, encoding Crumbs homolog 1. CRB1 is essential for external limiting membrane integrity and photoreceptor morphogenesis. Loss of CRB1 disrupts adherens junctions at the outer limiting membrane, leading to progressive photoreceptor degeneration. The clinical spectrum ranges from severe early-onset Leber congenital amaurosis (LCA8), through retinitis pigmentosa (RP12) with onset in the first two decades, to milder macular dystrophy. Distinctive features across the family include abnormally thickened and disorganized retinal lamination, nummular pigment deposits, preserved para-arteriolar retinal pigment epithelium (PPRPE), and Coats-like exudative vasculopathy. The differential phenotype is influenced by modifying factors in addition to the specific CRB1 allele combination, with null variants enriched in the EOSRD/LCA subtype.",
+    "description": "CRB1-associated retinal dystrophies are a spectrum of autosomal recessive inherited retinal diseases caused by biallelic pathogenic variants in CRB1, encoding Crumbs homolog 1. CRB1 is essential for external limiting membrane integrity and photoreceptor morphogenesis. Loss of CRB1 disrupts adherens junctions at the outer limiting membrane, leading to progressive photoreceptor degeneration. The clinical spectrum ranges from severe early-onset Leber congenital amaurosis (LCA8), through retinitis pigmentosa (RP12) with onset in the first two decades, to milder macular dystrophy. Distinctive features across the family include abnormally thickened and disorganized retinal lamination, nummular pigment deposits, preserved para-arteriolar retinal pigment epithelium (PPRPE), and Coats-like exudative vasculopathy. The differential phenotype is influenced by modifying factors in addition to the specific CRB1 allele combination, with null variants enriched in the EOSRD/LCA subtype. CRB1 is expressed in the retina as two isoforms in different cells - CRB1-A in Muller glia and CRB1-B in photoreceptors - and which of them a variant disrupts is a further determinant of where on the spectrum a patient falls.",
     "pathophysiology": [
+      "Isoform-partitioned loss of CRB1-A in Muller glia and CRB1-B in photoreceptors",
       "Loss of CRB1 at the outer limiting membrane",
       "Outer limiting membrane disruption and retinal disorganization",
       "Progressive photoreceptor degeneration and visual loss"
     ],
     "cell_types": [
-      "photoreceptor cell",
       "Mueller cell",
+      "photoreceptor cell",
       "retinal rod cell",
       "retinal cone cell"
     ],
     "cell_type_ids": [
-      "CL:0000210",
       "CL:0000636",
+      "CL:0000210",
       "CL:0000604",
       "CL:0000573"
     ],
@@ -48884,11 +48885,11 @@ window.searchData = [
     "source_file": "CRB1_Retinal_Dystrophies.yaml",
     "page_url": "../pages/disorders/CRB1_Retinal_Dystrophies.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "CRX-Related Retinopathy",
@@ -255851,12 +255852,12 @@ window.searchMetrics = {
   "total_disorder_pages": 2481,
   "total_subtypes": 3529,
   "total_disorders_and_subtypes": 6010,
-  "total_unique_evidence_sources": 35584,
-  "total_unique_publications": 33465,
+  "total_unique_evidence_sources": 35588,
+  "total_unique_publications": 33469,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
   "total_pathographs": 2476,
-  "total_unique_pathological_events": 14366,
+  "total_unique_pathological_events": 14367,
   "total_modules": 166,
   "total_research_reports": 2601,
   "total_classifications": 19,
