@@ -340,7 +340,7 @@ assert it as the current mechanism.
 - **Both sides get cited.** The hypothesis's own `evidence` list carries the founding
   supporting citations (`supports: SUPPORT`) alongside the refutations (`supports: REFUTE`),
   each with a verified snippet, so the assessment is auditable rather than editorial
-  assertion. Renderers surface the SUPPORT/PARTIAL/REFUTE split as an evidence-balance row.
+  assertion. Renderers surface the SUPPORT/REFUTE/NO_EVIDENCE split as an evidence-balance row.
 - **Disputed nodes are marked, not asserted.** A pathophysiology node that exists only to
   represent a deprecated model carries `mechanism_confidence: HYPOTHETICAL`, and its causal
   edges opt into the deprecated `hypothesis_groups` so the disputed chain stays separable
@@ -358,6 +358,62 @@ myositis (`amyloid_beta_proteotoxicity` in `kb/disorders/Inclusion_Body_Myositis
 whose literature is itself the documented subject of a citation-distortion analysis
 (PMID:19622839) — the clearest available case of citation weight outrunning data. See
 [the exploration report](../reports/ibm-amyloid-beta-hypothesis-2026-08-02.md).
+
+### 6b. `supports` is direction only; directness is a separate axis (2026-08-29)
+
+**Decision.** `EvidenceItemSupportEnum` is narrowed to `SUPPORT` / `REFUTE` /
+`NO_EVIDENCE`, and an optional `directness` slot (`DIRECT` / `INDIRECT` / `UNKNOWN`) is
+added alongside it. `PARTIAL` and `WRONG_STATEMENT` are retired. This is the partial
+adoption of the SEPIO evidence model proposed in
+[#7439](https://github.com/monarch-initiative/dismech/issues/7439).
+
+**Rationale.** `supports` conflated several unrelated judgements. Reading the curators'
+own `explanation` prose on the 11,620 `PARTIAL` items, the value was carrying at least
+four: indirect support, an inverted model system, an item that supported one claim while
+contradicting another, and plain irrelevance. `WRONG_STATEMENT` had a single use, which
+recorded that an earlier version of an entry's text was inaccurate — provenance for a
+`history/` record, not a direction of evidence.
+
+**Directness rather than strength.** #7439 proposed SEPIO's direction/strength split.
+We took direction/directness instead:
+
+- **Strength is not judgeable from the record.** It needs study design, sample size and
+  replication, none of which the evidence item holds. Directness needs the snippet and
+  the claim, both of which are right there — so two curators who disagree about
+  directness have a shared referent, and two who disagree about strength do not.
+- **The measured churn argues against it.** `scripts/check_snippet_grading.py` counts one
+  quoted sentence graded two ways in one file. Before this change: 8,285 divergences on
+  `supports` against 715 on `evidence_source`. Strength would be worse than either, being
+  a property of the evidence itself (so any divergence is a flat contradiction) *and* the
+  most judgement-laden of the three.
+- This is consistent with the §12 position that strength should be **derived** from a
+  typed, snippet-anchored experiment model rather than authored as a grade.
+
+**Migrated items are left unassessed.** All 11,620 `PARTIAL` items became `SUPPORT` with
+`directness` **absent**, not backfilled to a default. Absent means nobody has assessed the
+item, which is true of essentially the whole KB; defaulting would have manufactured 11,620
+appraisals no curator made. The population is enumerated in
+`docs/reports/data/partial-evidence-directness-worklist-2026-08-29.tsv`.
+
+**Effect.** Retiring `PARTIAL` cut `supports` divergences from 8,285 to 353 — a 96%
+reduction — which indicates most of that signal was the value's ambiguity rather than the
+legitimate claim-relativity that justifies leaving `supports` ungated. Gating it is worth
+revisiting.
+
+**Not adopted:** SEPIO's `EvidenceLine` / `DataItem` / `Document` classes. An
+`EvidenceItem` is already an evidence line holding one data item and one document, and
+`linkml-reference-validator`'s `ELLIPSIS_INSERTION` support means a single `snippet`
+already carries a discontinuous multi-span quote — which was most of what the nesting
+bought. §5's export-layer-only rule for external models therefore stands: the SEPIO
+alignment is expressed as `exact_mappings` on the dismech-native slots, and in
+`sepio_export.py`. The known cost is that evidence *about* other evidence (a rebuttal of a
+refutation, as in `glymphatic_dysfunction.yaml`) remains unrepresentable.
+
+**Consequence for the exporter.** `NO_EVIDENCE` has no SEPIO direction — SEPIO's `neutral`
+means the evidence bears on the claim without favouring a side, whereas `NO_EVIDENCE`
+means it does not bear on the claim at all. The old mapping of `NO_EVIDENCE` to `NEUTRAL`
+asserted something the curator did not and was removed; such lines now carry no
+`direction_of_evidence_provided` and retain the raw value on `dismech_supports`.
 
 
 ## 7. Curation process & governance

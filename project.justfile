@@ -1217,6 +1217,47 @@ quick-test:
 list-disorders:
     @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort
 
+# List mechanism modules with their node chains (the conformance targets).
+# This is the canonical way to discover what modules exist — CLAUDE.md
+# deliberately does NOT carry a hand-maintained module list.
+# Pass a substring to filter: `just list-modules inflamm`
+[group('KB')]
+list-modules filter="":
+    #!/usr/bin/env -S uv run python
+    import pathlib, textwrap, yaml
+    filt = {{ quote(filter) }}.lower()
+    # A filter is a targeted lookup, so it prints description AND notes in full:
+    # since the module registry left CLAUDE.md, those two fields are the only
+    # place a module's scope, sibling complementarity, drug-target pattern, key
+    # conformance target and curation guardrails live, and truncating them
+    # defeats the convention `create-module` now imposes on module authors.
+    # The unfiltered census stays clipped so ~130 modules remain scannable.
+    def emit(label, text, clip):
+        if not text:
+            return
+        kw = dict(max_lines=4, placeholder=" …") if clip else {}
+        print(textwrap.fill(text, 96, initial_indent=label, subsequent_indent="  ", **kw))
+    matched = 0
+    for path in sorted(pathlib.Path("kb/modules").glob("*.yaml")):
+        doc = yaml.safe_load(path.read_text()) or {}
+        nodes = [n.get("name", "?") for n in (doc.get("pathophysiology") or [])]
+        desc = " ".join((doc.get("description") or "").split())
+        notes = " ".join((doc.get("notes") or "").split())
+        if filt and filt not in f"{path.stem} {desc} {notes} {' '.join(nodes)}".lower():
+            continue
+        matched += 1
+        print(f"\n{path.stem}")
+        emit("  ", desc, clip=not filt)
+        if filt:
+            emit("  notes: ", notes, clip=False)
+        for node in nodes:
+            print(f"    - {path.stem}#{node}")
+    if not filt:
+        print(f"\n{matched} modules (descriptions clipped; pass a filter for the "
+              f"full description and notes, e.g. `just list-modules inflamm`)")
+    elif not matched:
+        print(f"no module matches {filt!r}")
+
 # Count disorders
 [group('KB')]
 count-disorders:
@@ -2277,6 +2318,22 @@ tag-references *args="":
 [group('Curation')]
 backfill-reference-titles *args="":
     uv run python scripts/backfill_reference_titles.py {{args}}
+
+# Re-sync KB publication titles that have DRIFTED from their cached publication
+# (the companion to backfill-reference-titles, which fills in a MISSING one).
+# Uses linkml-reference-validator's own normalize_text, so cosmetic differences
+# lrv tolerates are left alone. It does not consult `skip_prefixes`, so it also
+# re-syncs prefixes lrv never fetches (notably DOI:) — stricter than lrv, never
+# laxer. Titles are rewritten from references_cache/ frontmatter; nothing is
+# invented.
+# `reference_title` is lrv-checked, so a failure here is usually a wrong citation.
+#   just normalize-reference-titles                 # all of kb/
+#   just normalize-reference-titles --dry-run       # preview without writing
+#   just normalize-reference-titles --check         # exit 1 if any title has drifted
+#   just normalize-reference-titles kb/disorders/Asthma.yaml
+[group('Curation')]
+normalize-reference-titles *args="":
+    uv run python scripts/normalize_reference_titles.py {{args}}
 
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:

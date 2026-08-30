@@ -84,6 +84,9 @@ prefixes:
   skos:
     prefix_prefix: skos
     prefix_reference: http://www.w3.org/2004/02/skos/core#
+  sepio:
+    prefix_prefix: sepio
+    prefix_reference: https://w3id.org/sepio-model/
   xsd:
     prefix_prefix: xsd
     prefix_reference: http://www.w3.org/2001/XMLSchema#
@@ -490,35 +493,75 @@ enums:
   EvidenceItemSupportEnum:
     name: EvidenceItemSupportEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/EvidenceItemSupportEnum
-    description: The level of support for an evidence item
+    description: Which way the cited evidence cuts relative to the claim. This is
+      direction only. How *directly* the quote bears on the claim is a separate axis
+      -- see DirectnessEnum and the `directness` slot -- and how strong the evidence
+      is has no slot at all (see design decisions section 12).
+    comments:
+    - 'SUPPORT and REFUTE map onto the SEPIO `directionOfEvidenceProvided` values
+      `supports` and `disputes`. NO_EVIDENCE is a dismech extension: SEPIO''s third
+      value, `neutral`, means the evidence bears on the claim without favouring either
+      side, whereas NO_EVIDENCE means it does not bear on the claim at all. The exporter
+      must not silently equate them.'
+    - 'PARTIAL and WRONG_STATEMENT were removed in the issue #7439 narrowing. PARTIAL
+      conflated four distinct things -- indirect support, an inverted model system,
+      an item that supported one claim while contradicting another, and simple irrelevance
+      -- and became SUPPORT (with `directness` left unset), a split pair of items,
+      or NO_EVIDENCE. WRONG_STATEMENT had a single use recording that an earlier entry
+      text was inaccurate, which is provenance for a history/ record rather than evidence
+      direction.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     permissible_values:
-      WRONG_STATEMENT:
-        text: WRONG_STATEMENT
-        description: The annotated claim contains a demonstrable factual error (e.g.,
-          an incorrect statistic or assertion); the cited evidence documents the correct
-          information. Use this when the claim is outright wrong, not merely contested.
-          If the cited reference simply does not mention the claim, use NO_EVIDENCE
-          instead. If the reference contradicts the claim but does not prove it factually
-          wrong, use REFUTE.
-        title: Wrong statement
       SUPPORT:
         text: SUPPORT
-        description: The cited evidence directly supports the claim
+        description: The cited evidence supports the claim
         title: Supports
+        exact_mappings:
+        - sepio:supports
       REFUTE:
         text: REFUTE
-        description: The cited evidence directly contradicts the claim
+        description: The cited evidence contradicts the claim
         title: Refutes
+        exact_mappings:
+        - sepio:disputes
       NO_EVIDENCE:
         text: NO_EVIDENCE
         description: The cited reference does not contain evidence relevant to the
           claim
         title: No evidence
-      PARTIAL:
-        text: PARTIAL
-        description: The cited evidence partially or indirectly supports the claim
-        title: Partially supports
+  DirectnessEnum:
+    name: DirectnessEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/DirectnessEnum
+    description: How directly the quoted evidence bears on the claim it is attached
+      to. The evidential counterpart of CausalLinkTypeEnum, which records the same
+      notion of directness for a causal edge.
+    comments:
+    - This is not a strength or quality grade. An indirect quote may come from a large,
+      well-controlled study, and a direct one from a single case report. Directness
+      is judgeable from the snippet and the claim alone, which is why it is a curated
+      slot where strength is not.
+    - Deliberately has no PARTIAL value. "Supports part of the claim and contradicts
+      another part" is not a point on a directness scale -- it is one evidence item
+      making two claims, and the fix is to split it into a SUPPORT item and a REFUTE
+      item, each quoting the sentence that carries it. That is the same remedy CLAUDE.md
+      already prescribes for a paper that mixes evidence_source values.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      DIRECT:
+        text: DIRECT
+        description: The quoted text asserts the claim itself
+        title: Direct
+      INDIRECT:
+        text: INDIRECT
+        description: The quoted text asserts something from which the claim follows
+          by an inference step -- for example a therapeutic response cited as validation
+          of the mechanism it targets, or a result from an inverted or non-human model
+          system.
+        title: Indirect
+      UNKNOWN:
+        text: UNKNOWN
+        description: Directness has not yet been assessed
+        title: Unknown
   EvidenceSourceEnum:
     name: EvidenceSourceEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/EvidenceSourceEnum
@@ -4886,9 +4929,21 @@ enums:
       spondylometaphyseal_dysplasias:
         text: spondylometaphyseal_dysplasias
         description: "Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD).\
-          \ Combined vertebral and metaphyseal involvement \u2014 spondyloenchondrodysplasia\
-          \ (ACP5), odontochondrodysplasia (TRIP11), SMD corner-fracture/Sutcliffe\
-          \ type (FN1), SMD with cone-rod dystrophy (PCYT1A)."
+          \ Combined vertebral and metaphyseal involvement. The group has exactly\
+          \ six members, NOS 12-0010 to 12-0060 \u2014 spondyloenchondrodysplasia\
+          \ with immune dysregulation (ACP5), odontochondrodysplasia (TRIP11), SMD\
+          \ Sutcliffe or 'corner fracture' type (FN1), SMD with cone-rod dystrophy\
+          \ (PCYT1A), SMD with corneal dystrophy (PLCB3), and chondrodysplasia-pseudohermaphroditism\
+          \ / Nivelon-Nivelon-Mabille syndrome (HHAT).\nFour disorders carrying an\
+          \ SMD name are deliberately placed elsewhere, and the group's own \"see\
+          \ also\" note lists all four: SMD Kozlowski (TRPV4, group 10), severe SMD\
+          \ Sedaghatian type (GPX4, group 14), and axial SMD in its CFAP410-related\
+          \ and NEK1-related forms (group 10, skeletal ciliopathies). TRIP11 additionally\
+          \ spans two groups by severity \u2014 odontochondrodysplasia here, achondrogenesis\
+          \ type 1A in group 14 \u2014 and MIM 184255 is gene-split between NOS 12-0030\
+          \ (FN1) and NOS 02-0050 (COL2A1), with the row note \"Some cases are linked\
+          \ to COL2A1 but not the original family\". A radiographic SMD label is therefore\
+          \ a poor predictor of group-12 membership; check Table 1."
       spondylo_epi_metaphyseal_dysplasias:
         text: spondylo_epi_metaphyseal_dysplasias
         description: "Group 13 (2023 revision): Spondyloepi(meta)physeal dysplasias\
@@ -8041,14 +8096,34 @@ slots:
   supports:
     name: supports
     definition_uri: https://w3id.org/monarch-initiative/dismech/supports
+    description: Which way the cited evidence cuts relative to the claim. Direction
+      only -- use `directness` for how directly the quote bears on it.
+    comments:
+    - Maps to EvidenceLine.directionOfEvidenceProvided in the draft SEPIO LinkML model.
+      The NO_EVIDENCE value has no SEPIO counterpart; see EvidenceItemSupportEnum.
     examples:
     - value: SUPPORT
     from_schema: https://w3id.org/monarch-initiative/dismech
+    exact_mappings:
+    - sepio:directionOfEvidenceProvided
     slot_uri: dismech:supports
     owner: EvidenceItem
     domain_of:
     - EvidenceItem
     range: EvidenceItemSupportEnum
+  directness:
+    name: directness
+    definition_uri: https://w3id.org/monarch-initiative/dismech/directness
+    description: 'How directly the quoted text bears on the claim. Optional: absent
+      means no one has assessed it, which is the state of most of the knowledge base.'
+    examples:
+    - value: DIRECT
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:directness
+    owner: EvidenceItem
+    domain_of:
+    - EvidenceItem
+    range: DirectnessEnum
   evidence_source:
     name: evidence_source
     definition_uri: https://w3id.org/monarch-initiative/dismech/evidence_source
@@ -18536,6 +18611,7 @@ classes:
     - reference
     - reference_title
     - supports
+    - directness
     - evidence_source
     - snippet
     - explanation
@@ -20838,6 +20914,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 285180
+source_file_size: 288429
 generation_date: '2025-01-01T00:00:00'
 
