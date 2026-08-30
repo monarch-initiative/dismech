@@ -272,6 +272,45 @@ def _committed_text(path: Path) -> str | None:
     return out.stdout.decode("utf-8")
 
 
+def test_claude_md_instructions_match_the_code() -> None:
+    """The agent-facing instructions must name things that exist.
+
+    `CLAUDE.md` is the file an agent reads before touching a profile set, and
+    until now nothing checked it — `CLAUDE_MD_PATH` and `_committed_text` were
+    both defined here and called by nothing, residue from a guard removed during
+    the cuts. So the suite stayed green against a mutated CLAUDE.md for the
+    uninteresting reason that no test read it at all.
+
+    Read from the committed blob rather than the working tree, which is the
+    reason `_committed_text` refuses to fall back: CI checkouts of this repo
+    have repeatedly shown a phantom uncommitted deletion of exactly this
+    section, and a working-tree read would fail on it for no real cause.
+    """
+    from dismech.phenotype_distribution import _CODE_AUTHORITIES
+
+    text = _committed_text(CLAUDE_MD_PATH)
+    if text is None:
+        pytest.skip("not a git checkout")
+    start = text.find("### Phenotype Profiles")
+    assert start != -1, "the section an agent is meant to read is gone"
+    section = text[start : text.find("\n### ", start + 1)]
+
+    # The prohibitions are the load-bearing part; a rewrite that drops them
+    # turns this back into a design doc, which is what review objected to.
+    for phrase in (
+        "do not curate these from literature",
+        "Never originate a number",
+        "provenance_tier",
+        "weight is not a frequency",
+    ):
+        assert phrase.lower() in section.lower(), f"CLAUDE.md no longer says: {phrase}"
+
+    # And the specifics it quotes must be real, not remembered.
+    subdir = _CODE_AUTHORITIES["OMOP_CONCEPT_ID"][0]
+    assert f"cache/{subdir}/terms.csv" in section
+    assert (REPO_ROOT / "cache" / subdir / "terms.csv").is_file()
+
+
 def test_a_yaml_that_is_not_a_collection_is_rejected(tmp_path: Path) -> None:
     """Silently treating the wrong file as an empty collection is worse than failing.
 
