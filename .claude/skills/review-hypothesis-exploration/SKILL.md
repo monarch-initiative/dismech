@@ -32,7 +32,11 @@ disorder YAML.
 4. Treat tool availability and fallback as evidence-quality facts. If retrieval,
    a data lake, or a scientific tool failed, record the failure and any fallback;
    do not silently treat a literature-only or model-knowledge fallback as a
-   provider analysis or independent result.
+   provider analysis or independent result. Biomni is disabled at repository
+   entry points unless `DISMECH_ENABLE_BIOMNI=1`; do not bypass that opt-in.
+   Without it, Biomni must also remain unavailable to automatic provider
+   fallback. The hypothesis runner's dry-run command inspection is safe without
+   the opt-in.
 5. Check the report's consequential claims against the cited primary literature.
    Distinguish direct support, external plausibility, qualification, and
    contradiction. Check taxonomic level, disease/model context, directionality,
