@@ -1019,9 +1019,7 @@ def _coerce_string_list(value: object) -> list[str]:
 #: Order in which evidence-balance chips are shown on a hypothesis box.
 _HYPOTHESIS_EVIDENCE_ORDER = (
     "SUPPORT",
-    "PARTIAL",
     "REFUTE",
-    "WRONG_STATEMENT",
     "NO_EVIDENCE",
 )
 
