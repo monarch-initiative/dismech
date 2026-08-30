@@ -127979,6 +127979,213 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Immunodeficiency 86",
+    "disease_id": "MONDO:0030448",
+    "category": "Mendelian",
+    "parents": [
+      "primary immunodeficiency disease"
+    ],
+    "creation_date": "2026-08-30T03:05:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive Mendelian susceptibility to mycobacterial disease (MSMD) caused by biallelic loss of SPPL2A, the lysosomal aspartyl intramembrane protease that performs the final proteolytic step in turnover of the MHC class II invariant chain CD74.\nThe disease is mechanistically unusual among the inborn errors of immunity, and the shape of the mechanism is the reason to curate it carefully. Most MSMD genes encode components of the IFN-gamma / IL-12 / IL-23 signalling circuit itself - a receptor, a chain, a transcription factor - and the disease follows from losing that signal. SPPL2A is not one of those components. What accumulates instead is an uncleaved substrate: the membrane-bound N-terminal fragment of CD74 builds up in MHC class II-positive cells and is toxic to one of them in particular, selectively depleting the CD1c-positive conventional dendritic cells that supply IL-12 and IL-23. The IFN-gamma failure is downstream and secondary - the T cells are starved of the signal rather than unable to receive it.\nThe distinction is real but not absolute, and the entry says so rather than overstating it. SPPL2a has a second, separate connection to the same circuit: it cleaves TNF-alpha to release its intracellular domain, which triggers IL-12 expression in activated human dendritic cells. That is a cell-intrinsic route from SPPL2A loss to reduced IL-12 which needs no dendritic cell to die, and it is curated as its own node.\nSo this is a gain-of-toxic-substrate disease presenting as a signalling deficiency, and the entry's pathophysiology is written to make that ordering explicit rather than to place SPPL2A alongside the IL12RB1-type lesions it phenocopies.",
+    "pathophysiology": [
+      "Biallelic SPPL2A Loss of Function",
+      "Failure of CD74 N-Terminal Fragment Proteolysis",
+      "CD74 N-Terminal Fragment Accumulation",
+      "Loss of TNF-alpha Intracellular Domain Signalling to IL-12",
+      "Depletion of CD1c-Positive Conventional Dendritic Cells",
+      "Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells",
+      "Shifted Dendritic Cell Cytokine Balance",
+      "Impaired Immunoglobulin Production",
+      "Mycobacterial Disease"
+    ],
+    "cell_types": [
+      "CD1c-positive myeloid dendritic cell",
+      "B cell",
+      "conventional dendritic cell",
+      "CD1c-positive conventional dendritic cell (cDC2)",
+      "memory T-helper 1 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002399",
+      "CL:0000236",
+      "CL:0000990",
+      "CL:0000545"
+    ],
+    "biological_processes": [
+      "antigen processing and presentation of exogenous peptide antigen via MHC class II",
+      "protein catabolic process",
+      "type II interferon production"
+    ],
+    "phenotypes": [
+      "BCG Disease",
+      "Susceptibility to Mycobacterial Disease",
+      "Hypogammaglobulinemia",
+      "Lymphadenopathy"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0020086",
+      "HP:0011274",
+      "HP:0004313",
+      "HP:0002716"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SPPL2A"
+    ],
+    "treatments": [
+      "Second-Line Antimycobacterial Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_86.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_86.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Immunodeficiency 91 and Hyperinflammation",
+    "disease_id": "MONDO:0030491",
+    "category": "Mendelian",
+    "parents": [
+      "primary immunodeficiency disease"
+    ],
+    "creation_date": "2026-08-30T02:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive inborn error of immunity caused by biallelic loss of ZNFX1, a cytosolic, interferon-inducible helicase that senses double-stranded nucleic acid. The disease is defined less by an inability to mount an immune response than by an inability to regulate one: patients meet infections that most children clear with an inflammatory episode that does not switch off, producing haemophagocytic lymphohistiocytosis (HLH) or HLH-like disease with hepatitis, cytopenias, seizures, and renal and pulmonary injury. Mortality in the founding cohort was high and death was usually from the inflammation rather than from the infection itself.\nTwo things distinguish it from familial HLH, and both are curated here as evidence rather than as assertion. First, NK-cell degranulation and cytotoxicity are normal, so the mechanism is not the perforin-pathway defect that defines FHL. Second, the leukocytosis that accompanies these episodes is explicitly noted to be much less common in classical HLH.",
+    "pathophysiology": [
+      "Biallelic ZNFX1 Loss of Function",
+      "Loss of Cytosolic Double-Stranded Nucleic Acid Surveillance",
+      "Dysregulated Interferon-Stimulated Gene Induction",
+      "Derepression of the NLRP3 Inflammasome",
+      "Impaired Monocyte Clearance of Virus",
+      "Macrophage-Driven Cytokine Excess",
+      "Virally Triggered Hyperinflammatory Episode",
+      "Impaired Monocyte Homeostasis and Antimycobacterial Defence"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "monocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0002551",
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "cellular response to exogenous double-stranded RNA",
+      "type I interferon-mediated signaling pathway",
+      "NLRP3 inflammasome complex assembly",
+      "defense response to virus"
+    ],
+    "phenotypes": [
+      "Hemophagocytosis",
+      "Increased Monocyte Count",
+      "Thrombocytopenia",
+      "Anemia",
+      "Hepatomegaly",
+      "Elevated Hepatic Transaminases",
+      "Seizures",
+      "Developmental Regression",
+      "Acute Respiratory Distress Syndrome",
+      "Pulmonary Hemorrhage",
+      "Interstitial Pneumonitis",
+      "Nephrotic Syndrome",
+      "Hemolytic Uremic Syndrome",
+      "Leukocytosis",
+      "Coagulopathy",
+      "Acute Liver Failure",
+      "Cerebral Calcification",
+      "Cerebral White Matter Abnormalities",
+      "Recurrent Viral Infections",
+      "Recurrent Mycobacterial Infections"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Hepatic",
+      "Neurologic",
+      "Respiratory",
+      "Renal",
+      "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012156",
+      "HP:0012311",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0002240",
+      "HP:0002910",
+      "HP:0001250",
+      "HP:0002376",
+      "HP:0033677",
+      "HP:0040223",
+      "HP:0006515",
+      "HP:0000100",
+      "HP:0005575",
+      "HP:0001974",
+      "HP:0003256",
+      "HP:0006554",
+      "HP:0002514",
+      "HP:0002500",
+      "HP:0004429",
+      "HP:0011274"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ZNFX1"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Ruxolitinib",
+      "Anakinra"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum lactate dehydrogenase"
+    ],
+    "source_file": "Immunodeficiency_91_And_Hyperinflammation.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_91_and_Hyperinflammation.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Immunodeficiency 92",
     "disease_id": "MONDO:0030498",
     "category": "Mendelian",
@@ -180085,6 +180292,92 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "29",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Optic Atrophy 13 With Retinal and Foveal Abnormalities",
+    "disease_id": "MONDO:0008135",
+    "category": "Mendelian",
+    "parents": [
+      "optic atrophy",
+      "mitochondrial DNA maintenance disorder"
+    ],
+    "creation_date": "2026-08-30T03:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant optic neuropathy caused by heterozygous missense variants in SSBP1, which encodes the mitochondrial single-stranded DNA-binding protein. Optic atrophy is the constant feature; about half of affected individuals additionally have a congenital foveopathy, and a minority develop progressive rod-cone dystrophy in later life.\nThe clinical picture overlaps closely with the far commoner OPA1-related dominant optic atrophy, and the practical value of recognising it is that the foveopathy distinguishes the two. That foveopathy is a diagnostic sign rather than a functional burden: visual acuity does not differ measurably between patients who have it and patients who do not.\nThe disease is not uniformly confined to the eye, and it is important not to read it that way. Purely ocular disease is a property of the recurrent p.Arg38Gln allele rather than of SSBP1 disease in general: other missense variants produce syndromic presentations, and hypothyroidism and renal disorder including renal failure are documented in patients carrying other alleles. This entry curates both p.Arg38Gln and p.Arg107Gln, so the extra-ocular features belong here.",
+    "pathophysiology": [
+      "Heterozygous SSBP1 Missense Variant",
+      "Destabilised SSBP1 Dimer and Tetramer Assembly",
+      "Impaired Mitochondrial DNA Replication",
+      "Mitochondrial DNA Depletion",
+      "Retinal Ganglion Cell Vulnerability and Optic Nerve Degeneration",
+      "Foveal Photoreceptor Maldevelopment",
+      "Late-Onset Rod-Cone Dystrophy"
+    ],
+    "cell_types": [
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "mitochondrial DNA replication"
+    ],
+    "phenotypes": [
+      "Optic Atrophy",
+      "Foveopathy",
+      "Retinal Pigmentary Changes",
+      "Retinal Vessel Attenuation",
+      "Optic Nerve Hypoplasia",
+      "Hypothyroidism",
+      "Renal Insufficiency",
+      "Reduced Visual Acuity",
+      "Rod-Cone Dystrophy",
+      "Color Vision Defect"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Endocrine",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000648",
+      "HP:0030613",
+      "HP:0031605",
+      "HP:0007843",
+      "HP:0000609",
+      "HP:0000821",
+      "HP:0000083",
+      "HP:0007663",
+      "HP:0000510",
+      "HP:0000551"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SSBP1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Optic_Atrophy_13_With_Retinal_And_Foveal_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Optic_Atrophy_13_With_Retinal_and_Foveal_Abnormalities.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Optic Atrophy 14",
@@ -255849,15 +256142,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2481,
+  "total_disorder_pages": 2484,
   "total_subtypes": 3529,
-  "total_disorders_and_subtypes": 6010,
-  "total_unique_evidence_sources": 35588,
-  "total_unique_publications": 33469,
+  "total_disorders_and_subtypes": 6013,
+  "total_unique_evidence_sources": 35606,
+  "total_unique_publications": 33487,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
-  "total_pathographs": 2476,
-  "total_unique_pathological_events": 14367,
+  "total_pathographs": 2479,
+  "total_unique_pathological_events": 14390,
   "total_modules": 166,
   "total_research_reports": 2601,
   "total_classifications": 19,
