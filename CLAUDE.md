@@ -321,6 +321,26 @@ Rules:
   These are generated, not "manually touched"; regenerate them via their script
   rather than hand-editing, and leave them in place.
 
+**Which prompt produced a report.** A report records `template_file:` as a bare
+path, so the file behind it changes while the reference does not. New reports are
+stamped with a `template_sha` (the template's git blob hash) by the research
+recipes; older ones are resolved from `start_time` against the template's commit
+history, so committed reports were deliberately **not** backfilled.
+
+```bash
+just template-version-audit                          # census across research/
+just template-version-audit --stale-only --format list
+git log --find-object=<sha> -- templates/            # what that hash was
+```
+
+`stamped` (recorded by the generator) and `inferred` (reconstructed from
+timestamps) are different claims — do not report an inferred answer as a recorded
+one. `undetermined` is not `stale`. Staleness is reported, never gated: every
+report predating a prompt edit is superseded by construction, so a gate would go
+red for the whole corpus on every edit. See
+[`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
+and issue #10183.
+
 ### Dataset Curation (`datasets:` records)
 
 Dataset accessions are the one identifier class with no validator in the core
